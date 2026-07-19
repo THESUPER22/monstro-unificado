@@ -1,0 +1,166 @@
+// ROBÔ SCALPING WIN - VERSÃO PROFISSIONAL PARA PROFIT PRO
+// COMPRA E VENDA EQUILIBRADAS - VERSÃO 3.0
+// SISTEMA AVANÇADO DE BALANCEAMENTO COM FILTROS DE QUALIDADE
+
+var
+    // Contadores e controles
+    ContadorCompras: integer;
+    ContadorVendas: integer;
+    ContadorOps: integer;
+    ForcaVenda: boolean;
+    UltimaOp: string;
+    HorarioUltimaOp: datetime;
+
+    // Indicadores
+    RSI_Valor: float;
+    Volume_Atual: integer;
+    Volume_Medio: float;
+    Tendencia: integer; // 1=Alta, -1=Baixa, 0=Lateral
+
+    // Configurações
+    MAX_OPS_DIA: integer;
+    MIN_VOLUME_COMPRA: integer;
+    MIN_VOLUME_VENDA: integer;
+    MIN_VOLUME_VENDA_FORCADA: integer;
+
+begin
+    // Inicialização das configurações (só executa uma vez)
+    if ContadorOps = 0 and ContadorCompras = 0 and ContadorVendas = 0 then
+    begin
+        MAX_OPS_DIA := 3;
+        MIN_VOLUME_COMPRA := 1000;
+        MIN_VOLUME_VENDA := 1000;
+        MIN_VOLUME_VENDA_FORCADA := 500;
+        Print('CONFIGURAÇÕES INICIALIZADAS');
+    end;
+
+    // Reset diário
+    if Date <> Date[1] then
+    begin
+        ContadorCompras := 0;
+        ContadorVendas := 0;
+        ContadorOps := 0;
+        ForcaVenda := false;
+        UltimaOp := '';
+        Print('NOVO DIA - Reset completo');
+    end;
+
+    // Limite de operações por dia
+    if ContadorOps >= MAX_OPS_DIA then
+    begin
+        Print('LIMITE DIÁRIO: ' + IntToStr(ContadorOps) + ' operações');
+        exit;
+    end;
+
+    // Atualizar indicadores
+    RSI_Valor := RSI(14, 0);
+    Volume_Atual := Volume;
+    Volume_Medio := Average(Volume, 20);
+
+    // Determinar tendência
+    if Close > Average(Close, 20) then
+        Tendencia := 1
+    else if Close < Average(Close, 20) then
+        Tendencia := -1
+    else
+        Tendencia := 0;
+
+    // Verificar se posições foram fechadas manualmente
+    if IsBought = false and UltimaOp = 'COMPRA' then
+    begin
+        UltimaOp := '';
+        Print('COMPRA FECHADA MANUALMENTE');
+    end;
+
+    if IsSold = false and UltimaOp = 'VENDA' then
+    begin
+        UltimaOp := '';
+        Print('VENDA FECHADA MANUALMENTE');
+    end;
+
+    // SISTEMA DE BALANCEAMENTO AVANÇADO
+
+    // 1. Forçar venda se muitas compras sem vendas
+    if (ContadorCompras >= 2) and (ContadorVendas = 0) then
+    begin
+        ForcaVenda := true;
+        Print('FORÇANDO VENDA - Muitas compras sem vendas');
+    end;
+
+    // 2. Forçar venda se última operação foi compra e há desequilíbrio
+    if (UltimaOp = 'COMPRA') and (ContadorCompras > ContadorVendas + 1) then
+    begin
+        ForcaVenda := true;
+        Print('FORÇANDO VENDA - Balanceamento necessário');
+    end;
+
+    // 3. Forçar venda se tendência de baixa
+    if (Tendencia = -1) and (ContadorCompras > ContadorVendas) then
+    begin
+        ForcaVenda := true;
+        Print('FORÇANDO VENDA - Tendência de baixa');
+    end;
+
+    // 4. Forçar venda se RSI alto
+    if (RSI_Valor > 75) and (ContadorCompras > ContadorVendas) then
+    begin
+        ForcaVenda := true;
+        Print('FORÇANDO VENDA - RSI sobrecomprado: ' + FloatToStr(RSI_Valor));
+    end;
+
+    // EXECUÇÃO DE ORDENS
+
+    // VENDA FORÇADA (condições mais flexíveis)
+    if ForcaVenda and (Volume_Atual > MIN_VOLUME_VENDA_FORCADA) and (not IsSold) and (not IsBought) then
+    begin
+        SellAtMarket;
+        ContadorVendas := ContadorVendas + 1;
+        ContadorOps := ContadorOps + 1;
+        UltimaOp := 'VENDA';
+        HorarioUltimaOp := Time;
+        ForcaVenda := false;
+        Print('VENDA FORÇADA - Op ' + IntToStr(ContadorOps) + ' (C:' + IntToStr(ContadorCompras) + ' V:' + IntToStr(ContadorVendas) + ')');
+        exit;
+    end;
+
+    // COMPRA NORMAL (só se não forçando venda)
+    if (not ForcaVenda) and (Volume_Atual > MIN_VOLUME_COMPRA) and (Volume_Atual > Volume_Medio * 1.2) and
+       (not IsBought) and (not IsSold) and (RSI_Valor < 70) then
+    begin
+        // Verificar se há mais vendas que compras (priorizar equilíbrio)
+        if ContadorVendas >= ContadorCompras or Tendencia = 1 then
+        begin
+            BuyAtMarket;
+            ContadorCompras := ContadorCompras + 1;
+            ContadorOps := ContadorOps + 1;
+            UltimaOp := 'COMPRA';
+            HorarioUltimaOp := Time;
+            Print('COMPRA EXECUTADA - Op ' + IntToStr(ContadorOps) + ' (C:' + IntToStr(ContadorCompras) + ' V:' + IntToStr(ContadorVendas) + ')');
+            exit;
+        end;
+    end;
+
+    // VENDA NORMAL
+    if (Volume_Atual > MIN_VOLUME_VENDA) and (Volume_Atual > Volume_Medio * 1.2) and
+       (not IsSold) and (not IsBought) and (RSI_Valor > 30) then
+    begin
+        // Verificar se há mais compras que vendas (priorizar equilíbrio)
+        if ContadorCompras > ContadorVendas or Tendencia = -1 then
+        begin
+            SellAtMarket;
+            ContadorVendas := ContadorVendas + 1;
+            ContadorOps := ContadorOps + 1;
+            UltimaOp := 'VENDA';
+            HorarioUltimaOp := Time;
+            Print('VENDA EXECUTADA - Op ' + IntToStr(ContadorOps) + ' (C:' + IntToStr(ContadorCompras) + ' V:' + IntToStr(ContadorVendas) + ')');
+            exit;
+        end;
+    end;
+
+    // RELATÓRIO DE STATUS (a cada 15 minutos)
+    if Minute(Time) mod 15 = 0 and Second(Time) = 0 then
+    begin
+        Print('STATUS: ' + IntToStr(ContadorOps) + ' ops (' + IntToStr(ContadorCompras) + ' compras, ' +
+              IntToStr(ContadorVendas) + ' vendas) - RSI: ' + FloatToStr(RSI_Valor) + ' - Tendência: ' + IntToStr(Tendencia));
+    end;
+end;

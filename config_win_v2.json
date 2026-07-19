@@ -1,0 +1,104 @@
+{
+    "symbol_prefix": "WIN",
+    "volume_padrao": 5.0,
+    "sl_points": 100,
+    "tp_points": 250,
+    "sniper_volume_min": 5000,
+    "sniper_ratio_min": 2.0,
+    "max_loss_diario": -1000.0,
+    "max_spread": 10,
+    "min_volume_book": 300,
+    "horarios": {
+        "pregao": "09:00",
+        "limite_ordens": "23:59",
+        "encerramento": "23:59",
+        "after_market": "23:59"
+    },
+    "ia_config": {
+        "epochs_treino": 3,
+        "batch_size": 32,
+        "learning_rate": 0.001,
+        "decay_meia_vida": 12
+    },
+    "geral": {
+        "mt5_path": "C:\\Program Files\\MetaTrader 5 Terminal\\terminal64.exe",
+        "log_file": "monstro_v2.log",
+        "magic_number": 123457,
+        "deviation": 20
+    },
+    "contrato": {
+        "prefixo": "WIN",
+        "tick_size": 0.2,
+        "ticks_por_ponto": 10000,
+        "digits_indice": 0
+    },
+    "operacional": {
+        "volume_padrao": 5.0,
+        "volume_minimo_book": 200,
+        "periodo_atr": 14,
+        "multiplicador_sl_atr": 2.0,
+        "multiplicador_tp_atr": 3.0,
+        "sl_max_pontos": 100,
+        "tp_max_pontos": 250
+    },
+    "risk_management": {
+        "max_loss_diario": -1000.0,
+        "max_drawdown": -500.0,
+        "max_spread_pontos": 10,
+        "max_losses_sequencia": 3,
+        "ciclos_bloqueio": 5,
+        "min_lucro_desbloqueio": 0.0
+    },
+    "trailing_stop": {
+        "ativo": true,
+        "intervalo_segundos": 5,
+        "gatilho_pontos": 15.0,
+        "distancia_pontos": 5.0
+    },
+    "aprendizado": {
+        "modelo_path": "modelo_monstro_win.h5",
+        "historico_csv": "historico_contexto_win.csv",
+        "n_features": 10,
+        "min_exp_para_treino": 3,
+        "max_exp_memoria": 1000,
+        "epochs": 3,
+        "batch_size": 32
+    },
+    "trading": {
+        "symbol_prefix": "WIN",
+        "volume_padrao": 5.0,
+        "magic_number": 123457,
+        "sl_points": 100,
+        "tp_points": 250,
+        "max_spread": 10,
+        "horario_pregao": "09:00",
+        "horario_after": "23:59"
+    },
+    "ai_settings": {
+        "n_features": 10,
+        "min_experiencias_treino": 3,
+        "max_experiencias_memoria": 1000,
+        "epochs_treino": 3,
+        "batch_size": 32
+    },
+    "modo_win": {
+        "ativo": true,
+        "descricao": "Configuração para WIN - Mini Índice",
+        "data_ativacao": "2025-01-22",
+        "observacoes": [
+            "Volume de 5 contratos por operação",
+            "Volume mínimo book 200cc (APRENDIZADO)",
+            "SL 90 pontos, TP 35 pontos",
+            "Risk management -R$ 1000 diário",
+            "Modelo compartilhado com WDO mas arquivos separados"
+        ]
+    },
+    "web_dashboard": {
+        "port": 5002,
+        "debug": true
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "monstro_v2.log"
+    }
+}

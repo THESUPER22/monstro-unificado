@@ -1,0 +1,35 @@
+{
+  "Trading Log": {
+    "prefix": "tlog",
+    "body": [
+      "logging.info(f\"📊 ${1:Mensagem}: ${2:valor}\")"
+    ],
+    "description": "Log formatado para trading"
+  },
+  "MT5 Order": {
+    "prefix": "mt5order",
+    "body": [
+      "request = {",
+      "    \"action\": mt5.TRADE_ACTION_DEAL,",
+      "    \"symbol\": SYMBOL,",
+      "    \"volume\": ${1:1.0},",
+      "    \"type\": mt5.ORDER_TYPE_${2:BUY},",
+      "    \"price\": ${3:price},",
+      "    \"magic\": MAGIC_NUMBER,",
+      "}",
+      "resultado = mt5.order_send(request)"
+    ],
+    "description": "Template MT5 order"
+  },
+  "Try Trading": {
+    "prefix": "trytrade",
+    "body": [
+      "try:",
+      "    ${1:# código}",
+      "except Exception as e:",
+      "    logging.error(f\"❌ Erro: {e}\")",
+      "    ${2:return None}"
+    ],
+    "description": "Try-except para trading"
+  }
+}

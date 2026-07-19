@@ -1,0 +1,249 @@
+// ==============================================================================
+// ROBÔ SCALPING WIN - ESTRATÉGIA EQUILIBRADA PARA PROFIT PRO
+// APENAS FLUXO DE ORDENS - SEM RSI FORÇADO
+// COMPRA E VENDA BALANCEADAS - MAIS LUCRATIVO
+// ==============================================================================
+
+var
+    // Controles Diários
+    ContadorOperacoesDia: integer;
+    ContadorCompras: integer;
+    ContadorVendas: integer;
+    ForcaVenda: boolean;
+    UltimaOperacao: string;
+
+    // Controles de Posição
+    PosicaoComprada: boolean;
+    PosicaoVendida: boolean;
+
+    // Parâmetros de Análise
+    VolumeAgressaoCompra: integer;
+    VolumeAgressaoVenda: integer;
+    EscoraCompra: integer;
+    EscoraVenda: integer;
+
+    // Dados de Mercado
+    PrecoAtual: real;
+
+begin
+    // ===== INICIALIZAÇÃO DIÁRIA =====
+    if (Date <> Date[1]) then
+    begin
+        ContadorOperacoesDia := 0;
+        ContadorCompras := 0;
+        ContadorVendas := 0;
+        ForcaVenda := false;
+        UltimaOperacao := '';
+        PosicaoComprada := false;
+        PosicaoVendida := false;
+
+        Print('NOVO DIA - Controles resetados');
+    end;
+
+    // ===== VERIFICAR SE PODE OPERAR =====
+    if (ContadorOperacoesDia >= 3) then
+    begin
+        Print('LIMITE DIÁRIO ATINGIDO - 3 operações realizadas');
+        Print('BALANÇO FINAL: ' + IntToStr(ContadorCompras) + ' compras, ' + IntToStr(ContadorVendas) + ' vendas');
+        exit;
+    end;
+
+    // ===== ATUALIZAR DADOS DE MERCADO =====
+    PrecoAtual := Close;
+
+    // ===== VERIFICAR BALANCEAMENTO =====
+    // Se fez 2 compras seguidas, força venda
+    if (ContadorCompras >= 2) and (ContadorVendas = 0) then
+    begin
+        ForcaVenda := true;
+        Print('FORÇANDO VENDA - Muitas compras sem vendas');
+    end;
+
+    // Se fez 2 operações do mesmo tipo seguidas, força o contrário
+    if (UltimaOperacao = 'COMPRA') and (ContadorCompras > ContadorVendas + 1) then
+    begin
+        ForcaVenda := true;
+        Print('FORÇANDO VENDA - Balanceamento necessário');
+    end;
+
+    // ===== ANÁLISE DE FLUXO DE ORDENS =====
+    // IMPLEMENTAR: Analisar Times & Trades e Book de Ofertas
+    VolumeAgressaoCompra := AnalisarAgressaoCompra();
+    VolumeAgressaoVenda := AnalisarAgressaoVenda();
+    EscoraCompra := AnalisarEscoraCompra();
+    EscoraVenda := AnalisarEscoraVenda();
+
+    // ===== LÓGICA DE ENTRADA =====
+
+    // PRIORIDADE PARA VENDA SE FORÇADA
+    if (ForcaVenda) then
+    begin
+        // Condições mais flexíveis para venda quando forçada
+        if (VolumeAgressaoVenda >= 150) and (EscoraVenda >= 400) and (not PosicaoVendida) and (not IsSold) then
+        begin
+            SellAtMarket;
+            PosicaoVendida := true;
+            ContadorOperacoesDia := ContadorOperacoesDia + 1;
+            ContadorVendas := ContadorVendas + 1;
+            UltimaOperacao := 'VENDA';
+            ForcaVenda := false;
+
+            Print('VENDA FORÇADA EXECUTADA - Op ' + IntToStr(ContadorOperacoesDia) +
+                  ' (C:' + IntToStr(ContadorCompras) + ' V:' + IntToStr(ContadorVendas) + ')');
+            exit;
+        end;
+    end;
+
+    // GATILHO DE COMPRA - condições normais (só se não forçando venda)
+    if (not ForcaVenda) and (VolumeAgressaoCompra >= 200) and (EscoraCompra >= 500) and
+       (not PosicaoComprada) and (not IsBought) then
+    begin
+        BuyAtMarket;
+        PosicaoComprada := true;
+        ContadorOperacoesDia := ContadorOperacoesDia + 1;
+        ContadorCompras := ContadorCompras + 1;
+        UltimaOperacao := 'COMPRA';
+
+        Print('COMPRA EXECUTADA - Op ' + IntToStr(ContadorOperacoesDia) +
+              ' (C:' + IntToStr(ContadorCompras) + ' V:' + IntToStr(ContadorVendas) + ')');
+    end;
+
+    // GATILHO DE VENDA - condições normais
+    if (VolumeAgressaoVenda >= 200) and (EscoraVenda >= 500) and
+       (not PosicaoVendida) and (not IsSold) then
+    begin
+        SellAtMarket;
+        PosicaoVendida := true;
+        ContadorOperacoesDia := ContadorOperacoesDia + 1;
+        ContadorVendas := ContadorVendas + 1;
+        UltimaOperacao := 'VENDA';
+        ForcaVenda := false;
+
+        Print('VENDA EXECUTADA - Op ' + IntToStr(ContadorOperacoesDia) +
+              ' (C:' + IntToStr(ContadorCompras) + ' V:' + IntToStr(ContadorVendas) + ')');
+    end;
+
+    // ===== VERIFICAR SE POSIÇÕES FORAM FECHADAS MANUALMENTE =====
+    if (PosicaoComprada) and (not IsBought) then
+    begin
+        PosicaoComprada := false;
+        Print('POSIÇÃO COMPRADA FECHADA - Aguardando próxima oportunidade');
+    end;
+
+    if (PosicaoVendida) and (not IsSold) then
+    begin
+        PosicaoVendida := false;
+        Print('POSIÇÃO VENDIDA FECHADA - Aguardando próxima oportunidade');
+    end;
+end;
+
+// ===== FUNÇÕES DE ANÁLISE DE FLUXO =====
+// ESTAS FUNÇÕES DEVEM SER IMPLEMENTADAS CONFORME API DO PROFIT PRO
+
+function AnalisarAgressaoCompra(): integer;
+var
+    VolumeTotal: integer;
+begin
+    VolumeTotal := 0;
+
+    // IMPLEMENTAR: Analisar agressões de COMPRA no Times & Trades
+    // Exemplo: Somar volumes de trades agressivos de compltimos 1-2 segundos
+    // if (TradeType = 'BUY_AGGRESSIVE') then VolumeTotal := VolumeTotal + TradeVolume;
+
+    // REDUZIR peso da compra se já tem muitas compras
+    if (ContadorCompras > ContadorVendas + 1) then
+        VolumeTotal := Round(VolumeTotal * 0.7); // Reduz 30% do peso
+
+    Result := VolumeTotal;
+end;
+
+function AnalisarAgressaoVenda(): integer;
+var
+    VolumeTotal: integer;
+begin
+    VolumeTotal := 0;
+
+    // IMPLEMENTAR: Analisar agressões de VENDA no Times & Trades
+    // Exemplo: Somar volumes de trades agressivos de venda dos últimos 1-2 segundos
+    // if (TradeType = 'SELL_AGGRESSIVE') then VolumeTotal := VolumeTotal + TradeVolume;
+
+    // AUMENTAR peso da venda se precisa equilibrar
+    if (ContadorCompras > ContadorVendas) then
+        VolumeTotal := Round(VolumeTotal * 1.3); // Aumenta 30% do peso
+
+    Result := VolumeTotal;
+end;
+
+function AnalisarEscoraCompra(): integer;
+var
+    MaiorEscora: integer;
+begin
+    MaiorEscora := 0;
+
+    // IMPLEMENTAR: Analisar escoras de COMPRA no Book de Ofertas
+    // Exemplo: Verificar primeiros 5 níveis do book de compra
+    // for i := 1 to 5 do
+    //     if (BidVolume[i] > MaiorEscora) then MaiorEscora := BidVolume[i];
+
+    // REDUZIR escora de compra se já tem muitas compras
+    if (ContadorCompras > ContadorVendas + 1) then
+        MaiorEscora := Round(MaiorEscora * 0.8);
+
+    Result := MaiorEscora;
+end;
+
+function AnalisarEscoraVenda(): integer;
+var
+    MaiorEscora: integer;
+begin
+    MaiorEscora := 0;
+
+    // IMPLEMENTAR: Analisar escoras de VENDA no Book de Ofertas
+    // Exemplo: Verificar primeiros 5 níveis do book de venda
+    // for i := 1 to 5 do
+    //     if (AskVolume[i] > MaiorEscora) then MaiorEscora := AskVolume[i];
+
+    // AUMENTAR escora de venda se precisa equilibrar
+    if (ContadorCompras > ContadorVendas) then
+        MaiorEscora := Round(MaiorEscora * 1.2);
+
+    Result := MaiorEscora;
+end;
+
+// ==============================================================================
+//                              RESUMO DA ESTRATÉGIA
+// ==============================================================================
+//
+// ATIVO: Mini-Índice (WIN)
+// LOTE: Conforme configuração da plataforma
+//
+// MELHORIAS PARA LUCRATIVIDADE:
+// ✅ Sistema de balanceamento automático
+// ✅ Força vendas quando há muitas compras
+// ✅ Reduz peso de compras excessivas
+// ✅ Aumenta peso de vendas quando necessário
+// ✅ Condições mais flexíveis para vendas forçadas
+// ✅ Controle detalhado de balanço (C:X V:Y)
+//
+// CONTROLE DIÁRIO:
+// - Máximo 3 operações por dia
+// - Sem stop loss ou take profit automático
+// - Gestão manual de saída
+// - Relatório de balanço final
+//
+// ENTRADA COMPRA:
+// - Agressão >= 200 CC de COMPRA no Times & Trades
+// - Escora >= 500 CC de COMPRA no Book
+// - PESO REDUZIDO se já tem muitas compras
+//
+// ENTRADA VENDA:
+// - Agressão >= 200 CC de VENDA no Times & Trades
+// - Escora >= 500 CC de VENDA no Book
+// - PESO AUMENTADO se precisa equilibrar
+// - CONDIÇÕES FLEXÍVEIS quando forçada (150 CC / 400 CC)
+//
+// SAÍDA:
+// - Totalmente manual
+// - Robô detecta fechamentos e libera para nova entrada
+//
+// ==============================================================================

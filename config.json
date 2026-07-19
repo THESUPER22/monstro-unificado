@@ -1,0 +1,102 @@
+{
+    "symbol_prefix": "WDO",
+    "volume_padrao": 1.0,
+    "sl_points": 5,
+    "tp_points": 10,
+    "max_loss_diario": -500.0,
+    "max_spread": 5,
+    "min_volume_book": 200,
+    "horarios": {
+        "pregao": "09:00",
+        "limite_ordens": "18:15",
+        "encerramento": "18:20",
+        "after_market": "18:32"
+    },
+    "ia_config": {
+        "epochs_treino": 3,
+        "batch_size": 32,
+        "learning_rate": 0.001,
+        "decay_meia_vida": 12
+    },
+    "geral": {
+        "mt5_path": "C:\\Program Files\\MetaTrader 5 Terminal\\terminal64.exe",
+        "log_file": "monstro.log",
+        "magic_number": 123456,
+        "deviation": 20
+    },
+    "contrato": {
+        "prefixo": "WDO",
+        "tick_size": 0.5,
+        "ticks_por_ponto": 1000,
+        "digits_dolar": 3
+    },
+    "operacional": {
+        "volume_padrao": 1.0,
+        "volume_minimo_book": 200,
+        "periodo_atr": 14,
+        "multiplicador_sl_atr": 2.0,
+        "multiplicador_tp_atr": 3.0,
+        "sl_max_pontos": 5,
+        "tp_max_pontos": 10
+    },
+    "risk_management": {
+        "max_loss_diario": -500.0,
+        "max_drawdown": -250.0,
+        "max_spread_pontos": 5,
+        "max_losses_sequencia": 3,
+        "ciclos_bloqueio": 5,
+        "min_lucro_desbloqueio": 0.0
+    },
+    "trailing_stop": {
+        "ativo": true,
+        "intervalo_segundos": 5,
+        "gatilho_pontos": 2.0,
+        "distancia_pontos": 1.0
+    },
+    "aprendizado": {
+        "modelo_path": "modelo_monstro.h5",
+        "historico_csv": "historico_contexto.csv",
+        "n_features": 10,
+        "min_exp_para_treino": 3,
+        "max_exp_memoria": 1000,
+        "epochs": 3,
+        "batch_size": 32
+    },
+    "trading": {
+        "symbol_prefix": "WDO",
+        "volume_padrao": 1.0,
+        "magic_number": 123456,
+        "sl_points": 5,
+        "tp_points": 10,
+        "max_spread": 5,
+        "horario_pregao": "09:00",
+        "horario_after": "18:32"
+    },
+    "ai_settings": {
+        "n_features": 10,
+        "min_experiencias_treino": 3,
+        "max_experiencias_memoria": 1000,
+        "epochs_treino": 3,
+        "batch_size": 32
+    },
+    "modo_wdo": {
+        "ativo": true,
+        "descricao": "Configuração para WDO - Mini Dólar",
+        "data_ativacao": "2025-01-16",
+        "observacoes": [
+            "Volume de 1 contrato por operação",
+            "Volume mínimo book 200cc",
+            "SL 5 pontos, TP 10 pontos",
+            "Risk management -R$ 500 diário",
+            "Modelo otimizado para WDO"
+        ]
+    },
+    "web_dashboard": {
+        "port": 5001,
+        "debug": true
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "monstro.log"
+    }
+}

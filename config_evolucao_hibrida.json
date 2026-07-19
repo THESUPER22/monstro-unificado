@@ -1,0 +1,78 @@
+{
+  "niveis_experiencia": {
+    "iniciante": {
+      "min_exp": 0,
+      "max_exp": 500,
+      "descricao": "Aprendendo padr\u00f5es b\u00e1sicos"
+    },
+    "intermediario": {
+      "min_exp": 501,
+      "max_exp": 2000,
+      "descricao": "Desenvolvendo seletividade"
+    },
+    "avancado": {
+      "min_exp": 2001,
+      "max_exp": 5000,
+      "descricao": "Refinando estrat\u00e9gias"
+    },
+    "expert": {
+      "min_exp": 5001,
+      "max_exp": 15000,
+      "descricao": "Otimizando performance"
+    },
+    "mestre": {
+      "min_exp": 15001,
+      "max_exp": 999999,
+      "descricao": "M\u00e1xima seletividade"
+    }
+  },
+  "filtros_base_por_nivel": {
+    "iniciante": {
+      "threshold_confianca": 0.55,
+      "min_entropia": 0.2,
+      "max_spread": 3.0,
+      "min_volume_book": 150,
+      "max_trades_hora": 30,
+      "cooldown_segundos": 15
+    },
+    "intermediario": {
+      "threshold_confianca": 0.6,
+      "min_entropia": 0.3,
+      "max_spread": 2.5,
+      "min_volume_book": 200,
+      "max_trades_hora": 25,
+      "cooldown_segundos": 30
+    },
+    "avancado": {
+      "threshold_confianca": 0.65,
+      "min_entropia": 0.4,
+      "max_spread": 2.0,
+      "min_volume_book": 250,
+      "max_trades_hora": 20,
+      "cooldown_segundos": 45
+    },
+    "expert": {
+      "threshold_confianca": 0.7,
+      "min_entropia": 0.5,
+      "max_spread": 1.5,
+      "min_volume_book": 300,
+      "max_trades_hora": 15,
+      "cooldown_segundos": 60
+    },
+    "mestre": {
+      "threshold_confianca": 0.75,
+      "min_entropia": 0.6,
+      "max_spread": 1.0,
+      "min_volume_book": 400,
+      "max_trades_hora": 10,
+      "cooldown_segundos": 90
+    }
+  },
+  "parametros_adaptacao": {
+    "min_operacoes_avaliacao": 30,
+    "taxa_acerto_alvo": 0.7,
+    "profit_factor_alvo": 2.0,
+    "max_drawdown_permitido": 0.05,
+    "intervalo_avaliacao_horas": 4
+  }
+}

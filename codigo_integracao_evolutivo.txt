@@ -1,0 +1,53 @@
+
+# ===== INTEGRAÇÃO DO SISTEMA EVOLUTIVO HÍBRIDO =====
+# Adicione estas linhas no início do monstro_unificado.py
+
+from sistema_evolucao_hibrido import SistemaEvolucaoHibrido
+
+# Inicializa sistema evolutivo (adicionar após outras inicializações)
+sistema_evolutivo = SistemaEvolucaoHibrido()
+
+# Função para verificar se deve executar trade (substituir lógica existente)
+def deve_executar_trade_evolutivo(contexto):
+    """Verifica se deve executar trade usando filtros evolutivos."""
+    return sistema_evolutivo.deve_executar_trade(contexto)
+
+# Função para executar evolução periódica (chamar a cada X operações)
+def executar_evolucao_periodica():
+    """Executa ciclo de evolução do sistema."""
+    global sistema_evolutivo
+    try:
+        sistema_evolutivo.executar_ciclo_evolucao()
+        logging.info("🧬 Evolução executada com sucesso")
+    except Exception as e:
+        logging.error(f"❌ Erro na evolução: {e}")
+
+# ===== EXEMPLO DE USO NO LOOP PRINCIPAL =====
+# Substitua a lógica de decisão existente por:
+
+# No loop principal, antes de decidir ação:
+contexto_atual = {
+    'confianca': probabilidade_ia,
+    'entropia_book': entropia_calculada,
+    'spread': spread_atual,
+    'volume_book': volume_book_total,
+    'rsi_14': rsi_atual,
+    'volatility': atr_atual
+}
+
+# Verifica filtros evolutivos
+deve_operar, motivo_filtro = deve_executar_trade_evolutivo(contexto_atual)
+
+if not deve_operar:
+    logging.info(
+        f"🚫 Trade bloqueado pelos filtros evolutivos: {motivo_filtro}")
+    continue  # Pula para próxima iteração
+
+# Se passou nos filtros, executa a lógica normal de trading...
+
+# ===== EVOLUÇÃO PERIÓDICA =====
+# Adicione no final do loop principal (a cada 50 operações):
+
+contador_operacoes += 1
+if contador_operacoes % 50 == 0:
+    executar_evolucao_periodica()

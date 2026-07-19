@@ -1,0 +1,13 @@
+{
+  "timestamp_encerramento": "2025-07-24T10:29:44.420464",
+  "total_experiencias": 0,
+  "total_lucros": 0.0,
+  "total_operacoes": 0,
+  "historico_loss": [],
+  "contagem_acoes": {
+    "BUY": 0,
+    "SELL": 0,
+    "NADA": 0
+  },
+  "razao_buy_sell": 1.0
+}

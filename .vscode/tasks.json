@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "🐍 Instalar Dependências",
+      "type": "shell",
+      "command": "python -m pip install -r requirements.txt",
+      "group": "build"
+    },
+    {
+      "label": "🚀 Iniciar Bot",
+      "type": "shell",
+      "command": "python monstro_unificado.py",
+      "group": "build"
+    },
+    {
+      "label": "🧹 Limpar Cache",
+      "type": "shell",
+      "command": "python -Bc \"import pathlib; [p.unlink() for p in pathlib.Path('.').rglob('*.py[co]')]\"",
+      "group": "build"
+    },
+    {
+      "label": "🎨 Formatar Código",
+      "type": "shell",
+      "command": "python -m black . --line-length=120",
+      "group": "build"
+    }
+  ]
+}

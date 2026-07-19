@@ -1,0 +1,92 @@
+{
+    "geral": {
+        "mt5_path": "C:\\Program Files\\MetaTrader 5 Terminal\\terminal64.exe",
+        "log_file": "monstro_bitcoin.log",
+        "magic_number": 123456,
+        "deviation": 20
+    },
+    "contrato": {
+        "prefixo": "BITN",
+        "symbol_fixo": "BITN25",
+        "tick_size": 1.0,
+        "ticks_por_ponto": 1,
+        "digits_bitcoin": 0
+    },
+    "horarios": {
+        "pregao_inicio": "09:00",
+        "after_market_fim": "18:40",
+        "ajuste": "18:41",
+        "auto_encerramento": "18:45"
+    },
+    "operacional": {
+        "volume_padrao": 10.0,
+        "volume_minimo_book": 100,
+        "periodo_atr": 14,
+        "multiplicador_sl_atr": 2.0,
+        "multiplicador_tp_atr": 0,
+        "sl_max_pontos": 50,
+        "tp_max_pontos": 0
+    },
+    "risk_management": {
+        "max_loss_diario": -2000.0,
+        "max_drawdown": -1000.0,
+        "max_spread_pontos": 20,
+        "max_losses_sequencia": 3,
+        "ciclos_bloqueio": 3,
+        "min_lucro_desbloqueio": -100.0
+    },
+    "trailing_stop": {
+        "ativo": true,
+        "intervalo_segundos": 5,
+        "gatilho_pontos": 5.0,
+        "distancia_pontos": 3.0
+    },
+    "aprendizado": {
+        "modelo_path": "modelo_monstro_bitcoin.h5",
+        "historico_csv": "historico_bitcoin_v2.csv",
+        "n_features": 11,
+        "min_exp_para_treino": 20,
+        "gatilho_operacoes_para_treino": 10,
+        "max_exp_memoria": 1000,
+        "epochs": 3,
+        "batch_size": 32,
+        "multiplicador_punicao_loss": 2.0
+    },
+    "trading": {
+        "symbol": "BITN25",
+        "volume_padrao": 10.0,
+        "magic_number": 123456,
+        "sl_points": 30,
+        "tp_points": 50,
+        "max_spread": 20,
+        "horario_pregao": "09:00",
+        "horario_after": "18:40"
+    },
+    "ai_settings": {
+        "n_features": 11,
+        "min_experiencias_treino": 3,
+        "max_experiencias_memoria": 1000,
+        "epochs_treino": 3,
+        "batch_size": 32
+    },
+    "modo_bitcoin": {
+        "ativo": true,
+        "descricao": "Configuração específica para BITN25",
+        "data_ativacao": "2025-01-14",
+        "observacoes": [
+            "Volume de 10 contratos por operação",
+            "Volume mínimo book 100cc",
+            "SL/TP maiores devido volatilidade Bitcoin",
+            "Risk management mais conservador",
+            "Modelo específico para Bitcoin"
+        ]
+    },
+    "web_dashboard": {
+        "port": 5001,
+        "debug": true
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "monstro_bitcoin.log"
+    }
+}

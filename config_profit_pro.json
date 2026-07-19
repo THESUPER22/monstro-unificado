@@ -1,0 +1,28 @@
+{
+    "profit_pro_url": "https://api.profitpro.com.br",
+    "username": "SEU_USUARIO_AQUI",
+    "password": "SUA_SENHA_AQUI",
+    "symbol": "WIN",
+    "volume": 1,
+    "sl_points": 50,
+    "tp_points": 100,
+    "max_loss_diario": -500.0,
+    "max_trades_loss_consecutivos": 3,
+    "horario_inicio": "09:00",
+    "horario_fim": "17:30",
+    "intervalo_analise": 5,
+    "rsi_oversold": 30,
+    "rsi_overbought": 70,
+    "spread_maximo": 10,
+    "ma_rapida": 9,
+    "ma_lenta": 21,
+    "confianca_minima": 0.5,
+    "comentarios": {
+        "symbol": "WIN para mini índice, WDO para mini dólar",
+        "volume": "Quantidade de contratos por operação",
+        "sl_points": "Stop Loss em pontos",
+        "tp_points": "Take Profit em pontos",
+        "intervalo_analise": "Intervalo entre análises em segundos",
+        "confianca_minima": "Confiança mínima para executar trade (0.0 a 1.0)"
+    }
+}

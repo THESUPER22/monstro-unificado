@@ -1,0 +1,754 @@
+RESUMO COMPLETO DO ROBÔ MONSTRO DAS NEGOCIAÇÕES
+
+===============================================================================
+VISÃO GERAL
+===============================================================================
+
+O Monstro das Negociações é um robô trader autônomo que opera contratos de
+mini dólar (WDO) e mini índice (WIN) na B3, utilizando inteligência artificial
+com aprendizado por reforço. O sistema combina Python + MQL5 para análise de
+book de ofertas, tomada de decisões inteligentes e execução automatizada de ordens.
+
+RESUMO COMPLETO DO ROBÔ MONSTRO DAS NEGOCIAÇÕES
+
+===============================================================================
+VISÃO GERAL
+===============================================================================
+
+O Monstro das Negociações é um robô trader autônomo que opera contratos de 
+mini dólar (WDO) e mini índice (WIN) na B3, utilizando inteligência artificial 
+com aprendizado por reforço. O sistema combina Python + MQL5 para análise de 
+book de ofertas, tomada de decisões inteligentes e execução automatizada de ordens.
+
+===============================================================================
+COMPONENTES PRINCIPAIS
+===============================================================================
+
+Arquivos Essenciais:
+- monstro_unificado.py - Código principal do robô (3604 linhas)
+- config.json - Parâmetros de configuração e risco
+- modelo_monstro.h5/.keras - Modelo de IA treinado (Keras/TensorFlow)
+- book_data.csv - Arquivo de comunicação com EA MQL5
+- historico_contexto.csv - Base de experiências para treino
+- decisions.csv - Log de todas as decisões tomadas
+- memoria.pkl - Buffer de replay de experiências
+
+===============================================================================
+INTEGRAÇÃO MQL5 ↔ PYTHON
+===============================================================================
+
+Expert Advisor (EA) MQL5:
+- Coleta dados do book de ofertas em tempo real
+- Escreve volumes bid/ask no arquivo book_data.csv
+- Formato: Linha 1 = volumes BID, Linha 2 = volumes ASK
+- Atualização contínua a cada tick do mercado
+
+Leitura Python do Book:
+def ler_book_csv():
+    # Lê arquivo CSV gerado pelo EA
+    # Processa volumes de BID e ASK
+    # Calcula entropia e liquidez
+    # Retorna dados estruturados
+
+Execução de Ordens:
+- Python analisa → decide → envia ordem via MetaTrader5 API
+- MT5 executa ordem → retorna ticket
+- Sistema monitora posição até fechamento
+
+===============================================================================
+SISTEMA DE INTELIGÊNCIA ARTIFICIAL
+===============================================================================
+
+Rede Neural (Keras/TensorFlow):
+- Arquitetura: 4 camadas densas (128→64→32→1 neurônios)
+- Ativação: ReLU + BatchNormalization + Dropout
+- Saída: Sigmoid (probabilidade BUY/SELL)
+- 11 Features de entrada:
+  * Volumes BID/ASK
+  * Spread, volatilidade (ATR)
+  * Tipo de candle, entropia do book
+  * RSI, volume tick
+  * Status posição, lucro flutuante, tempo em trade
+
+Aprendizado por Reforço:
+- Experiências: (contexto, ação, lucro, score_distância)
+- Reward: Lucro real + score baseado em distância TP/SL
+- Decay temporal: Experiências antigas perdem peso
+- Replay Buffer: Treina com experiências positivas antigas
+- Balanceamento dinâmico: Ajusta threshold BUY/SELL
+
+===============================================================================
+ANÁLISE DE BOOK E ENTROPIA
+===============================================================================
+
+Entropia do Book:
+def calcular_entropia(volumes):
+    # Usa scipy.stats.entropy
+    # Mede desequilíbrio/ordem no book
+    # Baixa entropia = mercado lateral
+    # Alta entropia = mercado explosivo
+
+Indicadores Técnicos:
+- ATR (Average True Range) - Volatilidade
+- RSI (14 períodos) - Momento
+- Estocástico Lento - Sobrecompra/sobrevenda
+- Análise de candlesticks - 15+ padrões identificados
+
+===============================================================================
+SISTEMA DE TRADING
+===============================================================================
+
+Modos Operacionais:
+1. NORMAL - Operação padrão
+2. LATERAL - ATR baixo + entropia baixa (mais conservador)
+3. EXPLOSÃO - Alta entropia + volume crescente (mais agressivo)
+4. DEFESA - Após muitos losses seguidos (só observa)
+5. AGUARDANDO - Book desequilibrado
+
+Gerenciamento de Risco:
+- SL fixo: 5 pontos (5000 ticks)
+- TP dinâmico: 10 pontos ou decisão por IA
+- Trailing Stop inteligente
+- Circuit Breakers: Spread máximo, volume mínimo, horários
+- Stop Loss diário: -R$ 500
+- Bloqueio de lados após 3 losses seguidos
+
+Decisão Inteligente:
+def prever_acao(modelo, X_dados):
+    # Modelo retorna probabilidade
+    # Ajusta threshold por balanceamento
+    # Considera RSI para viés direcional
+    # Aplica filtros de risco
+    # Retorna BUY/SELL/NADA
+
+===============================================================================
+PROTEÇÃO E SEGURANÇA
+===============================================================================
+
+Proteção do Modelo:
+- Backup automático antes de cada salvamento
+- Recuperação automática se modelo corromper
+- Múltiplos formatos (.h5 + .keras)
+- Backups diários e timestampados
+
+Bloqueio de Lados:
+class GerenciadorBloqueio:
+    # Bloqueia BUY após 3 losses seguidos
+    # Bloqueia SELL após 3 losses seguidos
+    # Inverte ação automaticamente
+    # Libera gradualmente com lucros
+
+Encerramento Seguro:
+- 18:20 - Fecha todas posições automaticamente
+- 18:32 - Desliga sistema pós after-market
+- Tratamento de sinais (CTRL+C, SIGTERM)
+- Salvamento completo antes de encerrar
+
+===============================================================================
+INTERFACE WEB (Dashboard)
+===============================================================================
+
+Painel em Tempo Real (http://localhost:5001):
+- Gráficos de performance e P&L
+- Distribuição de scores das decisões
+- Progresso do aprendizado (loss do modelo)
+- Status de bloqueios por lado
+- Balanceamento BUY/SELL
+- Métricas de consistência
+
+APIs REST:
+- /api/performance - Histórico de lucros
+- /api/score_distribution - Distribuição de scores
+- /api/learning_progress - Evolução do modelo
+- /status - Status completo do sistema
+
+===============================================================================
+MONITORAMENTO CONTÍNUO
+===============================================================================
+
+Logs Estruturados:
+- Decisões com contexto completo
+- Execução de ordens com preços SL/TP
+- Monitoramento de posições ativas
+- Alertas de risco e circuit breakers
+- Performance de aprendizado
+
+Métricas Avançadas:
+- Idade média das experiências
+- Decay temporal aplicado
+- Taxa de acerto por modo operacional
+- Consistência das decisões
+- Balanceamento direcional
+
+===============================================================================
+CONFIGURAÇÃO (config.json)
+===============================================================================
+
+{
+  "symbol_prefix": "WDO",
+  "volume_padrao": 1.0,
+  "sl_points": 5,
+  "tp_points": 10,
+  "max_loss_diario": -500.0,
+  "max_spread": 5,
+  "min_volume_book": 200,
+  "horarios": {
+    "pregao": "09:00",
+    "limite_ordens": "18:15",
+    "encerramento": "18:20",
+    "after_market": "18:32"
+  },
+  "ia_config": {
+    "epochs_treino": 3,
+    "batch_size": 32,
+    "learning_rate": 0.001,
+    "decay_meia_vida": 12
+  }
+}
+
+===============================================================================
+FLUXO DE OPERAÇÃO
+===============================================================================
+
+1. Inicialização:
+   - Conecta MT5 → Seleciona contrato front-month
+   - Carrega modelo IA → Ativa book de ofertas
+   - Inicia threads de monitoramento
+
+2. Ciclo Principal:
+   - EA escreve book → Python lê dados
+   - Calcula indicadores → Monta contexto
+   - IA decide ação → Aplica filtros
+   - Executa ordem → Monitora posição
+   - Fecha por SL/TP/IA → Salva experiência
+   - Treina modelo → Atualiza thresholds
+
+3. Aprendizado Contínuo:
+   - Cada operação vira experiência
+   - Replay de experiências positivas
+   - Ajuste dinâmico de parâmetros
+   - Evolução do modelo em tempo real
+
+===============================================================================
+DIFERENCIAIS TÉCNICOS
+===============================================================================
+
+- Seleção dinâmica de contratos (front-month automático)
+- Entropia do book como indicador único
+- Balanceamento automático BUY/SELL
+- Modos adaptativos por condição de mercado
+- Proteção multicamada do modelo IA
+- Integração nativa MQL5↔Python
+- Dashboard web responsivo em tempo real
+
+===============================================================================
+RESUMO TÉCNICO DETALHADO
+===============================================================================
+
+ARQUITETURA DO SISTEMA:
+- Linguagem principal: Python 3.10+
+- Framework IA: TensorFlow/Keras
+- Conexão trading: MetaTrader5 API
+- Interface web: Flask
+- Dados: CSV + JSON + Pickle
+- Monitoramento: Threads paralelas
+
+PIPELINE DE DADOS:
+1. EA MQL5 → book_data.csv (tempo real)
+2. Python lê CSV → calcula features
+3. Modelo IA → probabilidade ação
+4. Filtros risco → decisão final
+5. MT5 API → execução ordem
+6. Monitoramento → SL/TP/trailing
+7. Fechamento → experiência + treino
+
+FEATURES DE ENTRADA (11 variáveis):
+1. bid_qty - Volume total BID
+2. ask_qty - Volume total ASK  
+3. spread - Diferença BID/ASK em pontos
+4. volatility - ATR 14 períodos
+5. candle_type - Padrão de candlestick
+6. entropia_book - Entropia dos volumes
+7. rsi_14 - RSI 14 períodos
+8. volume_tick - Volume do último tick
+9. is_in_trade - Status posição (0/1)
+10. floating_profit - Lucro não realizado
+11. tempo_em_trade - Tempo posição aberta
+
+ALGORITMO DE DECISÃO:
+1. Normalização features (MinMaxScaler)
+2. Rede neural → probabilidade [0,1]
+3. Threshold dinâmico por balanceamento
+4. Ajuste por RSI (sobrecompra/sobrevenda)
+5. Filtros circuit breaker
+6. Bloqueio por loss sequencial
+7. Modo operacional (lateral/explosão/defesa)
+
+SISTEMA DE RECOMPENSA:
+- Reward = 60% lucro real + 40% score distância
+- Score distância = proximidade TP vs SL
+- Decay temporal = exp(-tempo/12h)
+- Replay buffer = experiências positivas antigas
+- Balanceamento = ajuste threshold BUY/SELL
+
+GERENCIAMENTO DE RISCO:
+- SL fixo 5 pontos (nunca alterado)
+- TP dinâmico ou decisão IA
+- Trailing stop 1 ponto após 2 pontos lucro
+- Circuit breaker spread > 5 pontos
+- Circuit breaker volume < 200 contratos
+- Stop loss diário -R$ 500
+- Bloqueio lado após 3 losses
+
+HORÁRIOS DE OPERAÇÃO:
+- 09:00 - Início pregão regular
+- 18:15 - Última ordem aceita
+- 18:20 - Fechamento forçado posições
+- 18:32 - Encerramento after-market
+- 18:33 - Desligamento automático
+
+PROTEÇÕES IMPLEMENTADAS:
+1. Backup modelo antes salvar
+2. Recuperação automática corrupção
+3. Validação dados entrada
+4. Tratamento sinais sistema
+5. Encerramento seguro posições
+6. Logs estruturados completos
+7. Dashboard monitoramento tempo real
+
+O sistema opera 9h em dias úteis, com paradas automáticas nos horários 
+corretos, aprendizado contínuo e proteção total contra perdas excessivas. 
+É uma solução completa de trading algorítmico com IA para o mercado brasileiro.
+
+==========================================================================
+===============================================================================
+
+===============================================================================
+AMBIENTE DE EXECUÇÃO
+===============================================================================
+
+Sistema Operacional:
+- Windows 10/11 (obrigatório para MetaTrader 5)
+- Pasta de trabalho: C:\AIOFEN
+- PowerShell como shell padrão
+
+Python e Ambiente Virtual:
+- Python 3.10+ (recomendado 3.10)
+- Ambiente virtual: venv310\Scripts\activate
+- Comando de ativação: call venv310\Scripts\activate
+
+MetaTrader 5:
+- Caminho padrão: C:\Program Files\MetaTrader 5 Terminal\terminal64.exe
+- Expert Advisor (EA) ativo para captura do book
+- Símbolos WDO/WIN configurados e ativos
+- Book de ofertas habilitado
+
+Bibliotecas Python Principais:
+- tensorflow>=2.13.0 - Framework de IA
+- MetaTrader5>=5.0.45 - API oficial MT5
+- pandas>=1.5.0 - Manipulação de dados
+- numpy>=1.24.0 - Operações numéricas
+- scikit-learn>=1.3.0 - Pré-processamento
+- flask>=2.3.0 - Interface web
+- scipy>=1.10.0 - Cálculos científicos
+
+Arquivos de Inicialização:
+- ativar_monstro.bat - Script principal de inicialização
+- iniciar_monstro.bat - Alternativa de inicialização
+- iniciar_monstro.ps1 - Script PowerShell
+- testar_ambiente.bat - Teste de configuração
+
+Comando de Inicialização:
+```
+cd /d C:\AIOFEN
+call venv310\Scripts\activate
+python monstro_unificado.py
+```
+
+Estrutura de Pastas Essencial:
+C:\AIOFEN\
+├── monstro_unificado.py
+├── config.json
+├── modelo_monstro.h5
+├── venv310\ (ambiente virtual)
+├── requirements.txt
+├── book_data.csv (gerado pelo EA)
+├── historico_contexto.csv
+├── decisions.csv
+└── logs\ (pasta de logs)
+
+Verificações de Ambiente:
+- diagnostico_monstro.py - Verifica arquivos essenciais
+- teste_configuracao.py - Testa conectividade MT5
+- verificar_posicoes.py - Status de posições
+
+Pré-requisitos de Configuração:
+1. MT5 instalado e conectado à corretora
+2. EA MQL5 compilado e ativo no gráfico
+3. Conta de trading configurada
+4. Símbolos WDO/WIN adicionados ao Market Watch
+5. Book de ofertas ativado para os símbolos
+6. Permissões de trading automático habilitadas
+
+Configuração Inicial do MT5:
+- Habilitar: Opções → Expert Advisors → "Permitir trading automático"
+- Habilitar: Opções → Expert Advisors → "Permitir importação de DLL"
+- Adicionar símbolos WDO* e WIN* no Market Watch
+- Compilar e anexar EA no gráfico M1 do símbolo
+- Verificar pasta MQL5\Files para book_data.csv
+
+Scripts de Configuração Automática:
+- configurar_monstro_completo.py - Setup completo
+- instalar_extensoes_cursor.py - Extensões do editor
+- configurar_powershell.ps1 - Configuração shell
+- ConfigurarMonstro.ps1 - Script principal setup
+
+Processo de Inicialização Padrão:
+1. Abrir PowerShell como Administrador
+2. Navegar: cd C:\AIOFEN
+3. Ativar ambiente: call venv310\Scripts\activate
+4. Executar diagnóstico: python diagnostico_monstro.py
+5. Iniciar robô: python monstro_unificado.py
+6. Verificar dashboard: http://localhost:5001
+
+Troubleshooting Comum:
+- Erro MT5: Verificar se MT5 está aberto e conectado
+- Book vazio: Verificar se EA está ativo e compilado
+- Import Error: Reinstalar bibliotecas com pip install -r requirements.txt
+- Modelo não encontrado: Sistema cria novo automaticamente
+- Arquivo CSV não criado: Verificar permissões pasta MQL5\Files
+
+Monitoramento da Inicialização:
+- Log principal: monstro.log
+- Dashboard web: localhost:5001/status
+- Arquivo de decisões: decisions.csv
+- Console: Output em tempo real
+
+===============================================================================
+COMPONENTES PRINCIPAIS
+===============================================================================
+
+Arquivos Essenciais:
+- monstro_unificado.py - Código principal do robô (3604 linhas)
+- config.json - Parâmetros de configuração e risco
+- modelo_monstro.h5/.keras - Modelo de IA treinado (Keras/TensorFlow)
+- book_data.csv - Arquivo de comunicação com EA MQL5
+- historico_contexto.csv - Base de experiências para treino
+- decisions.csv - Log de todas as decisões tomadas
+- memoria.pkl - Buffer de replay de experiências
+
+===============================================================================
+INTEGRAÇÃO MQL5 ↔ PYTHON
+===============================================================================
+
+Expert Advisor (EA) MQL5:
+- Coleta dados do book de ofertas em tempo real
+- Escreve volumes bid/ask no arquivo book_data.csv
+- Formato: Linha 1 = volumes BID, Linha 2 = volumes ASK
+- Atualização contínua a cada tick do mercado
+
+Leitura Python do Book:
+def ler_book_csv():
+    # Lê arquivo CSV gerado pelo EA
+    # Processa volumes de BID e ASK
+    # Calcula entropia e liquidez
+    # Retorna dados estruturados
+
+Execução de Ordens:
+- Python analisa → decide → envia ordem via MetaTrader5 API
+- MT5 executa ordem → retorna ticket
+- Sistema monitora posição até fechamento
+
+===============================================================================
+SISTEMA DE INTELIGÊNCIA ARTIFICIAL
+===============================================================================
+
+Rede Neural (Keras/TensorFlow):
+- Arquitetura: 4 camadas densas (128→64→32→1 neurônios)
+- Ativação: ReLU + BatchNormalization + Dropout
+- Saída: Sigmoid (probabilidade BUY/SELL)
+- 11 Features de entrada:
+  * Volumes BID/ASK
+  * Spread, volatilidade (ATR)
+  * Tipo de candle, entropia do book
+  * RSI, volume tick
+  * Status posição, lucro flutuante, tempo em trade
+
+Aprendizado por Reforço:
+- Experiências: (contexto, ação, lucro, score_distância)
+- Reward: Lucro real + score baseado em distância TP/SL
+- Decay temporal: Experiências antigas perdem peso
+- Replay Buffer: Treina com experiências positivas antigas
+- Balanceamento dinâmico: Ajusta threshold BUY/SELL
+
+===============================================================================
+ANÁLISE DE BOOK E ENTROPIA
+===============================================================================
+
+Entropia do Book:
+def calcular_entropia(volumes):
+    # Usa scipy.stats.entropy
+    # Mede desequilíbrio/ordem no book
+    # Baixa entropia = mercado lateral
+    # Alta entropia = mercado explosivo
+
+Indicadores Técnicos:
+- ATR (Average True Range) - Volatilidade
+- RSI (14 períodos) - Momento
+- Estocástico Lento - Sobrecompra/sobrevenda
+- Análise de candlesticks - 15+ padrões identificados
+
+===============================================================================
+SISTEMA DE TRADING
+===============================================================================
+
+Modos Operacionais:
+1. NORMAL - Operação padrão
+2. LATERAL - ATR baixo + entropia baixa (mais conservador)
+3. EXPLOSÃO - Alta entropia + volume crescente (mais agressivo)
+4. DEFESA - Após muitos losses seguidos (só observa)
+5. AGUARDANDO - Book desequilibrado
+
+Gerenciamento de Risco:
+- SL fixo: 5 pontos (5000 ticks)
+- TP dinâmico: 10 pontos ou decisão por IA
+- Trailing Stop inteligente
+- Circuit Breakers: Spread máximo, volume mínimo, horários
+- Stop Loss diário: -R$ 500
+- Bloqueio de lados após 3 losses seguidos
+
+Decisão Inteligente:
+def prever_acao(modelo, X_dados):
+    # Modelo retorna probabilidade
+    # Ajusta threshold por balanceamento
+    # Considera RSI para viés direcional
+    # Aplica filtros de risco
+    # Retorna BUY/SELL/NADA
+
+===============================================================================
+PROTEÇÃO E SEGURANÇA
+===============================================================================
+
+Proteção do Modelo:
+- Backup automático antes de cada salvamento
+- Recuperação automática se modelo corromper
+- Múltiplos formatos (.h5 + .keras)
+- Backups diários e timestampados
+
+Bloqueio de Lados:
+class GerenciadorBloqueio:
+    # Bloqueia BUY após 3 losses seguidos
+    # Bloqueia SELL após 3 losses seguidos
+    # Inverte ação automaticamente
+    # Libera gradualmente com lucros
+
+Encerramento Seguro:
+- 18:20 - Fecha todas posições automaticamente
+- 18:32 - Desliga sistema pós after-market
+- Tratamento de sinais (CTRL+C, SIGTERM)
+- Salvamento completo antes de encerrar
+
+===============================================================================
+INTERFACE WEB (Dashboard)
+===============================================================================
+
+Painel em Tempo Real (http://localhost:5001):
+- Gráficos de performance e P&L
+- Distribuição de scores das decisões
+- Progresso do aprendizado (loss do modelo)
+- Status de bloqueios por lado
+- Balanceamento BUY/SELL
+- Métricas de consistência
+
+APIs REST:
+- /api/performance - Histórico de lucros
+- /api/score_distribution - Distribuição de scores
+- /api/learning_progress - Evolução do modelo
+- /status - Status completo do sistema
+
+===============================================================================
+MONITORAMENTO CONTÍNUO
+===============================================================================
+
+Logs Estruturados:
+- Decisões com contexto completo
+- Execução de ordens com preços SL/TP
+- Monitoramento de posições ativas
+- Alertas de risco e circuit breakers
+- Performance de aprendizado
+
+Métricas Avançadas:
+- Idade média das experiências
+- Decay temporal aplicado
+- Taxa de acerto por modo operacional
+- Consistência das decisões
+- Balanceamento direcional
+
+===============================================================================
+CONFIGURAÇÃO (config.json)
+===============================================================================
+
+Localização: C:\AIOFEN\config.json
+
+Configuração Principal:
+{
+  "symbol_prefix": "WDO",
+  "volume_padrao": 1.0,
+  "sl_points": 5,
+  "tp_points": 10,
+  "max_loss_diario": -500.0,
+  "max_spread": 5,
+  "min_volume_book": 200,
+  "horarios": {
+    "pregao": "09:00",
+    "limite_ordens": "18:15",
+    "encerramento": "18:20",
+    "after_market": "18:32"
+  },
+  "ia_config": {
+    "epochs_treino": 3,
+    "batch_size": 32,
+    "learning_rate": 0.001,
+    "decay_meia_vida": 12
+  }
+}
+
+Configurações Alternativas Disponíveis:
+- config_bitcoin.json - Configuração para Bitcoin
+- config_v3.json - Versão 3 da configuração
+- config_wdo_backup.json - Backup da configuração WDO
+
+Arquivos Requirements:
+- requirements.txt - Dependências Python principais
+- Localização: C:\AIOFEN\requirements.txt
+
+Exemplo requirements.txt:
+```
+tensorflow>=2.13.0
+MetaTrader5>=5.0.45
+pandas>=1.5.0
+numpy>=1.24.0
+scikit-learn>=1.3.0
+flask>=2.3.0
+scipy>=1.10.0
+tenacity>=8.2.0
+python-dateutil>=2.8.0
+```
+
+===============================================================================
+FLUXO DE OPERAÇÃO
+===============================================================================
+
+1. Inicialização:
+   - Conecta MT5 → Seleciona contrato front-month
+   - Carrega modelo IA → Ativa book de ofertas
+   - Inicia threads de monitoramento
+
+2. Ciclo Principal:
+   - EA escreve book → Python lê dados
+   - Calcula indicadores → Monta contexto
+   - IA decide ação → Aplica filtros
+   - Executa ordem → Monitora posição
+   - Fecha por SL/TP/IA → Salva experiência
+   - Treina modelo → Atualiza thresholds
+
+3. Aprendizado Contínuo:
+   - Cada operação vira experiência
+   - Replay de experiências positivas
+   - Ajuste dinâmico de parâmetros
+   - Evolução do modelo em tempo real
+
+===============================================================================
+DIFERENCIAIS TÉCNICOS
+===============================================================================
+
+- Seleção dinâmica de contratos (front-month automático)
+- Entropia do book como indicador único
+- Balanceamento automático BUY/SELL
+- Modos adaptativos por condição de mercado
+- Proteção multicamada do modelo IA
+- Integração nativa MQL5↔Python
+- Dashboard web responsivo em tempo real
+
+===============================================================================
+RESUMO TÉCNICO DETALHADO
+===============================================================================
+
+ARQUITETURA DO SISTEMA:
+- Linguagem principal: Python 3.10+
+- Framework IA: TensorFlow/Keras
+- Conexão trading: MetaTrader5 API
+- Interface web: Flask
+- Dados: CSV + JSON + Pickle
+- Monitoramento: Threads paralelas
+
+PIPELINE DE DADOS:
+1. EA MQL5 → book_data.csv (tempo real)
+2. Python lê CSV → calcula features
+3. Modelo IA → probabilidade ação
+4. Filtros risco → decisão final
+5. MT5 API → execução ordem
+6. Monitoramento → SL/TP/trailing
+7. Fechamento → experiência + treino
+
+FEATURES DE ENTRADA (11 variáveis):
+1. bid_qty - Volume total BID
+2. ask_qty - Volume total ASK
+3. spread - Diferença BID/ASK em pontos
+4. volatility - ATR 14 períodos
+5. candle_type - Padrão de candlestick
+6. entropia_book - Entropia dos volumes
+7. rsi_14 - RSI 14 períodos
+8. volume_tick - Volume do último tick
+9. is_in_trade - Status posição (0/1)
+10. floating_profit - Lucro não realizado
+11. tempo_em_trade - Tempo posição aberta
+
+ALGORITMO DE DECISÃO:
+1. Normalização features (MinMaxScaler)
+2. Rede neural → probabilidade [0,1]
+3. Threshold dinâmico por balanceamento
+4. Ajuste por RSI (sobrecompra/sobrevenda)
+5. Filtros circuit breaker
+6. Bloqueio por loss sequencial
+7. Modo operacional (lateral/explosão/defesa)
+
+SISTEMA DE RECOMPENSA:
+- Reward = 60% lucro real + 40% score distância
+- Score distância = proximidade TP vs SL
+- Decay temporal = exp(-tempo/12h)
+- Replay buffer = experiências positivas antigas
+- Balanceamento = ajuste threshold BUY/SELL
+
+GERENCIAMENTO DE RISCO:
+- SL fixo 5 pontos (nunca alterado)
+- TP dinâmico ou decisão IA
+- Trailing stop 1 ponto após 2 pontos lucro
+- Circuit breaker spread > 5 pontos
+- Circuit breaker volume < 200 contratos
+- Stop loss diário -R$ 500
+- Bloqueio lado após 3 losses
+
+HORÁRIOS DE OPERAÇÃO:
+- 09:00 - Início pregão regular
+- 18:15 - Última ordem aceita
+- 18:20 - Fechamento forçado posições
+- 18:32 - Encerramento after-market
+- 18:33 - Desligamento automático
+
+PROTEÇÕES IMPLEMENTADAS:
+1. Backup modelo antes salvar
+2. Recuperação automática corrupção
+3. Validação dados entrada
+4. Tratamento sinais sistema
+5. Encerramento seguro posições
+6. Logs estruturados completos
+7. Dashboard monitoramento tempo real
+
+O sistema opera 9h em dias úteis, com paradas automáticas nos horários
+corretos, aprendizado contínuo e proteção total contra perdas excessivas.
+É uma solução completa de trading algorítmico com IA para o mercado brasileiro.
+
+===============================================================================
+FIM DO RESUMO
+===============================================================================

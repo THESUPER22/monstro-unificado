@@ -1,0 +1,53 @@
+# Ambientes virtuais (pesados)
+venv/
+venv310/
+env/
+ENV/
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Logs (podem ficar grandes)
+*.log
+startup_log.txt
+
+# Modelos e dados grandes
+*.h5
+*.pkl
+*.h5.backup*
+*.h5.bak
+modelo_monstro_metadata.json
+
+# Arquivos tempor√°rios
+*.tmp
+debug_*.json
+parametros_ia_saida.json
+
+# JDK (muito pesado)
+Oracle_JDK-24/
+llama.cpp/
+
+# Relat√≥rios MT5
+ReportHistory-*.html
+ReportHistory-*.png
+ReportHistory-*.xlsx
+
+# Cache sistema
+desktop.ini
+Thumbs.db
+
+# Dados hist√≥ricos grandes
+historico_evolucao.csv Robì_Trader_Monstro_-_Execut†vel_Windows.pdf 
+*.csv 
+*.pkl 
+ProtonVPN_v4.2.2_x64.exe 
+robo_trader_exe/dist_final/ 
+robo_trader_exe/dist_console/ 
+robo_trader_exe/build/ 
+*.exe 
+*.zip 
+*.pkg 
+decisions.csv.backup_contaminado_20251023_154227 
