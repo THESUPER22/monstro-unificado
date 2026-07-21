@@ -1,15 +1,1315 @@
-veja o estado atualdo mostrovou trazer algumastecnologias aqui e gostaria de um feed bag se atrapalha ou ajuda de comoo elapoderia agragar ou destruir o prjeto  talvas usamos para desobrir padroes do mercado sei la ou outra coiza  ou nao se nao couber nao force  nao sei se um llm generalista e muito tipo usar um boeng pra entregar uam carta na esquina ate funciona mas nao e a ferraenta correta  ou um linar regresson ou decisiom tree ou randon forest ou lstm ou transormers sao  modelos estatisticos cirados expecificamente para encontra padores e talves pode riamos usar no mercado ao vivo ou encontra padroes do passado uma regrassao linear  cuidado ao treibar em cima de ruidos arvore de cecisao   se tivar algo acrescentar me fale alguma tecologia para prever acao do mercado ou  aprender
+atualizações  e ideia   o robo nao precisa de operar com stop los ou gain hoje o pythom ja consegue ver o preco e tempo real. presizamos adiciona umaforma de calculo que quando a operacoa vem contra saimos da operacao e quando for a favor a protegemos no preco de entrada 5 reais ou pontos a frente para pagar pelo menos os custos da operação. talvez  um stop loss apenas por seguranca mas eliminar stop gain. treinar ou definir o python ou o keras uma fomra de alongar trade campeao movendo stop gains de acordocom o merado claro analizando o book para saber se o trade vai longe ou e hora de sair antes dele voltar na cara. temos o book e estamos totalmente capaze de fazer essa ,elhoria so precisamos definir se ja estamos no  momento de faze-las ou colocar noroad map para melhorias fitiras assim como front end uma cara do robo e eliminar a tela cmd que e muito dados desnecessário.para usuario comum.
+
+exe hojeele ja faz isso deforma automatizada naconfiguracao pythom  veja exemplo 2026-07-20 15:34:41,700 - WARNING - 🎯 CONFLUÊNCIA SOBRESCREVE: IA=SELL (conf:0.52) → CONFLUÊNCIA=BUY
+2026-07-20 15:34:41,715 - INFO - ✅ Dados obtidos - Tick: Ask=175220.0, Bid=175215.0, Symbol: WINQ26
+2026-07-20 15:34:41,715 - INFO - ✅ Spread OK: 0.0 pontos
+2026-07-20 15:34:41,716 - INFO - 📊 Volume ajustado: 5.0 contratos
+2026-07-20 15:34:41,718 - INFO - 🚀 VOLUME MONUMENTAL (5000cc+): SL=100, TP=250 (R/R 1:2.5)
+2026-07-20 15:34:41,718 - INFO - 🔧 DEBUG SL/TP - Entrada: 175220.0, Ação: BUY
+2026-07-20 15:34:41,719 - INFO - 🔧 DEBUG SL/TP - SLOINTS: 100, TP_POINTS: 250
+2026-07-20 15:34:41,719 - INFO - 🔧 DEBUG SL/TP - Point: 1.0, TICKS_POR_PONTO: 10000
+2026-07-20 15:34:41,719 - INFO - 🔧 DEBUG SL/TP - SL_dist: 100.00000, TP_dist: 250.00000
+2026-07-20 15:34:41,719 - INFO - 🔧 DEBUG SL/TP - Calculado: SL=175120.0, TP=175470.0
+2026-07-20 15:34:42,019 - INFO - ✅ Ordem BUY executada. Ticket: 2483236392
+2026-07-20 15:34:42,019 - INFO -    Preço: 175220.000 | SL: 175120.000 | TP: 175470.000
+2026-07-20 15:34:42,523 - INFO - ✅ Ordem 2483236392 virou posição.
+2026-07-20 15:34:42,523 - INFO - 🎯 Trailing stop iniciado para posição 2483236392
+2026-07-20 15:34:42,524 - INFO - ⚖️ Operação BUY registrada. BUY: 4, SELL: 4 (BUY: 50.0%)
+2026-07-20 15:34:43,033 - INFO - ✅ Ordem 2483236392 virou posição.
+2026-07-20 15:34:43,034 - INFO - Found entry deal for order 2483236392, execution price: 175220.0
+2026-07-20 15:34:43,034 - INFO - 🛡️ Gerenciador de Saída ATIVADO para posição #2483236392
+2026-07-20 15:34:43,035 - INFO - 📊 Nova posição iniciada: Ticket=2483236392, Tipo=BUY, Entrada=175220.000, SL=175120.000, TP=175470.000, Score Inicial=-0.00
+2026-07-20 15:34:45,051 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175220 → Atual: 175215 | -5 pts | Flutuante: R$ -10.00 | SL: 175120 TP: 175470
+2026-07-20 15:34:50,063 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175220 → Atual: 175190 | -30 pts | Flutuante: R$ -30.00 | SL: 175120 TP: 175470
+2026-07-20 15:34:55,066 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175220 → Atual: 175190 | -30 pts | Flutuante: R$ -35.00 | SL: 175120 TP: 175470
+2026-07-20 15:35:00,080 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175220 → Atual: 175210 | -10 pts | Flutuante: R$ -10.00 | SL: 175120 TP: 175470
+2026-07-20 15:35:05,088 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175220 → Atual: 175240 | +20 pts | Flutuante: R$ +20.00 | SL: 175120 TP: 175470
+2026-07-20 15:35:10,102 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175220 → Atual: 175240 | +20 pts | Flutuante: R$ +20.00 | SL: 175120 TP: 175470
+2026-07-20 15:35:15,105 - INFO - 👁️ Monstro ativo | Modo: NORMAL
+2026-07-20 15:35:15,107 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 15:35:15,248 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 15:35:15,257 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175220 → Atual: 175240 | +20 pts | Flutuante: R$ +20.00 | SL: 175120 TP: 175470
+2026-07-20 15:35:20,258 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175220 → Atual: 175265 | +45 pts | Flutuante: R$ +50.00 | SL: 175120 TP: 175470
+2026-07-20 15:35:25,264 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175220 → Atual: 175285 | +65 pts | Flutuante: R$ +65.00 | SL: 175120 TP: 175470
+2026-07-20 15:35:30,273 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175220 → Atual: 175295 | +75 pts | Flutuante: R$ +75.00 | SL: 175120 TP: 175470
+2026-07-20 15:35:35,275 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175220 → Atual: 175305 | +85 pts | Flutuante: R$ +80.00 | SL: 175120 TP: 175470
+2026-07-20 15:35:35,276 - INFO - 🔧 Decisão de Ajuste BUY: Novo SL 175265.00 (Melhoria de 175120.00)
+2026-07-20 15:35:35,277 - INFO - 🔧 Decisão de Ajuste: Novo SL 175265.00
+2026-07-20 15:35:35,580 - INFO - 🔐 SL atualizado com sucesso! 175120.00 → 175265.00 (Ticket: 2483236392)
+2026-07-20 15:35:40,598 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175220 → Atual: 175295 | +75 pts | Flutuante: R$ +75.00 | SL: 175265 TP: 175470
+2026-07-20 15:35:45,602 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175220 → Atual: 175285 | +65 pts | Flutuante: R$ +60.00 | SL: 175265 TP: 175470
+2026-07-20 15:35:50,617 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175220 → Atual: 175290 | +70 pts | Flutuante: R$ +65.00 | SL: 175265 TP: 175470
+2026-07-20 15:35:55,629 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175220 → Atual: 175275 | +55 pts | Flutuante: R$ +55.00 | SL: 175265 TP: 175470
+2026-07-20 15:35:55,630 - INFO - 🚪 Decisão de Saída: C12: Proteção de Lucro (caiu de 85.0pts - 30% do pico, TP=250)
+2026-07-20 15:35:55,631 - WARNING - ⚠️ order_send None (filling=0), reconectando...
+2026-07-20 15:35:55,641 - INFO - ✅ Reconectado ao MetaTrader 5
+2026-07-20 15:35:56,150 - WARNING - ⚠️ order_send None (filling=1), reconectando...
+2026-07-20 15:35:56,163 - INFO - ✅ Reconectado ao MetaTrader 5
+2026-07-20 15:35:56,676 - ERROR - ❌ Falha ao fechar posição após todos os fillings: C12: Proteção de Lucro (caiu de 85.0pts - 30% do pico, TP=250)
+2026-07-20 15:35:56,676 - WARNING - ⚠️ Tentativa 1/3 de fechar falhou. Aguardando 1s...
+2026-07-20 15:35:57,702 - WARNING - ⚠️ order_send None (filling=0), reconectando...
+2026-07-20 15:35:57,713 - INFO - ✅ Reconectado ao MetaTrader 5
+2026-07-20 15:35:58,223 - WARNING - ⚠️ order_send None (filling=1), reconectando...
+2026-07-20 15:35:58,235 - INFO - ✅ Reconectado ao MetaTrader 5
+2026-07-20 15:35:58,742 - ERROR - ❌ Falha ao fechar posição após todos os fillings: C12: Proteção de Lucro (caiu de 85.0pts - 30% do pico, TP=250)
+2026-07-20 15:35:58,743 - WARNING - ⚠️ Tentativa 2/3 de fechar falhou. Aguardando 1s...
+2026-07-20 15:35:59,757 - WARNING - ⚠️ order_send None (filling=0), reconectando...
+2026-07-20 15:35:59,768 - INFO - ✅ Reconectado ao MetaTrader 5
+2026-07-20 15:36:00,280 - WARNING - ⚠️ order_send None (filling=1), reconectando...
+2026-07-20 15:36:00,291 - INFO - ✅ Reconectado ao MetaTrader 5
+2026-07-20 15:36:00,793 - ERROR - ❌ Falha ao fechar posição após todos os fillings: C12: Proteção de Lucro (caiu de 85.0pts - 30% do pico, TP=250)
+2026-07-20 15:36:00,793 - WARNING - ⚠️ Tentativa 3/3 de fechar falhou. Aguardando 1s...
+2026-07-20 15:36:01,810 - ERROR - ❌ FALHA AO FECHAR POSIÇÃO após 3 tentativas! Posição pode estar aberta.
+2026-07-20 15:36:01,810 - INFO - 🛡️ Gerenciador de Saída DESATIVADO.
+2026-07-20 15:36:06,822 - INFO - 🔍 Tentando obter lucro para ticket de ordem de abertura: 2483236392
+2026-07-20 15:36:06,822 - INFO - 💰 Deal de saída encontrado para ticket 2483236392: DealTicket=1807500190, PositionID=2483236392, Lucro=45.00, Preço Saída=175265.0, Volume=5.0, Hora=2026-07-20 12:35:55)
+2026-07-20 15:36:06,823 - INFO - Found entry deal for score_dist calc (Order: 2483236392), execution price: 175220.0
+2026-07-20 15:36:06,829 - INFO - ✅ Contexto 14-15_alta_baixo_baixa_compra reabilitado após win
+2026-07-20 15:36:06,829 - INFO - ✅ Experiência REAL salva: Ação=BUY, Lucro=45.00, Score=0.18 | Contador: 3/3
+2026-07-20 15:36:06,829 - INFO - 🎯 Resultado confluência registrado: Lucro=45.00
+2026-07-20 15:36:06,830 - INFO - 🧠 Iniciando treinamento após 3 experiências novas
+2026-07-20 15:36:06,830 - INFO - [treinar_modelo] Iniciando treino com VALIDAÇÃO. Tenho 176 experiências.
+2026-07-20 15:36:06,848 - INFO - Dados divididos: 19 para treino, 5 para validação.
+2026-07-20 15:36:06.917627: E tensorflow/core/framework/node_def_util.cc:680] NodeDef mentions attribute use_unbounded_threadpool which is not in the op definition: Op<name=MapDataset; signature=input_dataset:variant, other_arguments: -> handle:variant; attr=f:func; attr=Targuments:list(type),min=0; attr=output_types:list(type),min=1; attr=output_shapes:list(shape),min=1; attr=use_inter_op_parallelism:bool,default=true; attr=preserve_cardinality:bool,default=false; attr=force_synchronous:bool,default=false; attr=metadata:string,default=""> This may be expected if your graph generating binary is newer  than this binary. Unknown attributes will be ignored. NodeDef: {{node ParallelMapDatasetV2/_15}}
+2026-07-20 15:36:06,996 - INFO - Performance do Modelo ANTIGO na validação: Loss=0.6647, Acurácia=0.6000
+2026-07-20 15:36:08,144 - INFO - Performance do Modelo NOVO na validação: Loss=0.6568, Acurácia=0.8000
+2026-07-20 15:36:08,144 - INFO - ✅ MELHORIA REAL: Loss 0.6647 → 0.6568 (1.2%). Salvando.
+2026-07-20 15:36:08,150 - INFO - 🔒 BACKUP INTELIGENTE: modelo_monstro_win.h5.backup_20260720_153608
+2026-07-20 15:36:08,154 - WARNING - You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+2026-07-20 15:36:08,287 - INFO - ✅ Modelo salvo (atômico) em formato h5: C:\AIOFEN\modelo_monstro_win.h5
+2026-07-20 15:36:08,375 - INFO - ✅ Modelo salvo (atômico) em formato keras: C:\AIOFEN\modelo_monstro_win.keras
+2026-07-20 15:36:08,376 - INFO - [treinar_modelo] PRESTES A SALVAR O MODELO.
+2026-07-20 15:36:08,379 - INFO - ✅ PA2 FILTRO DE MEMÓRIA: 18/176 experiências positivas salvas em experiencias.json
+2026-07-20 15:36:08,379 - INFO - 🧠 Modelo treinado por 3 épocas. Loss final: 0.1644
+2026-07-20 15:36:08,380 - WARNING - 🚨 Taxa de acerto baixa: 25.0%
+2026-07-20 15:36:08,381 - INFO - 🛡️ Gerenciador de Saída DESATIVADO.
+2026-07-20 15:36:08,387 - INFO - 🔒 BACKUP INTELIGENTE: modelo_monstro_win.h5.backup_20260720_153608
+2026-07-20 15:36:08,391 - WARNING - You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+2026-07-20 15:36:08,449 - INFO - ✅ Modelo salvo (atômico) em formato h5: C:\AIOFEN\modelo_monstro_win.h5
+2026-07-20 15:36:08,515 - INFO - ✅ Modelo salvo (atômico) em formato keras: C:\AIOFEN\modelo_monstro_win.keras
+2026-07-20 15:36:08,516 - INFO - 💾 Modelo salvo após trade (aprendizado protegido).
+2026-07-20 15:36:08,516 - INFO - ✅ Posição 2483236392 processada e resetada.
+2026-07-20 15:36:09,518 - INFO - 📊 WINQ26 | Preço: 175250 | Spread: 5.0pts | BID: 5545 / ASK: 5194 | Desequilíbrio: 1.07x 🟢COMPRA
+
+precisamosdeixa isso sem stop gaiom e a automação junto okeras tem que aprender decidir mudar sozinho stop gains saber qdo e hora de sair do trade. quando proteger podemosja treinar inicialmete o keras eo h5 com dados que temos. sabemos calular a escora temos de fazer o automavao ver onde esta no book os ordens iceberg posicionadas porque ela sao quem puxao o preco claro temos muito blefe e spufing mas isso faz parte do mercado e uma realidade que ninguém pode mudar. 
+
+
+2026-07-20 15:39:26.824576: E tensorflow/core/framework/node_def_util.cc:680] NodeDef mentions attribute use_unbounded_threadpool which is not in the op definition: Op<name=MapDataset; signature=input_dataset:variant, other_arguments: -> handle:variant; attr=f:func; attr=Targuments:list(type),min=0; attr=output_types:list(type),min=1; attr=output_shapes:list(shape),min=1; attr=use_inter_op_parallelism:bool,default=true; attr=preserve_cardinality:bool,default=false; attr=force_synchronous:bool,default=false; attr=metadata:string,default=""> This may be expected if your graph generating binary is newer  than this binary. Unknown attributes will be ignored. NodeDef: {{node ParallelMapDatasetV2/_14}}
+2026-07-20 15:39:26,888 - WARNING - 🎯 CONFLUÊNCIA SOBRESCREVE: IA=SELL (conf:0.52) → CONFLUÊNCIA=BUY
+2026-07-20 15:39:26,904 - INFO - ✅ Dados obtidos - Tick: Ask=175210.0, Bid=175205.0, Symbol: WINQ26
+2026-07-20 15:39:26,904 - INFO - ✅ Spread OK: 0.0 pontos
+2026-07-20 15:39:26,905 - INFO - 📊 Volume ajustado: 5.0 contratos
+2026-07-20 15:39:26,907 - INFO - 🚀 VOLUME MONUMENTAL (5000cc+): SL=100, TP=250 (R/R 1:2.5)
+2026-07-20 15:39:26,907 - INFO - 🔧 DEBUG SL/TP - Entrada: 175210.0, Ação: BUY
+2026-07-20 15:39:26,908 - INFO - 🔧 DEBUG SL/TP - SLOINTS: 100, TP_POINTS: 250
+2026-07-20 15:39:26,908 - INFO - 🔧 DEBUG SL/TP - Point: 1.0, TICKS_POR_PONTO: 10000
+2026-07-20 15:39:26,908 - INFO - 🔧 DEBUG SL/TP - SL_dist: 100.00000, TP_dist: 250.00000
+2026-07-20 15:39:26,909 - INFO - 🔧 DEBUG SL/TP - Calculado: SL=175110.0, TP=175460.0
+2026-07-20 15:39:27,218 - INFO - ✅ Ordem BUY executada. Ticket: 2483240909
+2026-07-20 15:39:27,219 - INFO -    Preço: 175210.000 | SL: 175110.000 | TP: 175460.000
+2026-07-20 15:39:27,733 - INFO - ✅ Ordem 2483240909 virou posição.
+2026-07-20 15:39:27,733 - INFO - 🎯 Trailing stop iniciado para posição 2483240909
+2026-07-20 15:39:27,733 - INFO - ⚖️ Operação BUY registrada. BUY: 5, SELL: 4 (BUY: 55.6%)
+2026-07-20 15:39:28,249 - INFO - ✅ Ordem 2483240909 virou posição.
+2026-07-20 15:39:28,251 - INFO - Found entry deal for order 2483240909, execution price: 175200.0
+2026-07-20 15:39:28,252 - INFO - 🛡️ Gerenciador de Saída ATIVADO para posição #2483240909
+2026-07-20 15:39:28,252 - INFO - 📊 Nova posição iniciada: Ticket=2483240909, Tipo=BUY, Entrada=175200.000, SL=175110.000, TP=175460.000, Score Inicial=-0.00
+2026-07-20 15:39:30,269 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175200 → Atual: 175195 | -5 pts | Flutuante: R$ -5.00 | SL: 175110 TP: 175460
+2026-07-20 15:39:35,274 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175200 → Atual: 175205 | +5 pts | Flutuante: R$ +0.00 | SL: 175110 TP: 175460
+2026-07-20 15:39:40,285 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175200 → Atual: 175210 | +10 pts | Flutuante: R$ +10.00 | SL: 175110 TP: 175460
+2026-07-20 15:39:45,292 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175200 → Atual: 175200 | +0 pts | Flutuante: R$ -5.00 | SL: 175110 TP: 175460
+2026-07-20 15:39:50,296 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175200 → Atual: 175195 | -5 pts | Flutuante: R$ -10.00 | SL: 175110 TP: 175460
+2026-07-20 15:39:55,306 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175200 → Atual: 175205 | +5 pts | Flutuante: R$ +5.00 | SL: 175110 TP: 175460
+2026-07-20 15:40:00,317 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175200 → Atual: 175195 | -5 pts | Flutuante: R$ -15.00 | SL: 175110 TP: 175460
+2026-07-20 15:40:05,322 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175200 → Atual: 175185 | -15 pts | Flutuante: R$ -20.00 | SL: 175110 TP: 175460
+2026-07-20 15:40:10,323 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175200 → Atual: 175185 | -15 pts | Flutuante: R$ -20.00 | SL: 175110 TP: 175460
+2026-07-20 15:40:15,326 - INFO - 👁️ Monstro ativo | Modo: NORMAL
+2026-07-20 15:40:15,328 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 15:40:15,484 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 15:40:15,492 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175200 → Atual: 175180 | -20 pts | Flutuante: R$ -20.00 | SL: 175110 TP: 175460
+2026-07-20 15:40:20,501 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175200 → Atual: 175180 | -20 pts | Flutuante: R$ -20.00 | SL: 175110 TP: 175460
+2026-07-20 15:40:25,517 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175200 → Atual: 175190 | -10 pts | Flutuante: R$ -15.00 | SL: 175110 TP: 175460
+2026-07-20 15:40:30,523 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175200 → Atual: 175170 | -30 pts | Flutuante: R$ -30.00 | SL: 175110 TP: 175460
+2026-07-20 15:40:35,525 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175200 → Atual: 175170 | -30 pts | Flutuante: R$ -35.00 | SL: 175110 TP: 175460
+2026-07-20 15:40:40,538 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175200 → Atual: 175160 | -40 pts | Flutuante: R$ -40.00 | SL: 175110 TP: 175460
+2026-07-20 15:40:45,547 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175200 → Atual: 175140 | -60 pts | Flutuante: R$ -60.00 | SL: 175110 TP: 175460
+2026-07-20 15:40:50,556 - INFO - 🔍 Tentando obter lucro para ticket de ordem de abertura: 2483240909
+2026-07-20 15:40:50,556 - INFO - 💰 Deal de saída encontrado para ticket 2483240909: DealTicket=1807502979, PositionID=2483240909, Lucro=-90.00, Preço Saída=175110.0, Volume=5.0, Hora=2026-07-20 12:40:48)
+2026-07-20 15:40:50,557 - INFO - Found entry deal for score_dist calc (Order: 2483240909), execution price: 175200.0
+2026-07-20 15:40:50,561 - INFO - ✅ Experiência REAL salva: Ação=BUY, Lucro=-90.00, Score=-1.00 | Contador: 1/3
+2026-07-20 15:40:50,561 - INFO - 🎯 Resultado confluência registrado: Lucro=-90.00
+2026-07-20 15:40:50,562 - WARNING - 🚨 Taxa de acerto baixa: 22.2%
+2026-07-20 15:40:50,562 - INFO - 🛡️ Gerenciador de Saída DESATIVADO.
+2026-07-20 15:40:50,568 - INFO - 🔒 BACKUP INTELIGENTE: modelo_monstro_win.h5.backup_20260720_154050
+2026-07-20 15:40:50,572 - WARNING - You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+2026-07-20 15:40:50,668 - INFO - ✅ Modelo salvo (atômico) em formato h5: C:\AIOFEN\modelo_monstro_win.h5
+2026-07-20 15:40:50,737 - INFO - ✅ Modelo salvo (atômico) em formato keras: C:\AIOFEN\modelo_monstro_win.keras
+2026-07-20 15:40:50,737 - INFO - 💾 Modelo salvo após trade (aprendizado protegido).
+2026-07-20 15:40:50,738 - INFO - ✅ Posição 2483240909 processada e resetada.
+2026-07-20 15:40:51,753 - INFO - 📊 WINQ26 | Preço: 175120 | Spread: 5.0pts | BID: 7137 / ASK: 4741 | Desequilíbrio: 1.51x 🟢COMPRA
+2026-07-20 15:41:10.018288: E tensorflow/core/framework/node_def_util.cc:680] NodeDef mentions attribute use_unbounded_threadpool which is not in the op definition: Op<name=MapDataset; signature=input_dataset:variant, other_arguments: -> handle:variant; attr=f:func; attr=Targuments:list(type),min=0; attr=output_types:list(type),min=1; attr=output_shapes:list(shape),min=1; attr=use_inter_op_parallelism:bool,default=true; attr=preserve_cardinality:bool,default=false; attr=force_synchronous:bool,default=false; attr=metadata:string,default=""> This may be expected if your graph generating binary is newer  than this binary. Unknown attributes will be ignored. NodeDef: {{node ParallelMapDatasetV2/_14}}
+2026-07-20 15:41:10,078 - WARNING - ⚠️ CONFLUÊNCIA INSUFICIENTE: BUY=1, SELL=1 (mínimo 2 sinais)
+2026-07-20 15:41:10,078 - INFO - 🎯 CONFLUÊNCIA BLOQUEIA: Menos de 2 sinais técnicos (mínimo exigido)
+2026-07-20 15:41:10,079 - INFO - ⏸️ Não agindo: NADA (Confiança: 0.00 ou restrição).
+2026-07-20 15:41:39,404 - INFO - 😴 Standby: Aguardando Big Players... (Vol 11278/5000 | Ratio 1.02/2.0)
+2026-07-20 15:41:52,531 - INFO - 📊 WINQ26 | Preço: 175135 | Spread: 5.0pts | BID: 4874 / ASK: 6497 | Desequilíbrio: 1.33x 🔴VENDA
+
+
+veja abaixo mas um trade campeão  protegindo   
+
+2026-07-20 16:02:35.037327: E tensorflow/core/framework/node_def_util.cc:680] NodeDef mentions attribute use_unbounded_threadpool which is not in the op definition: Op<name=MapDataset; signature=input_dataset:variant, other_arguments: -> handle:variant; attr=f:func; attr=Targuments:list(type),min=0; attr=output_types:list(type),min=1; attr=output_shapes:list(shape),min=1; attr=use_inter_op_parallelism:bool,default=true; attr=preserve_cardinality:bool,default=false; attr=force_synchronous:bool,default=false; attr=metadata:string,default=""> This may be expected if your graph generating binary is newer  than this binary. Unknown attributes will be ignored. NodeDef: {{node ParallelMapDatasetV2/_14}}
+2026-07-20 16:02:35,099 - WARNING - 🎯 CONFLUÊNCIA SOBRESCREVE: IA=SELL (conf:0.64) → CONFLUÊNCIA=BUY
+2026-07-20 16:02:35,114 - INFO - ✅ Dados obtidos - Tick: Ask=175100.0, Bid=175095.0, Symbol: WINQ26
+2026-07-20 16:02:35,114 - INFO - ✅ Spread OK: 0.0 pontos
+2026-07-20 16:02:35,115 - INFO - 📊 Volume ajustado: 5.0 contratos
+2026-07-20 16:02:35,119 - INFO - 🚀 VOLUME MONUMENTAL (5000cc+): SL=100, TP=250 (R/R 1:2.5)
+2026-07-20 16:02:35,119 - INFO - 🔧 DEBUG SL/TP - Entrada: 175100.0, Ação: BUY
+2026-07-20 16:02:35,119 - INFO - 🔧 DEBUG SL/TP - SLOINTS: 100, TP_POINTS: 250
+2026-07-20 16:02:35,120 - INFO - 🔧 DEBUG SL/TP - Point: 1.0, TICKS_POR_PONTO: 10000
+2026-07-20 16:02:35,120 - INFO - 🔧 DEBUG SL/TP - SL_dist: 100.00000, TP_dist: 250.00000
+2026-07-20 16:02:35,121 - INFO - 🔧 DEBUG SL/TP - Calculado: SL=175000.0, TP=175350.0
+2026-07-20 16:02:35,562 - INFO - ✅ Ordem BUY executada. Ticket: 2483265708
+2026-07-20 16:02:35,562 - INFO -    Preço: 175100.000 | SL: 175000.000 | TP: 175350.000
+2026-07-20 16:02:36,077 - INFO - ✅ Ordem 2483265708 virou posição.
+2026-07-20 16:02:36,077 - INFO - 🎯 Trailing stop iniciado para posição 2483265708
+2026-07-20 16:02:36,078 - INFO - ⚖️ Operação BUY registrada. BUY: 6, SELL: 4 (BUY: 60.0%)
+2026-07-20 16:02:36,591 - INFO - ✅ Ordem 2483265708 virou posição.
+2026-07-20 16:02:36,592 - INFO - Found entry deal for order 2483265708, execution price: 175100.0
+2026-07-20 16:02:36,592 - INFO - 🛡️ Gerenciador de Saída ATIVADO para posição #2483265708
+2026-07-20 16:02:36,592 - INFO - 📊 Nova posição iniciada: Ticket=2483265708, Tipo=BUY, Entrada=175100.000, SL=175000.000, TP=175350.000, Score Inicial=-0.00
+2026-07-20 16:02:38,607 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175105 | +5 pts | Flutuante: R$ +5.00 | SL: 175000 TP: 175350
+2026-07-20 16:02:43,616 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175100 | +0 pts | Flutuante: R$ +0.00 | SL: 175000 TP: 175350
+2026-07-20 16:02:48,621 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175095 | -5 pts | Flutuante: R$ -5.00 | SL: 175000 TP: 175350
+2026-07-20 16:02:53,638 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175100 | +0 pts | Flutuante: R$ +0.00 | SL: 175000 TP: 175350
+2026-07-20 16:02:58,644 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175095 | -5 pts | Flutuante: R$ -10.00 | SL: 175000 TP: 175350
+2026-07-20 16:03:03,651 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175100 | +0 pts | Flutuante: R$ -5.00 | SL: 175000 TP: 175350
+2026-07-20 16:03:08,666 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175090 | -10 pts | Flutuante: R$ -15.00 | SL: 175000 TP: 175350
+2026-07-20 16:03:13,679 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175090 | -10 pts | Flutuante: R$ -15.00 | SL: 175000 TP: 175350
+2026-07-20 16:03:18,682 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175105 | +5 pts | Flutuante: R$ +5.00 | SL: 175000 TP: 175350
+2026-07-20 16:03:23,697 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175090 | -10 pts | Flutuante: R$ -15.00 | SL: 175000 TP: 175350
+2026-07-20 16:03:28,699 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175090 | -10 pts | Flutuante: R$ -10.00 | SL: 175000 TP: 175350
+2026-07-20 16:03:33,705 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175090 | -10 pts | Flutuante: R$ -10.00 | SL: 175000 TP: 175350
+2026-07-20 16:03:38,713 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175085 | -15 pts | Flutuante: R$ -15.00 | SL: 175000 TP: 175350
+2026-07-20 16:03:43,724 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175080 | -20 pts | Flutuante: R$ -20.00 | SL: 175000 TP: 175350
+2026-07-20 16:03:48,725 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175080 | -20 pts | Flutuante: R$ -25.00 | SL: 175000 TP: 175350
+2026-07-20 16:03:53,733 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175085 | -15 pts | Flutuante: R$ -20.00 | SL: 175000 TP: 175350
+2026-07-20 16:03:58,741 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175095 | -5 pts | Flutuante: R$ -15.00 | SL: 175000 TP: 175350
+2026-07-20 16:04:03,748 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175080 | -20 pts | Flutuante: R$ -20.00 | SL: 175000 TP: 175350
+2026-07-20 16:04:08,752 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175080 | -20 pts | Flutuante: R$ -25.00 | SL: 175000 TP: 175350
+2026-07-20 16:04:13,754 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175080 | -20 pts | Flutuante: R$ -25.00 | SL: 175000 TP: 175350
+2026-07-20 16:04:18,770 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175080 | -20 pts | Flutuante: R$ -25.00 | SL: 175000 TP: 175350
+2026-07-20 16:04:23,782 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175085 | -15 pts | Flutuante: R$ -20.00 | SL: 175000 TP: 175350
+2026-07-20 16:04:28,793 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175090 | -10 pts | Flutuante: R$ -10.00 | SL: 175000 TP: 175350
+2026-07-20 16:04:33,800 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175095 | -5 pts | Flutuante: R$ -5.00 | SL: 175000 TP: 175350
+2026-07-20 16:04:38,809 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175095 | -5 pts | Flutuante: R$ -10.00 | SL: 175000 TP: 175350
+2026-07-20 16:04:43,813 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175095 | -5 pts | Flutuante: R$ -5.00 | SL: 175000 TP: 175350
+2026-07-20 16:04:48,816 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175105 | +5 pts | Flutuante: R$ +5.00 | SL: 175000 TP: 175350
+2026-07-20 16:04:53,830 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175110 | +10 pts | Flutuante: R$ +10.00 | SL: 175000 TP: 175350
+2026-07-20 16:04:58,831 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175115 | +15 pts | Flutuante: R$ +20.00 | SL: 175000 TP: 175350
+2026-07-20 16:05:03,848 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175120 | +20 pts | Flutuante: R$ +20.00 | SL: 175000 TP: 175350
+2026-07-20 16:05:08,856 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175100 | +0 pts | Flutuante: R$ -5.00 | SL: 175000 TP: 175350
+2026-07-20 16:05:13,863 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175115 | +15 pts | Flutuante: R$ +15.00 | SL: 175000 TP: 175350
+2026-07-20 16:05:18,869 - INFO - 👁️ Monstro ativo | Modo: NORMAL
+2026-07-20 16:05:18,872 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 16:05:19,012 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 16:05:19,019 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175120 | +20 pts | Flutuante: R$ +20.00 | SL: 175000 TP: 175350
+2026-07-20 16:05:24,034 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175115 | +15 pts | Flutuante: R$ +15.00 | SL: 175000 TP: 175350
+2026-07-20 16:05:29,050 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175100 | +0 pts | Flutuante: R$ -5.00 | SL: 175000 TP: 175350
+2026-07-20 16:05:34,057 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175085 | -15 pts | Flutuante: R$ -20.00 | SL: 175000 TP: 175350
+2026-07-20 16:05:39,071 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175080 | -20 pts | Flutuante: R$ -25.00 | SL: 175000 TP: 175350
+2026-07-20 16:05:44,074 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175085 | -15 pts | Flutuante: R$ -20.00 | SL: 175000 TP: 175350
+2026-07-20 16:05:49,080 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175080 | -20 pts | Flutuante: R$ -15.00 | SL: 175000 TP: 175350
+2026-07-20 16:05:54,087 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175090 | -10 pts | Flutuante: R$ -15.00 | SL: 175000 TP: 175350
+2026-07-20 16:05:59,090 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175085 | -15 pts | Flutuante: R$ -20.00 | SL: 175000 TP: 175350
+2026-07-20 16:06:04,104 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175080 | -20 pts | Flutuante: R$ -20.00 | SL: 175000 TP: 175350
+2026-07-20 16:06:09,115 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175095 | -5 pts | Flutuante: R$ -10.00 | SL: 175000 TP: 175350
+2026-07-20 16:06:14,133 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175080 | -20 pts | Flutuante: R$ -25.00 | SL: 175000 TP: 175350
+2026-07-20 16:06:19,134 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175080 | -20 pts | Flutuante: R$ -25.00 | SL: 175000 TP: 175350
+2026-07-20 16:06:24,146 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175070 | -30 pts | Flutuante: R$ -35.00 | SL: 175000 TP: 175350
+2026-07-20 16:06:29,154 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175075 | -25 pts | Flutuante: R$ -25.00 | SL: 175000 TP: 175350
+2026-07-20 16:06:34,163 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175075 | -25 pts | Flutuante: R$ -25.00 | SL: 175000 TP: 175350
+2026-07-20 16:06:39,178 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175080 | -20 pts | Flutuante: R$ -20.00 | SL: 175000 TP: 175350
+2026-07-20 16:06:44,190 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175085 | -15 pts | Flutuante: R$ -15.00 | SL: 175000 TP: 175350
+2026-07-20 16:06:49,206 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175080 | -20 pts | Flutuante: R$ -25.00 | SL: 175000 TP: 175350
+2026-07-20 16:06:54,212 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175080 | -20 pts | Flutuante: R$ -20.00 | SL: 175000 TP: 175350
+2026-07-20 16:06:59,226 - INFO - 💓 🔴 BUY WINQ26 | Entrada: 175100 → Atual: 175090 | -10 pts | Flutuante: R$ -10.00 | SL: 175000 TP: 175350
+2026-07-20 16:07:04,234 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175110 | +10 pts | Flutuante: R$ +10.00 | SL: 175000 TP: 175350
+2026-07-20 16:07:09,251 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175120 | +20 pts | Flutuante: R$ +20.00 | SL: 175000 TP: 175350
+2026-07-20 16:07:14,255 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175120 | +20 pts | Flutuante: R$ +20.00 | SL: 175000 TP: 175350
+2026-07-20 16:07:19,265 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175125 | +25 pts | Flutuante: R$ +25.00 | SL: 175000 TP: 175350
+2026-07-20 16:07:24,280 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175130 | +30 pts | Flutuante: R$ +30.00 | SL: 175000 TP: 175350
+2026-07-20 16:07:29,285 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175120 | +20 pts | Flutuante: R$ +15.00 | SL: 175000 TP: 175350
+2026-07-20 16:07:34,297 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175105 | +5 pts | Flutuante: R$ +0.00 | SL: 175000 TP: 175350
+2026-07-20 16:07:39,313 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175150 | +50 pts | Flutuante: R$ +50.00 | SL: 175000 TP: 175350
+2026-07-20 16:07:44,320 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175145 | +45 pts | Flutuante: R$ +40.00 | SL: 175000 TP: 175350
+2026-07-20 16:07:49,322 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175130 | +30 pts | Flutuante: R$ +25.00 | SL: 175000 TP: 175350
+2026-07-20 16:07:54,328 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175145 | +45 pts | Flutuante: R$ +45.00 | SL: 175000 TP: 175350
+2026-07-20 16:07:59,337 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175150 | +50 pts | Flutuante: R$ +50.00 | SL: 175000 TP: 175350
+2026-07-20 16:08:04,346 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175135 | +35 pts | Flutuante: R$ +30.00 | SL: 175000 TP: 175350
+2026-07-20 16:08:09,350 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175130 | +30 pts | Flutuante: R$ +25.00 | SL: 175000 TP: 175350
+2026-07-20 16:08:14,353 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175135 | +35 pts | Flutuante: R$ +30.00 | SL: 175000 TP: 175350
+2026-07-20 16:08:19,360 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175145 | +45 pts | Flutuante: R$ +40.00 | SL: 175000 TP: 175350
+2026-07-20 16:08:24,374 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175140 | +40 pts | Flutuante: R$ +40.00 | SL: 175000 TP: 175350
+2026-07-20 16:08:29,384 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175140 | +40 pts | Flutuante: R$ +35.00 | SL: 175000 TP: 175350
+2026-07-20 16:08:34,389 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175140 | +40 pts | Flutuante: R$ +40.00 | SL: 175000 TP: 175350
+2026-07-20 16:08:39,396 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175150 | +50 pts | Flutuante: R$ +50.00 | SL: 175000 TP: 175350
+2026-07-20 16:08:44,410 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175145 | +45 pts | Flutuante: R$ +40.00 | SL: 175000 TP: 175350
+2026-07-20 16:08:49,423 - INFO - 💓 🟢 BUY WINQ26 | Entrada: 175100 → Atual: 175145 | +45 pts | Flutuante: R$ +45.00 | SL: 175000 TP: 175350
+
+ja esta protegindo a ia agora ficaria analizando o merdado em silencio se estivesse um volume contraio muito grande ela encerraria essa operacao mas o volume precisa realmente ser algo memoravel para ela nao fica uma ia filha de pai assutaaddo que sai da operacao a qualquer sinal de vim contr sei la criar um ratio para saida um ratio contrario  assim como temos um ratio de entrada outro de saida sei la souma ideia vc melhora ela a seu melhor vies. a configuracao do jeito que esta esta acertando a maioria das vezes o lado correto temps que pensar tbmse e uma boa hora de aumentar o ratio ´para filtra mais aida os trades ponha opcoes vamos deliberar sobe isso.
+2026-07-20 16:19:12,715 - INFO - 🎯 CONFLUÊNCIA CONFIRMA: SELL | Confiança aumentada: 0.54
+2026-07-20 16:19:12,730 - INFO - ✅ Dados obtidos - Tick: Ask=175020.0, Bid=175015.0, Symbol: WINQ26
+2026-07-20 16:19:12,730 - INFO - ✅ Spread OK: 0.0 pontos
+2026-07-20 16:19:12,731 - INFO - 📊 Volume ajustado: 5.0 contratos
+2026-07-20 16:19:12,733 - INFO - 🚀 VOLUME MONUMENTAL (5000cc+): SL=100, TP=250 (R/R 1:2.5)
+2026-07-20 16:19:12,733 - INFO - 🔧 DEBUG SL/TP - Entrada: 175015.0, Ação: SELL
+2026-07-20 16:19:12,734 - INFO - 🔧 DEBUG SL/TP - SLOINTS: 100, TP_POINTS: 250
+2026-07-20 16:19:12,734 - INFO - 🔧 DEBUG SL/TP - Point: 1.0, TICKS_POR_PONTO: 10000
+2026-07-20 16:19:12,734 - INFO - 🔧 DEBUG SL/TP - SL_dist: 100.00000, TP_dist: 250.00000
+2026-07-20 16:19:12,735 - INFO - 🔧 DEBUG SL/TP - Calculado: SL=175115.0, TP=174765.0
+2026-07-20 16:19:13,015 - INFO - ✅ Ordem SELL executada. Ticket: 2483303858
+2026-07-20 16:19:13,015 - INFO -    Preço: 175015.000 | SL: 175115.000 | TP: 174765.000
+2026-07-20 16:19:13,524 - INFO - ✅ Ordem 2483303858 virou posição.
+2026-07-20 16:19:13,524 - INFO - 🎯 Trailing stop iniciado para posição 2483303858
+2026-07-20 16:19:13,525 - INFO - ⚖️ Operação SELL registrada. BUY: 6, SELL: 5 (BUY: 54.5%)
+2026-07-20 16:19:14,028 - INFO - ✅ Ordem 2483303858 virou posição.
+2026-07-20 16:19:14,028 - INFO - Found entry deal for order 2483303858, execution price: 175015.0
+2026-07-20 16:19:14,029 - INFO - 🛡️ Gerenciador de Saída ATIVADO para posição #2483303858
+2026-07-20 16:19:14,029 - INFO - 📊 Nova posição iniciada: Ticket=2483303858, Tipo=SELL, Entrada=175015.000, SL=175115.000, TP=174765.000, Score Inicial=-0.00
+2026-07-20 16:19:16,044 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175005 | +10 pts | Flutuante: R$ +5.00 | SL: 175115 TP: 174765
+
+olhe a confianca ratio  e diso que estou falando refina isso que ja esta bom e tentar talves ficar melhor mas como falei vc vai trazer opcoes se achar que devemos mecher com isso. sei que time que esta ganhando  naose meche mas time que ta ganhando podemos fazer ganhar sempre. 
+
+abaixo mas uma operacoa vitoriosa mas essa o pythom demorou mas pra proteger   veja    2026-07-20 16:19:12.650149: E tensorflow/core/framework/node_def_util.cc:680] NodeDef mentions attribute use_unbounded_threadpool which is not in the op definition: Op<name=MapDataset; signature=input_dataset:variant, other_arguments: -> handle:variant; attr=f:func; attr=Targuments:list(type),min=0; attr=output_types:list(type),min=1; attr=output_shapes:list(shape),min=1; attr=use_inter_op_parallelism:bool,default=true; attr=preserve_cardinality:bool,default=false; attr=force_synchronous:bool,default=false; attr=metadata:string,default=""> This may be expected if your graph generating binary is newer  than this binary. Unknown attributes will be ignored. NodeDef: {{node ParallelMapDatasetV2/_14}}
+2026-07-20 16:19:12,715 - INFO - 🎯 CONFLUÊNCIA CONFIRMA: SELL | Confiança aumentada: 0.54
+2026-07-20 16:19:12,730 - INFO - ✅ Dados obtidos - Tick: Ask=175020.0, Bid=175015.0, Symbol: WINQ26
+2026-07-20 16:19:12,730 - INFO - ✅ Spread OK: 0.0 pontos
+2026-07-20 16:19:12,731 - INFO - 📊 Volume ajustado: 5.0 contratos
+2026-07-20 16:19:12,733 - INFO - 🚀 VOLUME MONUMENTAL (5000cc+): SL=100, TP=250 (R/R 1:2.5)
+2026-07-20 16:19:12,733 - INFO - 🔧 DEBUG SL/TP - Entrada: 175015.0, Ação: SELL
+2026-07-20 16:19:12,734 - INFO - 🔧 DEBUG SL/TP - SLOINTS: 100, TP_POINTS: 250
+2026-07-20 16:19:12,734 - INFO - 🔧 DEBUG SL/TP - Point: 1.0, TICKS_POR_PONTO: 10000
+2026-07-20 16:19:12,734 - INFO - 🔧 DEBUG SL/TP - SL_dist: 100.00000, TP_dist: 250.00000
+2026-07-20 16:19:12,735 - INFO - 🔧 DEBUG SL/TP - Calculado: SL=175115.0, TP=174765.0
+2026-07-20 16:19:13,015 - INFO - ✅ Ordem SELL executada. Ticket: 2483303858
+2026-07-20 16:19:13,015 - INFO -    Preço: 175015.000 | SL: 175115.000 | TP: 174765.000
+2026-07-20 16:19:13,524 - INFO - ✅ Ordem 2483303858 virou posição.
+2026-07-20 16:19:13,524 - INFO - 🎯 Trailing stop iniciado para posição 2483303858
+2026-07-20 16:19:13,525 - INFO - ⚖️ Operação SELL registrada. BUY: 6, SELL: 5 (BUY: 54.5%)
+2026-07-20 16:19:14,028 - INFO - ✅ Ordem 2483303858 virou posição.
+2026-07-20 16:19:14,028 - INFO - Found entry deal for order 2483303858, execution price: 175015.0
+2026-07-20 16:19:14,029 - INFO - 🛡️ Gerenciador de Saída ATIVADO para posição #2483303858
+2026-07-20 16:19:14,029 - INFO - 📊 Nova posição iniciada: Ticket=2483303858, Tipo=SELL, Entrada=175015.000, SL=175115.000, TP=174765.000, Score Inicial=-0.00
+2026-07-20 16:19:16,044 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175005 | +10 pts | Flutuante: R$ +5.00 | SL: 175115 TP: 174765
+2026-07-20 16:19:21,056 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175010 | +5 pts | Flutuante: R$ +0.00 | SL: 175115 TP: 174765
+2026-07-20 16:19:26,071 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175005 | +10 pts | Flutuante: R$ +10.00 | SL: 175115 TP: 174765
+2026-07-20 16:19:31,074 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175010 | +5 pts | Flutuante: R$ +0.00 | SL: 175115 TP: 174765
+2026-07-20 16:19:36,080 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175010 | +5 pts | Flutuante: R$ +0.00 | SL: 175115 TP: 174765
+2026-07-20 16:19:41,087 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175005 | +10 pts | Flutuante: R$ +5.00 | SL: 175115 TP: 174765
+2026-07-20 16:19:46,097 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175005 | +10 pts | Flutuante: R$ +10.00 | SL: 175115 TP: 174765
+2026-07-20 16:19:51,113 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175000 | +15 pts | Flutuante: R$ +15.00 | SL: 175115 TP: 174765
+2026-07-20 16:19:56,125 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175005 | +10 pts | Flutuante: R$ +10.00 | SL: 175115 TP: 174765
+2026-07-20 16:20:01,138 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175000 | +15 pts | Flutuante: R$ +10.00 | SL: 175115 TP: 174765
+2026-07-20 16:20:06,145 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175010 | +5 pts | Flutuante: R$ +0.00 | SL: 175115 TP: 174765
+2026-07-20 16:20:11,157 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 175015 → Atual: 175015 | +0 pts | Flutuante: R$ -5.00 | SL: 175115 TP: 174765
+2026-07-20 16:20:16,168 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175000 | +15 pts | Flutuante: R$ +15.00 | SL: 175115 TP: 174765
+2026-07-20 16:20:21,184 - INFO - 👁️ Monstro ativo | Modo: NORMAL
+2026-07-20 16:20:21,186 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 16:20:21,315 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 16:20:21,321 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 175015 → Atual: 175020 | -5 pts | Flutuante: R$ -10.00 | SL: 175115 TP: 174765
+2026-07-20 16:20:26,345 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175020 | -5 pts | Flutuante: R$ +0.00 | SL: 175115 TP: 174765
+2026-07-20 16:20:31,359 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 175015 → Atual: 175020 | -5 pts | Flutuante: R$ -10.00 | SL: 175115 TP: 174765
+2026-07-20 16:20:36,373 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 175015 → Atual: 175025 | -10 pts | Flutuante: R$ -10.00 | SL: 175115 TP: 174765
+2026-07-20 16:20:41,389 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 175015 → Atual: 175030 | -15 pts | Flutuante: R$ -15.00 | SL: 175115 TP: 174765
+2026-07-20 16:20:46,396 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 175015 → Atual: 175020 | -5 pts | Flutuante: R$ -10.00 | SL: 175115 TP: 174765
+2026-07-20 16:20:51,408 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175010 | +5 pts | Flutuante: R$ +5.00 | SL: 175115 TP: 174765
+2026-07-20 16:20:56,421 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174990 | +25 pts | Flutuante: R$ +25.00 | SL: 175115 TP: 174765
+2026-07-20 16:21:01,434 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174990 | +25 pts | Flutuante: R$ +20.00 | SL: 175115 TP: 174765
+2026-07-20 16:21:06,447 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174995 | +20 pts | Flutuante: R$ +10.00 | SL: 175115 TP: 174765
+2026-07-20 16:21:11,461 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175000 | +15 pts | Flutuante: R$ +15.00 | SL: 175115 TP: 174765
+2026-07-20 16:21:16,474 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175000 | +15 pts | Flutuante: R$ +15.00 | SL: 175115 TP: 174765
+2026-07-20 16:21:21,478 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175010 | +5 pts | Flutuante: R$ +0.00 | SL: 175115 TP: 174765
+2026-07-20 16:21:26,489 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175005 | +10 pts | Flutuante: R$ +10.00 | SL: 175115 TP: 174765
+2026-07-20 16:21:31,497 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175005 | +10 pts | Flutuante: R$ +10.00 | SL: 175115 TP: 174765
+2026-07-20 16:21:36,501 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175000 | +15 pts | Flutuante: R$ +10.00 | SL: 175115 TP: 174765
+2026-07-20 16:21:41,512 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175000 | +15 pts | Flutuante: R$ +15.00 | SL: 175115 TP: 174765
+2026-07-20 16:21:46,518 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 175005 | +10 pts | Flutuante: R$ +10.00 | SL: 175115 TP: 174765
+2026-07-20 16:21:51,520 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174990 | +25 pts | Flutuante: R$ +25.00 | SL: 175115 TP: 174765
+2026-07-20 16:21:56,531 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174970 | +45 pts | Flutuante: R$ +45.00 | SL: 175115 TP: 174765
+2026-07-20 16:22:01,535 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174940 | +75 pts | Flutuante: R$ +70.00 | SL: 175115 TP: 174765
+2026-07-20 16:22:06,544 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174940 | +75 pts | Flutuante: R$ +70.00 | SL: 175115 TP: 174765
+2026-07-20 16:22:11,555 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174945 | +70 pts | Flutuante: R$ +65.00 | SL: 175115 TP: 174765
+2026-07-20 16:22:16,564 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174945 | +70 pts | Flutuante: R$ +65.00 | SL: 175115 TP: 174765
+2026-07-20 16:22:21,579 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174945 | +70 pts | Flutuante: R$ +65.00 | SL: 175115 TP: 174765
+2026-07-20 16:22:26,596 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174945 | +70 pts | Flutuante: R$ +65.00 | SL: 175115 TP: 174765
+2026-07-20 16:22:31,598 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174955 | +60 pts | Flutuante: R$ +55.00 | SL: 175115 TP: 174765
+2026-07-20 16:22:36,615 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174965 | +50 pts | Flutuante: R$ +50.00 | SL: 175115 TP: 174765
+2026-07-20 16:22:41,623 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174975 | +40 pts | Flutuante: R$ +40.00 | SL: 175115 TP: 174765
+2026-07-20 16:22:46,627 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174975 | +40 pts | Flutuante: R$ +35.00 | SL: 175115 TP: 174765
+2026-07-20 16:22:51,635 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174970 | +45 pts | Flutuante: R$ +40.00 | SL: 175115 TP: 174765
+2026-07-20 16:22:56,647 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174965 | +50 pts | Flutuante: R$ +50.00 | SL: 175115 TP: 174765
+2026-07-20 16:23:01,663 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174965 | +50 pts | Flutuante: R$ +50.00 | SL: 175115 TP: 174765
+2026-07-20 16:23:06,669 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174965 | +50 pts | Flutuante: R$ +45.00 | SL: 175115 TP: 174765
+2026-07-20 16:23:11,677 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174940 | +75 pts | Flutuante: R$ +70.00 | SL: 175115 TP: 174765
+2026-07-20 16:23:16,686 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174945 | +70 pts | Flutuante: R$ +65.00 | SL: 175115 TP: 174765
+2026-07-20 16:23:21,698 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174945 | +70 pts | Flutuante: R$ +70.00 | SL: 175115 TP: 174765
+2026-07-20 16:23:26,710 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174940 | +75 pts | Flutuante: R$ +70.00 | SL: 175115 TP: 174765
+2026-07-20 16:23:31,722 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174935 | +80 pts | Flutuante: R$ +75.00 | SL: 175115 TP: 174765
+2026-07-20 16:23:31,723 - INFO - 🔧 Decisão de Ajuste SELL: Novo SL 174975.00 (Melhoria de 175115.00)
+2026-07-20 16:23:31,724 - INFO - 🔧 Decisão de Ajuste: Novo SL 174975.00
+2026-07-20 16:23:32,055 - INFO - 🔐 SL atualizado com sucesso! 175115.00 → 174975.00 (Ticket: 2483303858)
+2026-07-20 16:23:37,062 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174950 | +65 pts | Flutuante: R$ +65.00 | SL: 174975 TP: 174765
+2026-07-20 16:23:42,077 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175015 → Atual: 174950 | +65 pts | Flutuante: R$ +60.00 | SL: 174975 TP: 174765
+2026-07-20 16:23:47,078 - INFO - 🔍 Tentando obter lucro para ticket de ordem de abertura: 2483303858
+2026-07-20 16:23:47,079 - INFO - 💰 Deal de saída encontrado para ticket 2483303858: DealTicket=1807564733, PositionID=2483303858, Lucro=40.00, Preço Saída=174975.0, Volume=5.0, Hora=2026-07-20 13:23:46)
+2026-07-20 16:23:47,080 - INFO - Found entry deal for score_dist calc (Order: 2483303858), execution price: 175015.0
+2026-07-20 16:23:47,085 - INFO - ✅ Experiência REAL salva: Ação=SELL, Lucro=40.00, Score=0.16 | Contador: 3/3
+2026-07-20 16:23:47,086 - INFO - 🎯 Resultado confluência registrado: Lucro=40.00
+2026-07-20 16:23:47,087 - INFO - 🧠 Iniciando treinamento após 3 experiências novas
+2026-07-20 16:23:47,087 - INFO - [treinar_modelo] Iniciando treino com VALIDAÇÃO. Tenho 188 experiências.
+2026-07-20 16:23:47,102 - INFO - Dados divididos: 21 para treino, 6 para validação.
+2026-07-20 16:23:47.171336: E tensorflow/core/framework/node_def_util.cc:680] NodeDef mentions attribute use_unbounded_threadpool which is not in the op definition: Op<name=MapDataset; signature=input_dataset:variant, other_arguments: -> handle:variant; attr=f:func; attr=Targuments:list(type),min=0; attr=output_types:list(type),min=1; attr=output_shapes:list(shape),min=1; attr=use_inter_op_parallelism:bool,default=true; attr=preserve_cardinality:bool,default=false; attr=force_synchronous:bool,default=false; attr=metadata:string,default=""> This may be expected if your graph generating binary is newer  than this binary. Unknown attributes will be ignored. NodeDef: {{node ParallelMapDatasetV2/_15}}
+2026-07-20 16:23:47,251 - INFO - Performance do Modelo ANTIGO na validação: Loss=0.6416, Acurácia=1.0000
+2026-07-20 16:23:48,331 - INFO - Performance do Modelo NOVO na validação: Loss=0.6224, Acurácia=1.0000
+2026-07-20 16:23:48,333 - INFO - ✅ MELHORIA REAL: Loss 0.6416 → 0.6224 (3.0%). Salvando.
+2026-07-20 16:23:48,338 - INFO - 🔒 BACKUP INTELIGENTE: modelo_monstro_win.h5.backup_20260720_162348
+2026-07-20 16:23:48,342 - WARNING - You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+2026-07-20 16:23:48,399 - INFO - ✅ Modelo salvo (atômico) em formato h5: C:\AIOFEN\modelo_monstro_win.h5
+2026-07-20 16:23:48,463 - INFO - ✅ Modelo salvo (atômico) em formato keras: C:\AIOFEN\modelo_monstro_win.keras
+2026-07-20 16:23:48,464 - INFO - [treinar_modelo] PRESTES A SALVAR O MODELO.
+2026-07-20 16:23:48,469 - INFO - ✅ PA2 FILTRO DE MEMÓRIA: 19/188 experiências positivas salvas em experiencias.json
+2026-07-20 16:23:48,469 - INFO - 🧠 Modelo treinado por 3 épocas. Loss final: 0.1941
+2026-07-20 16:23:48,470 - INFO - 🛡️ Gerenciador de Saída DESATIVADO.
+2026-07-20 16:23:48,476 - INFO - 🔒 BACKUP INTELIGENTE: modelo_monstro_win.h5.backup_20260720_162348
+2026-07-20 16:23:48,479 - WARNING - You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+2026-07-20 16:23:48,537 - INFO - ✅ Modelo salvo (atômico) em formato h5: C:\AIOFEN\modelo_monstro_win.h5
+2026-07-20 16:23:48,607 - INFO - ✅ Modelo salvo (atômico) em formato keras: C:\AIOFEN\modelo_monstro_win.keras
+2026-07-20 16:23:48,607 - INFO - 💾 Modelo salvo após trade (aprendizado protegido).
+2026-07-20 16:23:48,607 - INFO - ✅ Posição 2483303858 processada e resetada.
+2026-07-20 16:23:49,623 - INFO - 📊 WINQ26 | Preço: 174975 | Spread: 5.0pts | BID: 3670 / ASK: 6358 | Desequilíbrio: 1.7 
 
 
 
+exemplo de loss
 
 
+2026-07-20 16:23:48,399 - INFO - ✅ Modelo salvo (atômico) em formato h5: C:\AIOFEN\modelo_monstro_win.h5
+2026-07-20 16:23:48,463 - INFO - ✅ Modelo salvo (atômico) em formato keras: C:\AIOFEN\modelo_monstro_win.keras
+2026-07-20 16:23:48,464 - INFO - [treinar_modelo] PRESTES A SALVAR O MODELO.
+2026-07-20 16:23:48,469 - INFO - ✅ PA2 FILTRO DE MEMÓRIA: 19/188 experiências positivas salvas em experiencias.json
+2026-07-20 16:23:48,469 - INFO - 🧠 Modelo treinado por 3 épocas. Loss final: 0.1941
+2026-07-20 16:23:48,470 - INFO - 🛡️ Gerenciador de Saída DESATIVADO.
+2026-07-20 16:23:48,476 - INFO - 🔒 BACKUP INTELIGENTE: modelo_monstro_win.h5.backup_20260720_162348
+2026-07-20 16:23:48,479 - WARNING - You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+2026-07-20 16:23:48,537 - INFO - ✅ Modelo salvo (atômico) em formato h5: C:\AIOFEN\modelo_monstro_win.h5
+2026-07-20 16:23:48,607 - INFO - ✅ Modelo salvo (atômico) em formato keras: C:\AIOFEN\modelo_monstro_win.keras
+2026-07-20 16:23:48,607 - INFO - 💾 Modelo salvo após trade (aprendizado protegido).
+2026-07-20 16:23:48,607 - INFO - ✅ Posição 2483303858 processada e resetada.
+2026-07-20 16:23:49,623 - INFO - 📊 WINQ26 | Preço: 174975 | Spread: 5.0pts | BID: 3670 / ASK: 6358 | Desequilíbrio: 1.73x 🔴VENDA
+2026-07-20 16:23:49,626 - INFO - 😴 Standby: Aguardando Big Players... (Vol 10028/5000 | Ratio 1.73/2.0)
+2026-07-20 16:23:51,772 - INFO - 🎯 CONFLUÊNCIA CONFIRMA: SELL | Confiança aumentada: 0.48
+2026-07-20 16:23:51,788 - INFO - ✅ Dados obtidos - Tick: Ask=174980.0, Bid=174975.0, Symbol: WINQ26
+2026-07-20 16:23:51,788 - INFO - ✅ Spread OK: 0.0 pontos
+2026-07-20 16:23:51,789 - INFO - 📊 Volume ajustado: 5.0 contratos
+2026-07-20 16:23:51,792 - INFO - 🚀 VOLUME MONUMENTAL (5000cc+): SL=100, TP=250 (R/R 1:2.5)
+2026-07-20 16:23:51,793 - INFO - 🔧 DEBUG SL/TP - Entrada: 174975.0, Ação: SELL
+2026-07-20 16:23:51,793 - INFO - 🔧 DEBUG SL/TP - SLOINTS: 100, TP_POINTS: 250
+2026-07-20 16:23:51,793 - INFO - 🔧 DEBUG SL/TP - Point: 1.0, TICKS_POR_PONTO: 10000
+2026-07-20 16:23:51,794 - INFO - 🔧 DEBUG SL/TP - SL_dist: 100.00000, TP_dist: 250.00000
+2026-07-20 16:23:51,794 - INFO - 🔧 DEBUG SL/TP - Calculado: SL=175075.0, TP=174725.0
+2026-07-20 16:23:52,098 - INFO - ✅ Ordem SELL executada. Ticket: 2483313267
+2026-07-20 16:23:52,099 - INFO -    Preço: 174975.000 | SL: 175075.000 | TP: 174725.000
+2026-07-20 16:23:52,602 - INFO - ✅ Ordem 2483313267 virou posição.
+2026-07-20 16:23:52,603 - INFO - 🎯 Trailing stop iniciado para posição 2483313267
+2026-07-20 16:23:52,603 - INFO - ⚖️ Operação SELL registrada. BUY: 6, SELL: 6 (BUY: 50.0%)
+2026-07-20 16:23:53,119 - INFO - ✅ Ordem 2483313267 virou posição.
+2026-07-20 16:23:53,120 - INFO - Found entry deal for order 2483313267, execution price: 174970.0
+2026-07-20 16:23:53,120 - INFO - 🛡️ Gerenciador de Saída ATIVADO para posição #2483313267
+2026-07-20 16:23:53,121 - INFO - 📊 Nova posição iniciada: Ticket=2483313267, Tipo=SELL, Entrada=174970.000, SL=175075.000, TP=174725.000, Score Inicial=-0.00
+2026-07-20 16:23:55,134 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 174985 | -15 pts | Flutuante: R$ -20.00 | SL: 175075 TP: 174725
+2026-07-20 16:24:00,140 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175000 | -30 pts | Flutuante: R$ -30.00 | SL: 175075 TP: 174725
+2026-07-20 16:24:05,142 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175025 | -55 pts | Flutuante: R$ -60.00 | SL: 175075 TP: 174725
+2026-07-20 16:24:10,149 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175025 | -55 pts | Flutuante: R$ -60.00 | SL: 175075 TP: 174725
+2026-07-20 16:24:15,163 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175030 | -60 pts | Flutuante: R$ -60.00 | SL: 175075 TP: 174725
+2026-07-20 16:24:20,168 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175035 | -65 pts | Flutuante: R$ -70.00 | SL: 175075 TP: 174725
+2026-07-20 16:24:25,181 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175035 | -65 pts | Flutuante: R$ -65.00 | SL: 175075 TP: 174725
+2026-07-20 16:24:30,196 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175035 | -65 pts | Flutuante: R$ -45.00 | SL: 175075 TP: 174725
+2026-07-20 16:24:35,203 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175030 | -60 pts | Flutuante: R$ -60.00 | SL: 175075 TP: 174725
+2026-07-20 16:24:40,214 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175020 | -50 pts | Flutuante: R$ -45.00 | SL: 175075 TP: 174725
+2026-07-20 16:24:45,230 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175010 | -40 pts | Flutuante: R$ -40.00 | SL: 175075 TP: 174725
+2026-07-20 16:24:50,238 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175015 | -45 pts | Flutuante: R$ -50.00 | SL: 175075 TP: 174725
+2026-07-20 16:24:55,255 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175015 | -45 pts | Flutuante: R$ -50.00 | SL: 175075 TP: 174725
+2026-07-20 16:25:00,265 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175020 | -50 pts | Flutuante: R$ -55.00 | SL: 175075 TP: 174725
+2026-07-20 16:25:05,281 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175020 | -50 pts | Flutuante: R$ -55.00 | SL: 175075 TP: 174725
+2026-07-20 16:25:10,294 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175020 | -50 pts | Flutuante: R$ -55.00 | SL: 175075 TP: 174725
+2026-07-20 16:25:15,304 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175025 | -55 pts | Flutuante: R$ -60.00 | SL: 175075 TP: 174725
+2026-07-20 16:25:20,320 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175020 | -50 pts | Flutuante: R$ -50.00 | SL: 175075 TP: 174725
+2026-07-20 16:25:25,335 - INFO - 👁️ Monstro ativo | Modo: NORMAL
+2026-07-20 16:25:25,337 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 16:25:25,472 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 16:25:25,481 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175030 | -60 pts | Flutuante: R$ -70.00 | SL: 175075 TP: 174725
+2026-07-20 16:25:30,495 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175025 | -55 pts | Flutuante: R$ -60.00 | SL: 175075 TP: 174725
+2026-07-20 16:25:35,504 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175025 | -55 pts | Flutuante: R$ -55.00 | SL: 175075 TP: 174725
+2026-07-20 16:25:40,513 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175020 | -50 pts | Flutuante: R$ -55.00 | SL: 175075 TP: 174725
+2026-07-20 16:25:45,517 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175010 | -40 pts | Flutuante: R$ -40.00 | SL: 175075 TP: 174725
+2026-07-20 16:25:50,534 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175020 | -50 pts | Flutuante: R$ -50.00 | SL: 175075 TP: 174725
+2026-07-20 16:25:55,545 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175010 | -40 pts | Flutuante: R$ -45.00 | SL: 175075 TP: 174725
+2026-07-20 16:26:00,555 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175010 | -40 pts | Flutuante: R$ -40.00 | SL: 175075 TP: 174725
+2026-07-20 16:26:05,565 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175010 | -40 pts | Flutuante: R$ -45.00 | SL: 175075 TP: 174725
+2026-07-20 16:26:10,571 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 174995 | -25 pts | Flutuante: R$ -30.00 | SL: 175075 TP: 174725
+2026-07-20 16:26:15,584 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175015 | -45 pts | Flutuante: R$ -50.00 | SL: 175075 TP: 174725
+2026-07-20 16:26:20,587 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175025 | -55 pts | Flutuante: R$ -60.00 | SL: 175075 TP: 174725
+2026-07-20 16:26:25,597 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175015 | -45 pts | Flutuante: R$ -45.00 | SL: 175075 TP: 174725
+2026-07-20 16:26:30,602 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175015 | -45 pts | Flutuante: R$ -50.00 | SL: 175075 TP: 174725
+2026-07-20 16:26:35,618 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175010 | -40 pts | Flutuante: R$ -45.00 | SL: 175075 TP: 174725
+2026-07-20 16:26:40,634 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175015 | -45 pts | Flutuante: R$ -45.00 | SL: 175075 TP: 174725
+2026-07-20 16:26:45,647 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175015 | -45 pts | Flutuante: R$ -45.00 | SL: 175075 TP: 174725
+2026-07-20 16:26:50,655 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175015 | -45 pts | Flutuante: R$ -50.00 | SL: 175075 TP: 174725
+2026-07-20 16:26:55,670 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175005 | -35 pts | Flutuante: R$ -40.00 | SL: 175075 TP: 174725
+2026-07-20 16:27:00,684 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175010 | -40 pts | Flutuante: R$ -40.00 | SL: 175075 TP: 174725
+2026-07-20 16:27:05,691 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 174985 | -15 pts | Flutuante: R$ -15.00 | SL: 175075 TP: 174725
+2026-07-20 16:27:10,693 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 174975 | -5 pts | Flutuante: R$ -5.00 | SL: 175075 TP: 174725
+2026-07-20 16:27:15,704 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 174980 | -10 pts | Flutuante: R$ -10.00 | SL: 175075 TP: 174725
+2026-07-20 16:27:20,712 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 174975 | -5 pts | Flutuante: R$ -5.00 | SL: 175075 TP: 174725
+2026-07-20 16:27:25,714 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 174975 | -5 pts | Flutuante: R$ -5.00 | SL: 175075 TP: 174725
+2026-07-20 16:27:30,722 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 174975 | -5 pts | Flutuante: R$ -10.00 | SL: 175075 TP: 174725
+2026-07-20 16:27:35,734 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 174980 | -10 pts | Flutuante: R$ -15.00 | SL: 175075 TP: 174725
+2026-07-20 16:27:40,740 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 174980 | -10 pts | Flutuante: R$ -15.00 | SL: 175075 TP: 174725
+2026-07-20 16:27:45,755 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 174980 | -10 pts | Flutuante: R$ -10.00 | SL: 175075 TP: 174725
+2026-07-20 16:27:50,765 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 174980 | -10 pts | Flutuante: R$ -15.00 | SL: 175075 TP: 174725
+2026-07-20 16:27:55,777 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175005 | -35 pts | Flutuante: R$ -30.00 | SL: 175075 TP: 174725
+2026-07-20 16:28:00,787 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175015 | -45 pts | Flutuante: R$ -50.00 | SL: 175075 TP: 174725
+2026-07-20 16:28:05,797 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175030 | -60 pts | Flutuante: R$ -60.00 | SL: 175075 TP: 174725
+2026-07-20 16:28:10,808 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175025 | -55 pts | Flutuante: R$ -60.00 | SL: 175075 TP: 174725
+2026-07-20 16:28:15,817 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175035 | -65 pts | Flutuante: R$ -70.00 | SL: 175075 TP: 174725
+2026-07-20 16:28:20,822 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175025 | -55 pts | Flutuante: R$ -55.00 | SL: 175075 TP: 174725
+2026-07-20 16:28:25,833 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175035 | -65 pts | Flutuante: R$ -70.00 | SL: 175075 TP: 174725
+2026-07-20 16:28:30,839 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175055 | -85 pts | Flutuante: R$ -90.00 | SL: 175075 TP: 174725
+2026-07-20 16:28:35,847 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175050 | -80 pts | Flutuante: R$ -80.00 | SL: 175075 TP: 174725
+2026-07-20 16:28:40,852 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175045 | -75 pts | Flutuante: R$ -75.00 | SL: 175075 TP: 174725
+2026-07-20 16:28:45,864 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175040 | -70 pts | Flutuante: R$ -75.00 | SL: 175075 TP: 174725
+2026-07-20 16:28:50,881 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175035 | -65 pts | Flutuante: R$ -65.00 | SL: 175075 TP: 174725
+2026-07-20 16:28:55,883 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175030 | -60 pts | Flutuante: R$ -65.00 | SL: 175075 TP: 174725
+2026-07-20 16:29:00,887 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175025 | -55 pts | Flutuante: R$ -55.00 | SL: 175075 TP: 174725
+2026-07-20 16:29:05,905 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175030 | -60 pts | Flutuante: R$ -65.00 | SL: 175075 TP: 174725
+2026-07-20 16:29:10,920 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175010 | -40 pts | Flutuante: R$ -40.00 | SL: 175075 TP: 174725
+2026-07-20 16:29:15,937 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 174990 | -20 pts | Flutuante: R$ -20.00 | SL: 175075 TP: 174725
+2026-07-20 16:29:20,942 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175000 | -30 pts | Flutuante: R$ -35.00 | SL: 175075 TP: 174725
+2026-07-20 16:29:25,949 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 174990 | -20 pts | Flutuante: R$ -20.00 | SL: 175075 TP: 174725
+2026-07-20 16:29:30,962 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174970 → Atual: 175000 | -30 pts | Flutuante: R$ -30.00 | SL: 175075 TP: 174725
+2026-07-20 16:29:35,976 - INFO - 🔍 Tentando obter lucro para ticket de ordem de abertura: 2483313267
+2026-07-20 16:29:35,977 - INFO - 💰 Deal de saída encontrado para ticket 2483313267: DealTicket=1807570425, PositionID=2483313267, Lucro=-105.00, Preço Saída=175075.0, Volume=5.0, Hora=2026-07-20 13:29:31)
+2026-07-20 16:29:35,978 - INFO - Found entry deal for score_dist calc (Order: 2483313267), execution price: 174970.0
+2026-07-20 16:29:35,984 - INFO - ✅ Experiência REAL salva: Ação=SELL, Lucro=-105.00, Score=-1.00 | Contador: 1/3
+2026-07-20 16:29:35,985 - INFO - 🎯 Resultado confluência registrado: Lucro=-105.00
+2026-07-20 16:29:35,985 - INFO - 🛡️ Gerenciador de Saída DESATIVADO.
+2026-07-20 16:29:35,991 - INFO - 🔒 BACKUP INTELIGENTE: modelo_monstro_win.h5.backup_20260720_162935
+2026-07-20 16:29:35,994 - WARNING - You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+2026-07-20 16:29:36,053 - INFO - ✅ Modelo salvo (atômico) em formato h5: C:\AIOFEN\modelo_monstro_win.h5
+2026-07-20 16:29:36,129 - INFO - ✅ Modelo salvo (atômico) em formato keras: C:\AIOFEN\modelo_monstro_win.keras
+2026-07-20 16:29:36,130 - INFO - 💾 Modelo salvo após trade (aprendizado protegido).
+2026-07-20 16:29:36,130 - INFO - ✅ Posição 2483313267 processada e resetada.
+2026-07-20 16:29:37,132 - INFO - 📊 WINQ26 | Preço: 175060 | Spread: 5.0pts | BID: 4649 / ASK: 5004 | Desequilíbrio: 1.08x 🔴VENDA
+2026-07-20 16:29:37,136 - INFO - 😴 Standby: Aguardando Big Players... (Vol 9653/5000 | Ratio 1.08/2.0)
 
-Análise fantástica e extremamente lúcida. Você tocou no ponto central de qualquer projeto sério de IA aplicada ao mercado financeiro: a escolha da ferramenta certa para o problema certo.Utilizar um LLM generalista para decidir se compra ou vende minicontratos no milissegundo é, exatamente como você disse, usar um Boeing para entregar uma carta na esquina. Ele vai quebrar a pista (gastar processamento, latência absurda, alucinar preços) e errar o alvo.O Monstro Unificado V2 atual opera focado em microestrutura (dados do Book de Ofertas, Entropia, Ticks) para scalping em Mini Índice ($WIN$). Vamos analisar como cada tecnologia que você citou pode agregar, destruir ou se deve ser descartada para evitar ruidos.🛠️ Análise Tecnológica: O que ajuda e o que destrói o Monstro?1. Regressão Linear (Linear Regression)O que faria: Tentar prever o preço exato do próximo minuto ou tick baseado nas variáveis atuais.Veredito: ⚠️ Cuidado (Pode Destruir se usada errada).Como agrega: O mercado financeiro é altamente não-linear. Uma regressão linear simples aplicada diretamente ao preço vai falhar porque ela assume uma tendência reta. Porém, ela é excelente se usada para descobrir o desvio padrão da velocidade do book (ex: medir se a velocidade de agressão atual está acima da média geométrica). Não tente prever preço com ela; use-a para medir a aceleração do fluxo.2. Árvores de Decisão (Decision Tree) & Random ForestO que faria: Criar regras matemáticas claras (Ex: Se Volume > 5000 E Ratio Book > 2.0 E RSI < 40 então COMPRA).Veredito:  AGREGA MUITO (A melhor para o mercado ao vivo).Como agrega: Modelos baseados em árvores (especialmente XGBoost ou LightGBM, que são evoluções do Random Forest) são os reis da microestrutura de mercado. Eles lidam muito bem com dados tabulares (como as 18 features que seu robô já extrai do book).⚠️ O perigo do Ruído (Overfitting): Como você bem mencionou, o perigo é treinar em cima de ruído. Se a árvore for muito profunda, ela vai "decorar" o gráfico do passado. Para evitar isso, você deve limitar a profundidade da árvore (max_depth) e usar apenas dados de alta confluência.3. LSTM (Long Short-Term Memory) & TransformersO que fariam: Redes neurais sequenciais que tentam lembrar o comportamento dos últimos 50 ou 100 candles para prever o próximo movimento.Veredito: ❌ Destrói / Não force (Para o mercado ao vivo).Por quê? Latência e Overfitting. O Monstro precisa rodar rápido no Python integrado com o MT5. LSTMs e Transformers exigem um poder computacional alto para processar sequências em tempo real e são extremamente propensos a encontrar padrões que só existiram naquele dia específico do passado (ruído puro). O ganho de eficácia não compensa o atraso na execução da ordem (latência).4. LLMs Generalistas (ChatGPT, Claude, etc.)O que faria: Ler o histórico de trades e tentar gerar um relatório textual ou predição.Veredito: ❌ Destrói completamente. Como você mesmo pontuou, é a ferramenta errada para latência ao vivo.🎯 Onde encaixar Machine Learning no estado atual do Monstro?Olhando o código atual do seu robô, você já tem uma lógica cirúrgica implementada: o Filtro Sniper de Elite (Volume Mínimo de 5000 e Ratio de 2.0). Isso já é um modelo estatístico robusto baseado em regras de negócio de Big Players.Se você quiser colocar inteligência artificial sem quebrar o que já funciona, o segredo é não deixar a IA clicar no botão. Use a IA como um Veto Avançado.A Arquitetura Ideal (Baseada em XGBoost/Random Forest)Em vez de usar a IA para dizer "compre agora", use o XGBoost para analisar as suas 18 features de profundidade do book apenas no momento em que o Sniper disparar:[Fluxo do Mercado] -> [Filtro Sniper disparou gatilho]
-                             ↓
-                 [XGBoost analisa as 18 features]
-                             ↓
-         🧠 IA responde: "A probabilidade de acerto aqui é de 78%"
-                             ↓
-                   [EXECUTA A OPERAÇÃO]
-Se a IA disser que a probabilidade é menor que 60%, ela veta a operação. Isso limpa o ruído e impede o robô de operar em falso rompimento.💡 Sugestão Prática para Próximo PassoComo você já está importando o tensorflow e o scikit-learn no código, a ferramenta estatística ideal para você testar padrões do passado sem complicar o robô ao vivo é o XGBoost ou um Random Forest bem leve (sklearn.ensemble.RandomForestClassifier).Você pode usar o arquivo decisions.csv ou historico_contexto_win.csv que o seu robô já gera para treinar esse modelo fora do horário de pregão.
+
+gostaria de saber se temos como ver adroes de candle? pq sabemos que os candle padores tbm são ótimos sinais de entrada reversao compra e venda sera que se uma dia adicionarmos isso ao codigo acertariomas mas ou so poluição desnecessária sabemos que todas informação no mercadoe bem mas informaçõ de  mais pode mas atraplahar do que ajudar vamos analiar se seriauma boa alen de ratio+confiança+5000cc candle seria um bo  sianl de entrada nao sei se calculamos rsi ou outro indicador para compor nosso operacional. so sao algumas ideias de melhorias nao precisa aproveixar se for so encher o codigo com volume e atrapalhar uma coisa que percebi da maneira que esta ele quase nunca pega o stop gain de 250ps mas na maioria das vese ele pega o stop loss cheio tornado um robo vencedor ineficiente por perder mas do que ganha apesar dos trades vencedores ser amaioria vamos analizar isso.
+
+
+abaixo uma operação  protegida e atualizada inteligentemente muito boa esse e uma caso de nao precisar stop gain so acopanhar a operacao de acordo com o book e levar o trader ate onde der mais lucro nao ficar preso em 250pts essa entrada foi no olho da mosca veja abaixo   2026-07-20 17:00:03.910112: E tensorflow/core/framework/node_def_util.cc:680] NodeDef mentions attribute use_unbounded_threadpool which is not in the op definition: Op<name=MapDataset; signature=input_dataset:variant, other_arguments: -> handle:variant; attr=f:func; attr=Targuments:list(type),min=0; attr=output_types:list(type),min=1; attr=output_shapes:list(shape),min=1; attr=use_inter_op_parallelism:bool,default=true; attr=preserve_cardinality:bool,default=false; attr=force_synchronous:bool,default=false; attr=metadata:string,default=""> This may be expected if your graph generating binary is newer  than this binary. Unknown attributes will be ignored. NodeDef: {{node ParallelMapDatasetV2/_14}}
+2026-07-20 17:00:03,971 - WARNING - ⚠️ CONFLUÊNCIA INSUFICIENTE: BUY=0, SELL=1 (mínimo 2 sinais)
+2026-07-20 17:00:03,971 - INFO - 🎯 CONFLUÊNCIA BLOQUEIA: Menos de 2 sinais técnicos (mínimo exigido)
+2026-07-20 17:00:03,972 - INFO - ⏸️ Não agindo: NADA (Confiança: 0.00 ou restrição).
+2026-07-20 17:00:10.068058: E tensorflow/core/framework/node_def_util.cc:680] NodeDef mentions attribute use_unbounded_threadpool which is not in the op definition: Op<name=MapDataset; signature=input_dataset:variant, other_arguments: -> handle:variant; attr=f:func; attr=Targuments:list(type),min=0; attr=output_types:list(type),min=1; attr=output_shapes:list(shape),min=1; attr=use_inter_op_parallelism:bool,default=true; attr=preserve_cardinality:bool,default=false; attr=force_synchronous:bool,default=false; attr=metadata:string,default=""> This may be expected if your graph generating binary is newer  than this binary. Unknown attributes will be ignored. NodeDef: {{node ParallelMapDatasetV2/_14}}
+2026-07-20 17:00:10,131 - INFO - 🎯 CONFLUÊNCIA CONFIRMA: SELL | Confiança aumentada: 0.48
+2026-07-20 17:00:10,145 - INFO - ✅ Dados obtidos - Tick: Ask=175020.0, Bid=175015.0, Symbol: WINQ26
+2026-07-20 17:00:10,145 - INFO - ✅ Spread OK: 0.0 pontos
+2026-07-20 17:00:10,145 - INFO - 📊 Volume ajustado: 5.0 contratos
+2026-07-20 17:00:10,147 - INFO - 🚀 VOLUME MONUMENTAL (5000cc+): SL=100, TP=250 (R/R 1:2.5)
+2026-07-20 17:00:10,148 - INFO - 🔧 DEBUG SL/TP - Entrada: 175015.0, Ação: SELL
+2026-07-20 17:00:10,148 - INFO - 🔧 DEBUG SL/TP - SLOINTS: 100, TP_POINTS: 250
+2026-07-20 17:00:10,148 - INFO - 🔧 DEBUG SL/TP - Point: 1.0, TICKS_POR_PONTO: 10000
+2026-07-20 17:00:10,149 - INFO - 🔧 DEBUG SL/TP - SL_dist: 100.00000, TP_dist: 250.00000
+2026-07-20 17:00:10,149 - INFO - 🔧 DEBUG SL/TP - Calculado: SL=175115.0, TP=174765.0
+2026-07-20 17:00:10,604 - INFO - ✅ Ordem SELL executada. Ticket: 2483358718
+2026-07-20 17:00:10,605 - INFO -    Preço: 175015.000 | SL: 175115.000 | TP: 174765.000
+2026-07-20 17:00:11,115 - INFO - ✅ Ordem 2483358718 virou posição.
+2026-07-20 17:00:11,116 - INFO - 🎯 Trailing stop iniciado para posição 2483358718
+2026-07-20 17:00:11,116 - INFO - ⚖️ Operação SELL registrada. BUY: 6, SELL: 7 (BUY: 46.2%)
+2026-07-20 17:00:11,622 - INFO - ✅ Ordem 2483358718 virou posição.
+2026-07-20 17:00:11,623 - INFO - Found entry deal for order 2483358718, execution price: 175020.0
+2026-07-20 17:00:11,623 - INFO - 🛡️ Gerenciador de Saída ATIVADO para posição #2483358718
+2026-07-20 17:00:11,624 - INFO - 📊 Nova posição iniciada: Ticket=2483358718, Tipo=SELL, Entrada=175020.000, SL=175115.000, TP=174765.000, Score Inicial=-0.00
+2026-07-20 17:00:13,627 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 175020 | +0 pts | Flutuante: R$ +0.00 | SL: 175115 TP: 174765
+2026-07-20 17:00:18,642 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 175020 → Atual: 175025 | -5 pts | Flutuante: R$ -5.00 | SL: 175115 TP: 174765
+2026-07-20 17:00:23,655 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 175020 → Atual: 175025 | -5 pts | Flutuante: R$ -10.00 | SL: 175115 TP: 174765
+2026-07-20 17:00:28,662 - INFO - 👁️ Monstro ativo | Modo: NORMAL
+2026-07-20 17:00:28,664 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 17:00:28,798 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 17:00:28,807 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 175015 | +5 pts | Flutuante: R$ +5.00 | SL: 175115 TP: 174765
+2026-07-20 17:00:33,816 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 175005 | +15 pts | Flutuante: R$ +15.00 | SL: 175115 TP: 174765
+2026-07-20 17:00:38,823 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 175020 → Atual: 175015 | +5 pts | Flutuante: R$ -5.00 | SL: 175115 TP: 174765
+2026-07-20 17:00:43,835 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 175020 → Atual: 175025 | -5 pts | Flutuante: R$ -5.00 | SL: 175115 TP: 174765
+2026-07-20 17:00:48,846 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 175020 → Atual: 175025 | -5 pts | Flutuante: R$ -10.00 | SL: 175115 TP: 174765
+2026-07-20 17:00:53,862 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 175020 → Atual: 175025 | -5 pts | Flutuante: R$ -5.00 | SL: 175115 TP: 174765
+2026-07-20 17:00:58,873 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 175020 | +0 pts | Flutuante: R$ +0.00 | SL: 175115 TP: 174765
+2026-07-20 17:01:03,881 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174960 | +60 pts | Flutuante: R$ +55.00 | SL: 175115 TP: 174765
+2026-07-20 17:01:08,885 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174945 | +75 pts | Flutuante: R$ +75.00 | SL: 175115 TP: 174765
+2026-07-20 17:01:13,898 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174945 | +75 pts | Flutuante: R$ +75.00 | SL: 175115 TP: 174765
+2026-07-20 17:01:18,911 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174950 | +70 pts | Flutuante: R$ +65.00 | SL: 175115 TP: 174765
+2026-07-20 17:01:23,921 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174950 | +70 pts | Flutuante: R$ +65.00 | SL: 175115 TP: 174765
+2026-07-20 17:01:28,931 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174950 | +70 pts | Flutuante: R$ +70.00 | SL: 175115 TP: 174765
+2026-07-20 17:01:33,934 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174950 | +70 pts | Flutuante: R$ +70.00 | SL: 175115 TP: 174765
+2026-07-20 17:01:38,945 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174955 | +65 pts | Flutuante: R$ +65.00 | SL: 175115 TP: 174765
+2026-07-20 17:01:43,959 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174965 | +55 pts | Flutuante: R$ +60.00 | SL: 175115 TP: 174765
+2026-07-20 17:01:48,971 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174955 | +65 pts | Flutuante: R$ +65.00 | SL: 175115 TP: 174765
+2026-07-20 17:01:53,985 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174955 | +65 pts | Flutuante: R$ +60.00 | SL: 175115 TP: 174765
+2026-07-20 17:01:58,990 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174955 | +65 pts | Flutuante: R$ +65.00 | SL: 175115 TP: 174765
+2026-07-20 17:02:03,998 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174940 | +80 pts | Flutuante: R$ +75.00 | SL: 175115 TP: 174765
+2026-07-20 17:02:03,998 - INFO - 🔧 Decisão de Ajuste SELL: Novo SL 174980.00 (Melhoria de 175115.00)
+2026-07-20 17:02:03,999 - INFO - 🔧 Decisão de Ajuste: Novo SL 174980.00
+2026-07-20 17:02:04,348 - INFO - 🔐 SL atualizado com sucesso! 175115.00 → 174980.00 (Ticket: 2483358718)
+2026-07-20 17:02:09,361 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174950 | +70 pts | Flutuante: R$ +65.00 | SL: 174980 TP: 174765
+2026-07-20 17:02:14,364 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174945 | +75 pts | Flutuante: R$ +70.00 | SL: 174980 TP: 174765
+2026-07-20 17:02:19,372 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174960 | +60 pts | Flutuante: R$ +55.00 | SL: 174980 TP: 174765
+2026-07-20 17:02:24,386 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174960 | +60 pts | Flutuante: R$ +55.00 | SL: 174980 TP: 174765
+2026-07-20 17:02:29,391 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174955 | +65 pts | Flutuante: R$ +65.00 | SL: 174980 TP: 174765
+2026-07-20 17:02:34,404 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174945 | +75 pts | Flutuante: R$ +75.00 | SL: 174980 TP: 174765
+2026-07-20 17:02:39,420 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174955 | +65 pts | Flutuante: R$ +65.00 | SL: 174980 TP: 174765
+2026-07-20 17:02:44,434 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174940 | +80 pts | Flutuante: R$ +75.00 | SL: 174980 TP: 174765
+2026-07-20 17:02:49,442 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174935 | +85 pts | Flutuante: R$ +85.00 | SL: 174980 TP: 174765
+2026-07-20 17:02:49,443 - INFO - 🔧 Decisão de Ajuste SELL: Novo SL 174975.00 (Melhoria de 174980.00)
+2026-07-20 17:02:49,443 - INFO - 🔧 Decisão de Ajuste: Novo SL 174975.00
+2026-07-20 17:02:49,768 - INFO - 🔐 SL atualizado com sucesso! 174980.00 → 174975.00 (Ticket: 2483358718)
+2026-07-20 17:02:54,782 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174925 | +95 pts | Flutuante: R$ +95.00 | SL: 174975 TP: 174765
+2026-07-20 17:02:54,783 - INFO - 🔧 Decisão de Ajuste SELL: Novo SL 174965.00 (Melhoria de 174975.00)
+2026-07-20 17:02:54,783 - INFO - 🔧 Decisão de Ajuste: Novo SL 174965.00
+2026-07-20 17:02:55,111 - INFO - 🔐 SL atualizado com sucesso! 174975.00 → 174965.00 (Ticket: 2483358718)
+2026-07-20 17:03:00,127 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174920 | +100 pts | Flutuante: R$ +95.00 | SL: 174965 TP: 174765
+2026-07-20 17:03:00,128 - INFO - 🔧 Decisão de Ajuste SELL: Novo SL 174960.00 (Melhoria de 174965.00)
+2026-07-20 17:03:00,128 - INFO - 🔧 Decisão de Ajuste: Novo SL 174960.00
+2026-07-20 17:03:00,420 - INFO - 🔐 SL atualizado com sucesso! 174965.00 → 174960.00 (Ticket: 2483358718)
+2026-07-20 17:03:05,432 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174920 | +100 pts | Flutuante: R$ +100.00 | SL: 174960 TP: 174765
+2026-07-20 17:03:10,446 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174925 | +95 pts | Flutuante: R$ +95.00 | SL: 174960 TP: 174765
+2026-07-20 17:03:15,461 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174925 | +95 pts | Flutuante: R$ +90.00 | SL: 174960 TP: 174765
+2026-07-20 17:03:20,474 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174925 | +95 pts | Flutuante: R$ +90.00 | SL: 174960 TP: 174765
+2026-07-20 17:03:25,477 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174910 | +110 pts | Flutuante: R$ +110.00 | SL: 174960 TP: 174765
+2026-07-20 17:03:25,478 - INFO - 🔧 Decisão de Ajuste SELL: Novo SL 174950.00 (Melhoria de 174960.00)
+2026-07-20 17:03:25,478 - INFO - 🔧 Decisão de Ajuste: Novo SL 174950.00
+2026-07-20 17:03:25,785 - INFO - 🔐 SL atualizado com sucesso! 174960.00 → 174950.00 (Ticket: 2483358718)
+2026-07-20 17:03:30,794 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174905 | +115 pts | Flutuante: R$ +110.00 | SL: 174950 TP: 174765
+2026-07-20 17:03:30,795 - INFO - 🔧 Decisão de Ajuste SELL: Novo SL 174945.00 (Melhoria de 174950.00)
+2026-07-20 17:03:30,795 - INFO - 🔧 Decisão de Ajuste: Novo SL 174945.00
+2026-07-20 17:03:31,119 - INFO - 🔐 SL atualizado com sucesso! 174950.00 → 174945.00 (Ticket: 2483358718)
+2026-07-20 17:03:36,125 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174905 | +115 pts | Flutuante: R$ +110.00 | SL: 174945 TP: 174765
+2026-07-20 17:03:41,131 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174900 | +120 pts | Flutuante: R$ +115.00 | SL: 174945 TP: 174765
+2026-07-20 17:03:41,131 - INFO - 🔧 Decisão de Ajuste SELL: Novo SL 174940.00 (Melhoria de 174945.00)
+2026-07-20 17:03:41,132 - INFO - 🔧 Decisão de Ajuste: Novo SL 174940.00
+2026-07-20 17:03:41,445 - INFO - 🔐 SL atualizado com sucesso! 174945.00 → 174940.00 (Ticket: 2483358718)
+2026-07-20 17:03:46,462 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174905 | +115 pts | Flutuante: R$ +115.00 | SL: 174940 TP: 174765
+2026-07-20 17:03:51,471 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174875 | +145 pts | Flutuante: R$ +140.00 | SL: 174940 TP: 174765
+2026-07-20 17:03:51,472 - INFO - 🔧 Decisão de Ajuste SELL: Novo SL 174915.00 (Melhoria de 174940.00)
+2026-07-20 17:03:51,472 - INFO - 🔧 Decisão de Ajuste: Novo SL 174915.00
+2026-07-20 17:03:51,811 - INFO - 🔐 SL atualizado com sucesso! 174940.00 → 174915.00 (Ticket: 2483358718)
+2026-07-20 17:03:56,824 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174875 | +145 pts | Flutuante: R$ +145.00 | SL: 174915 TP: 174765
+2026-07-20 17:04:01,838 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174875 | +145 pts | Flutuante: R$ +140.00 | SL: 174915 TP: 174765
+2026-07-20 17:04:06,849 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174870 | +150 pts | Flutuante: R$ +145.00 | SL: 174915 TP: 174765
+2026-07-20 17:04:06,849 - INFO - 🔧 Decisão de Ajuste SELL: Novo SL 174910.00 (Melhoria de 174915.00)
+2026-07-20 17:04:06,849 - INFO - 🔧 Decisão de Ajuste: Novo SL 174910.00
+2026-07-20 17:04:07,176 - INFO - 🔐 SL atualizado com sucesso! 174915.00 → 174910.00 (Ticket: 2483358718)
+2026-07-20 17:04:12,193 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174865 | +155 pts | Flutuante: R$ +150.00 | SL: 174910 TP: 174765
+2026-07-20 17:04:12,193 - INFO - 🔧 Decisão de Ajuste SELL: Novo SL 174905.00 (Melhoria de 174910.00)
+2026-07-20 17:04:12,194 - INFO - 🔧 Decisão de Ajuste: Novo SL 174905.00
+2026-07-20 17:04:12,508 - INFO - 🔐 SL atualizado com sucesso! 174910.00 → 174905.00 (Ticket: 2483358718)
+2026-07-20 17:04:17,522 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174850 | +170 pts | Flutuante: R$ +170.00 | SL: 174905 TP: 174765
+2026-07-20 17:04:17,522 - INFO - 🔧 Decisão de Ajuste SELL: Novo SL 174890.00 (Melhoria de 174905.00)
+2026-07-20 17:04:17,522 - INFO - 🔧 Decisão de Ajuste: Novo SL 174890.00
+2026-07-20 17:04:17,814 - INFO - 🔐 SL atualizado com sucesso! 174905.00 → 174890.00 (Ticket: 2483358718)
+2026-07-20 17:04:22,825 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174850 | +170 pts | Flutuante: R$ +170.00 | SL: 174890 TP: 174765
+2026-07-20 17:04:27,840 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174860 | +160 pts | Flutuante: R$ +155.00 | SL: 174890 TP: 174765
+2026-07-20 17:04:32,848 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174855 | +165 pts | Flutuante: R$ +160.00 | SL: 174890 TP: 174765
+2026-07-20 17:04:37,861 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174865 | +155 pts | Flutuante: R$ +150.00 | SL: 174890 TP: 174765
+2026-07-20 17:04:42,872 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174855 | +165 pts | Flutuante: R$ +160.00 | SL: 174890 TP: 174765
+2026-07-20 17:04:47,874 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174855 | +165 pts | Flutuante: R$ +160.00 | SL: 174890 TP: 174765
+2026-07-20 17:04:52,886 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174860 | +160 pts | Flutuante: R$ +155.00 | SL: 174890 TP: 174765
+2026-07-20 17:04:57,900 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174860 | +160 pts | Flutuante: R$ +155.00 | SL: 174890 TP: 174765
+2026-07-20 17:05:02,902 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174845 | +175 pts | Flutuante: R$ +175.00 | SL: 174890 TP: 174765
+2026-07-20 17:05:02,903 - INFO - 🔧 Decisão de Ajuste SELL: Novo SL 174885.00 (Melhoria de 174890.00)
+2026-07-20 17:05:02,903 - INFO - 🔧 Decisão de Ajuste: Novo SL 174885.00
+2026-07-20 17:05:03,326 - INFO - 🔐 SL atualizado com sucesso! 174890.00 → 174885.00 (Ticket: 2483358718)
+2026-07-20 17:05:08,337 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174850 | +170 pts | Flutuante: R$ +160.00 | SL: 174885 TP: 174765
+2026-07-20 17:05:13,341 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174855 | +165 pts | Flutuante: R$ +160.00 | SL: 174885 TP: 174765
+2026-07-20 17:05:18,359 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174855 | +165 pts | Flutuante: R$ +160.00 | SL: 174885 TP: 174765
+2026-07-20 17:05:23,364 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174845 | +175 pts | Flutuante: R$ +175.00 | SL: 174885 TP: 174765
+2026-07-20 17:05:28,367 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174840 | +180 pts | Flutuante: R$ +180.00 | SL: 174885 TP: 174765
+2026-07-20 17:05:28,368 - INFO - 🔧 Decisão de Ajuste SELL: Novo SL 174880.00 (Melhoria de 174885.00)
+2026-07-20 17:05:28,368 - INFO - 🔧 Decisão de Ajuste: Novo SL 174880.00
+2026-07-20 17:05:28,695 - INFO - 🔐 SL atualizado com sucesso! 174885.00 → 174880.00 (Ticket: 2483358718)
+2026-07-20 17:05:33,704 - INFO - 👁️ Monstro ativo | Modo: NORMAL
+2026-07-20 17:05:33,706 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 17:05:33,884 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 17:05:33,891 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174835 | +185 pts | Flutuante: R$ +185.00 | SL: 174880 TP: 174765
+2026-07-20 17:05:33,892 - INFO - 🔧 Decisão de Ajuste SELL: Novo SL 174875.00 (Melhoria de 174880.00)
+2026-07-20 17:05:33,892 - INFO - 🔧 Decisão de Ajuste: Novo SL 174875.00
+2026-07-20 17:05:34,219 - INFO - 🔐 SL atualizado com sucesso! 174880.00 → 174875.00 (Ticket: 2483358718)
+2026-07-20 17:05:39,224 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174835 | +185 pts | Flutuante: R$ +180.00 | SL: 174875 TP: 174765
+2026-07-20 17:05:44,243 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174840 | +180 pts | Flutuante: R$ +175.00 | SL: 174875 TP: 174765
+2026-07-20 17:05:49,258 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174815 | +205 pts | Flutuante: R$ +205.00 | SL: 174875 TP: 174765
+2026-07-20 17:05:49,259 - INFO - 🔧 Decisão de Ajuste SELL: Novo SL 174855.00 (Melhoria de 174875.00)
+2026-07-20 17:05:49,259 - INFO - 🔧 Decisão de Ajuste: Novo SL 174855.00
+2026-07-20 17:05:49,564 - INFO - 🔐 SL atualizado com sucesso! 174875.00 → 174855.00 (Ticket: 2483358718)
+2026-07-20 17:05:54,569 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174815 | +205 pts | Flutuante: R$ +205.00 | SL: 174855 TP: 174765
+2026-07-20 17:05:59,576 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 175020 → Atual: 174805 | +215 pts | Flutuante: R$ +210.00 | SL: 174855 TP: 174765
+2026-07-20 17:05:59,577 - INFO - 🔧 Decisão de Ajuste SELL: Novo SL 174845.00 (Melhoria de 174855.00)
+2026-07-20 17:05:59,578 - INFO - 🔧 Decisão de Ajuste: Novo SL 174845.00
+2026-07-20 17:05:59,907 - INFO - 🔐 SL atualizado com sucesso! 174855.00 → 174845.00 (Ticket: 2483358718)
+2026-07-20 17:06:04,921 - INFO - 🔍 Tentando obter lucro para ticket de ordem de abertura: 2483358718
+2026-07-20 17:06:04,922 - INFO - 💰 Deal de saída encontrado para ticket 2483358718: DealTicket=1807608413, PositionID=2483358718, Lucro=255.00, Preço Saída=174765.0, Volume=5.0, Hora=2026-07-20 14:06:03)
+2026-07-20 17:06:04,923 - INFO - Found entry deal for score_dist calc (Order: 2483358718), execution price: 175020.0
+2026-07-20 17:06:04,927 - INFO - ✅ Experiência REAL salva: Ação=SELL, Lucro=255.00, Score=1.00 | Contador: 2/3
+2026-07-20 17:06:04,927 - INFO - 🎯 Resultado confluência registrado: Lucro=255.00
+2026-07-20 17:06:04,928 - INFO - 🛡️ Gerenciador de Saída DESATIVADO.
+2026-07-20 17:06:04,931 - INFO - 🔒 BACKUP INTELIGENTE: modelo_monstro_win.h5.backup_20260720_170604
+2026-07-20 17:06:04,933 - WARNING - You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+2026-07-20 17:06:04,986 - INFO - ✅ Modelo salvo (atômico) em formato h5: C:\AIOFEN\modelo_monstro_win.h5
+2026-07-20 17:06:05,059 - INFO - ✅ Modelo salvo (atômico) em formato keras: C:\AIOFEN\modelo_monstro_win.keras
+2026-07-20 17:06:05,060 - INFO - 💾 Modelo salvo após trade (aprendizado protegido).
+2026-07-20 17:06:05,060 - INFO - ✅ Posição 2483358718 processada e resetada.
+2026-07-20 17:06:06,076 - INFO - 📊 WINQ26 | Preço: 174780 | Spread: 5.0pts | BID: 5642 / ASK: 5218 | Desequilíbrio: 1.08x 🟢COMPRA
+2026-07-20 17:06:06,079 - INFO - 😴 Standby: Aguardando Big Players... (Vol 10860/5000 | Ratio 1.08/2.0)
+
+como pode ver abaixo o trade o mercado continou decendo veja
+
+2026-07-20 17:06:06,079 - INFO - 😴 Standby: Aguardando Big Players... (Vol 10860/5000 | Ratio 1.08/2.0)
+2026-07-20 17:07:02.866960: E tensorflow/core/framework/node_def_util.cc:680] NodeDef mentions attribute use_unbounded_threadpool which is not in the op definition: Op<name=MapDataset; signature=input_dataset:variant, other_arguments: -> handle:variant; attr=f:func; attr=Targuments:list(type),min=0; attr=output_types:list(type),min=1; attr=output_shapes:list(shape),min=1; attr=use_inter_op_parallelism:bool,default=true; attr=preserve_cardinality:bool,default=false; attr=force_synchronous:bool,default=false; attr=metadata:string,default=""> This may be expected if your graph generating binary is newer  than this binary. Unknown attributes will be ignored. NodeDef: {{node ParallelMapDatasetV2/_14}}
+2026-07-20 17:07:02,932 - INFO - 🎯 CONFLUÊNCIA CONFIRMA: SELL | Confiança aumentada: 0.48
+2026-07-20 17:07:02,937 - INFO - 🐋 VETO SEGUIR OS BIGS: decisão SELL é CONTRA o lado dominante (BUY | BID 7156 x ASK 3455) — não brigo com a fita.
+2026-07-20 17:07:07,949 - INFO - 📊 WINQ26 | Preço: 174755 | Spread: 5.0pts | BID: 5968 / ASK: 4228 | Desequilíbrio: 1.41x 🟢COMPRA
+2026-07-20 17:08:08,491 - INFO - 📊 WINQ26 | Preço: 174725 | Spread: 5.0pts | BID: 4615 / ASK: 4399 | Desequilíbrio: 1.05x 🟢COMPRA
+2026-07-20 17:09:09,105 - INFO - 📊 WINQ26 | Preço: 174700 | Spread: 5.0pts | BID: 4336 / ASK: 4591 | Desequilíbrio: 1.06x 🔴VENDA
+2026-07-20 17:10:09,701 - INFO - 📊 WINQ26 | Preço: 174700 | Spread: 5.0pts | BID: 5527 / ASK: 4684 | Desequilíbrio: 1.18x 🟢COMPRA
+2026-07-20 17:10:33,967 - INFO - 👁️ Monstro ativo | Modo: NORMAL
+2026-07-20 17:10:33,969 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 17:10:34,102 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 17:11:06,394 - INFO - 😴 Standby: Aguardando Big Players... (Vol 10378/5000 | Ratio 1.46/2.0)
+
+poderia se nao tivesse stop gain ainda esta no trade e talvez lucar maisdo que o definido em programacao o que vc acha sinseramente nao tente me agradar de sua opniao sincera.pq ele continuou descendo dai a ia decidiu vender mas e nao precisava poderia esta na mesmo operacao apena observando em silencio e lucrano noa se expondo a loss desnecessário precisamos dar algum tipo de inteligencia para a automacaovia python+keras+h5 vejo o que tem no book e mova o stop lossa para stop gains e esse unico stop acomapnhe a operacao veja a segunda oeracos nao mesmo direção o calor que passou ate i a favo e essa poderia ser a mesmo operação  anerior
+
+2026-07-20 17:15:03.004971: E tensorflow/core/framework/node_def_util.cc:680] NodeDef mentions attribute use_unbounded_threadpool which is not in the op definition: Op<name=MapDataset; signature=input_dataset:variant, other_arguments: -> handle:variant; attr=f:func; attr=Targuments:list(type),min=0; attr=output_types:list(type),min=1; attr=output_shapes:list(shape),min=1; attr=use_inter_op_parallelism:bool,default=true; attr=preserve_cardinality:bool,default=false; attr=force_synchronous:bool,default=false; attr=metadata:string,default=""> This may be expected if your graph generating binary is newer  than this binary. Unknown attributes will be ignored. NodeDef: {{node ParallelMapDatasetV2/_14}}
+2026-07-20 17:15:03,067 - INFO - 🎯 CONFLUÊNCIA CONFIRMA: SELL | Confiança aumentada: 0.48
+2026-07-20 17:15:03,080 - INFO - ✅ Dados obtidos - Tick: Ask=174710.0, Bid=174705.0, Symbol: WINQ26
+2026-07-20 17:15:03,081 - INFO - ✅ Spread OK: 0.0 pontos
+2026-07-20 17:15:03,081 - INFO - 📊 Volume ajustado: 5.0 contratos
+2026-07-20 17:15:03,084 - INFO - 🚀 VOLUME MONUMENTAL (5000cc+): SL=100, TP=250 (R/R 1:2.5)
+2026-07-20 17:15:03,084 - INFO - 🔧 DEBUG SL/TP - Entrada: 174705.0, Ação: SELL
+2026-07-20 17:15:03,084 - INFO - 🔧 DEBUG SL/TP - SLOINTS: 100, TP_POINTS: 250
+2026-07-20 17:15:03,085 - INFO - 🔧 DEBUG SL/TP - Point: 1.0, TICKS_POR_PONTO: 10000
+2026-07-20 17:15:03,085 - INFO - 🔧 DEBUG SL/TP - SL_dist: 100.00000, TP_dist: 250.00000
+2026-07-20 17:15:03,085 - INFO - 🔧 DEBUG SL/TP - Calculado: SL=174805.0, TP=174455.0
+2026-07-20 17:15:03,498 - INFO - ✅ Ordem SELL executada. Ticket: 2483373327
+2026-07-20 17:15:03,498 - INFO -    Preço: 174705.000 | SL: 174805.000 | TP: 174455.000
+2026-07-20 17:15:04,010 - INFO - ✅ Ordem 2483373327 virou posição.
+2026-07-20 17:15:04,010 - INFO - 🎯 Trailing stop iniciado para posição 2483373327
+2026-07-20 17:15:04,011 - INFO - ⚖️ Operação SELL registrada. BUY: 6, SELL: 8 (BUY: 42.9%)
+2026-07-20 17:15:04,517 - INFO - ✅ Ordem 2483373327 virou posição.
+2026-07-20 17:15:04,518 - INFO - Found entry deal for order 2483373327, execution price: 174710.0
+2026-07-20 17:15:04,518 - INFO - 🛡️ Gerenciador de Saída ATIVADO para posição #2483373327
+2026-07-20 17:15:04,519 - INFO - 📊 Nova posição iniciada: Ticket=2483373327, Tipo=SELL, Entrada=174710.000, SL=174805.000, TP=174455.000, Score Inicial=-0.00
+2026-07-20 17:15:06,536 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174710 | +0 pts | Flutuante: R$ +0.00 | SL: 174805 TP: 174455
+2026-07-20 17:15:11,544 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174720 | -10 pts | Flutuante: R$ -10.00 | SL: 174805 TP: 174455
+2026-07-20 17:15:16,560 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174715 | -5 pts | Flutuante: R$ -5.00 | SL: 174805 TP: 174455
+2026-07-20 17:15:21,564 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174730 | -20 pts | Flutuante: R$ -25.00 | SL: 174805 TP: 174455
+2026-07-20 17:15:26,567 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174745 | -35 pts | Flutuante: R$ -40.00 | SL: 174805 TP: 174455
+2026-07-20 17:15:31,578 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174735 | -25 pts | Flutuante: R$ -25.00 | SL: 174805 TP: 174455
+2026-07-20 17:15:36,592 - INFO - 👁️ Monstro ativo | Modo: NORMAL
+2026-07-20 17:15:36,595 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 17:15:36,726 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 17:15:36,738 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174730 | -20 pts | Flutuante: R$ -25.00 | SL: 174805 TP: 174455
+2026-07-20 17:15:41,750 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174755 | -45 pts | Flutuante: R$ -50.00 | SL: 174805 TP: 174455
+2026-07-20 17:15:46,766 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174755 | -45 pts | Flutuante: R$ -50.00 | SL: 174805 TP: 174455
+2026-07-20 17:15:51,783 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174740 | -30 pts | Flutuante: R$ -30.00 | SL: 174805 TP: 174455
+2026-07-20 17:15:56,790 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174740 | -30 pts | Flutuante: R$ -25.00 | SL: 174805 TP: 174455
+2026-07-20 17:16:01,799 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174715 | -5 pts | Flutuante: R$ +0.00 | SL: 174805 TP: 174455
+2026-07-20 17:16:06,812 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174730 | -20 pts | Flutuante: R$ -20.00 | SL: 174805 TP: 174455
+2026-07-20 17:16:11,825 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174730 | -20 pts | Flutuante: R$ -25.00 | SL: 174805 TP: 174455
+2026-07-20 17:16:16,833 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174725 | -15 pts | Flutuante: R$ -15.00 | SL: 174805 TP: 174455
+2026-07-20 17:16:21,842 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174725 | -15 pts | Flutuante: R$ -20.00 | SL: 174805 TP: 174455
+2026-07-20 17:16:26,850 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174725 | -15 pts | Flutuante: R$ -20.00 | SL: 174805 TP: 174455
+2026-07-20 17:16:31,860 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174720 | -10 pts | Flutuante: R$ -10.00 | SL: 174805 TP: 174455
+2026-07-20 17:16:36,868 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174730 | -20 pts | Flutuante: R$ -25.00 | SL: 174805 TP: 174455
+2026-07-20 17:16:41,879 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174735 | -25 pts | Flutuante: R$ -25.00 | SL: 174805 TP: 174455
+2026-07-20 17:16:46,884 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174730 | -20 pts | Flutuante: R$ -25.00 | SL: 174805 TP: 174455
+2026-07-20 17:16:51,886 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174730 | -20 pts | Flutuante: R$ -25.00 | SL: 174805 TP: 174455
+2026-07-20 17:16:56,901 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174730 | -20 pts | Flutuante: R$ -20.00 | SL: 174805 TP: 174455
+2026-07-20 17:17:01,915 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174725 | -15 pts | Flutuante: R$ -20.00 | SL: 174805 TP: 174455
+2026-07-20 17:17:06,920 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174720 | -10 pts | Flutuante: R$ -10.00 | SL: 174805 TP: 174455
+2026-07-20 17:17:11,927 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174720 | -10 pts | Flutuante: R$ -10.00 | SL: 174805 TP: 174455
+2026-07-20 17:17:16,935 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174715 | -5 pts | Flutuante: R$ -5.00 | SL: 174805 TP: 174455
+2026-07-20 17:17:21,948 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174715 | -5 pts | Flutuante: R$ -10.00 | SL: 174805 TP: 174455
+2026-07-20 17:17:26,950 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174715 | -5 pts | Flutuante: R$ -5.00 | SL: 174805 TP: 174455
+2026-07-20 17:17:31,966 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174715 | -5 pts | Flutuante: R$ -5.00 | SL: 174805 TP: 174455
+2026-07-20 17:17:36,980 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174715 | -5 pts | Flutuante: R$ -10.00 | SL: 174805 TP: 174455
+2026-07-20 17:17:41,990 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174720 | -10 pts | Flutuante: R$ -10.00 | SL: 174805 TP: 174455
+2026-07-20 17:17:46,998 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174715 | -5 pts | Flutuante: R$ -10.00 | SL: 174805 TP: 174455
+2026-07-20 17:17:52,011 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174710 | +0 pts | Flutuante: R$ -5.00 | SL: 174805 TP: 174455
+2026-07-20 17:17:57,016 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174710 | +0 pts | Flutuante: R$ +0.00 | SL: 174805 TP: 174455
+2026-07-20 17:18:02,019 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174710 | +0 pts | Flutuante: R$ +0.00 | SL: 174805 TP: 174455
+2026-07-20 17:18:07,030 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174705 | +5 pts | Flutuante: R$ +0.00 | SL: 174805 TP: 174455
+2026-07-20 17:18:12,045 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174700 | +10 pts | Flutuante: R$ +10.00 | SL: 174805 TP: 174455
+2026-07-20 17:18:17,053 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174710 | +0 pts | Flutuante: R$ +0.00 | SL: 174805 TP: 174455
+2026-07-20 17:18:22,066 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174715 | -5 pts | Flutuante: R$ -5.00 | SL: 174805 TP: 174455
+2026-07-20 17:18:27,074 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174720 | -10 pts | Flutuante: R$ -10.00 | SL: 174805 TP: 174455
+2026-07-20 17:18:32,083 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174710 | +0 pts | Flutuante: R$ -5.00 | SL: 174805 TP: 174455
+2026-07-20 17:18:37,085 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174710 | +0 pts | Flutuante: R$ -5.00 | SL: 174805 TP: 174455
+2026-07-20 17:18:42,103 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174700 | +10 pts | Flutuante: R$ +10.00 | SL: 174805 TP: 174455
+2026-07-20 17:18:47,114 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174700 | +10 pts | Flutuante: R$ +10.00 | SL: 174805 TP: 174455
+2026-07-20 17:18:52,127 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174700 | +10 pts | Flutuante: R$ +10.00 | SL: 174805 TP: 174455
+2026-07-20 17:18:57,142 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174700 | +10 pts | Flutuante: R$ +5.00 | SL: 174805 TP: 174455
+2026-07-20 17:19:02,159 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174700 | +10 pts | Flutuante: R$ +10.00 | SL: 174805 TP: 174455
+2026-07-20 17:19:07,164 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174710 | +0 pts | Flutuante: R$ +0.00 | SL: 174805 TP: 174455
+2026-07-20 17:19:12,171 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174705 | +5 pts | Flutuante: R$ +0.00 | SL: 174805 TP: 174455
+2026-07-20 17:19:17,179 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174700 | +10 pts | Flutuante: R$ +5.00 | SL: 174805 TP: 174455
+2026-07-20 17:19:22,192 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174705 | +5 pts | Flutuante: R$ +5.00 | SL: 174805 TP: 174455
+2026-07-20 17:19:27,200 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174725 | -15 pts | Flutuante: R$ -20.00 | SL: 174805 TP: 174455
+2026-07-20 17:19:32,212 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174725 | -15 pts | Flutuante: R$ -20.00 | SL: 174805 TP: 174455
+2026-07-20 17:19:37,227 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174730 | -20 pts | Flutuante: R$ -20.00 | SL: 174805 TP: 174455
+2026-07-20 17:19:42,231 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174725 | -15 pts | Flutuante: R$ -15.00 | SL: 174805 TP: 174455
+2026-07-20 17:19:47,237 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174730 | -20 pts | Flutuante: R$ -25.00 | SL: 174805 TP: 174455
+2026-07-20 17:19:52,245 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174730 | -20 pts | Flutuante: R$ -25.00 | SL: 174805 TP: 174455
+2026-07-20 17:19:57,252 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174725 | -15 pts | Flutuante: R$ -15.00 | SL: 174805 TP: 174455
+2026-07-20 17:20:02,255 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174725 | -15 pts | Flutuante: R$ -15.00 | SL: 174805 TP: 174455
+2026-07-20 17:20:07,268 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174715 | -5 pts | Flutuante: R$ -10.00 | SL: 174805 TP: 174455
+2026-07-20 17:20:12,294 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174720 | -10 pts | Flutuante: R$ -15.00 | SL: 174805 TP: 174455
+2026-07-20 17:20:17,302 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174725 | -15 pts | Flutuante: R$ -15.00 | SL: 174805 TP: 174455
+2026-07-20 17:20:22,304 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174730 | -20 pts | Flutuante: R$ -25.00 | SL: 174805 TP: 174455
+2026-07-20 17:20:27,309 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174730 | -20 pts | Flutuante: R$ -25.00 | SL: 174805 TP: 174455
+2026-07-20 17:20:32,324 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174730 | -20 pts | Flutuante: R$ -20.00 | SL: 174805 TP: 174455
+2026-07-20 17:20:37,331 - INFO - 👁️ Monstro ativo | Modo: NORMAL
+2026-07-20 17:20:37,334 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 17:20:37,461 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 17:20:37,469 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174725 | -15 pts | Flutuante: R$ -15.00 | SL: 174805 TP: 174455
+2026-07-20 17:20:42,478 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174710 | +0 pts | Flutuante: R$ +0.00 | SL: 174805 TP: 174455
+2026-07-20 17:20:47,488 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174725 | -15 pts | Flutuante: R$ -20.00 | SL: 174805 TP: 174455
+2026-07-20 17:20:52,501 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174730 | -20 pts | Flutuante: R$ -20.00 | SL: 174805 TP: 174455
+2026-07-20 17:20:57,517 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174725 | -15 pts | Flutuante: R$ -20.00 | SL: 174805 TP: 174455
+2026-07-20 17:21:02,529 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174720 | -10 pts | Flutuante: R$ -15.00 | SL: 174805 TP: 174455
+2026-07-20 17:21:07,536 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174725 | -15 pts | Flutuante: R$ -15.00 | SL: 174805 TP: 174455
+2026-07-20 17:21:12,540 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174725 | -15 pts | Flutuante: R$ -20.00 | SL: 174805 TP: 174455
+2026-07-20 17:21:17,550 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174730 | -20 pts | Flutuante: R$ -15.00 | SL: 174805 TP: 174455
+2026-07-20 17:21:22,562 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174730 | -20 pts | Flutuante: R$ -20.00 | SL: 174805 TP: 174455
+2026-07-20 17:21:27,569 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174720 | -10 pts | Flutuante: R$ -15.00 | SL: 174805 TP: 174455
+2026-07-20 17:21:32,575 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174715 | -5 pts | Flutuante: R$ -10.00 | SL: 174805 TP: 174455
+2026-07-20 17:21:37,585 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174710 → Atual: 174715 | -5 pts | Flutuante: R$ -10.00 | SL: 174805 TP: 174455
+2026-07-20 17:21:42,589 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174705 | +5 pts | Flutuante: R$ +5.00 | SL: 174805 TP: 174455
+2026-07-20 17:21:47,592 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174665 | +45 pts | Flutuante: R$ +45.00 | SL: 174805 TP: 174455
+2026-07-20 17:21:52,596 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174670 | +40 pts | Flutuante: R$ +40.00 | SL: 174805 TP: 174455
+2026-07-20 17:21:57,609 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174660 | +50 pts | Flutuante: R$ +50.00 | SL: 174805 TP: 174455
+2026-07-20 17:22:02,619 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174660 | +50 pts | Flutuante: R$ +50.00 | SL: 174805 TP: 174455
+2026-07-20 17:22:07,629 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174635 | +75 pts | Flutuante: R$ +75.00 | SL: 174805 TP: 174455
+2026-07-20 17:22:12,642 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174660 | +50 pts | Flutuante: R$ +40.00 | SL: 174805 TP: 174455
+2026-07-20 17:22:17,657 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174655 | +55 pts | Flutuante: R$ +50.00 | SL: 174805 TP: 174455
+2026-07-20 17:22:22,659 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174660 | +50 pts | Flutuante: R$ +45.00 | SL: 174805 TP: 174455
+2026-07-20 17:22:27,669 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174650 | +60 pts | Flutuante: R$ +50.00 | SL: 174805 TP: 174455
+2026-07-20 17:22:32,674 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174645 | +65 pts | Flutuante: R$ +55.00 | SL: 174805 TP: 174455
+2026-07-20 17:22:37,681 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174645 | +65 pts | Flutuante: R$ +65.00 | SL: 174805 TP: 174455
+2026-07-20 17:22:42,686 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174640 | +70 pts | Flutuante: R$ +70.00 | SL: 174805 TP: 174455
+2026-07-20 17:22:47,701 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174650 | +60 pts | Flutuante: R$ +65.00 | SL: 174805 TP: 174455
+2026-07-20 17:22:52,705 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174625 | +85 pts | Flutuante: R$ +80.00 | SL: 174805 TP: 174455
+2026-07-20 17:22:52,706 - WARNING - 🔄 INVERSÃO DE FLUXO (posição no lucro)! Ratio contrário: 2.24 | Lucro flutuante: R$ 80.00 | Movendo SL para breakeven (174710) — protegendo o ganho!
+2026-07-20 17:22:53,056 - INFO - 🔐 SL atualizado com sucesso! 174805.00 → 174710.00 (Ticket: 2483373327)
+2026-07-20 17:22:53,057 - INFO - 🔧 Decisão de Ajuste SELL: Novo SL 174665.00 (Melhoria de 174710.00)
+2026-07-20 17:22:53,058 - INFO - 🔧 Decisão de Ajuste: Novo SL 174665.00
+2026-07-20 17:22:53,464 - INFO - 🔐 SL atualizado com sucesso! 174710.00 → 174665.00 (Ticket: 2483373327)
+2026-07-20 17:22:58,480 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174640 | +70 pts | Flutuante: R$ +70.00 | SL: 174665 TP: 174455
+2026-07-20 17:23:03,486 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174650 | +60 pts | Flutuante: R$ +55.00 | SL: 174665 TP: 174455
+2026-07-20 17:23:08,496 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174650 | +60 pts | Flutuante: R$ +55.00 | SL: 174665 TP: 174455
+2026-07-20 17:23:13,507 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174650 | +60 pts | Flutuante: R$ +60.00 | SL: 174665 TP: 174455
+2026-07-20 17:23:18,510 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174710 → Atual: 174655 | +55 pts | Flutuante: R$ +50.00 | SL: 174665 TP: 174455
+2026-07-20 17:23:18,511 - INFO - 🚪 Decisão de Saída: C12: Proteção de Lucro (caiu de 85.0pts - 30% do pico, TP=250)
+2026-07-20 17:23:18,511 - WARNING - ⚠️ order_send None (filling=0), reconectando...
+2026-07-20 17:23:18,526 - INFO - ✅ Reconectado ao MetaTrader 5
+2026-07-20 17:23:19,041 - WARNING - ⚠️ order_send None (filling=1), reconectando...
+2026-07-20 17:23:19,053 - INFO - ✅ Reconectado ao MetaTrader 5
+2026-07-20 17:23:19,559 - ERROR - ❌ Falha ao fechar posição após todos os fillings: C12: Proteção de Lucro (caiu de 85.0pts - 30% do pico, TP=250)
+2026-07-20 17:23:19,560 - WARNING - ⚠️ Tentativa 1/3 de fechar falhou. Aguardando 1s...
+2026-07-20 17:23:20,581 - WARNING - ⚠️ order_send None (filling=0), reconectando...
+2026-07-20 17:23:20,592 - INFO - ✅ Reconectado ao MetaTrader 5
+2026-07-20 17:23:21,105 - WARNING - ⚠️ order_send None (filling=1), reconectando...
+2026-07-20 17:23:21,115 - INFO - ✅ Reconectado ao MetaTrader 5
+2026-07-20 17:23:21,627 - ERROR - ❌ Falha ao fechar posição após todos os fillings: C12: Proteção de Lucro (caiu de 85.0pts - 30% do pico, TP=250)
+2026-07-20 17:23:21,627 - WARNING - ⚠️ Tentativa 2/3 de fechar falhou. Aguardando 1s...
+2026-07-20 17:23:22,647 - WARNING - ⚠️ order_send None (filling=0), reconectando...
+2026-07-20 17:23:22,659 - INFO - ✅ Reconectado ao MetaTrader 5
+2026-07-20 17:23:23,169 - WARNING - ⚠️ order_send None (filling=1), reconectando...
+2026-07-20 17:23:23,180 - INFO - ✅ Reconectado ao MetaTrader 5
+2026-07-20 17:23:23,685 - ERROR - ❌ Falha ao fechar posição após todos os fillings: C12: Proteção de Lucro (caiu de 85.0pts - 30% do pico, TP=250)
+2026-07-20 17:23:23,685 - WARNING - ⚠️ Tentativa 3/3 de fechar falhou. Aguardando 1s...
+2026-07-20 17:23:24,708 - ERROR - ❌ FALHA AO FECHAR POSIÇÃO após 3 tentativas! Posição pode estar aberta.
+2026-07-20 17:23:24,709 - INFO - 🛡️ Gerenciador de Saída DESATIVADO.
+2026-07-20 17:23:29,724 - INFO - 🔍 Tentando obter lucro para ticket de ordem de abertura: 2483373327
+2026-07-20 17:23:29,725 - INFO - 💰 Deal de saída encontrado para ticket 2483373327: DealTicket=1807619847, PositionID=2483373327, Lucro=45.00, Preço Saída=174665.0, Volume=5.0, Hora=2026-07-20 14:23:20)
+2026-07-20 17:23:29,726 - INFO - Found entry deal for score_dist calc (Order: 2483373327), execution price: 174710.0
+2026-07-20 17:23:29,731 - INFO - ✅ Experiência REAL salva: Ação=SELL, Lucro=45.00, Score=0.18 | Contador: 3/3
+2026-07-20 17:23:29,731 - INFO - 🎯 Resultado confluência registrado: Lucro=45.00
+2026-07-20 17:23:29,732 - INFO - 🧠 Iniciando treinamento após 3 experiências novas
+2026-07-20 17:23:29,732 - INFO - [treinar_modelo] Iniciando treino com VALIDAÇÃO. Tenho 197 experiências.
+2026-07-20 17:23:29,745 - INFO - Dados divididos: 24 para treino, 6 para validação.
+2026-07-20 17:23:29.821339: E tensorflow/core/framework/node_def_util.cc:680] NodeDef mentions attribute use_unbounded_threadpool which is not in the op definition: Op<name=MapDataset; signature=input_dataset:variant, other_arguments: -> handle:variant; attr=f:func; attr=Targuments:list(type),min=0; attr=output_types:list(type),min=1; attr=output_shapes:list(shape),min=1; attr=use_inter_op_parallelism:bool,default=true; attr=preserve_cardinality:bool,default=false; attr=force_synchronous:bool,default=false; attr=metadata:string,default=""> This may be expected if your graph generating binary is newer  than this binary. Unknown attributes will be ignored. NodeDef: {{node ParallelMapDatasetV2/_15}}
+2026-07-20 17:23:29,917 - INFO - Performance do Modelo ANTIGO na validação: Loss=0.6121, Acurácia=1.0000
+2026-07-20 17:23:31,496 - INFO - Performance do Modelo NOVO na validação: Loss=0.5851, Acurácia=1.0000
+2026-07-20 17:23:31,497 - INFO - ✅ MELHORIA REAL: Loss 0.6121 → 0.5851 (4.4%). Salvando.
+2026-07-20 17:23:31,507 - INFO - 🔒 BACKUP INTELIGENTE: modelo_monstro_win.h5.backup_20260720_172331
+2026-07-20 17:23:31,510 - WARNING - You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+2026-07-20 17:23:31,569 - INFO - ✅ Modelo salvo (atômico) em formato h5: C:\AIOFEN\modelo_monstro_win.h5
+2026-07-20 17:23:31,633 - INFO - ✅ Modelo salvo (atômico) em formato keras: C:\AIOFEN\modelo_monstro_win.keras
+2026-07-20 17:23:31,634 - INFO - [treinar_modelo] PRESTES A SALVAR O MODELO.
+2026-07-20 17:23:31,639 - INFO - ✅ PA2 FILTRO DE MEMÓRIA: 21/197 experiências positivas salvas em experiencias.json
+2026-07-20 17:23:31,639 - INFO - 🧠 Modelo treinado por 3 épocas. Loss final: 0.0750
+2026-07-20 17:23:31,639 - INFO - 🛡️ Gerenciador de Saída DESATIVADO.
+2026-07-20 17:23:31,644 - INFO - 🔒 BACKUP INTELIGENTE: modelo_monstro_win.h5.backup_20260720_172331
+2026-07-20 17:23:31,648 - WARNING - You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+2026-07-20 17:23:31,697 - INFO - ✅ Modelo salvo (atômico) em formato h5: C:\AIOFEN\modelo_monstro_win.h5
+2026-07-20 17:23:31,814 - INFO - ✅ Modelo salvo (atômico) em formato keras: C:\AIOFEN\modelo_monstro_win.keras
+2026-07-20 17:23:31,815 - INFO - 💾 Modelo salvo após trade (aprendizado protegido).
+2026-07-20 17:23:31,815 - INFO - ✅ Posição 2483373327 processada e resetada.
+2026-07-20 17:23:32,819 - INFO - 📊 WINQ26 | Preço: 174680 | Spread: 5.0pts | BID: 3554 / ASK: 6354 | Desequilíbrio: 1.79x 🔴VENDA
+2026-07-20 17:23:32,822 - INFO - 😴 Standby: Aguardando Big Players... (Vol 9908/5000 | Ratio 1.79/2.0)
+
+e apos essa novamente eal incistiu na venda 3 operacoes onde so vejo uma na mesmo direção  se expondo ao mercado atoa  
+
+2026-07-20 17:25:12.089283: E tensorflow/core/framework/node_def_util.cc:680] NodeDef mentions attribute use_unbounded_threadpool which is not in the op definition: Op<name=MapDataset; signature=input_dataset:variant, other_arguments: -> handle:variant; attr=f:func; attr=Targuments:list(type),min=0; attr=output_types:list(type),min=1; attr=output_shapes:list(shape),min=1; attr=use_inter_op_parallelism:bool,default=true; attr=preserve_cardinality:bool,default=false; attr=force_synchronous:bool,default=false; attr=metadata:string,default=""> This may be expected if your graph generating binary is newer  than this binary. Unknown attributes will be ignored. NodeDef: {{node ParallelMapDatasetV2/_14}}
+2026-07-20 17:25:12,157 - INFO - 🎯 CONFLUÊNCIA CONFIRMA: SELL | Confiança aumentada: 1.00
+2026-07-20 17:25:12,171 - INFO - ✅ Dados obtidos - Tick: Ask=174690.0, Bid=174685.0, Symbol: WINQ26
+2026-07-20 17:25:12,171 - INFO - ✅ Spread OK: 0.0 pontos
+2026-07-20 17:25:12,172 - INFO - 📊 Volume ajustado: 5.0 contratos
+2026-07-20 17:25:12,174 - INFO - 🚀 VOLUME MONUMENTAL (5000cc+): SL=100, TP=250 (R/R 1:2.5)
+2026-07-20 17:25:12,175 - INFO - 🔧 DEBUG SL/TP - Entrada: 174685.0, Ação: SELL
+2026-07-20 17:25:12,175 - INFO - 🔧 DEBUG SL/TP - SLOINTS: 100, TP_POINTS: 250
+2026-07-20 17:25:12,175 - INFO - 🔧 DEBUG SL/TP - Point: 1.0, TICKS_POR_PONTO: 10000
+2026-07-20 17:25:12,175 - INFO - 🔧 DEBUG SL/TP - SL_dist: 100.00000, TP_dist: 250.00000
+2026-07-20 17:25:12,176 - INFO - 🔧 DEBUG SL/TP - Calculado: SL=174785.0, TP=174435.0
+2026-07-20 17:25:12,506 - INFO - ✅ Ordem SELL executada. Ticket: 2483380574
+2026-07-20 17:25:12,506 - INFO -    Preço: 174685.000 | SL: 174785.000 | TP: 174435.000
+2026-07-20 17:25:13,012 - INFO - ✅ Ordem 2483380574 virou posição.
+2026-07-20 17:25:13,012 - INFO - 🎯 Trailing stop iniciado para posição 2483380574
+2026-07-20 17:25:13,013 - INFO - ⚖️ Operação SELL registrada. BUY: 6, SELL: 9 (BUY: 40.0%)
+2026-07-20 17:25:13,517 - INFO - ✅ Ordem 2483380574 virou posição.
+2026-07-20 17:25:13,517 - INFO - Found entry deal for order 2483380574, execution price: 174685.0
+2026-07-20 17:25:13,518 - INFO - 🛡️ Gerenciador de Saída ATIVADO para posição #2483380574
+2026-07-20 17:25:13,518 - INFO - 📊 Nova posição iniciada: Ticket=2483380574, Tipo=SELL, Entrada=174685.000, SL=174785.000, TP=174435.000, Score Inicial=-0.00
+2026-07-20 17:25:15,526 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ +0.00 | SL: 174785 TP: 174435
+2026-07-20 17:25:20,536 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:25:25,543 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174680 | +5 pts | Flutuante: R$ +0.00 | SL: 174785 TP: 174435
+2026-07-20 17:25:30,560 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:25:35,564 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:25:40,571 - INFO - 👁️ Monstro ativo | Modo: NORMAL
+2026-07-20 17:25:40,573 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 17:25:40,710 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 17:25:40,716 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:25:45,725 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:25:50,738 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:25:55,747 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:00,753 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:05,765 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174680 | +5 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:10,776 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:15,783 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:20,797 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:25,806 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:30,808 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ +0.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:35,822 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:40,827 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:45,837 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:50,841 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:55,858 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:27:00,863 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174680 | +5 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:27:05,867 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +20.00 | SL: 174785 TP: 174435
+2026-07-20 17:27:10,871 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:27:15,875 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:27:20,889 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | S veja os horários  e preços lebrando cada enntrada custa 5 reais de custos da operadora contando entrada e saida  veja essa ultima operacao com loss teve muit briga desnecessari posi nao presizariaos esta nessa nova opercaos se estivessemos sem stop gains e acopanhando a primeira venda de loga vovendo nosso stop losso par prtecao como falei antes depos para uco e depois para próximo a sainda ja que estávamos  em fina de pregao veja abaixo  tire sua conclusões 2026-07-20 17:25:12.089283: E tensorflow/core/framework/node_def_util.cc:680] NodeDef mentions attribute use_unbounded_threadpool which is not in the op definition: Op<name=MapDataset; signature=input_dataset:variant, other_arguments: -> handle:variant; attr=f:func; attr=Targuments:list(type),min=0; attr=output_types:list(type),min=1; attr=output_shapes:list(shape),min=1; attr=use_inter_op_parallelism:bool,default=true; attr=preserve_cardinality:bool,default=false; attr=force_synchronous:bool,default=false; attr=metadata:string,default=""> This may be expected if your graph generating binary is newer  than this binary. Unknown attributes will be ignored. NodeDef: {{node ParallelMapDatasetV2/_14}}
+2026-07-20 17:25:12,157 - INFO - 🎯 CONFLUÊNCIA CONFIRMA: SELL | Confiança aumentada: 1.00
+2026-07-20 17:25:12,171 - INFO - ✅ Dados obtidos - Tick: Ask=174690.0, Bid=174685.0, Symbol: WINQ26
+2026-07-20 17:25:12,171 - INFO - ✅ Spread OK: 0.0 pontos
+2026-07-20 17:25:12,172 - INFO - 📊 Volume ajustado: 5.0 contratos
+2026-07-20 17:25:12,174 - INFO - 🚀 VOLUME MONUMENTAL (5000cc+): SL=100, TP=250 (R/R 1:2.5)
+2026-07-20 17:25:12,175 - INFO - 🔧 DEBUG SL/TP - Entrada: 174685.0, Ação: SELL
+2026-07-20 17:25:12,175 - INFO - 🔧 DEBUG SL/TP - SLOINTS: 100, TP_POINTS: 250
+2026-07-20 17:25:12,175 - INFO - 🔧 DEBUG SL/TP - Point: 1.0, TICKS_POR_PONTO: 10000
+2026-07-20 17:25:12,175 - INFO - 🔧 DEBUG SL/TP - SL_dist: 100.00000, TP_dist: 250.00000
+2026-07-20 17:25:12,176 - INFO - 🔧 DEBUG SL/TP - Calculado: SL=174785.0, TP=174435.0
+2026-07-20 17:25:12,506 - INFO - ✅ Ordem SELL executada. Ticket: 2483380574
+2026-07-20 17:25:12,506 - INFO -    Preço: 174685.000 | SL: 174785.000 | TP: 174435.000
+2026-07-20 17:25:13,012 - INFO - ✅ Ordem 2483380574 virou posição.
+2026-07-20 17:25:13,012 - INFO - 🎯 Trailing stop iniciado para posição 2483380574
+2026-07-20 17:25:13,013 - INFO - ⚖️ Operação SELL registrada. BUY: 6, SELL: 9 (BUY: 40.0%)
+2026-07-20 17:25:13,517 - INFO - ✅ Ordem 2483380574 virou posição.
+2026-07-20 17:25:13,517 - INFO - Found entry deal for order 2483380574, execution price: 174685.0
+2026-07-20 17:25:13,518 - INFO - 🛡️ Gerenciador de Saída ATIVADO para posição #2483380574
+2026-07-20 17:25:13,518 - INFO - 📊 Nova posição iniciada: Ticket=2483380574, Tipo=SELL, Entrada=174685.000, SL=174785.000, TP=174435.000, Score Inicial=-0.00
+2026-07-20 17:25:15,526 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ +0.00 | SL: 174785 TP: 174435
+2026-07-20 17:25:20,536 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:25:25,543 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174680 | +5 pts | Flutuante: R$ +0.00 | SL: 174785 TP: 174435
+2026-07-20 17:25:30,560 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:25:35,564 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:25:40,571 - INFO - 👁️ Monstro ativo | Modo: NORMAL
+2026-07-20 17:25:40,573 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 17:25:40,710 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 17:25:40,716 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:25:45,725 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:25:50,738 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:25:55,747 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:00,753 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:05,765 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174680 | +5 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:10,776 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:15,783 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:20,797 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:25,806 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:30,808 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ +0.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:35,822 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:40,827 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:45,837 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:50,841 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:26:55,858 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:27:00,863 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174680 | +5 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:27:05,867 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +20.00 | SL: 174785 TP: 174435
+2026-07-20 17:27:10,871 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:27:15,875 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:27:20,889 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:27:25,897 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:27:30,909 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:27:35,923 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:27:40,939 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:27:45,942 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174650 | +35 pts | Flutuante: R$ +25.00 | SL: 174785 TP: 174435
+2026-07-20 17:27:50,950 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174650 | +35 pts | Flutuante: R$ +30.00 | SL: 174785 TP: 174435
+2026-07-20 17:27:55,963 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:28:00,966 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:28:05,981 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:28:10,989 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174680 | +5 pts | Flutuante: R$ +0.00 | SL: 174785 TP: 174435
+2026-07-20 17:28:16,005 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:28:21,008 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:28:26,016 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:28:31,033 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:28:36,040 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:28:41,043 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:28:46,049 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:28:51,058 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:28:56,065 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:29:01,073 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:29:06,076 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:29:11,085 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174680 | +5 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:29:16,101 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:29:21,118 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:29:26,130 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:29:31,133 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:29:36,140 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:29:41,144 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:29:46,154 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174660 | +25 pts | Flutuante: R$ +20.00 | SL: 174785 TP: 174435
+2026-07-20 17:29:51,170 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:29:56,185 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:30:01,199 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174680 | +5 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:30:06,217 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:30:11,234 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:30:16,238 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:30:21,250 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:30:26,264 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:30:31,281 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:30:36,286 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174700 | -15 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:30:41,303 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 17:30:41,438 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 17:30:41,446 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:30:46,460 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ +0.00 | SL: 174785 TP: 174435
+2026-07-20 17:30:51,466 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174680 | +5 pts | Flutuante: R$ +0.00 | SL: 174785 TP: 174435
+2026-07-20 17:30:56,479 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:31:01,485 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174680 | +5 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:31:06,501 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ +0.00 | SL: 174785 TP: 174435
+2026-07-20 17:31:11,518 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:31:16,522 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:31:21,532 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:31:26,537 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:31:31,551 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:31:36,553 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:31:41,563 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:31:46,569 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:31:51,578 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:31:56,585 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:32:01,600 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:32:06,609 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:32:11,618 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:32:16,628 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:32:21,642 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:32:26,656 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:32:31,667 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:32:36,672 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ +0.00 | SL: 174785 TP: 174435
+2026-07-20 17:32:41,686 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ +0.00 | SL: 174785 TP: 174435
+2026-07-20 17:32:46,695 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:32:51,700 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:32:56,705 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174700 | -15 pts | Flutuante: R$ -20.00 | SL: 174785 TP: 174435
+2026-07-20 17:33:01,717 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174700 | -15 pts | Flutuante: R$ -20.00 | SL: 174785 TP: 174435
+2026-07-20 17:33:06,722 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174700 | -15 pts | Flutuante: R$ -20.00 | SL: 174785 TP: 174435
+2026-07-20 17:33:11,727 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174700 | -15 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:33:16,733 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:33:21,746 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:33:26,755 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:33:31,770 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:33:36,774 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:33:41,778 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:33:46,784 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:33:51,790 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:33:56,804 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:34:01,812 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:34:06,818 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174725 | -40 pts | Flutuante: R$ -40.00 | SL: 174785 TP: 174435
+2026-07-20 17:34:11,830 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174745 | -60 pts | Flutuante: R$ -65.00 | SL: 174785 TP: 174435
+2026-07-20 17:34:16,834 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174740 | -55 pts | Flutuante: R$ -55.00 | SL: 174785 TP: 174435
+2026-07-20 17:34:21,847 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174730 | -45 pts | Flutuante: R$ -50.00 | SL: 174785 TP: 174435
+2026-07-20 17:34:26,850 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174730 | -45 pts | Flutuante: R$ -50.00 | SL: 174785 TP: 174435
+2026-07-20 17:34:31,854 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174735 | -50 pts | Flutuante: R$ -50.00 | SL: 174785 TP: 174435
+2026-07-20 17:34:36,862 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174730 | -45 pts | Flutuante: R$ -50.00 | SL: 174785 TP: 174435
+2026-07-20 17:34:41,870 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174730 | -45 pts | Flutuante: R$ -55.00 | SL: 174785 TP: 174435
+2026-07-20 17:34:46,884 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174730 | -45 pts | Flutuante: R$ -45.00 | SL: 174785 TP: 174435
+2026-07-20 17:34:51,897 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174735 | -50 pts | Flutuante: R$ -50.00 | SL: 174785 TP: 174435
+2026-07-20 17:34:56,911 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174735 | -50 pts | Flutuante: R$ -50.00 | SL: 174785 TP: 174435
+2026-07-20 17:35:01,915 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:35:06,921 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174680 | +5 pts | Flutuante: R$ +0.00 | SL: 174785 TP: 174435
+2026-07-20 17:35:11,937 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:35:16,943 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:35:21,958 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ +0.00 | SL: 174785 TP: 174435
+2026-07-20 17:35:26,968 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:35:31,983 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174685 | +0 pts | Flutuante: R$ +0.00 | SL: 174785 TP: 174435
+2026-07-20 17:35:36,992 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:35:41,999 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 17:35:42,146 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 17:35:42,154 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:35:47,156 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +20.00 | SL: 174785 TP: 174435
+2026-07-20 17:35:52,162 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:35:57,175 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:36:02,179 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:36:07,186 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:36:12,202 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:36:17,210 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174680 | +5 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:36:22,219 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:36:27,225 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:36:32,237 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:36:37,243 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +20.00 | SL: 174785 TP: 174435
+2026-07-20 17:36:42,250 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:36:47,255 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:36:52,264 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +20.00 | SL: 174785 TP: 174435
+2026-07-20 17:36:57,270 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +20.00 | SL: 174785 TP: 174435
+2026-07-20 17:37:02,286 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:37:07,304 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:37:12,314 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:37:17,323 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:37:22,336 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:37:27,346 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:37:32,354 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:37:37,366 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:37:42,373 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +20.00 | SL: 174785 TP: 174435
+2026-07-20 17:37:47,383 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174660 | +25 pts | Flutuante: R$ +25.00 | SL: 174785 TP: 174435
+2026-07-20 17:37:52,388 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174660 | +25 pts | Flutuante: R$ +25.00 | SL: 174785 TP: 174435
+2026-07-20 17:37:57,404 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +20.00 | SL: 174785 TP: 174435
+2026-07-20 17:38:02,409 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:38:07,416 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:38:12,433 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +20.00 | SL: 174785 TP: 174435
+2026-07-20 17:38:17,442 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174660 | +25 pts | Flutuante: R$ +20.00 | SL: 174785 TP: 174435
+2026-07-20 17:38:22,456 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:38:27,466 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:38:32,482 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:38:37,494 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:38:42,505 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:38:47,518 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:38:52,534 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:38:57,551 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:39:02,557 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:39:07,564 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:39:12,574 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:39:17,588 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:39:22,591 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:39:27,605 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:39:32,609 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174660 | +25 pts | Flutuante: R$ +25.00 | SL: 174785 TP: 174435
+2026-07-20 17:39:37,618 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174660 | +25 pts | Flutuante: R$ +25.00 | SL: 174785 TP: 174435
+2026-07-20 17:39:42,621 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:39:47,627 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:39:52,638 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:39:57,642 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:40:02,650 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +20.00 | SL: 174785 TP: 174435
+2026-07-20 17:40:07,666 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:40:12,683 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +20.00 | SL: 174785 TP: 174435
+2026-07-20 17:40:17,698 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +20.00 | SL: 174785 TP: 174435
+2026-07-20 17:40:22,702 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +20.00 | SL: 174785 TP: 174435
+2026-07-20 17:40:27,719 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:40:32,731 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:40:37,742 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +20.00 | SL: 174785 TP: 174435
+2026-07-20 17:40:42,746 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 17:40:42,883 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 17:40:42,891 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +20.00 | SL: 174785 TP: 174435
+2026-07-20 17:40:47,906 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:40:52,917 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +20.00 | SL: 174785 TP: 174435
+2026-07-20 17:40:57,928 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:41:02,931 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174660 | +25 pts | Flutuante: R$ +25.00 | SL: 174785 TP: 174435
+2026-07-20 17:41:07,943 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:41:12,949 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:41:17,956 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:41:22,965 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174680 | +5 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:41:27,978 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:41:32,985 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:41:38,003 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:41:43,004 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:41:48,020 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:41:53,036 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:41:58,047 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:42:03,059 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:42:08,063 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:42:13,065 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:42:18,070 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:42:23,074 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:42:28,079 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:42:33,092 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:42:38,104 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:42:43,115 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:42:48,132 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:42:53,139 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174665 | +20 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:42:58,144 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:43:03,159 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174670 | +15 pts | Flutuante: R$ +15.00 | SL: 174785 TP: 174435
+2026-07-20 17:43:08,171 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:43:13,186 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:43:18,200 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:43:23,210 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:43:28,217 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174700 | -15 pts | Flutuante: R$ -20.00 | SL: 174785 TP: 174435
+2026-07-20 17:43:33,231 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174695 | -10 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:43:38,237 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:43:43,254 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:43:48,266 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174680 | +5 pts | Flutuante: R$ +0.00 | SL: 174785 TP: 174435
+2026-07-20 17:43:53,275 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174680 | +5 pts | Flutuante: R$ +0.00 | SL: 174785 TP: 174435
+2026-07-20 17:43:58,291 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174680 | +5 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:44:03,296 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174680 | +5 pts | Flutuante: R$ +0.00 | SL: 174785 TP: 174435
+2026-07-20 17:44:08,301 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:44:13,318 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:44:18,328 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +10.00 | SL: 174785 TP: 174435
+2026-07-20 17:44:23,343 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:44:28,357 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:44:33,372 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:44:38,382 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:44:43,395 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:44:48,401 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:44:53,416 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:44:58,421 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:45:03,427 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:45:08,435 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:45:13,441 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:45:18,444 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:45:23,456 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:45:28,465 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:45:33,478 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:45:38,482 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:45:43,498 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 17:45:43,626 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 17:45:43,633 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:45:48,641 - INFO - 💓 🟢 SELL WINQ26 | Entrada: 174685 → Atual: 174675 | +10 pts | Flutuante: R$ +5.00 | SL: 174785 TP: 174435
+2026-07-20 17:45:53,650 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:45:58,666 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:46:03,671 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -5.00 | SL: 174785 TP: 174435
+2026-07-20 17:46:08,675 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174690 | -5 pts | Flutuante: R$ -10.00 | SL: 174785 TP: 174435
+2026-07-20 17:46:13,683 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174705 | -20 pts | Flutuante: R$ -20.00 | SL: 174785 TP: 174435
+2026-07-20 17:46:18,691 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174700 | -15 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:46:23,700 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174700 | -15 pts | Flutuante: R$ -20.00 | SL: 174785 TP: 174435
+2026-07-20 17:46:28,711 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174700 | -15 pts | Flutuante: R$ -20.00 | SL: 174785 TP: 174435
+2026-07-20 17:46:33,726 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174700 | -15 pts | Flutuante: R$ -20.00 | SL: 174785 TP: 174435
+2026-07-20 17:46:38,728 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174700 | -15 pts | Flutuante: R$ -20.00 | SL: 174785 TP: 174435
+2026-07-20 17:46:43,738 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174700 | -15 pts | Flutuante: R$ -20.00 | SL: 174785 TP: 174435
+2026-07-20 17:46:48,752 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174705 | -20 pts | Flutuante: R$ -20.00 | SL: 174785 TP: 174435
+2026-07-20 17:46:53,763 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174700 | -15 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:46:58,768 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174700 | -15 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:47:03,773 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174700 | -15 pts | Flutuante: R$ -20.00 | SL: 174785 TP: 174435
+2026-07-20 17:47:08,781 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174700 | -15 pts | Flutuante: R$ -20.00 | SL: 174785 TP: 174435
+2026-07-20 17:47:13,795 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174700 | -15 pts | Flutuante: R$ -15.00 | SL: 174785 TP: 174435
+2026-07-20 17:47:18,810 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174700 | -15 pts | Flutuante: R$ -20.00 | SL: 174785 TP: 174435
+2026-07-20 17:47:23,827 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174715 | -30 pts | Flutuante: R$ -35.00 | SL: 174785 TP: 174435
+2026-07-20 17:47:28,835 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174715 | -30 pts | Flutuante: R$ -35.00 | SL: 174785 TP: 174435
+2026-07-20 17:47:33,844 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174730 | -45 pts | Flutuante: R$ -45.00 | SL: 174785 TP: 174435
+2026-07-20 17:47:38,860 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174725 | -40 pts | Flutuante: R$ -45.00 | SL: 174785 TP: 174435
+2026-07-20 17:47:43,863 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174735 | -50 pts | Flutuante: R$ -50.00 | SL: 174785 TP: 174435
+2026-07-20 17:47:48,865 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174735 | -50 pts | Flutuante: R$ -50.00 | SL: 174785 TP: 174435
+2026-07-20 17:47:53,880 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174725 | -40 pts | Flutuante: R$ -40.00 | SL: 174785 TP: 174435
+2026-07-20 17:47:58,888 - INFO - 💓 🔴 SELL WINQ26 | Entrada: 174685 → Atual: 174715 | -30 pts | Flutuante: R$ -30.00 | SL: 174785 TP: 174435
+2026-07-20 17:48:03,901 - INFO - 🔍 Tentando obter lucro para ticket de ordem de abertura: 2483380574
+2026-07-20 17:48:03,903 - INFO - 💰 Deal de saída encontrado para ticket 2483380574: DealTicket=1807635986, PositionID=2483380574, Lucro=-100.00, Preço Saída=174785.0, Volume=5.0, Hora=2026-07-20 14:48:01)
+2026-07-20 17:48:03,904 - INFO - Found entry deal for score_dist calc (Order: 2483380574), execution price: 174685.0
+2026-07-20 17:48:03,907 - INFO - ✅ Experiência REAL salva: Ação=SELL, Lucro=-100.00, Score=-1.00 | Contador: 1/3
+2026-07-20 17:48:03,908 - INFO - 🎯 Resultado confluência registrado: Lucro=-100.00
+2026-07-20 17:48:03,908 - INFO - 🛡️ Gerenciador de Saída DESATIVADO.
+2026-07-20 17:48:03,912 - INFO - 🔒 BACKUP INTELIGENTE: modelo_monstro_win.h5.backup_20260720_174803
+2026-07-20 17:48:03,915 - WARNING - You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+2026-07-20 17:48:03,966 - INFO - ✅ Modelo salvo (atômico) em formato h5: C:\AIOFEN\modelo_monstro_win.h5
+2026-07-20 17:48:04,033 - INFO - ✅ Modelo salvo (atômico) em formato keras: C:\AIOFEN\modelo_monstro_win.keras
+2026-07-20 17:48:04,034 - INFO - 💾 Modelo salvo após trade (aprendizado protegido).
+2026-07-20 17:48:04,034 - INFO - ✅ Posição 2483380574 processada e resetada.
+2026-07-20 17:48:05,035 - INFO - 🚫 Fora do horário PA1 (17:48) — aguardando próxima janela (09-12 / 15-17:30) vamos
+tambem mudar essa linha 2026-07-20 17:48:03,907 - INFO - ✅ Experiência REAL salva: Ação=SELL, Lucro=-100.00, Score=-1.00 | Contador: 1/3
+2026-07-20 17:48:03,908 - INFO - 🎯 Resultado confluência registrado: Lucro=-100.00 para prejuízo  ou loss. veja quando podemos fazer ou imediato ou deixamos para futuramente 
+
+veja os logs de finalizacao veja se esta tudo de acordo  
+
+2026-07-20 17:48:03,912 - INFO - 🔒 BACKUP INTELIGENTE: modelo_monstro_win.h5.backup_20260720_174803
+2026-07-20 17:48:03,915 - WARNING - You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+2026-07-20 17:48:03,966 - INFO - ✅ Modelo salvo (atômico) em formato h5: C:\AIOFEN\modelo_monstro_win.h5
+2026-07-20 17:48:04,033 - INFO - ✅ Modelo salvo (atômico) em formato keras: C:\AIOFEN\modelo_monstro_win.keras
+2026-07-20 17:48:04,034 - INFO - 💾 Modelo salvo após trade (aprendizado protegido).
+2026-07-20 17:48:04,034 - INFO - ✅ Posição 2483380574 processada e resetada.
+2026-07-20 17:48:05,035 - INFO - 🚫 Fora do horário PA1 (17:48) — aguardando próxima janela (09-12 / 15-17:30)
+2026-07-20 17:51:05,095 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 17:51:05,235 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 17:53:05,280 - INFO - 🚫 Fora do horário PA1 (17:53) — aguardando próxima janela (09-12 / 15-17:30)
+2026-07-20 17:56:05,334 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 17:56:05,463 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 17:58:05,500 - INFO - 🚫 Fora do horário PA1 (17:58) — aguardando próxima janela (09-12 / 15-17:30)
+2026-07-20 18:01:05,568 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 18:01:05,688 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 18:03:05,740 - INFO - 🚫 Fora do horário PA1 (18:03) — aguardando próxima janela (09-12 / 15-17:30)
+2026-07-20 18:06:05,790 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 18:06:05,918 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 18:08:05,969 - INFO - 🚫 Fora do horário PA1 (18:08) — aguardando próxima janela (09-12 / 15-17:30)
+2026-07-20 18:11:06,038 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 18:11:06,163 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 18:13:06,205 - INFO - 🚫 Fora do horário PA1 (18:13) — aguardando próxima janela (09-12 / 15-17:30)
+2026-07-20 18:16:06,270 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 18:16:06,401 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 18:18:06,448 - INFO - 🚫 Fora do horário PA1 (18:18) — aguardando próxima janela (09-12 / 15-17:30)
+2026-07-20 18:21:06,504 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 18:21:06,634 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 18:23:06,678 - INFO - 🚫 Fora do horário PA1 (18:23) — aguardando próxima janela (09-12 / 15-17:30)
+2026-07-20 18:26:06,718 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 18:26:06,845 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 18:28:06,877 - INFO - 🚫 Fora do horário PA1 (18:28) — aguardando próxima janela (09-12 / 15-17:30)
+2026-07-20 18:30:06,912 - INFO - 🕐 Mercado fechado (18:30): modo simulação ativo
+2026-07-20 18:30:36,926 - INFO - 🕐 Mercado fechado (18:30): modo simulação ativo
+2026-07-20 18:31:06,938 - INFO - 🔍 Verificando integridade do modelo: modelo_monstro_win.h5
+2026-07-20 18:31:07,066 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-07-20 18:31:07,074 - INFO - 🕐 Mercado fechado (18:31): modo simulação ativo
+2026-07-20 18:31:37,091 - INFO - 🕐 Mercado fechado (18:31): modo simulação ativo
+2026-07-20 18:32:07,096 - INFO - 🛑 PARADA GRACIL SOLICITADA - Encerrando sistema com segurança...
+2026-07-20 18:32:07,096 - INFO - 💾 Salvando modelo IA...
+2026-07-20 18:32:07,102 - INFO - 🔒 BACKUP INTELIGENTE: modelo_monstro_win.h5.backup_20260720_183207
+2026-07-20 18:32:07,105 - WARNING - You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+2026-07-20 18:32:07,151 - INFO - ✅ Modelo salvo (atômico) em formato h5: C:\AIOFEN\modelo_monstro_win.h5
+2026-07-20 18:32:07,213 - INFO - ✅ Modelo salvo (atômico) em formato keras: C:\AIOFEN\modelo_monstro_win.keras
+2026-07-20 18:32:07,214 - INFO - 📚 Salvando experiências...
+2026-07-20 18:32:07,218 - INFO - ✅ PA2 FILTRO DE MEMÓRIA: 21/199 experiências positivas salvas em experiencias.json
+2026-07-20 18:32:07,218 - INFO - ✅ ENCERRAMENTO GRACIL CONCLUÍDO - Sistema finalizado com segurança
+
+(venv310) C:\AIOFEN>
+(venv310) C:\AIOFEN>
+(venv310) C:\AIOFEN>
+(venv310) C:\AIOFEN>
+(venv310) C:\AIOFEN>
+(venv310) C:\AIOFEN>
+(venv310) C:\AIOFEN>
+(venv310) C:\AIOFEN>
+(venv310) C:\AIOFEN>
+(venv310) C:\AIOFEN>
+(venv310) C:\AIOFEN>
+(venv310) C:\AIOFEN>
+(venv310) C:\AIOFEN>
+(venv310) C:\AIOFEN>
+(venv310) C:\AIOFEN>c
+'c' não é reconhecido como um comando interno
+ou externo, um programa operável ou um arquivo em lotes.
+
+(venv310) C:\AIOFEN>
