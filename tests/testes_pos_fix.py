@@ -57,7 +57,8 @@ def teste_sys_exit(src):
 
 def teste_entropia_escala(src):
     # procura comparações do tipo entropia < 0.x ou entropia <= 0.x
-    padrao = re.compile(r"(entropia\w*|entropy\w*)\s*[<>=]=?\s*0\.\d+")
+    # [<>]=? casa '<', '>', '<=', '>=' — NÃO '=' sozinho (evita atribuições como 'entropia_book = 0.0')
+    padrao = re.compile(r"(entropia\w*|entropy\w*)\s*[<>]=?\s*0\.\d+")
     achados = [l for l in src.splitlines() if padrao.search(l) and not l.strip().startswith('#')]
     checar("Sem comparacoes de entropia em escala [0,1]", len(achados) == 0, f"exemplos={achados[:5]}")
 
