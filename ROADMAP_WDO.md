@@ -1,7 +1,7 @@
 # ============================================================
 # ROADMAP — ROBÔ WDO (Mini Dólar)
 # Versão: 22 | Arquivo: monstro_unificado_v22.py
-# Atualizado: 01/08/2026 (Fim do Modo Aprendizado + Parâmetros restaurados + Scaler real + Atomicidade save + Dup class removida + Code Review Aprovado + Fixes Robustez)
+# Atualizado: 02/08/2026 (Fim do Modo Aprendizado + Parâmetros restaurados + Scaler real + Atomicidade save + Dup class removida + Code Review Aprovado + Fixes Robustez + Automações do ambiente documentadas)
 # ============================================================
 
 ## VISÃO GERAL
@@ -1205,3 +1205,28 @@ Painel de cotações globais no topo do dashboard:
 **Calibração futura:** monitorar após 30 dias. Se EXPLOSÃO nunca ativar, reduzir 2.85 → 2.80. Se SniperSupermo parar de ativar, investigar qual condição domina o score.
 
 **Validação final:** `py_compile` OK, scan residual [0,1] limpo (só `MODO_CONSERVADOR_ENTROPIA` = código morto), zero arquivos temporários.
+
+---
+
+## AUTOMAÇÕES DO AMBIENTE (setup PC novo) — Sessão 18 (02/08/2026)
+
+**Documentação completa (conteúdo dos .bat + checklist + prompt de recriação): `README.md` na raiz.**
+
+| Automação | Arquivo(s) | O que faz |
+|-----------|-----------|-----------|
+| **LIGAR** | `iniciar_v22_wdo.bat` | Remove `parar.txt` antigo → abre MT5 → espera 10s → roda `python monstro_unificado_v22.py` na `venv310` |
+| **DESLIGAR** | `stop_all.bat` | Cria `parar.txt` (shutdown gracioso: fecha posições, salva modelo/experiências, flush logs) → espera 45s → mata processo com `monstro_unificado_v22` na linha de comando → remove `parar.txt` → fecha MT5 |
+| **BACKUP (manual)** | `subir_atualizacao.bat` | `git add -A` → commit `atualizacao_%TS%` → `git push origin main` (atalho no Desktop) |
+| **BACKUP (automático)** | `subir_atualizacao_auto.bat` + `backup_auto.vbs` | Idêntico ao manual sem `pause`, log em `backup_auto.log`, via tarefa agendada |
+
+**Tarefa agendada Windows (já registrada):**
+- Nome: `Monstro Backup GitHub` — Diário **08:50** — Ação: `wscript.exe C:\AIOFEN\backup_auto.vbs` — `/IT` (PC sempre na tomada).
+- Recriação em PC novo: `schtasks /Create /F /TN "Monstro Backup GitHub" /TR "wscript.exe C:\AIOFEN\backup_auto.vbs" /SC DAILY /ST 08:50 /IT`
+
+**Regras de ouro:**
+1. `monstro_unificado_v22.py` **NÃO pode ser renomeado** — é referenciado por nome em `iniciar_v22_wdo.bat`, `stop_all.bat` e na rotina de encerramento.
+2. Backup: sempre que editar código → `subir_atualizacao.bat`; a cópia da manhã (08:50) cobre o dia anterior.
+3. Dados (modelos `.keras`, CSVs, logs) ficam fora do git de propósito (`.gitignore`).
+4. Repo é público — nunca commitar credenciais.
+
+**Verificado em 02/08/2026:** backup automático testado de ponta a ponta (commit `70193f1` subido sozinho, sem janela, sem clique).
