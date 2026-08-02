@@ -1277,3 +1277,32 @@ Painel de cotações globais no topo do dashboard:
 4. ✅ **Backup dos dados WIN:** zip no OneDrive Desktop. **NÃO vai para o git** (repo público + dados mudam diariamente → repo inflaria).
 
 **Regra de validação do WDO (válida de verdade):** só dados WDO reais (≥30 dias) validam o WDO — a mesma lógica do baseline "moeda" aplicada sobre `decisions_wdo.csv`/`historico_contexto_wdo.csv`.
+
+---
+
+## CALIBRAÇÃO COM 1 ANO DE TICKS WDO (Sessão 20, 02/08/2026)
+
+**Fonte:** `WDO$_202507141229_2026073118299.csv` (2,28 GB, 48.795.414 ticks de trade, 264 pregões, 14/07/2025→31/07/2026). Colunas `DATE TIME BID ASK LAST VOLUME FLAGS` — **BID/ASK sempre vazios, FLAGS constante 56** → é fita de trades (Time & Sales), **sem book**. Os dois downloads iniciais eram duplicatas idênticas (SHA256 igual) — mantido o com o `9`.
+
+**Script:** `calibrar_wdo_historico.py` (streaming, não carrega 2,28 GB). Gera:
+- `barras_1min_wdo.csv` (9,8 MB) — OHLC + tick_volume + n_ticks + range + delta_vol (CVD **aproximado** por regra do tick, NÃO por FLAGS)
+- `regime_por_dia_wdo.csv` — classificação diária LATERAL/EXPLOSAO/EXTREMO
+- `relatorio_calibracao_wdo.txt` — relatório completo (ignorado no git, regenerável)
+
+**Números-chave obtidos (substituem chutes):**
+| Métrica | Valor |
+|---|---|
+| ATR(14) 1min | média 2,12 pts (P90 3,32) |
+| Range 1min | P50 1,5 | P90 3,5 | P99 7,0 pts |
+| Range 5min | P50 4,0 | P90 8,0 | P99 15,5 pts |
+| Ruído tick (P99.9) | ≤ 0,5 pts |
+| STOP anti-ruído | 2,0 pts (3× P99) |
+| RSI(14) 1min | P10 33 | P50 49 | P90 67 |
+| Volume/volatilidade | máxima 09:00 (684 ticks/min) → cai até 18:00 (~100) |
+| Regime por dia | 74,6% LATERAL / 15,2% EXPLOSAO / 10,2% EXTREMO |
+
+**Regras de uso (decididas):**
+1. ✅ Usar para calibrar ATR/volatilidade/RSI/range/alvo/stop do WDO e validar o `SelecionadorRegime`.
+2. ❌ **NÃO treinar o modelo Keras de produção com esse CSV** — sem book não dá (e zerar colunas de book = contaminação, lição do WIN out/2025).
+3. ✅ Modelo price-only (se surgir) treina em `barras_1min_wdo.csv` (barras reais, sem fake).
+4. ✅ Módulos de book (escora/entropia) só se validam ao vivo/demo via MT5.

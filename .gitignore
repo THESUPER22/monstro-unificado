@@ -62,6 +62,9 @@ debug_*.json
 exe_*.txt
 test_*.txt
 
+# --- Relatórios de dados gerados (regeneráveis) ---
+relatorio_*.txt
+
 # --- Pastas de cópia/backup do projeto ---
 robo_trader_exe/
 backup_wdo_*/
