@@ -1,7 +1,7 @@
 # ============================================================
 # ROADMAP — ROBÔ WDO (Mini Dólar)
 # Versão: 22 | Arquivo: monstro_unificado_v22.py
-# Atualizado: 02/08/2026 (Fim do Modo Aprendizado + Parâmetros restaurados + Scaler real + Atomicidade save + Dup class removida + Code Review Aprovado + Fixes Robustez + Automações do ambiente documentadas)
+# Atualizado: 02/08/2026 (Fim do Modo Aprendizado + Parâmetros restaurados + Scaler real + Atomicidade save + Dup class removida + Code Review Aprovado + Fixes Robustez + Automações do ambiente documentadas + Seleção de estratégia por regime - design)
 # ============================================================
 
 ## VISÃO GERAL
@@ -1230,3 +1230,32 @@ Painel de cotações globais no topo do dashboard:
 4. Repo é público — nunca commitar credenciais.
 
 **Verificado em 02/08/2026:** backup automático testado de ponta a ponta (commit `70193f1` subido sozinho, sem janela, sem clique).
+
+---
+
+## SELEÇÃO DE ESTRATÉGIA POR REGIME (DESIGN) — Sessão 19 (02/08/2026)
+
+**Arquitetura decidida (regime detection + meta-labeling):** Python decide **ONDE e SE** (regras/risco). Keras decide **COM QUE FORÇA** (score dentro do cenário liberado). A rede NUNCA pergunta "opero?" sozinha.
+
+**Arquivos novos (NÃO plugados no v22 — mercado em operação):**
+- `selecao_estrategia_regime.py` — módulo de design: tabela `PERFIL_POR_REGIME` (6 modos) + `SelecionadorRegime` (mapeia modo → estratégias ativas/multiplicadores/score mínimo) + `RastreadorPerformanceRegime` (mede win_rate/lucro POR REGIME e POR ESTRATÉGIA — é o loop de calibração).
+- `tests/teste_selecao_regime.py` — 24 checagens determinísticas, sem MT5. **24/24 PASS.**
+
+**Mapeamento proposto (regime → estratégias ativas):**
+| Regime | Estratégias ativas | Bloqueados |
+|--------|-------------------|------------|
+| NORMAL | todas (pesos padrão) | — |
+| LATERAL | williams_r, rsi_mean_reversion, dol_veto, filtro_entropia | sniper_supermo, filtro_tendencia (alvos curtos, vol 50%) |
+| EXPLOSAO | sniper_supermo, filtro_tendencia, filtro_entropia, dol_veto | williams_r, rsi_mean_reversion (segue o rompimento, vol 150%) |
+| CONSERVADOR | só alta convicção (score_min 5.0, vol 50%) | — |
+| DEFESA / AGUARDANDO | **NAO OPERA** (vol 0) | tudo |
+
+**Por que não tudo-Python nem tudo-Keras:** regras puras não se adaptam a micro-padrões; Keras puro é caixa preta sem accountability (o bug da entropia provou: "previa bem" roubando). Híbrido = regras dão a grade de segurança, Keras afina dentro dela.
+
+**Plano de integração (SÓ fora do horário de mercado, nunca em pregão):**
+1. Plug `SelecionadorRegime` após `modo_operacional.atualizar_modo()` (v22:~6282): ler `modo_atual` → obter perfil → aplicar `parametros()` e `filtro_bloqueia()` nos portões de score.
+2. Rastrear cada trade com `RastreadorPerformanceRegime.registrar_trade(modo, estrategia, lucro)` → persistir JSON (fora do git).
+3. **Calibração (30 dias):** ler `relatorio()` → ajustar SÓ a tabela `PERFIL_POR_REGIME` (nunca a lógica). Se EXPLOSAO lucrar mais com williams_r ligado, re-ligar com peso menor. É o "balanceamento perfeito" medido, não adivinhado.
+4. `validar_config()` no boot impede typos na tabela (falha rápido, não em produção).
+
+**Auditoria de segurança (repo público):** sem emails/senhas/tokens/CPF reais; `config*.json` = placeholders; `mt5.initialize()` sem credenciais; modelo `.keras` fora do git. Decisão: manter público (perde zero — cérebro e credenciais estão protegidos fora do repo).
