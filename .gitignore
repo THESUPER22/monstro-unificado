@@ -1,53 +1,107 @@
-# Ambientes virtuais (pesados)
+# ============================================================
+# .gitignore do Monstro Unificado — limpo e completo (19/07/2026)
+# Sobe só: código (.py), EAs (.mq5), configs (.json), docs (.md)
+# ============================================================
+
+# --- Ambientes virtuais (pesados) ---
 venv/
 venv310/
 env/
 ENV/
+.venv/
 
-# Cache Python
+# --- Cache Python / build ---
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+.mypy_cache/
+build/
+dist/
+*.spec
 
-# Logs (podem ficar grandes)
+# --- Logs (o monstro.log tem 176MB!) ---
 *.log
 startup_log.txt
 
-# Modelos e dados grandes
+# --- Modelos e memória da IA (dados, não código) ---
 *.h5
+*.keras
 *.pkl
 *.h5.backup*
 *.h5.bak
 modelo_monstro_metadata.json
 
-# Arquivos temporários
-*.tmp
-debug_*.json
+# --- Dados (CSV/JSON de dados, não configs) ---
+*.csv
+experiencias.json
+estatisticas_finais.json
 parametros_ia_saida.json
+debug_*.json
 
-# JDK (muito pesado)
-Oracle_JDK-24/
-llama.cpp/
+# --- Binários compilados / instaladores / pesados ---
+*.exe
+*.ex5
+*.zip
+*.pkg
+*.pdf
+*.dll
 
-# Relatórios MT5
+# --- Temporários ---
+*.tmp
+*.bak
+*.bak_*
+*.backup_*
+*.backup
+*_backup.py
+*_corrigido.py
+*_fixed.py
+
+# --- Pastas de cópia/backup do projeto ---
+robo_trader_exe/
+backup_wdo_*/
+"src - Copia/"
+# tests/ contém testes versionados; re-inclui os arquivos desejados
+tests/
+!tests/
+!tests/*.py
+!tests/README.md
+tests/__pycache__/
+
+# --- Relatórios MT5 ---
 ReportHistory-*.html
 ReportHistory-*.png
 ReportHistory-*.xlsx
 
-# Cache sistema
+# --- Cache do sistema ---
 desktop.ini
 Thumbs.db
+*.ini
 
-# Dados históricos grandes
-historico_evolucao.csv Rob�_Trader_Monstro_-_Execut�vel_Windows.pdf 
-*.csv 
-*.pkl 
-ProtonVPN_v4.2.2_x64.exe 
-robo_trader_exe/dist_final/ 
-robo_trader_exe/dist_console/ 
-robo_trader_exe/build/ 
-*.exe 
-*.zip 
-*.pkg 
-decisions.csv.backup_contaminado_20251023_154227 
+# --- Arquivos-fantasma (lixo de redirecionamento de shell) ---
+# Nomes bizarros criados por erros de digitação com > no terminal
+/0
+/0)
+/0.5
+/0.6
+/0]
+/1000
+/20
+/300
+/400
+/500
+/None
+/str
+/dict
+/float
+/int
+/bool
+/list
+/tuple
+/Sequential
+/pd.DataFrame
+/open_price
+
+# --- Pastas pesadas (JDK, llama.cpp) ---
+Oracle_JDK-24/
+llama.cpp/

@@ -1,0 +1,1207 @@
+# ============================================================
+# ROADMAP — ROBÔ WDO (Mini Dólar)
+# Versão: 22 | Arquivo: monstro_unificado_v22.py
+# Atualizado: 01/08/2026 (Fim do Modo Aprendizado + Parâmetros restaurados + Scaler real + Atomicidade save + Dup class removida + Code Review Aprovado + Fixes Robustez)
+# ============================================================
+
+## VISÃO GERAL
+Robô de trading automatizado para o Mini Dólar (WDO) na B3.
+Opera com rede neural Keras (22 features) + book nativo MT5 + trailing stop inteligente.
+Integração com DOL (Dólar Cheio) para referência de fluxo institucional.
+PTAX coleta automática BCB (4 janelas: 10:00/11:00/12:00/13:00).
+Payroll escape automático (primeira sexta 09:25-09:35).
+SniperSupermo bloqueado em dia PTAX e payroll.
+Migrado do WIN (Mini Índice) para WDO em 22/07/2026.
+
+---
+
+## COMO O ROBÔ FUNCIONA (Resumo Completo)
+
+### Ciclo de Vida (a cada ~1-2 segundos)
+```
+1. LER BOOKS (WDO + DOL)
+2. CALCULAR INDICADORES (ATR, RSI, entropia, spread)
+3. FILTRAR (13 portões antes da execução)
+4. IA PREVÊ (BUY/SELL/NADA com 22 features — 10 book + 8 profundidade + 4 PTAX)
+5. CONFLUÊNCIA CONFIRMA (5 sinais técnicos)
+6. DOL VETO/CONFIRMA (referência institucional)
+7. FILTRO TENDÊNCIA (SMA-20 vs preço)
+8. FILTRO MEAN REVERSION (RSI + Z-Score + ADX)
+9. EXECUTAR ORDEM (MT5)
+10. GERENCIAR SAÍDA (trailing + profit protection)
+11. APRENDER (salvar experiência → re-treinar)
+```
+
+### Hierarquia de Decisão (14 etapas)
+ ```
+  1. COOLDOWN (DESATIVADO) ──────── se ativo: bloqueia tudo
+  2. HORÁRIO PA1 ────────────────── 09:15-12:30 / 14:30-17:15
+  3. VETO SIMPLES ──────────────── contexto contradiz BUY e SELL
+  4. BLOQUEADOR DE CONTEXTO ────── contexto idêntico a perdas passadas
+  5. VETO MATEMÁTICO ───────────── expectativa negativa em ambas direções
+  6. FILTROS ALTA ACERTIVIDADE ─── ATR < 1.5, entropia < 2.60, volume < 400
+  7. FILTRO TENDÊNCIA SMA-50 ────── Preço vs SMA-50, margem ±1.0pt + momentum
+  8. SNIPER FILTER ─────────────── vol < 400 OU ratio < 1.2
+  9. SNIPER BLOQUEIO ───────────── PTAX day ou payroll → sniper desligado
+ 10. IA PREDIÇÃO ───────────────── modelo Keras (22 features) → probabilidade
+ 11. CONFLUÊNCIA (5 sinais) ────── score técnico, mínimo 2 sinais
+ 12. DOL VETO/CONFIRMAÇÃO ─────── DOL contradiz = veto (se IA não alta)
+ 13. MEAN REVERSION FILTRO ────── RSI(70/30) + Z-Score(±1.5) + ADX
+ 14. EXECUÇÃO ─────────────────── envia ordem MT5
+ ```
+
+### O que o robô APRENDE
+- Cada operação gera uma experiência (contexto + ação + lucro)
+- A cada 3 novas experiências → re-treina o modelo (validação 80/20)
+- Só salva se loss melhorou >1% (senão restaura)
+- Veto matemático: se um contexto gerou perdas, bloqueia operações nele
+- Replay de experiências: pondera experiências recentes com mais peso
+
+### Subsistemas
+| Subsistema | Status | Função |
+|-----------|--------|--------|
+| GerenciadorDeSaida (trailing) | ✅ | Ajusta SL quando lucro > 3pts |
+| Profit Protection | ✅ | Sai se lucro cai >30% do pico após 3pts |
+| SistemaConfluencia | ✅ | 5 sinais técnicos, mínimo 2 para agir |
+| VolumeAdaptativo | ✅ | Ajusta volume mínimo dinamicamente |
+| FiltroSpreadDinamico | ✅ | Adapta spread limit ao ATR |
+| DetectorTendencia | ✅ | EMA9/EMA21, bloqueia contra-tendência |
+| FiltroTendencia SMA-50+Momentum | ✅ | SMA-50 + Momentum (±1.0pt, >3pts/20ticks). Anti-contra-tendência |
+| MonitorPerformance | ✅ | Taxa de acerto, drawdown, alertas |
+| FiltroMeanReversion | ✅ | RSI(70/30) + Z-Score(±1.5) + ADX(<20=LATERAL, >25=TRENDING) |
+| **Dashboard V2** | ✅ | UI web: status, chart, logs, ajustes, controle remoto (porta 5001) |
+| **ThreadSafeConfig** | ✅ | Parâmetros editáveis em tempo real via dashboard |
+| **SniperSupermo** | ✅ | Modo alta convicção (score ≥ 7/10): 7 condições, 5cc, trailing 1pt/1pt, sem cooldown |
+| **PTAX Coleta BCB** | ✅ | 4 janelas (10/11/12/13h). Cache diário. Feature `dolar_casado` |
+| **Payroll Escape** | ✅ | Sexta 09:25-09:35. Sniper bloqueado + fuga automática |
+| **Sniper Bloqueio** | ✅ | `verificar_sniper_bloqueado()` → bloqueia em dia PTAX ou payroll |
+| **Williams %R Monitor** | ✅ | Divergência bull/bear, zonas SEV/SEC, CSV histórico |
+| **4 features PTAX no modelo** | ✅ | `dolar_casado`, `em_janela_ptax`, `minutos_para_ptax`, `dia_ptax` |
+| FiltroHorarioPremium | ❌ | Janelas 09-12:30, 14-15:30, 17-17:30 |
+| CooldownInteligente | ❌ | DESATIVADO — operador solicitou remoção |
+
+---
+
+## ✅ MODO APRENDIZADO TEMPORÁRIO (23/07 - 30/07/2026) — CONCLUÍDO E RESTAURADO (01/08/2026)
+
+**MOTIVO**: O robô não fez nenhuma entrada porque os filtros estavam muito agressivos para WDO.
+**OBJETIVO**: Gerar as primeiras experiências reais para o modelo aprender.
+
+### Parâmetros Alterados (temporariamente) — TODOS RESTAURADOS
+| Parâmetro | Antes | Depois | Status 01/08 |
+|-----------|-------|--------|--------------|
+| `sniper_ratio_min` | 1.5 | **1.2** | ✅ restaurado → **1.5** |
+| `THRESHOLD_ENTROPIA_BAIXA` | 0.6 | **0.4** | ✅ restaurado → **0.6** |
+| `LIMITE_REJEICOES_PARA_APRENDIZADO` | 20 | **8** | ✅ restaurado → **20** |
+
+> **Nota (01/08):** `filtros_alta_acertividade` (entropia 0.2, ATR min 1.5, pontuação 8/5/3) **NÃO** foi restaurado para os valores WIN (100/80/45) — o v22 já usa valores adaptados ao WDO. Restaurar quebraria o robô.
+
+### ⏰ LEMBRETE: RESTAURAR APÓS 1 SEMANA (30/07/2026) ✅ EXECUTADO 01/08/2026
+```
+EXECUTADO EM 01/08/2026:
+1. ✅ sniper_ratio_min: 1.2 → 1.5 (config.json linhas 10 e 52)
+2. ✅ THRESHOLD_ENTROPIA_BAIXA: 0.4 → 0.6 (v22:1012)
+3. ✅ filtros_alta_acertividade entropia: mantido 0.2 (já WDO)
+4. ✅ filtros_alta_acertividade ATR: mantido 8/5/3 (já WDO, NÃO restaurar WIN 100/80/45)
+5. ✅ LIMITE_REJEICOES_PARA_APRENDIZADO: 8 → 20 (v22:91)
+6. ✅ ROADMAP atualizado removendo a urgência da seção
+```
+
+---
+
+## STATUS ATUAL (30/07/2026 — Sessão 12 — Fix Persistência + Modelo V3 Regularização Reduzida + Validação CSVs)
+
+### ✅ O que FUNCIONA
+- WDOQ26 selecionado corretamente
+- Book WDO ativo e recebendo dados
+- Book DOL ativo e funcionando
+- **Modelo V3 retreinado (regularização reduzida): Dropout 0.2, L2 0.001, GaussNoise 0.01, 128→64→32, 81.7% val (temporal)** ✅
+- **Scaler 100% íntegro** — RSI escalado corretamente, MR sem veto falso ✅
+- **FiltroMeanReversion operacional (RSI 25/75)** — sem distorção ✅
+- **Saída por Inversão de Fluxo (Book Nativo) validada** — trade BUY movido para breakeven em vez de loss ✅
+- **Reentry pós-loss operacional** — bot recomprou no mesmo nível após stop ✅
+- **PTAX coleta automática** — 4 janelas (10/11/12/13h). Cache diário ✅
+- **DECISÃO PENDENTE: SL 2.5pts → SL Catástrofe 8-10pts** — saída real por algoritmos de fluxo ✅
+- Modelos salvos: `.h5` (233KB), `.keras` (104KB), scaler 22 colunas
+- **Dashboard V2** rodando (port 5001) — tema dark, chart, logs, ajustes em tempo real
+- Indicadores calculados (ATR, RSI, entropia)
+- DOL logs aparecendo
+- Scaler carregado corretamente do treinamento offline (22 features)
+- **Coleta de dados book** — 22 features completas sendo alimentadas
+- **Filtros suavizados** — 6 filtros essenciais
+- **SL Trailing funcionando** — movimenta SL corretamente quando lucro > 3pts
+- **Treino balanceado** — carrega wins + losses do CSV, com punição correta para perdas
+- **NaN/inf filtrados** antes do treino — evita batch rejeitado silenciosamente
+- **Experiências reais** — **56 trades acumulados** (30/07). Sessão 12: 10 trades, -190pts manhã (bug persistência) + 2 trades tarde (SELL +25pts, BUY aberto). Modelo V3 operando.
+- **FiltroTendência SMA-50+Momentum** — bloqueia contra-tendência
+- **historico_lucro** registra cada trade
+- **SniperSupermo implementado** — modo alta convicção (score ≥ 7/10). Volume 5cc, SL=5pts. Breakeven em +2.5pts, trailing 1pt/1pt. Sem cooldown. Pula filtros normais, veto big players e horário (opera 09:00-17:30)
+- **PTAX coleta automática** — 4 janelas. Feature `dolar_casado`
+- **Payroll escape** — Sexta 09:25-09:35. Sniper bloqueado automático
+- **Sniper Bloqueio** — `verificar_sniper_bloqueado()` bloqueia em dia PTAX (31/07) e payroll
+- **Williams %R Gatekeeper** — veto BUY se WR > -20, veto SELL se WR < -80
+- **Dashboard 8 filtros de log** — Sniper, Contexto WDO, Decisions WDO, Experiências JSON, Williams %R, Multi TF
+- **`_caminho_base()` / `_caminho_dados()` FIXADOS** — paths absolutos funcionando no PyInstaller ✅
+- **PyInstaller rebuild** — .exe recompilado com fixes (11:13, 27MB) ✅
+- **Coleta Multi-TF (M5/M15/M30)** — implementada e validada (38 amostras hoje) ✅
+
+### ❌ O que BLOQUEAVA (corrigido hoje)
+- **Persistência zero no .exe** — paths relativos no PyInstaller → `_caminho_dados()` resolve ✅
+- **Modelo V3 underfitting (Dropout 0.5)** — travava em `NAO_AGIU` (502 ocorrências). Dropout 0.2 resolve ✅
+- **CSVs não escreviam** — agora todos escrevendo em tempo real ✅
+
+### ⚠️ Limitações Conhecidas
+- Modelo treinado com **dados sintéticos** &mdash; performance real ainda não validada em mercado aberto
+- **Scaler mismatch** &mdash; dados sintéticos vs reais têm ranges diferentes. Mitigado com range +20% + clipping, mas ideal é treinar com dados reais
+- **Modelo retreinado com 30k amostras** &mdash; viés BUY removido (SMOTE balanceado), mas calibragem em dados reais só conhecida no próximo pregão
+- **SniperSupermo ativou 29/07 11:19** — SELL score 8/10 em 2 ocasiões (11:19:12 e 11:19:42), DOL=SELL 0.73/0.72, ratio 3.9x/4.2x, %R -12/-8 ✅ (correção 01/08 — parecer anterior alegava o contrário)
+- **Dashboard só funciona durante pregão** &mdash; Flask é daemon thread, morre com o robô
+- **Confidence Gap 0.15** &mdash; pode ser excessivo para dias de forte tendência. Monitorar taxa de rejeição
+
+## MONITORAÇÃO DE AMADURECIMENTO
+
+### Marcos de Experiência (acompanhar evolução)
+| # Trades | O que esperar | Status |
+|----------|---------------|--------|
+| 0-10 | Bebê: explora aleatório, erra muito. Perdas sequenciais normais | ✅ |
+| 10-30 | Aprendendo: punições começam a criar viés contra erros repetidos | 🔄 **46 trades (Sessão 11)** |
+| 30-100 | Calibragem: modelo começa a mostrar preferência por setups que deram lucro | ⏳ |
+| 100-500 | Maturação: taxa de acerto começa a estabilizar | ⏳ |
+| 500+ | Maduro: decisões consistentes, viés sintético substituído por real | ⏳ |
+
+### Meta de curto prazo
+- [x] **46 trades acumulados (Sessão 11)** &mdash; base para retreino offline ✅
+- [x] **Retreino Keras offline (29/07)** &mdash; 30k amostras, SMOTE balanceado, regularização forte ✅
+- [x] **Williams %R Gatekeeper** &mdash; implementado como veto de segurança ✅
+- [x] **Scaler range +20% + clipping [0,1]** &mdash; mitigação do scaler mismatch ✅
+- [x] **Dashboard 8 filtros de log** &mdash; Sniper, Contexto WDO, Decisions WDO, Experiências JSON, Williams %R ✅
+- [x] **PyInstaller rebuild** &mdash; .exe atualizado com dashboard novo ✅
+- [ ] **300+ trades** para calibrar modelo com dados reais balanceados
+- [ ] **SNIPER_SUPERMO** diagnosticar score fixo 6/11 &mdash; ajustar thresholds se necessário
+
+### Métricas para Decidir se Precisa de Ajuste
+- **Após 50 trades**: Se win rate < 30% OU profit factor < 0.8 → reavaliar filtros
+- **Após 100 trades**: Se win rate < 35% OU profit factor < 1.0 → considerar mudança de estratégia
+- **Após 200 trades**: Se win rate < 40% OU profit factor < 1.2 → reestruturar sistema
+- **Drawdown máximo tolerado**: R$ -500 (10 trades seguidos de -25 = -250, ainda OK)
+
+### Estratégias Candidatas para Futuro
+
+> **Nota importante (28/07/2026):** Após pesquisa aprofundada, a estratégia que tornou Larry Williams campeão mundial (11.376% em 1987) NÃO é SMA3/55. O edge real dele veio de:
+> - **Williams %R** — oscilador 0 a -100, mais rápido que RSI (sem suavização)
+> - **COT (Commitments of Traders)** — fluxo institucional = nosso **DOL** ✅
+> - **%R divergências** — preço faz fundo mais baixo, %R faz fundo mais alto = reversão (~63% acerto)
+> - **Sazonalidade** — fim do mês, ciclos
+>
+> **O que temos HOJE (Mean Reversion + RSI + DOL + FiltroTendência + Keras) é MAIS parecido com o LW real do que SMA3/55.** Estamos no caminho certo.
+
+**Próxima evolução (pós-100 trades): Williams %R + Divergências**
+- Substituir/complementar RSI com Williams %R (mais rápido, sem suavização)
+- %R < -80 = sobrevendido (comprar) | %R > -20 = sobrecomprado (vender)
+- **Divergência**: preço faz fundo mais baixo mas %R faz fundo mais alto = sinal forte de reversão
+
+**1. Williams %R como filtro adicional (pós-100 trades)**
+- %R calculado com janela 14 (mesmo período do RSI atual)
+- Divergência bull/bear detectada em janela deslizante de 20 ticks
+- Funciona como filtro extra no FiltroMeanReversion, NÃO substitui a IA
+
+**2. Híbrido por Horário (se necessário após 200+ trades)**
+- 09:15-12:00 → Estratégia atual (Mean Reversion + ML + DOL)
+- 14:30-17:00 → Se WDO mostrar tendência, %R divergências têm mais espaço
+- Racional: Manhã volátil favorece reversão; tarde mais direcional favorece momentum
+
+**3. Robô decide qual estratégia usar (pós-500 trades)**
+- ML escolhe entre estratégias baseado em qual performou melhor nas condições atuais
+- Mais complexo, mas adaptativo
+
+---
+
+### CHECKLIST DE TESTES PÓS-FIX (ADICIONADO)
+- Criar/rodar `tests/testes_pos_fix.py` (static checks: mutex, sys.exit, entropia, parar.txt, CSVs).
+- Validar shutdown coordenado em staging com MT5 (manual): executar checklist do ROADMAP e confirmar fechamento de posições + salvamento.
+- Registrar ticket se qualquer comportamento anômalo for observado no primeiro pregão após deploy.
+- Observação: `tests/testes_pos_fix.py` é CI-ready, mas o arquivo `monstro_unificado_v22.py` precisa estar versionado para ativar GitHub Actions.
+
+
+## CHECKLIST DIÁRIO (ao fim do dia)
+
+### 📊 Performance & Lucro
+```bash
+# 1. Operações feitas?
+grep -c "ORDER_SEND.*RET_CODE_10009" monstro_wdo.log
+# Esperado: 1-10 operações por dia
+
+# 2. Lucro/prejuízo?
+grep "LUCRO\|PREJUÍZO\|resultado" monstro_wdo.log
+# Esperado: balanço positivo no fim da semana
+
+# 3. Erros?
+grep -i "error\|exception\|traceback" monstro_wdo.log
+# Esperado: poucos ou nenhum
+```
+
+### 🧠 Aprendizado
+```bash
+# 4. Modelo salvo?
+ls -la C:\AIOFEN\modelo_monstro_wdo.h5
+# Esperado: tamanho > 100KB, modificação = hoje
+
+# 5. Treino realizado?
+grep "TREINO" monstro_wdo.log
+# Esperado: 1-2 treinos por dia (17:30)
+
+# 6. Experiências crescendo?
+wc -l decisions_wdo.csv
+# Esperado: crescendo ao longo dos dias
+```
+
+### 📡 DOL
+```bash
+# 7. DOL funcionando?
+grep "DOL" monstro_wdo.log
+# Esperado: logs "📊 DOL" a cada 2min
+
+# 8. DOL vetando/confirmando?
+grep "DOL VETA\|DOL CONFIRMA" monstro_wdo.log
+# Esperado: aparece quando DOL contradiz/confirma
+```
+
+### 🔧 Filtros
+```bash
+# 9. ATR bloqueando?
+grep "ATR.*<" monstro_wdo.log
+# Esperado: nenhum (threshold agora é 1.5)
+
+# 10. Sniper ativo?
+grep "Standby" monstro_wdo.log
+# Esperado: aparece quando book equilibrado (normal)
+```
+
+---
+
+### 📋 Pós-Pregão 29/07/2026 — Tarefas Noturnas (EXECUTADO)
+
+#### ✅ 1. Retreino offline Keras (29/07 22:00)
+```bash
+python treinar_monstro_offline.py --samples 30000 --epochs 200
+```
+
+**Resultado:**
+| Métrica | Treino | Validação |
+|---------|--------|-----------|
+| Loss | 0.4748 | 0.3438 |
+| Accuracy | &mdash; | 82.6% |
+| Épocas | 53 (early stop) | best epoch 38 |
+| Amostras | 30k geradas | 12.920 treino (SMOTE) |
+
+**Mudanças no treinamento:**
+- `GaussianNoise(0.02)` + Dropout 0.5/0.4/0.3 + L2(0.005)
+- Label smoothing (BUY=0.9, SELL=0.1)
+- Ruído gaussiano std=0.015 nas features de treino
+- Threshold de label reduzido de 2.0 para 1.5 (mais amostras marginais)
+- **Modelo salvo**: `modelo_monstro_wdo.h5` (245KB) + `_scaler.json`
+
+#### ✅ 2. Scaler fixes (29/07 22:00-22:30)
+**Problema detectado:** Scaler treinado com dados sintéticos tem ranges diferentes dos dados reais. Real data tem bid_qty=0, entropia_book=0.5-1.0, enquanto sintético tem bid_qty=250-12883, entropia=1.07-2.29.
+**Solução:**
+- `forcar_recreacao_scaler()`: range estendido em +20% (`mins_ext = mins - range*0.2`, `maxs_ext = maxs + range*0.2`)
+- `normalizar_dados()`: clipping [0,1] pós-transform com log de quantos valores foram afetados
+- `_caminho_recurso()`: `os.path.abspath('.')` → `os.path.dirname(os.path.abspath(__file__))` (template_folder independente do CWD)
+
+#### ✅ 3. Williams %R Gatekeeper (29/07 22:30)
+Adicionado na `prever_acao()` (monstro_unificado_v22.py):
+```python
+if pode_buy and wr_val > -20:
+    # VETA BUY (sobrecomprado)
+if pode_sell and wr_val < -80:
+    # VETA SELL (sobrevendido)
+```
+Age antes do Filtro de Tendência e do ML. Prioridade máxima. Logging com `WILLIAMS %R VETO`.
+
+#### ✅ 4. Dashboard — 5 novos filtros de log (29/07 23:00)
+| Botão | Filtro | Palavras-chave |
+|-------|--------|---------------|
+| **Sniper** | `sniper` | SNIPER, sniper |
+| **Contexto WDO** | `ctx` | CONTEXTO, contexto, PRINT_CONTEXTO |
+| **Decisions WDO** | `decisions` | DECISAO, decisao, VETO, FORÇA, prever_acao |
+| **Experiências JSON** | `exp` | experiencia, JSON, EXPERIENCIA |
+| **Williams %R** | `wr` | WILLIAMS, WR=, williams_r, %R, SOBRECOMPRA, SOBREVENDIDO |
+
+#### ✅ 5. PyInstaller rebuild (29/07 23:30)
+```bash
+pyinstaller MonstroDashboard.spec
+# Resultado: dist\MonstroDashboard\ (1.44GB, 1659 arquivos)
+# _internal\templates\dashboard.html com 8 filtros
+```
+
+#### ✅ 6. Backups preservados
+- `modelo_monstro_wdo.h5.backup_20260729` (modelo original pré-retreino)
+- `modelo_monstro_wdo_scaler.json.backup_20260729` (scaler original)
+
+#### ✅ 7. Coleta Multi-TF (M5/M15/M30) — 30/07 01:00
+**Implementado sem risco ao core:**
+- `obter_dados_multitf()` — coleta RSI, ATR, Williams %R, close, volume de M5, M15, M30
+- `salvar_dados_multitf_csv()` — salva em `historico_multitf.csv` separado
+- Executa no loop principal após o contexto M1, sem interferir na decisão
+- Log periódico a cada 5 min no dashboard
+- **Botão Multi TF** no dashboard (filtro `MultiTF|Multi TF|M5 RSI|M15 RSI|M30 RSI`)
+- Dashboard e .exe rebuildados
+
+### 📋 Check-list 30/07 (Pós-Pregão — EXECUTADO)
+1. ✅ **Abrir robô via `all.bat` ou `MonstroDashboard.lnk`** — .exe rebuildado com fixes
+2. ✅ **Monitorar clipping nos logs** — `[normalizar_dados] ⚠️ N valores fora de [0,1] foram clipped`
+3. ✅ **Monitorar Williams %R veto nos logs** — `WILLIAMS %R VETO BUY/SELL`
+4. ✅ **Manter parâmetros do Modo Aprendizado** (validados na sessão tarde):
+   - `sniper_ratio_min`: 1.2 (WDO raro >1.4)
+   - `THRESHOLD_ENTROPIA_BAIXA`: 0.4 (WDO típico 0.3-0.5)
+   - `LIMITE_REJEICOES_PARA_APRENDIZADO`: 8
+5. ✅ **Reavaliar após 100+ trades se precisa restaurar parâmetros originais**
+6. ✅ **Backup dos dados da sessão para auditoria/treino**
+   - `decisions_wdo.csv` → `backup/decisions_20260730.csv`
+   - `historico_contexto_wdo.csv` → `backup/historico_20260730.csv`
+   - `historico_multitf.csv` → `backup/multitf_20260730.csv`
+7. ✅ **Incorporar 38 amostras `historico_multitf.csv` no dataset de retreino V4**
+8. ✅ **Aplicar SL Catástrofe 8-10pts no config.json** (pós-pregão)
+9. ✅ **Retreino offline noturno com dados reais consolidados (17h+)**
+
+---
+
+### 30/07/2026 — Sessão 14 (FASE 9: Sentinela + Neon + Ticker + Fixes Operacionais)
+
+| Tipo | Descrição | Arquivo/Linha |
+|------|-----------|---------------|
+| 🆕 FEATURE | **FASE 9 concluída** — Sentinela de Fluxo (veto macro DXY/US10Y/USDJPY, fail-open, cache 60s), Dashboard Neon (toggle localStorage), Market Ticker (7 ativos globais) | `sentinela_fluxo.py` + `dashboard_routes.py` + `templates/dashboard.html` |
+| 🐛 CRÍTICO | **Botão PARAR não funcionava no .exe** — o clique gravava `parar.txt` em `dist\MonstroDashboard\_internal\` (via `__file__` no frozen) enquanto o robô só lia `C:\AIOFEN\parar.txt`. Adicionado `_caminho_base()` espelhando a resolução do robô | `dashboard_routes.py` |
+| 🧹 PARAR CONSUMIDO | Parada graciosa agora **remove o `parar.txt`** ao executar — não sobra sinal que bloqueie o start do dia seguinte | `monstro_unificado_v22.py:6244-6249` |
+| 🔧 SLEEP NOTURNO | `aguardar_abertura/fechamento` dormem em blocos de 60s checando `verificar_parada_gracil()` — PARAR responde mesmo fora do pregão (antes: `time.sleep` único até 23:59 ignorava o sinal) | `monstro_unificado_v22.py:3569-3586` |
+| 🛡️ INSTÂNCIA ÚNICA | Mutex `CreateMutexW` no topo do arquivo (antes do import do TF) — segunda cópia do exe/robô sai em <1s com aviso. Sem isso, o agendador 08:58 abriria um 2º robô operando a mesma conta | `monstro_unificado_v22.py:12-27` |
+| 📝 STOP_ALL.BAT | Filtro wmic `monstro_unificado_v2` → `monstro_unificado_v22` (apenas isso; `cd /d C:\AIOFEN` mantido para o agendador) | `stop_all.bat` |
+| 🖥️ JANELA MAXIMIZADA | Dashboard PyWebView abre maximizado via `webview.start(_maximizar_janela)` | `monstro_unificado_v22.py:10261-10285` |
+| ✅ VALIDAÇÃO | Testado ao vivo: PARAR → `thread_ativo=False` + parar.txt consumido; 2ª instância bloqueada no mutex (caixa de aviso); 1ª instância intacta; porta 5002 livre | Sessão 23:00-23:55 |
+| 📦 REBUILD | `.exe` rebuildado 30/07 23:50 (27.08MB) com todos os fixes. Tarefas agendadas OK: `start_all.bat` 08:58 → exe atual; `cleanup_monstro_final.bat` 18:32 → `stop_all.bat` | `MonstroDashboard.spec` |
+
+---
+
+### 30/07/2026 — Sessão 13 (Correções Pós-Autópsia: 5 Vetos + Pipeline + Rebuild .exe)
+
+| Tipo | Descrição | Arquivo/Linha |
+|------|-----------|---------------|
+| 🔧 WR THRESHOLD | **-85 → -80 simétrico** — WR < -80 agora veta BUY (antes: só veta SELL). Cobre zona cinzenta -83/-84 onde robô comprava em queda livre | `monstro_unificado_v22.py:8349` |
+| 🔧 FORÇA PROTEGIDA | **FORÇA BUY/SELL agora checa Multi-TF** — não força direção contra 3 timeframes alinhados | `monstro_unificado_v22.py:8366-8379` |
+| 🐛 IMPORT CIRCULAR | **config_manager.py → monstro_unificado_v22 → dashboard_routes** — resolvido com duplicação local de `_caminho_dados()` | `config_manager.py:11-29` |
+| 📦 BUILD FIX | **certifi CA bundle incluído no .spec** — `FileNotFoundError` no `requests/adapters.py` em frozen mode resolvido | `MonstroDashboard.spec` |
+| ✅ VALIDAÇÃO | **Pipeline de execução mapeado** — 8 camadas de proteção antes do `executar_ordem()` linha 7459. Travas de regime ANTES da confluência | `monstro_unificado_v22.py:7025-7461` |
+| ✅ 5 VETOS | WR veto simétrico (-80) + Multi-TF + DOL conf ≥ 0.5 + Book ratio ≥ 1.5x + SL 8pts | Múltiplas linhas |
+
+---
+
+### 01/08/2026 — Sessão 15 (Fim do Modo Aprendizado + Retreino Scaler Real + Refactor)
+
+| Tipo | Descrição | Arquivo/Linha |
+|------|-----------|---------------|
+| 🔧 PARÂMETROS | **Fim do Modo Aprendizado — parâmetros restaurados** — `sniper_ratio_min` 1.2→**1.5** (config.json:10,52); `LIMITE_REJEICOES_PARA_APRENDIZADO` 8→**20** (v22:91); `THRESHOLD_ENTROPIA_BAIXA` 0.4→**0.6** (v22:1012) | `config.json`, `monstro_unificado_v22.py` |
+| 🧹 SCALER | **Retreino do scaler com dados reais combinados** — 7 features principais (bid/ask/spread/volatility/entropia/rsi/volume) do `decisions_wdo.csv` (358 linhas reais) + 8 escoras/liquidez do `historico_contexto_wdo.csv` (1368 linhas) + domínio fixo para trade-state/PTAX. Nenhuma feature constante. Script: `retreinar_scaler_real.py` | `modelo_monstro_wdo_scaler.json` |
+| 🐛 ACHADO | **`historico_contexto_wdo.csv` degradado** — `bid_qty`/`ask_qty`/`volume_tick` zerados em todas as 5000 linhas; `entropia_book` truncada a 1.0 (clamp `min(1,...)` em `salvar_experiencia_csv`, v22:3044). **Causa raiz da "corrupção":** a entropia REAL é 2.6-3.0, mas o clamp a 1.0 destrói a feature no histórico — o scaler antigo (max 2.29) também extrapolava com dados reais. **Regressão vs v2** (a v2 já corrigiu em 18/07; a v22 não carregou o fix). Corrigido no v22 (save + load agora preservam valor real) | `monstro_unificado_v22.py:3044,2952` |
+| 🧹 REFACTOR | **Classe duplicada `GerenciadorDeSaida` removida** — a definição antiga (linha 101, com timeout 300s/TP=10) era código morto; a da linha 1964 (timers desativados, trailing 80/40, proteção 50% pico) é a ativa. Instância na linha 6221 resolvia para a 1964 | `monstro_unificado_v22.py` |
+| 🔧 ATOMICIDADE | **`salvar_modelo()` agora é atômico** — grava em `.tmp_atomic` e usa `os.replace()` para troca final. Modelo principal nunca fica corrompido por crash no meio do save | `monstro_unificado_v22.py:3245` |
+| 🔧 FIX SAVE TF | **Extensão inválida corrigida no save atômico** — TF rejeita `.tmp_atomic` (`Invalid filepath extension`, mesmo erro do v2). Trocado para `_tmp.h5`/`_tmp.keras` (extensão válida) + `os.replace()`. Teste real passou: `.h5` 118000 bytes / `.keras` 108269 bytes | `monstro_unificado_v22.py:3279-3290` |
+| ✅ ESCALA ENTROPIA | **Thresholds de entropia corrigidos para escala real (APLICADO 01/08)** — era [0,1] (`entropia < 0.2`, `>= 0.7`, `> 0.3`), mas entropia real é **2.69-2.97** (confirmado: scaler novo + ativação 29/07 ENT=2.67/2.68). Na prática: filtro 2 nunca bloqueava, modo EXPLOSAO sempre ativo, score sempre +3, LATERAL/CONSERVADOR nunca ativavam. Valores aplicados: `THRESHOLD_ENTROPIA_BAIXA=2.75` (lateral), `THRESHOLD_ENTROPIA_ALTA=2.85` (explosão), DetectorModo conservador `<2.75`, SniperSupermo `>2.75`, filtro 2 bloqueio `<2.60`, score qualidade `2.85/2.80/2.75` (dois locais). Nota: banda estreita (0.28) — filtro 2 e modo conservador ainda disparam raramente; monitorar | `monstro_unificado_v22.py:902,904,1067,2709,8169,8201-8205,8603-8607` |
+| ✅ VALIDAÇÃO | **Sintaxe validada** (`ast.parse` com `utf-8-sig` — arquivos têm BOM). 1 definição de `GerenciadorDeSaida` restante | `monstro_unificado_v22.py` |
+
+---
+
+### 01/08/2026 — Sessão 16 (Code Review Final + Aprovação)
+
+| Tipo | Descrição | Arquivo/Linha |
+|------|-----------|---------------|
+| ✅ REVIEW | **Code review completo aprovado (10/11 verificações + compilação OK)** — verificação de cada threshold aplicado no código real, linha por linha | `monstro_unificado_v22.py` |
+| ✅ ESCALA ENTROPIA | **Falso negativo do script de validação descartado (L1067)** — `entropia_media < 2.75` está correto; o script pegava o 2.0 do ATR (primeiro número da linha) em vez do 2.75. Sem ação | `monstro_unificado_v22.py:1067` |
+| ✅ CÓDIGO MORTO | **`MODO_CONSERVADOR_ENTROPIA = 0.3` confirmado como código morto** — existe em 1 único local (definição), nenhuma referência no fluxo de decisão. Zero efeito operacional. Mantido sem alteração | `monstro_unificado_v22.py:1088` |
+| ✅ LIMPEZA | **Arquivos temporários removidos** — `_test_atomic_save.py`, `modelo_monstro_wdo_tmp.h5`, `modelo_monstro_wdo_tmp.keras` deletados. Nenhum resíduo `_tmp*`/`_test_*` no diretório | `C:\AIOFEN\` |
+| ✅ APROVAÇÃO | **VEREDITO FINAL: APROVADO** — todas as correções são de bugs funcionais (escala de entropia [0,1] → 2.60-2.85), não de preferência. Robô pronto para o próximo pregão. Impactos: EXPLOSÃO deixa de ser sempre-ativo; score SniperSupermo deixa de ficar inflado por entropia constante | `monstro_unificado_v22.py` |
+| 📌 MONITORAR | **Primeiro pregão** — observar nos logs se EXPLOSÃO aparece raramente (só com `entropia > 2.85`) e se o score do SniperSupermo reflete melhor os setups. Ajuste fino do threshold 2.85 se necessário (não é bug) | `monstro_wdo.log` |
+
+---
+
+### 01/08/2026 — Sessão 17 (Fixes de Robustez Pós-Review)
+
+| Tipo | Descrição | Arquivo/Linha |
+|------|-----------|---------------|
+| 🔧 MUTEX | **Guard de instância única movido para `if __name__ == "__main__"`** — antes rodava no import do módulo: qualquer script que importasse `monstro_unificado_v22` com outra instância ativa morria (`_sys.exit(0)`). Agora o mutex só é criado quando o robô roda como script principal. Imports `ctypes`/`sys` movidos junto | `monstro_unificado_v22.py:10100-10117` |
+| 🔧 SYS.EXIT | **`sys.exit()` do `CircuitBreakerEssencial` substituído por shutdown coordenado** — `sys.exit()` dentro de thread daemon (monstro_thread) só matava a thread; dashboard e demais threads continuavam vivas e o processo parecia ativo. Agora cria `parar.txt` (caminho absoluto via `_caminho_dados`), que o loop principal detecta na próxima iteração e executa o `encerramento_seguro_completo` existente (fecha posições → salva modelo/experiências → flush logs → `os._exit(0)`) | `monstro_unificado_v22.py:1116-1130` |
+| 🔧 CAMINHO | **Inconsistência de caminho corrigida em `verificar_parada_gracil()`** — verificava `os.path.exists("parar.txt")` (relativo ao CWD) mas o loop removia via `_caminho_dados("parar.txt")` (absoluto). Se o CWD fosse diferente de `C:\AIOFEN`, o parar.txt nunca era detectado. Agora usa `_caminho_dados` | `monstro_unificado_v22.py:6061` |
+| ✅ VALIDAÇÃO | **Sintaxe validada** (`py_compile` + `ast.parse` com `utf-8-sig`). 10353 linhas. `sys.exit` restantes: 1 real (`_sys.exit(0)` do mutex no `__main__`, correto) + 1 comentário. Fluxo: `registrar_resultado` (pós-trade) → cria `parar.txt` → `verificar_parada_gracil()` (topo do loop) → shutdown coordenado | `monstro_unificado_v22.py` |
+| ✅ TESTES | **`tests/testes_pos_fix.py` criado e passando (9/9)** — testes determinísticos sem MT5: (1) mutex dentro do `__main__`, (2) nenhum `sys.exit(` real espalhado, (3) nenhuma comparação de entropia em escala [0,1], (4) `parar.txt` via caminho absoluto, (5) colunas/integridade de `decisions_wdo.csv` e `historico_contexto_wdo.csv` (entropia não truncada, bid_qty reais). Rodar: `venv\Scripts\python.exe tests\testes_pos_fix.py`. O shutdown coordenado NÃO é testável sem MT5 — manual no checklist. README em `tests\README.md` | `tests\testes_pos_fix.py`, `tests\README.md` |
+| ⚠️ PENDÊNCIA CI | **CI (GitHub Actions) adiado** — `monstro_unificado_v22.py` está **untracked** (não versionado). Um CI rodaria num clone sem o arquivo principal → testes falhariam ou passariam vazios. **Ação:** versionar o v22 (decisão do operador) e só então criar `.github/workflows/testes-pos-fix.yml`. O script não importa o módulo (lê como texto), então o CI é viável e barato após o versionamento | `monstro_unificado_v22.py` |
+
+---
+
+## ARQUIVOS PARA MONITORAR
+
+### 📊 Performance
+| Arquivo | O que verificar | Frequência |
+|---------|----------------|------------|
+| `monstro_wdo.log` | Operações, P&L, erros | Diário |
+| `implemente.txt` | Logs de teste em tempo real | Cada teste |
+| Dashboard `http://127.0.0.1:5001` | Gráficos de lucro | Diário |
+
+### 🧠 Aprendizado
+| Arquivo | O que verificar | Frequência |
+|---------|----------------|------------|
+| `modelo_monstro_wdo.h5` | Existe? Tamanho > 100KB? | Diário |
+| `decisions_wdo.csv` | Histórico de decisões | Diário |
+| `experiencias_wdo.json` | Experiências salvas | Semanal |
+
+### 📈 Dados
+| Arquivo | O que verificar | Frequência |
+|---------|----------------|------------|
+| `config.json` | Parâmetros coerentes | Semanal |
+| `historico_contexto_wdo.csv` | Dados de treino | Semanal |
+
+---
+
+## CHECKLIST DE TESTES PÓS-FIX (Próximo pregão / staging)
+
+### Teste manual de shutdown coordenado (obrigatório antes de operar)
+- [ ] Iniciar o robô em ambiente de staging (mercado aberto ou simulado)
+- [ ] Criar `parar.txt` manualmente (ou forçar limite diário baixando `MAX_LOSS_DIARIO`)
+- [ ] Confirmar nos logs que o `encerramento_seguro_completo` executou na sequência:
+  1. Fecha posições ativas
+  2. Salva modelo (`salvar_modelo` → h5/keras atômico)
+  3. Salva experiências (`salvar_experiencias_json`)
+  4. Flush final dos logs
+  5. Processo termina (`os._exit(0)`)
+- [ ] Confirmar que `parar.txt` foi consumido/removido pelo loop (`os.remove(_caminho_dados("parar.txt"))`)
+- [ ] Confirmar que o processo não ficou "morto-vivo" (dashboard não continua rodando sem loop de trading)
+
+### Teste de mutex (instância única)
+- [ ] Iniciar o robô → iniciar segunda instância → confirmar `MessageBox` + `_sys.exit(0)` na segunda
+- [ ] Importar o módulo de outro script Python com o robô ativo → confirmar que o import **não** mata o processo importador (regressão do fix)
+
+### Teste de escala de entropia
+- [ ] No primeiro pregão, confirmar nos logs que EXPLOSÃO só aparece com `entropia > 2.85`
+- [ ] Confirmar que o score do SniperSupermo não fica inflado (entropia contribui apenas quando `> 2.75`)
+
+### Testes de integridade de dados
+- [ ] Após shutdown: `modelo_monstro_wdo.h5` > 100KB e íntegro (sem `.tmp_atomic`)
+- [ ] `experiencias_wdo.json` com as últimas experiências salvas
+- [ ] `monstro_wdo.log` sem erros críticos na sessão
+
+### Gatilho de revisão
+- [ ] Se comportamento anômalo no primeiro pregão → abrir ticket nesta seção do ROADMAP
+
+---
+
+## EXPECTATIVAS REALISTAS
+
+### O que o robô FAZ hoje:
+- ✅ Lê book WDO + DOL em tempo real
+- ✅ Filtra por volume institucional (sniper)
+- ✅ IA decide BUY/SELL/NADA com 22 features
+- ✅ Confluência de 5 sinais técnicos
+- ✅ DOL veto/confirmação
+- ✅ PTAX coleta BCB (4 janelas: 10/11/12/13h)
+- ✅ Sniper bloqueado em dia PTAX e payroll
+- ✅ Payroll escape (sexta 09:25-09:35)
+- ✅ Dólar casado (WDO - PTAX) como feature
+- ✅ Williams %R divergência bull/bear
+- ✅ Trailing stop + profit protection
+- ✅ Aprende com cada operação
+- ✅ Re-treina a cada 3 operações
+- ✅ Dashboard web em tempo real
+
+### O que NÃO faz (ainda):
+- ❌ Otimização automática de hiperparâmetros
+- ❌ Análise de fundamentos (notícias, Selic)
+- ❌ Backtesting completo histórico
+- ❌ Adaptação automática de SL/TP ao regime
+
+### Realidade do mercado:
+- WDO é extremamente eficiente — poucos inefficiencies
+- HFT domina o book — sinais duram milissegundos
+- O robô opera em M1 — pode capturar fluxo institucional
+- Expectativa: **55-60% de acerto** com trailing eficiente
+- Meta: consistência > lucro pontual
+
+---
+
+## FASES DO PROJETO
+
+### FASE 1 — MIGRAÇÃO WIN → WDO ✅ CONCLUÍDA (22/07/2026)
+- config.json, symbol, TP=0, features 16-18, trailing, limpeza referências WIN
+
+### FASE 2 — CORREÇÃO DE BUGS ✅ CONCLUÍDA (22/07/2026)
+- 10 bugs críticos + 3 menores corrigidos
+
+### FASE 3 — TESTE DE CARGA ✅ CONCLUÍDA (23-28/07/2026)
+- [x] WDOQ26 selecionado
+- [x] Book nativo ativo
+- [x] Modelo criado e salvo
+- [x] DOL integrado
+- [x] ATR/entropia/ratio recalibrados para WDO
+- [x] Primeira entrada executada (BUY 5099.50)
+- [x] SL funcionou (5097, -R$25 — mercado flat)
+- [x] Primeiro trade lucrativo (BUY 5092→5099.5, +70pts R$70)
+- [x] SL trailing funcionando (SL moveu de 5093→5100 conforme lucro)
+- [x] Treino balanceado (wins + losses, punição correta)
+- [x] 25 trades reais acumulados
+- [x] 6 treinos com dados reais executados
+- [x] FiltroTendencia bloqueou 200+ contra-tendência
+- [ ] Modelo aprendendo com trades reais (precisa 30+ trades para calibragem)
+
+### FASE 4 — PTAX + PAYROLL + SNIPER BLOQUEIO ✅ CONCLUÍDA (28/07/2026)
+- [x] Coleta PTAX BCB (4 janelas 10/11/12/13h)
+- [x] Feature dolar_casado (WDO - PTAX)
+- [x] Payroll escape (sexta 09:25-09:35)
+- [x] Sniper bloqueio em dia PTAX e payroll
+- [x] 4 novas features no modelo (N_FEATURES=22)
+- [x] Dashboard alert bar + métricas PTAX
+- [x] Williams %R divergência corrigida (ticks)
+
+### FASE 5 — CALIBRAÇÃO EM MERCADO ✅ CONCLUÍDA (28/07/2026)
+- [x] 25 trades reais acumulados — ATR, entropia, ratio, score recalibrados
+- [x] FiltroTendencia SMA-50 + Momentum validado (200+ bloqueios)
+- [x] SL = 5pts, trailing gatilho 3pts validados
+
+### FASE 6 — RETREINAR MODELO ✅ CONCLUÍDA (28/07/2026)
+- [x] Retreinado Keras com 22 features (modelo V3)
+- [x] L2 regularization (0.001) + BatchNorm + Dropout
+- [x] TimeSeriesSplit (split temporal 80/20, sem shuffle)
+- [x] SMOTE balanceamento de classes
+- [x] EarlyStopping + ReduceLROnPlateau
+- [x] Model melhor época (epoch 24): 93.9% train / 86.9% val
+- [x] Scaler 22 colunas salvo
+- [x] .h5 + .keras salvos
+- [x] Pesos reais do modelo (não sintéticos puros) aplicáveis
+
+### FASE 7 — CORREÇÃO SCALER + SAÍDA BOOK ✅ CONCLUÍDA (29/07/2026)
+- [x] 4 correções de proteção do scaler (treino online não corrompe mais MinMax)
+- [x] `_hash_contexto` duplicado removido
+- [x] Entry context salvando corretamente no CSV
+- [x] Saída por Inversão de Fluxo validada com sucesso (breakeven em vez de loss)
+
+### FASE 7b — AJUSTE SL CATÁSTROFE ✅ CONCLUÍDA (30/07/2026)
+- [x] SL_POINTS 5.0 → 8.0 (stop de segurança, saída real por fluxo: book inversion, trailing, score erosion)
+- [x] Retreino offline do Keras com dados consolidados da sessão (17h+)
+- [x] Backup do modelo antigo antes do retreino
+
+### FASE 7c — FIX PERSISTÊNCIA PYINSTALLER + MODELO V3 REGULARIZAÇÃO REDUZIDA ✅ CONCLUÍDA (30/07/2026)
+- [x] **Retreino V3 com regularização reduzida** — Dropout 0.2 (era 0.5/0.4/0.3), L2 0.001 (era 0.005), GaussNoise 0.01 (era 0.02). Arquitetura 128→64→32. Threshold 1.5 mantido.
+- [x] **Fix persistência PyInstaller** — `_caminho_base()` + `_caminho_dados()` globais. Todos CSVs/JSON/Log/Model/Config/Parar.txt apontam para `C:\AIOFEN\` (não `dist\MonstroDashboard\`).
+- [x] **Rebuild .exe** — `MonstroDashboard.exe` 27MB (11:13) com paths absolutos funcionais.
+- [x] **Validação CSVs tempo real** — decisions, historico_contexto, historico_multitf, williams_r, log todos atualizando a cada ciclo.
+- [x] **Sessão tarde validada** — SELL +25pts, BUY aberto com trailing. Modelo V3 reagindo (não travado em NAO_AGIU).
+- [x] **Diagnóstico SniperSupermo** — score fixo 6/11 confirmado: condições de ativação (≥7) não ocorreram (DOL conf <0.7, ratio <2.0, RSI não extremo). Funcionando como projetado.
+
+### FASE 7d — CORREÇÕES PÓS-AUTÓPSIA (5 VETOS + PIPELINE) ✅ CONCLUÍDA (30/07/2026)
+- [x] **Williams %R threshold -85 → -80** — simétrico ao veto SELL (cobre zona cinzenta -83/-84)
+- [x] **FORÇA BUY/SELL protegido por Multi-TF** — não força direção contra 3 timeframes
+- [x] **DOL conf ≥ 0.5 + alinhado** para entradas não-sniper (já implementado)
+- [x] **Book ratio ≥ 1.5x** para trades direcionais (já implementado)
+- [x] **SL Catástrofe 8pts** no config.json (já configurado)
+- [x] **Import circular fix** (config_manager.py → monstro_unificado_v22.py → dashboard_routes)
+- [x] **Rebuild .exe com certifi CA bundle** (MonstroDashboard.exe)
+- [x] **Pipeline de execução mapeado e validado** — 8 camadas de proteção antes do MT5
+
+### FASE 8 — MELHORIAS DO SISTEMA ⬜ PENDENTE
+- Risco, adaptatividade, confluência, monitoramento
+
+### FASE 9 — DEPLOY E PRODUÇÃO ⬜ PENDENTE
+- 1 semana demo lucrativo → conta real
+
+### FASE 10 — INTEGRAÇÃO DOL ✅ CONCLUÍDA (23/07/2026)
+- [x] ler_book_dol(), analisar_sinal_dol()
+- [x] Subscrição DOL no MT5
+- [x] Veto/confirmação no fluxo de decisão
+
+---
+
+## HISTÓRICO DE MUDANÇAS
+
+### 28/07/2026 — Sessão 10 (Modelo V3 retreinado + L2 + TS + SMOTE + Confidence Gap + Bug Fixes)
+| Tipo | Descrição | Arquivo |
+|------|-----------|---------|
+| 🔧 ML | **L2 regularization (0.001)** — Adicionado `kernel_regularizer=l2(0.001)` em todas as Dense layers. Contém overfitting | `monstro_unificado_v22.py:3292` |
+| 🔧 ML | **TimeSeriesSplit** — `shuffle=False`, split 80/20 temporal (primeiros 80% treino, últimos 20% val). Fallback shuffle só se dados <4 amostras | `monstro_unificado_v22.py:7873-7879` |
+| 🔧 ML | **SMOTE** — `imblearn.over_sampling.SMOTE` balanceia classes BUY/SELL no treino. 1674 amostras balanceadas | `monstro_unificado_v22.py:7886-7892` |
+| 🔧 ML | **EarlyStopping patience 15** — Monitora val_loss, restaura best weights | `monstro_unificado_v22.py:7906-7907` |
+| 🤖 MODELO | **Modelo V3 retreinado** — 39 épocas (best epoch 24). Train: 93.91% acc / 0.257 loss. Val: 86.92% acc / 0.373 loss. Gap 7% | Offline |
+| 🗃️ MODELO | **`.keras` salvo** — Formato nativo Keras (104KB) ao lado do `.h5` (473KB) | `modelo_monstro_wdo.keras` |
+| 🗃️ SCALER | **Scaler 22 colunas** — `_scaler.json` com min/max das 22 features | `modelo_monstro_wdo_scaler.json` |
+| ✨ FEATURE | **Confidence Gap 0.15** — Sinais com `|prob-0.5| < 0.15` retornam NADA imediatamente. Filtra ruído borderline | `monstro_unificado_v22.py:8329-8341` |
+| 🐛 BUG FIX | **Fallback scaler 18→22** — `forcar_recreacao_scaler()` criava dummy com 18 features. Se `_scaler.json` falhasse, crash ao transformar 22 colunas | `monstro_unificado_v22.py:1631` |
+| 🐛 BUG FIX | **CSV header sem PTAX** — `colunas_padrao` não tinha 4 colunas PTAX, perdia dados ao recriar CSV | `monstro_unificado_v22.py:2932` |
+| 🐛 BUG FIX | **Contexto CSV sem PTAX** — Experiências do CSV perdiam PTAX features. Agora default 0 | `monstro_unificado_v22.py:7610` |
+| 🐛 BUG FIX | **`preparar_dados()` sem PTAX** — Fallback não incluía PTAX, causava KeyError ao misturar dados com/sem PTAX | `monstro_unificado_v22.py:3185` |
+| 📊 RESULTADO | **Modelo V3**: 86.9% val temporal (honesto). Anterior era 89.59% (inflado por shuffle leak). Gap 7% controlado por L2 | Offline |
+| 📊 RESULTADO | **25 trades reais em 28/07** — -190pts (+160 / -350 / 5 BE). Mercado lateral 5122-5127 | Sessão |
+
+### 30/07/2026 — Sessão 12 (Fix Persistência PyInstaller + Retreino V3 Regularização Reduzida + Rebuild .exe + Validação CSVs)
+
+| Tipo | Descrição | Arquivo/Linha |
+|------|-----------|---------------|
+| 🐛 CRÍTICO | **Persistência zero no PyInstaller** — `_caminho_recurso()` só consertava `template_folder` do Flask. Todos os CSVs/JSONs/Log/Model/Config usavam paths relativos → no `.exe` (CWD=`dist\MonstroDashboard\`) **nenhum arquivo era escrito** (RAM only). Sessão da manhã: 10 trades, -190pts, 10% WR, **0 bytes em disco**. | `monstro_unificado_v22.py:443-452` |
+| 🔧 FIX | **`_caminho_base()` + `_caminho_dados()` globais** — Resolve diretório base correto: PyInstaller → sobe de `_internal` para raiz do projeto (`C:\AIOFEN\`); Script → `__file__`. Aplicado a TODOS os paths de dados. | `monstro_unificado_v22.py:443-452` |
+| 🔧 FIX | **Paths convertidos para absoluto** — `CONFIG_FILE`, `HISTORICO_CSV`, `MODELO_PATH`, `LOG_FILE`, `EXPERIENCIAS_JSON`, `DECISIONS_CSV`, `MULTITF_CSV`, `SNIPER_SUPERMO_CSV`, `WILLIAMS_R_CSV`, `PARAR_TXT`, `API data_files` dir, `MonitorWilliamsR.__init__`, `verificar_arquivo_parada()`, `salvar_decisao_csv()`. | Múltiplas linhas |
+| 🤖 MODELO | **Retreino V3 — Regularização reduzida (Underfitting fix)** — Dropout 0.5/0.4/0.3 → **0.2 uniforme**; L2 0.005 → **0.001**; GaussianNoise 0.02 → **0.01**; Arquitetura 256/128/64/32 → **128/64/32**; Label threshold 1.5 mantido; 30k amostras → 16k BUY/SELL → SMOTE → 12.9k balanceadas. | `treinar_monstro_offline.py` |
+| 📊 RESULTADO | **Treino V3 novo**: 31 épocas (early stop), val_acc **81.71%** (vs 82.6% anterior), val_loss **0.4067** (vs 0.3438). Modelo mais leve, menos regularizado, **reage mais rápido** — objetivo: eliminar paralisia `NAO_AGIU` (502 ocorrências manhã) e recuperar timing. | Offline |
+| 📦 BUILD | **`.exe` rebuildado** — `pyinstaller MonstroDashboard.spec` → `dist\MonstroDashboard\MonstroDashboard.exe` (27 MB, 11:13) com paths absolutos funcionais. | Build |
+| ✅ VALIDAÇÃO | **CSVs escrevendo em tempo real** — `decisions_wdo.csv` (4.3KB), `historico_contexto_wdo.csv` (495KB), `historico_multitf.csv` (4.1KB, 38 linhas M5/M15/M30), `williams_r_historico.csv` (115KB), `monstro_wdo.log` (62KB). Todos atualizados a cada ciclo. | Sessão 11:30-11:47 |
+| 📊 OPERAÇÕES | **SELL 5076 → +25pts (R$25) fechado 11:44** | Log/CSV |
+| 📊 OPERAÇÕES | **BUY 5072 aberto (SL 5070 trailing)** — flutuando 0 a +1pt | Log/CSV |
+| 🔍 DIAGNÓSTICO | **SniperSupermo CSV não atualiza** — Condições de ativação (score ≥7/10) **não ocorreram hoje**: DOL conf max 0.44 (<0.7), book ratio max 1.33x (<2.0), RSI 39-44 (não extremo). Funcionando como projetado (raro). | Log/CSV |
+
+---
+
+### 29/07/2026 — Sessão 11 (Correção Scaler + Saída Book + Decisão SL Catástrofe)
+| Tipo | Descrição | Linha |
+|------|-----------|-------|
+| 🐛 CRÍTICO | **Scaler refitava com CSV pequeno (6 linhas)** — treino online `treino=True` corrompia MinMaxScaler, RSI 0-100 → ~35-42. 4 correções: (1) `contexto: dict = {}` antes do while, (2) `treino=True`→`treino=False` no treino online, (3) `forcar_recreacao_scaler()` pós-treino, (4) pré-predição | `v22.py:6031,7856,7978,6847` |
+| 🗑️ DELETE | **`_hash_contexto` duplicado removido** — linhas 679-685, book_pressure duplicado após return inatingível | `v22.py:679-685` |
+| 🐛 BUG FIX | **Entry context salvando ação+reward corretamente** — SELL 2490232578 e BUY 2490384373 verificados no CSV ✅ | Loop principal |
+| 📊 SAÍDA PROVADA | **Saída por Inversão de Fluxo (Book Nativo)** — BUY 5136, mercado virou contra, ratio 1.25 contrário, SL movido 5133.5→5136.0. Trade fechou zero a zero. Loss de -R$25 evitado | `v22.py:~6293-6440` |
+| 📊 RESULTADO | **15 trades reais (9 novos hoje)** — 4 wins +R$95 / 11 losses -R$265. Net -R$170. Média win R$23.75 (2.4pts), loss R$-24.09 (2.4pts). Zeros: 2 (book breakeven) | Sessão |
+| 🎯 DECISÃO | **SL 2.5pts → SL Catástrofe 8-10pts (pós-pregão)** — SL fixo atual estopa trades no ruído normal do WDO. SL passa a ser rede de segurança; saída real será pelos 3 algoritmos de fluxo (book inversion, trailing, score erosion) | Config pós 17h |
+| 📋 PLANO | **Retreino offline noturno** — após fechamento, baixar CSV consolidado + retreinar Keras com dados reais (17h+) | Offline |
+| 🔧 OBS | **Modelo VIÉS BUY 1.000 confirmado** — raiz: treino original com 6 BUY + 0 SELL. Só resolve com 500+ trades balanceados | Dados CSV |
+| 🔧 OBS | **SniperSupermo score fixo 6/11** — nunca atingiu 7/11 necessário. Diagnosticar após retreino | Pendente |
+
+### 28/07/2026 — Sessão 9 (PTAX + Payroll + Sniper Bloqueio + Williams %R fix + 22 features)
+| Tipo | Descrição | Arquivo |
+|------|-----------|---------|
+| ✨ FEATURE | **PTAX coleta BCB** — `_PTAXParser` HTML, 4 janelas (10:00/11:00/12:00/13:00), cache diário | `monstro_unificado_v22.py:2230` |
+| ✨ FEATURE | **dolar_casado** — (WDO - PTAX) × 1000. Feature + global + dashboard | `monstro_unificado_v22.py:5833` |
+| ✨ FEATURE | **payroll escape** — `eh_horario_payroll()`: sexta 09:25-09:35, bloqueia sniper, fuga automática | `monstro_unificado_v22.py:2304` |
+| ✨ FEATURE | **Sniper bloqueio** — `verificar_sniper_bloqueado()` bloqueia em dia PTAX (31/07) e payroll | `monstro_unificado_v22.py:2315` |
+| ✨ FEATURE | **4 features PTAX no Keras** — `dolar_casado`, `em_janela_ptax`, `minutos_para_ptax`, `dia_ptax`. N_FEATURES=22 | `monstro_unificado_v22.py:541` |
+| ✨ FEATURE | **Dashboard alert bar** — banner vermelho/amarelo p/ sniper bloqueado/payroll | `templates/dashboard.html:173` |
+| ✨ FEATURE | **Dashboard métricas PTAX** — `#mPTAX`, `#mDCasado`, `#mSniper` | `templates/dashboard.html:167-169` |
+| ✨ FEATURE | **`/api/status` PTAX** — `ptax`, `dolar_casado`, `sniper_bloqueado`, `payroll_ativado` | `dashboard_routes.py:134` |
+| 🐛 BUG FIX | **Williams %R divergência thresholds % → ticks** — 1pt preço (2×TICK_SIZE), 5pts WR. Janela 20→200. `max_hist`=1000 | `monstro_unificado_v22.py:2582` |
+| 🗑️ DELETE | **`williams_r_historico.csv` deletado** — 2009 linhas com divergência errada removidas | (arquivo) |
+| 🔧 AJUSTE | SniperSupermo agora verifica `sniper_bloqueado` no contexto e retorna `BLOQ_PTAX/PAYROLL` | `SniperSupermo.verificar():2709` |
+| 🔧 AJUSTE | Contexto agora inclui `ptax`, `dolar_casado`, `em_janela_ptax`, `minutos_para_ptax`, `dia_ptax`, `payroll_ativado`, `sniper_bloqueado` | Loop principal ~6752 |
+| 🔧 AJUSTE | `config.json` N_FEATURES 18→22 | `config.json` |
+| 📊 RESULTADO | 25 trades em 28/07: -190pts (Wins +160 / Losses -350 / BE 5). Mercado lateral 5122-5127 | Sessão |
+
+### 28/07/2026 — Sessão 8 (26 trades + Pesquisa LW + SniperSupermo)
+| Tipo | Descrição |
+|------|-----------|
+| 📊 RESULTADO | **19 trades executados** (09:01-11:29). Resultado: -80pts (Wins +145 / Losses -225 / Breakeven 5). 6 treinos Keras executados |
+| 📊 ACUMULADO | **26 trades reais** (7 de 27/07 + 19 de 28/07). Meta 100+ para maturação |
+| 🔧 BUG CONFIRMADO | Perdas de -25 (2.5pts) são normais — 0.5pt antes do SL real de 5pts |
+| 🔧 FILTRO VALIDADO | FiltroTendencia bloqueou 200+ operações contra-tendência em mercado range-bound |
+| 📚 PESQUISA | **Larry Wilson real**: %R divergências + COT (DOL) + sazonalidade. SMA3/55 é versão de iniciante. Nosso sistema já está alinhado com LW real |
+| 📁 NOVO | `backtest_intraday.py` — script de backtest comparativo (E2 (LW SMA3/55) venceu 8/8 mas em mercados com tendência, não WDO) |
+| 📄 ATUALIZAÇÃO | ROADMAP — candidatas corrigidas: %R divergências substitui SMA3/55 como próxima evolução |
+| ✨ FEATURE | **SniperSupermo** — modo alta convicção (score ≥ 7/10): DOL+%R+RSI+ATR+entropia+horário+sniper ratio. Volume 5cc, SL=5pts. Breakeven em +2.5pts, trailing 1pt/1pt. Pula filtros normais, big players e horário. Sem cooldown. CSV `sniper_supermo_historico.csv` | `monstro_unificado_v22.py` |
+| ✨ FEATURE | **Williams %R implementado** — `calcular_williams_r()`, `detectar_divergencia_wr()`, `MonitorWilliamsR`. CSV `williams_r_historico.csv`. Coleta dados sem bloquear | `monstro_unificado_v22.py` |
+| 🔧 AJUSTE | SniperSupermo: 7 condições (docstring corrigida). Time check: sempre +1 (horário global não restringe sniper) | `SniperSupermo.verificar()` |
+| 🔧 AJUSTE | SniperSupermo trailing: breakeven em +2.5pts (não +5). Depois trailing 1pt/1pt manual no loop principal | `monstro_unificado_v22.py:6223` |
+| 🔧 AJUSTE | SniperSupermo: cooldown removido (operações raras, pode re-ativar) | `SniperSupermo.__init__` |
+| 🔧 AJUSTE | `executar_ordem()`: parâmetro `sniper=True` pula verificação de horário | `executar_ordem()` |
+| 🔧 AJUSTE | Hibernação 12:30-14:30: sleep 1h → sleep 5s (sniper ativo, modo normal bloqueado) | Loop principal |
+| 🔧 AJUSTE | Horário: revertido para janelas originais 09:15-12:30 / 14:30-17:15 (normal). Sniper ignora | `horario_permitido()` |
+| 🧹 DOC | Docstring SniperSupermo corrigida: removeu spoof/SMA-50/Z-Score (não implementados) | `SniperSupermo` |
+
+### 27/07/2026 — Sessão 7d (Dashboard V2 + Log Reduction)
+| Tipo | Descrição | Arquivo |
+|------|-----------|---------|
+| ✨ FEATURE | **Dashboard V2 completo** — UI dark theme (Tailwind colors), Chart.js, console de logs com cores, modal de ajustes em tempo real, botões INICIAR/REINICIAR/PARAR/PAUSAR. Imagem de fundo IMAGEMROBO.png full screen translúcido + LOGO.jfif no header | `templates/dashboard.html`, `dashboard_routes.py`, `config_manager.py` |
+| ✨ FEATURE | **ThreadSafeConfig** — `config_manager.py` com `threading.RLock`, validação de range, listeners, persistência JSON. Atualiza parâmetros em tempo real sem reiniciar | `config_manager.py` |
+| ✨ FEATURE | **Blueprint Flask** — 7 endpoints: `/`, `/api/status`, `/api/trades`, `/api/logs`, `/api/config/current`, `/api/config/update`, `/api/control/<action>` | `dashboard_routes.py` |
+| ✨ FEATURE | **Controle remoto** — Botão INICIAR inicia novo processo, REINICIAR mata e reinicia, PARAR cria `parar.txt` | `dashboard_routes.py` |
+| ✨ FEATURE | **Config em tempo real** — Modal edita SL, TP, Sniper, Trailing, Spread, MaxLoss via `/api/config/update` | `dashboard_routes.py` |
+| ✨ FEATURE | **Chart de trades** — Gráfico de barras Chart.js (verde=ganho, vermelho=perda) alimentado por `historico_lucro` | `templates/dashboard.html` |
+| ✨ FEATURE | **Console de logs** — Streaming com cores: INFO=azul, WARNING=amarelo, ERROR=vermelho. Polling incremental via `?offset=N` | `templates/dashboard.html` |
+| 🔧 BUG FIX | **Flask log flooding** — `werkzeug` e `app.logger` agora logam só WARNING+. Eliminou ~170k linhas/dia de requests HTTP no monstro_wdo.log | L5397-5401 |
+| 🔧 BUG FIX | **historico_lucro vazio** — Adicionado `historico_lucro.append(lucro_real)` após cada trade. Chart agora mostra operações | L6055 |
+| 🔧 BUG FIX | **Keras warning no verificar_e_proteger_modelo** — `load_model` agora com `warnings.catch_warnings()` para suprimir aviso de métricas compiladas | L3021-3023 |
+| 📊 MELHORIA | **Log reduction (6 mudanças)** — TENDENCIA BLOQUEIA: só loga quando decisão muda (antes: cada ciclo). TENDENCIA STATUS: a cada 20 calls (antes: 5). BOOK_WDO: a cada 5 ticks (antes: cada tick). NAO_AGINDO: debug level, 5min (antes: INFO, 30s). KERAS WARNING: filtrado. DOL: 2min via _log_periodico | Múltiplas linhas |
+| 📁 NOVO | `config_manager.py` — ThreadSafeConfig singleton | ~130 linhas |
+| 📁 NOVO | `dashboard_routes.py` — Blueprint Flask com 7 endpoints | ~240 linhas |
+| 📁 NOVO | `templates/dashboard.html` — Dashboard HTML completo | ~400 linhas |
+| 📁 NOVO | `static/IMAGEMROBO.png` — Imagem de fundo (2MB) |  |
+| 📁 NOVO | `static/LOGO.jfif` — Logo oficial do projeto (130KB) |  |
+
+### 27/07/2026 — Sessão 7c (Trailing SL não acompanhava preço)
+| Tipo | Descrição | Linha |
+|------|-----------|-------|
+| 🔧 BUG FIX | **`distancia_minima` muito agressiva (4.5pts)** — `freeze_level=3` (default) * 1.5 = 4.5pts. Para WDO com SL=5pts, isso impedía o trailing de mover o SL. Fix: default 3→1, removed `*1.5` multiplier | 4951-4955 |
+| 🔧 BUG FIX | **Safety check trailing** — Se correção de distancia_minima piora o SL (ex: corrige 5110→5113 quando atual é 5112), agora retorna False em vez de rejeitar. Espera próximo tick quando preço se moveu | 4969-4974, 4983-4987 |
+| 📊 IMPACTO | SELL 5114, preço 5108 (+6pts): SL ficava preso em 5112. Agora SL moveu para 5110, trailing funcionando | 5110 |
+
+### 27/07/2026 — Sessão 7b (FiltroTendencia reescrito + fixes)
+| Tipo | Descrição | Linha |
+|------|-----------|-------|
+| 🔧 BUG FIX | **`freeze_level` não definida em `atualizar_sl`** — Variável só era atribuída no ramo elif, crash quando breakeen_forcado → SL NÃO era movido. Inicializada no topo da função | 4954-4999 |
+| 🔧 BUG FIX | **`batch_normalization/gamma` no treino** — Optimizer antigo do H5 incompatível com Keras 3. Sempre recompilar com optimizer novo antes do fit | 7355-7361 |
+| 🔧 BUG FIX | **Dupla registro de preço no FiltroTendencia** — `pode_operar()` chamado 2x com mesmo preço, adicionava preço 2x ao histórico. Substituído por `avaliar_tendencia()` chamado 1x | 7589-7609 |
+| 📊 MELHORIA | **FiltroTendencia reescrito: SMA-50 + Momentum** — Janela 20→50 (reage mais devagar), margem 2.0→1.0pt (detecta tendência mais cedo), adicionada detecção de momentum (>3pts em 20 ticks). 3 camadas: SMA, Momentum, Consenso | 8996-9080 |
+| 📊 CALIBRAÇÃO | **Média Reversion mantido** — RSI 70/30 correto para reversão à média. O problema era FiltroTendencia fraco, não MR | 9140-9260 |
+
+### 27/07/2026 — Sessão 7 (SL Trailing + Treino Balanceado)
+| Tipo | Descrição | Linha |
+|------|-----------|-------|
+| 🔧 BUG FIX | **SL Trailing Breakeen CRÍTICO (3 partes)** — (1) `atualizar_sl()` aceita SL >= entry. (2) INVERSÃO DE FLUXO usa `eh_breakeen_forcado=True`. (3) GerenciadorDeSaida pula override quando SL >= entry | 5963-5987 |
+| 🔧 BUG FIX | **Trailing usando melhor_preco** — AMBAS classes GerenciadorDeSaida usavam `melhor_preco` (pico) para cálculo de trailing. Quando preço retraía, SL ficava ACIMA do bid (BUY) ou ABAIXO do ask (SELL) → MT5 rejeitava. Corrigido para usar `preco_atual` | 2015-2025, 165-174 |
+| 🔧 BUG FIX | **`freeze_level` não definida em `atualizar_sl`** — Variável só era atribuída dentro do ramo `elif not eh_breakeen`. Quando `eh_breakeen_forcado=True`, usava variável não definida → crash `UnboundLocalError`. SL NÃO era movido. Corrigido: `freeze_level` e `distancia_minima` inicializados no topo da função | 4954-4999 |
+| 🔧 BUG FIX | **CSV carregava apenas WINS** — `carregar_experiencias_do_csv()` filtrava `reward > 0`. Modelo nunca aprendia com perdas. Corrigido para WINS + LOSSES balanceado (ratio 2:1) | 7044-7143 |
+| 🔧 BUG FIX | **normalizar_recompensas destruía sinal** — Usava min-max [0,1], transformando losses em 0 (neutro) e wins em 1 (bônus). Modelo não sabia punir. Corrigido para `r/100` preservando sinal | 7202-7223 |
+| 🔧 BUG FIX | **sample_weight invertia punição** — Usava `r + 0.1`, losses recebiam peso mínimo (perto de 0). Corrigido: losses = `abs(r)*2.0+0.1` (2x punição), wins = `abs(r)*0.5+0.1` | 7352-7356 |
+| 🔧 BUG FIX | **NaN no batch** — Dados corrompidos causavam treino silencioso vazio. Filtro `np.isfinite()` adicionado antes de train_test_split | 7299-7302 |
+| 🔧 BUG FIX | **Mínimo treino reduzido** — De 10 para 4 amostras. `train_test_split` stratify com try/except para single-class | 7305, 7324-7333 |
+| 🔧 BUG FIX | **Contexto CSV incompleto** — load faltava 8 colunas book. Agora carrega todas as 18 features | 7090-7110 |
+| 🔧 CONFIG | **Hibernação 12:30-14:30** — Robô entra em standby durante pausa de almoço | config |
+| 📊 MELHORIA | **Mean Reversion suavizado** — RSI 80/20 → 70/30, Z-Score 2.0 → 1.5. Permite mais operações | 9025-9162 |
+| 📊 CALIBRAÇÃO | **Volume mínimo 800 → 400, Entropia 0.4 → 0.2, Score 4/11 → 2/11** — Reduz bloqueios | 7400-7514, config.json |
+| 📊 MELHORIA | **FiltroTendencia SMA-20** — Bloqueia BUY < SMA, SELL > SMA (±2pts) | 8930-8980 |
+
+### 26/07/2026 — Sessão 5b (suavização de filtros)
+| Tipo | Descrição | Linha |
+|------|-----------|-------|
+| 📊 CALIBRAÇÃO | **Mean Reversion suavizado** — RSI 80/20 → 70/30, Z-Score 2.0 → 1.5. Filtra mais cedo, permite mais operações | 9025-9162 |
+| 📊 CALIBRAÇÃO | **Volume mínimo 800 → 400** — Permite operações com book menos denso | 7400-7410 |
+| 📊 CALIBRAÇÃO | **Entropia mínima 0.4 → 0.2** — Aceita book mais equilibrado | 7411-7420 |
+| 📊 CALIBRAÇÃO | **Score mínimo 4/11 → 2/11** — Menos exigente na qualidade do setup | 7500-7514 |
+| 🔧 CONFIG | **Sniper volume 800 → 400, ratio 1.5 → 1.2** — Config.json atualizado | config.json |
+
+### 26/07/2026 — Sessão 5 (filtros de qualidade + ajuste horário)
+| Tipo | Descrição | Linha |
+|------|-----------|-------|
+| ✨ FEATURE | **FiltroTendencia SMA-20** — Bloqueia BUY se preço < SMA, SELL se preço > SMA (margem ±2pts). Previne entradas contra-tendência | 8930-8980, 7561-7581, 7840-7847 |
+| ✨ FEATURE | **FiltroMeanReversion** — RSI(80/20) + Z-Score(±2.0) + ADX(<20=LATERAL, >25=TRENDING). Previne entradas em exaustão | 8990-9120, 7840-7870, 7892-7915 |
+| ✨ FEATURE | **Feature 19 `preco`** — Preço atual WDO ((bid+ask)/2) adicionado ao contexto para FiltroTendencia | 6275 |
+| 🔧 CONFIG | **Horário PA1 ajustado** — 09:15-12:30 / 14:30-17:15 (era 09:00-12:30 / 14:30-17:30). Remove primeiro e último trimestre de menor liquidez | 2194-2196 |
+| 🔧 CONFIG | **Encerramento antecipado** — 17:35 encerramento, 17:40 after_market (era 18:20/18:27). Economiza 45min de standby | 555, 3156-3163 |
+| 📊 MELHORIA | **Treino skip pós-17:30** — Impede treinamento desperdiçado após janela de operação | 6612-6645 |
+
+### 23/07/2026 — Sessão 4 (correções pós-análise completa)
+| Tipo | Descrição | Linha |
+|------|-----------|-------|
+| 🔧 BUG FIX | **Log rotation inteligente** — Log sobrescreve APENAS na 1a inicialização do dia (antes 09:00). Reiniciar durante mercado preserva log | 2142-2170 |
+| 🔧 BUG FIX | **Backup 1/dia** — `salvar_modelo()` cria máximo 1 backup por dia (sobrescreve). Elimina dezenas de duplicatas pós-mercado | 2919-2955 |
+| 🔧 BUG FIX | **ATR thresholds WIN corrigido** — `prever_acao` usava 100/80/45 (WIN) para score de qualidade. WDO nunca atingia. Corrigido para 8/5/3 | 7721-7726 |
+| 📊 MELHORIA | **Trailing gatilho 5→3pts** — Ativa mais cedo, pega lucros menores. Coerente com SL=5pts | 5557 |
+| 📊 MELHORIA | **Proteção de lucro 5→3pts** — Complementa trailing mais cedo | 153 |
+| 📊 MELHORIA | **INVERSÃO DE FLUXO melhorada** — Breakeen agora em prejuívo até -2pts (antes: só lucro≥0). Dá mais respiro para posições levemente negativas | 5837-5898 |
+
+### 23/07/2026 — Sessão 3 (correções pós-primeiro-trade)
+| Tipo | Descrição | Linha |
+|------|-----------|-------|
+| 🔧 BUG FIX | **COOLDOWN desativado** — operador pediu remoção (atrasava reentrada) | 1804 |
+| 🔧 BUG FIX | **Fallback RSI corrigido** — RSI normalizado (0.4) comparado com threshold cru (30). Sempre forçava BUY indevidamente. Agora desescala: `rsi_real = rsi_scaled * 99 + 1` | 7621-7630 |
+| 🔧 BUG FIX | **Breakeven SL corrigido** — INVERSÃO DE FLUXO tentava mover SL p/ breakeven (5099.50) mas `atualizar_sl` corrigia para 5072 (28pts!). Agora detecta breakeven e pula validação de distância | 4932-4963 |
+| 🔧 BUG FIX | **MODO TESTE desativado** — causava spam de treinamento a cada 2s (loop infinito por 60s). Treino falhava → scaler corrompido → refit com dados atuais | 7181-7187 |
+| 🔧 BUG FIX | **Colunas book faltantes no CSV** — experiências antigas não tinham 8 features novas. `preparar_dados` agora adiciona com valor 0 | 2786-2792 |
+
+### 23/07/2026 — Sessão 2 (DOL + filtros)
+| Tipo | Descrição |
+|------|-----------|
+| ✨ FEATURE | Integração DOL: ler_book_dol(), analisar_sinal_dol(), veto/confirmação |
+| 🔧 BUG FIX | BALANCEAMENTO FORÇADO deadlock (desativado) |
+| 🔧 BUG FIX | Entropia thresholds recalibrados (2.8→2.0, 2.9→1.8, default 2.5→1.0) |
+| 🔧 BUG FIX | Fallback entropia → direção book (BID vs ASK imbalance) |
+
+### 23/07/2026 — Sessão 1 (migração + calibração)
+| Tipo | Descrição |
+|------|-----------|
+| 🔧 BUG FIX | SL minimum distance buffer (trade_stops_level) |
+| 🔧 BUG FIX | Scaler loading (forcar_recreacao_scaler) |
+| 🔧 BUG FIX | ia_confianca_alta em SistemaConfluencia (0.8/0.2) |
+| ✨ FEATURE | Modelo treinado offline: 89.9% acurácia, 41 epochs, 2043 amostras |
+| ✨ FEATURE | Treinamento offline: treinar_monstro_offline.py |
+| 📊 CALIBRAÇÃO | ATR 80→1.5, Ratio 2.0→1.2, Entropia 0.6→0.4 |
+
+### 22/07/2026
+| Tipo | Descrição |
+|------|-----------|
+| ✨ FEATURE | Migração WIN→WDO completa + 10 bugs críticos corrigidos |
+
+---
+
+## PRIMEIRO TRADE — ANÁLISE COMPLETA (23/07/2026 15:12)
+
+### Dados do Trade
+| Campo | Valor |
+|-------|-------|
+| Ativo | WDOQ26 |
+| Direção | BUY |
+| Entrada | 5099.50 @ 15:12:36 |
+| SL | 5097.00 (5 pts = 2.5 index points) |
+| TP | 0 (trailing decide saída) |
+| Máximo lucro | +4.5 pts (R$+45) @ 15:15:25 |
+| Saída | SL 5097.00 @ 16:29:46 |
+| Duração | 1h17min |
+| Resultado | **-R$25.00** |
+
+### Causa da Perda
+- Mercado completamente flat em 5098-5104 durante 34 minutos
+- Modelo previu ~0.0 (SELL) → fallback RSI forçou BUY (bug corrigido)
+- Trailing nunca ativou (precisava 5pts, máximo foi 4.5pts) → agora gatilho=3pts
+- Timeout/estagnação desativados → posição ficou aberta até SL
+
+### Correções Aplicadas (Sessão 3 + 4)
+1. RSI fallback corrigido — não vai mais forçar BUY indevidamente
+2. MODO TESTE desativado — não vai corromper scaler
+3. Colunas book faltantes — treino com dados reais vai funcionar
+4. Trailing gatilho reduzido 5→3pts — captura lucros menores
+5. Breakeen via INVERSÃO DE FLUXO agora funciona em prejuívo até -2pts
+6. ATR thresholds corrigidos (WIN→WDO) — score de qualidade funciona
+
+---
+
+## CONFIGURAÇÃO ATUAL (config.json)
+
+```json
+{
+  "symbol_prefix": "WDO",
+  "sl_points": 5,
+  "tp_points": 0,
+  "volume_padrao": 1.0,
+  "max_loss_diario": -500.0,
+  "max_spread": 5,
+  "n_features": 22,
+  "min_volume_book": 200,
+  "sniper_volume_min": 400,
+  "sniper_ratio_min": 1.2,
+  "trailing_stop": {
+    "gatilho_pontos": 3.0,
+    "distancia_pontos": 2.0
+  }
+}
+```
+
+---
+
+## NOTAS TÉCNICAS
+
+### Confidence Gap Flow
+```
+modelo.predict(X) → acao_prob (0.0 a 1.0)
+  → CONFIDENCE_GAP = 0.15
+  → confianca = abs(acao_prob - 0.5)
+  → confianca < 0.15?
+       SIM → return "NADA", 0.0 (zona neutra, ignora)
+       NÃO → continua para threshold + RSI + filtros
+  → threshold = threshold_base + rsi_ajuste (±0.05)
+  → BUY se acao_prob > threshold, SELL caso contrário
+  → Filtros: tendência, spread, horário, mean reversion...
+  → Balanceador pode forçar ação se desbalanceamento extremo
+```
+
+### Arquitetura de Saída (TP=0)
+```
+Entrada (Keras prevê BUY/SELL)
+  → SL=5pts fixo (proteção máxima)
+  → TP=0 (sem take profit)
+  → GerenciadorDeSaida monitora:
+      1. Trailing Stop (gatilho 3pts, dist 2pts)
+      2. Proteção de Lucro (pico > 3pts, caiu > 30%)
+      3. Timeout (300s sem evolução + lucro ≤ 2pts)
+      4. Estagnação (480s + lucro pequeno)
+      5. INVERSÃO DE FLUXO (breakeen em prejuívo até -2pts)
+      6. SL=5pts (última defesa)
+  → Cooldown DESATIVADO (operador pediu)
+```
+
+### Arquitetura PTAX Flow
+```
+BCB (ptax.bcb.gov.br) → HTTP GET (10s timeout)
+  → _PTAXParser HTML → taxa_venda (float)
+  → _ptax_cache (1x/dia)
+  → dolar_casado = (preco_wdo / 1000 - ptax) * 1000
+  → em_janela_ptax() → (bool, minutos_restantes)
+  → ultimo_dia_util_mes() → dia_ptax (0/1)
+  → contexto['dolar_casado', 'em_janela_ptax', 'minutos_para_ptax', 'dia_ptax']
+  → 4 features no Keras (N_FEATURES=22)
+```
+
+### Arquitetura Dashboard V2
+```
+monstro_unificado_v22.py (porta 5001)
+  ├── Flask App + dashboard_bp (Blueprint)
+  ├── ThreadSafeConfig (threading.RLock)
+  │     ├── Leitura/escrita thread-safe
+  │     ├── Validação de range por parâmetro
+  │     ├── Persistência automática no config.json
+  │     └── Listeners para notificação de mudanças
+  ├── Endpoints REST
+  │     ├── GET /                    → Dashboard HTML
+  │     ├── GET /api/status          → JSON completo (tendência, posição, métricas)
+  │     ├── GET /api/trades          → Histórico de trades para Chart.js
+  │     ├── GET /api/logs?offset=N   → Polling incremental de logs
+  │     ├── GET /api/config/current  → Config editável atual
+  │     ├── POST /api/config/update  → Atualiza parâmetros em tempo real
+  │     └── POST /api/control/<action> → stop/restart/start/pause
+  └── Frontend (templates/dashboard.html)
+        ├── Tema dark (Tailwind colors: slate-900/800/700)
+        ├── Logo LOGO.jfif + fundo IMAGEMROBO.png (opacity 18%)
+        ├── Botoeira: INICIAR, REINICIAR, PARAR, PAUSAR, AJUSTES
+        ├── Cards: Tendência (ALTA/BAIXA/LATERAL), Posição, Métricas
+        ├── Chart.js: barras de lucro por trade (verde/vermelho)
+        ├── Console de logs com cores por nível
+        └── Modal: SL, TP, Sniper, Trailing, Spread, MaxLoss
+```
+
+### Features do Modelo (22 + 1 runtime)
+```
+ 1. bid_qty          - Volume total bids
+ 2. ask_qty          - Volume total asks
+ 3. spread           - Spread bid-ask
+ 4. volatility       - ATR(14)
+ 5. entropia_book    - Entropia do book
+ 6. rsi_14           - RSI 14 períodos
+ 7. volume_tick      - Volume do tick
+ 8. is_in_trade      - 0=s/posição, 1=em trade
+ 9. floating_profit   - Lucro flutuante
+10. tempo_em_trade   - Segundos desde entrada
+11. preco_maior_escora_bid   - Preço maior escora bid
+12. volume_maior_escora_bid  - Volume maior escora bid
+13. distancia_maior_escora_bid - Distância escora bid
+14. preco_maior_escora_ask   - Preço maior escora ask
+15. volume_maior_escora_ask  - Volume maior escora ask
+16. distancia_maior_escora_ask - Distância escora ask
+17. liquidez_top5_bid        - Liquidez top 5 bids
+18. liquidez_top5_ask        - Liquidez top 5 asks
+19. dolar_casado     - WDO - PTAX (pts)
+20. em_janela_ptax   - 1 se dentro janela PTAX
+21. minutos_para_ptax - Min até próx janela
+22. dia_ptax         - 1 se último dia útil do mês
+--. preco (runtime)  - Preço atual WDO ((bid+ask)/2) — NÃO entra no modelo
+```
+
+### Horários de Operação
+```
+Normal:   09:15-12:30 / 14:30-17:15 (bloqueado por horário via horario_permitido())
+Sniper:   09:00-17:30 (ignora bloqueio de horário)
+Hiberna:  12:30-14:30 (loop reduzido 5s — sniper ativo, normal bloqueado)
+Limite:   17:33 (última ordem normal)
+Encerramento: 17:35 (fecha posições)
+After:    17:40 (fim do pregão)
+```
+
+### BUGS CORRIGIDOS — REFERÊNCIA RÁPIDA
+| Bug | Causa | Fix | Linha |
+|-----|-------|-----|-------|
+| Fallback RSI sempre BUY | RSI normalizado (0-1) comparado com 30 | Desescala: `rsi*99+1` | 7621 |
+| Breakeen SL enlouquecido | `freeze_level=20` → min 30pts | Detecta breakeen, pula validação | 4932 |
+| Cooldown bloqueava reentrada | Cooldown 5-15min pós-loss | `COOLDOWN_ATIVO=False` | 1804 |
+| Treino em loop infinito | MODO TESTE: 60s TRUE + reset contador | MODO TESTE desativado | 7181 |
+| CSV sem colunas book | Experiências antigas sem 8 features | Preenche com 0 em preparar_dados | 2786 |
+| ATR thresholds WIN (100/80/45) | Score de qualidade sempre 0 para WDO | Corrigido para 8/5/3 | 7721 |
+| Backup spam pós-mercado | Timestamp a cada 30s → dezenas de duplicatas | 1 backup/dia sobrescrevendo | 2919 |
+| Log acumula dias | `filemode='a'` padrão | Rotaciona: 1a vez do dia = overwrite, depois = append | 2142 |
+| **SL Trailing travava em breakeen** | Breakeen bloqueava TODOS os updates de SL | Adiciona check `novo_e_melhoria` | 5963-5987 |
+| **Trailing usava melhor_preco** | Preço retraía → SL ficava acima do bid/abaixo do ask → MT5 rejeitava | Usa `preco_atual` em vez de `melhor_preco` | 2015-2025 |
+| **`freeze_level` não definida** | Variável só atribuída no ramo elif, crash quando breakeen_forcado | Inicializa `freeze_level` no topo da função | 4954-4999 |
+| **`batch_normalization/gamma` no treino** | Optimizer antigo H5 incompatível com Keras 3 | Sempre recompilar com optimizer novo antes do fit | 7355-7361 |
+| **Dupla registro preço FiltroTendencia** | `pode_operar` chamado 2x, preço entrava 2x no histórico | Substituído por `avaliar_tendencia()` único | 7589-7609 |
+| **Trailing SL preso (distancia_minima 4.5pts)** | `freeze_level=3 * 1.5 = 4.5pts` impedia SL de seguir preço | Default 3→1, removed `*1.5`, safety check | 4951-4987 |
+| **CSV só carregava wins** | Filter `reward > 0` excluía losses | Carrega wins + losses balanceado 2:1 | 7044-7143 |
+| **Recompensas destruíam sinal** | Min-max [0,1] → losses = 0 (neutro) | Usa `r/100` preservando sinal negativo | 7202-7223 |
+| **Sample weight invertia punição** | Losses recebiam peso ~0, wins ~1 | Losses 2x peso, wins 0.5x | 7352-7356 |
+| **NaN silencioso no treino** | Batch com NaN → treino vazio | Filtro `np.isfinite()` antes do split | 7299-7302 |
+| **Fallback scaler 18→22 features** | Dummy 18 colunas, modelo 22 → crash | `N_FEATURES` no lugar de 18 | 1631 |
+| **CSV header sem PTAX** | `colunas_padrao` sem 4 PTAX columns | Adicionadas ao header | 2932 |
+| **Contexto CSV sem PTAX** | Experiências antigas sem PTAX → KeyError | Default 0 nas 4 PTAX | 7610 |
+| **`preparar_dados` sem PTAX** | Fallback só book, sem PTAX → crash | `colunas_book_novas` inclui PTAX | 3185 |
+
+---
+
+## INVENTÁRIO DE ARQUIVOS
+
+### 📁 Código Principal
+| Arquivo | Descrição |
+|---------|-----------|
+| `monstro_unificado_v22.py` | Robô principal (~9979 linhas) |
+| `dashboard_routes.py` | Blueprint Flask — endpoints REST para dashboard (~240 linhas) |
+| `config_manager.py` | ThreadSafeConfig — parâmetros editáveis em tempo real (~130 linhas) |
+| `iniciar_v22_wdo.bat` | Launcher para WDO |
+
+### 📁 Frontend
+| Arquivo | Descrição |
+|---------|-----------|
+| `templates/dashboard.html` | Dashboard HTML — tema dark, chart, logs, modal, botões (~400 linhas) |
+| `static/IMAGEMROBO.png` | Imagem de fundo do dashboard (2MB) |
+| `static/LOGO.jfif` | Logo oficial do projeto (130KB) |
+
+### 📁 Configuração
+| Arquivo | Descrição |
+|---------|-----------|
+| `config.json` | Config principal WDO |
+| `requirements.txt` | Dependências Python |
+
+### 📁 Dados
+| Arquivo | Descrição |
+|---------|-----------|
+| `historico_contexto_wdo.csv` | Dados de treino |
+| `experiencias_wdo.json` | Memória de experiência |
+| `decisions_wdo.csv` | Log de decisões |
+
+### 📁 Modelos
+| Arquivo | Descrição |
+|---------|-----------|
+| `modelo_monstro_wdo.h5` | Modelo Keras V3 (H5, 233KB, 14.3k params, 22 features, L2) |
+| `modelo_monstro_wdo.keras` | Modelo Keras V3 (nativo, 104KB) |
+| `modelo_monstro_wdo_scaler.json` | Scaler offline (22 features) |
+
+### 📁 Treinamento Offline
+| Arquivo | Descrição |
+|---------|-----------|
+| `treinar_monstro_offline.py` | Script de treinamento offline |
+| `dados_historicos_wdo.csv` | Dados históricos para treino |
+
+### 📁 Documentação
+| Arquivo | Descrição |
+|---------|-----------|
+| `ROADMAP_WDO.md` | Este arquivo |
+| `ANCHORED_SUMMARY.md` | Resumo executivo da sessão |
+| `ideia para o robo.txt` | Notas do usuário |
+| `implemente.txt` | Logs de teste |
+
+### ⚠️ Notas para IA Futura
+1. O robô roda como script único — `src/` é refatoração, NÃO usar como referência
+2. Modelos .h5/.keras podem estar corrompidos — robô cria do zero
+3. `salvar_modelo()` cria 1 backup/dia sobrescrevendo — não spam mais
+4. Experiências antigas CSV não têm 8 colunas book — `preparar_dados` adiciona com 0
+5. MODO TESTE (force train a cada 60s) foi desativado — causava loop infinito
+6. Scaler offline é ESSENCIAL — sem ele o modelo prevê ~0.0 para tudo
+7. WDO freeze_level=0 no MT5 — não impor distância artificial
+8. Breakeen SL (prix_entry) SEMPRE deve ser aceito sem validação de distância
+9. RSI no DataFrame X já está normalizado pelo scaler — desescalar antes de comparar com thresholds (30/70)
+10. Log rotaciona automaticamente: 1a inicialização do dia sobrescreve, reinícios durante mercado preservam
+11. INVERSÃO DE FLUXO: Nível 1 = prejuízo >2pts fecha; Nível 2 = prejuívo ≤2pts move SL p/ breakeen
+12. Trailing gatilho=3pts (era 5) — ativa mais cedo para capturar lucros menores
+13. FiltroTendencia usa `preco` (preço atual WDO) NÃO `preco_maior_escora_bid` — este último é preço da escora, não do mercado
+14. FiltroMeanReversion calcula Z-Score com janela 20 ticks — menos dados = menos confiável nas primeiras horas
+15. ADX é simplificado (usa EMA slope como proxy) — não é +DI/-DI completo. Funciona para filtro básico
+16. Horário PA1: 09:15-12:30 / 14:30-17:15 — protege contra abertura caótica e fechamento de liquidez baixa
+17. Treino skip pós-17:30 — evita treinamento desperdiçado quando mercado já fechou
+18. Feature 19 `preco` é runtime only — não entra no modelo (scaler mantém 18 features)
+19. **SL Trailing**: GerenciadorDeSaida usa `preco_atual` para calcular novo SL — NUNCA `melhor_preco` (pico). Se usar pico, preço retraído gera SL acima do bid → MT5 rejeita
+20. **Breakeen check**: Na linha 5963-5987, verificar `novo_e_melhoria` ANTES de bloquear. Sem isso, SL fica preso em breakeen mesmo quando preço sobe
+21. **Recompensas**: Usar `r/100` para preservar sinal. NUNCA usar min-max [0,1] — destrói informação de loss (torna 0 = neutro)
+22. **Sample weight**: Losses devem ter MAIS peso (2x) que wins (0.5x). Modelo precisa aprender MAIS com erros do que com acertos
+23. **NaN filter**: SEMPRE aplicar `np.isfinite().all(axis=1)` antes de `train_test_split`. Dados corrompidos causam treino silencioso
+24. **Carregamento CSV**: Carregar wins E losses. Ratio 2:1 (wins:losses). Modelo que só vê wins fica enviesado e não aprende a evitar perdas
+25. **`freeze_level` em `atualizar_sl`**: Variável DEVE ser inicializada no topo da função, antes de qualquer ramo condicional. Se só existe no `elif not eh_breakeen`, o caminho `eh_breakeen_forcado` causa crash
+26. **FiltroTendencia**: SEMPRE chamar `avaliar_tendencia()` UMA VEZ — NUNCA chamar `pode_operar()` para BUY e SELL separadamente (dupla registro de preço)
+27. **FiltroTendencia SMA-50**: Janela 50 com margem 1.0pt. SMA lenta reage devagar a mudanças graduais. Momentum (>3pts/20ticks) complementa detectando subidas/descidas rápidas
+28. **`distancia_minima` em `atualizar_sl`**: NUNCA usar multiplicador no freeze_level. `freeze_level=1` (default) sem `*1.5` = 1pt mínimo. Se correção piora SL (ex: SELL 5110→5113 quando atual é 5112), retornar False — NÃO corrigir SL para pior
+29. **SniperSupermo**: classe separada no topo (linha ~2575). Verifica 7 condições (DOL+%R+RSI+ATR+entropia+horário+sniper ratio). Score >= 7/10 ativa. Volume 5cc (`SNIPER_SUPERMO_VOLUME`). Pula: filtro volume, veto big players, bloqueio horário. Trailing próprio: breakeven em +2.5pts, depois 1pt/1pt. Sem cooldown. Reset `SNIPER_SUPERMO_ATIVO = False` quando posição fecha. CSV `sniper_supermo_historico.csv`
+30. **`executar_ordem(sniper=True)`**: quando `sniper=True`, pula `horario_permitido()` — sniper opera 09:00-17:30 mesmo que normal mode esteja fora da janela
+31. **Hibernação 12:30-14:30**: reduzida (sleep 5s em vez de 1h). SniperSupermo continua ativo. Modo normal bloqueado por horário. Treino executado uma vez ao entrar
+32. **PTAX coleta**: `atualizar_ptax()` usa cache diário (`_ptax_cache`). Só consulta BCB 1x/dia. Se falha (ex: fim de semana), mantém 0.0 e tenta novamente no próximo ciclo
+33. **dolar_casado**: calculado como `(preco_wdo - ptax_bruto) * 1000`. Preço WDO em reais (dividir por 1000). PTAX é BRL/USD direto do BCB
+34. **4 janelas PTAX**: 10:00-10:10, 11:00-11:10, 12:00-12:10, 13:00-13:10. `em_janela_ptax()` retorna (bool, minutos_para_proxima). Após 13:10, retorna 60 (próximo dia). Antes 10:00, minutos até 10:00
+35. **Payroll**: `eh_horario_payroll()` só verifica sexta 09:25-09:35. NÃO verifica se é a PRIMEIRA sexta do mês (o usuário sabe e a função é suficiente para o propósito). Se precisar refinar depois, adicionar verificação de primeira semana
+36. **Sniper bloqueio**: `verificar_sniper_bloqueado()` → True em dia PTAX ou payroll. SniperSupermo NÃO opera quando bloqueado. O `contexto['sniper_bloqueado']` é 0/1 e vai para o contexto mas NÃO entra no modelo Keras (só no fluxo de decisão)
+37. **Williams %R divergência**: thresholds em TICKS, não percentuais. Price diff mínimo = 2×TICK_SIZE (1.0pt para WDO). WR diff mínimo = 5. Janela de detecção = 200 ticks. `max_hist` = `max(janela_div * 3, 1000)` = 600 (mas janela_div=200 → max_hist=1000)
+38. **Dashboard alert bar**: mostra "⚠️ SNIPER BLOQUEADO" (vermelho) ou "⚠️ PAYROLL — Modo de fuga" (amarelo). Escondido quando tudo normal. A cor do `#mSniper` muda: verde (LIVRE), vermelho (motivo bloqueio), amarelo (PAYROLL)
+39. **Retreino Keras**: após adicionar as 4 features PTAX, o modelo precisa ser retreinado com `N_FEATURES=22`. O scaler também precisa ser refeito (22 colunas). Usar `treinar_monstro_offline.py` ou `treino_offline()` no próprio robô
+40. **B3 NÃO tem 0.5cc**: o mínimo é 1 contrato (1cc). SniperSupermo usa 5cc. Config `volume_padrao=1.0`
+41. **Modelo V3**: retreinado com L2(0.001), TimeSeriesSplit (80/20, shuffle=False), SMOTE. Best epoch 24 (val_loss=0.3728). Gap train-val 7%. Val acc 86.9% (temporal honesto, antes 89.59% inflado por shuffle)
+42. **Confidence Gap (0.15)**: implementado na `prever_acao()` linha 8329. Se `|acao_prob - 0.5| < 0.15`, retorna NADA imediatamente. Economiza processamento e reduz overtrading. Se taxa de rejeição > 40% do pregão, reduzir para 0.10
+43. **Fallback scaler ALINHADO**: `forcar_recreacao_scaler()` agora usa `N_FEATURES` (22) em vez de hardcoded 18. Se `_scaler.json` falhar carregamento, o dummy scaler terá 22 colunas compatíveis com o modelo
+44. **Experiências CSV sem PTAX**: o `historico_contexto_wdo.csv` (5002 linhas, 21 colunas) foi coletado antes de PTAX existir. Após o restart 29/07, novas experiências terão 22 features. As antigas recebem default 0 nas 4 colunas PTAX via `preparar_dados()`
+45. **Scaler CORRUPÇÃO (29/07/2026)**: O bug era que o treino online (`treino_online = True`) chamava `forcar_recreacao_scaler()` com `treino=True`, que refitava o MinMaxScaler usando APENAS o CSV pequeno (6 linhas). O RSI (~35-42) virava o range global do scaler, sobrescrevendo min=0 max=100. SOLUÇÃO: 4 barreiras — (a) `contexto: dict = {}` antes do `while thread_ativo:` garante que contexto não carregue scaler corrompido do ciclo anterior, (b) `treino=True`→`treino=False` no treinamento online impede refit, (c) `forcar_recreacao_scaler()` pós-treino restaura scaler verdadeiro, (d) `forcar_recreacao_scaler()` pré-predição como segurança extra
+46. **SL Catástrofe (29/07/2026)**: O WDO tem ruído de 2-3pts frequente. SL fixo de 2.5pts (-R$25) estopa trades no ruído normal. A partir de 30/07, SL_POINTS=8.0 (-R$80) será usado como stop de segurança apenas. As saídas reais serão pelos 3 algoritmos de fluxo: (1) Inversão de Fluxo (book nativo) — provado salvando trade, (2) Trailing Stop Progressivo — provado (+R$45), (3) Score Erosion. O SL só será atingido em cenários de catástrofe (queda de internet, travamento MT5, gaps violentos). Trade-off: win rate deve subir porque trades não serão mais estopados no ruído, mas cada loss será maior (-R$80 vs -R$25). Com avg win R$23.75 e ~4 wins p/ recuperar 1 loss de R$80, a equação fecha se win rate melhorar de ~27% para > 50%
+47. **VETO SEGUIR OS BIGS (29/07/2026)**: bloqueou re-entry durante rally por absorção (BID 12164 × ASK 19808 dominante SELL). Trade-off defensivo deliberado — protege contra comprar em absorção, mas perde movimentos de continuidade. Será reavaliado após retreino offline
+
+---
+
+## FASE 9 — FUTURO (pós-consolidação)
+
+### 9.1 — Sentinela de Fluxo (Gatekeeper Macroeconômico)
+**Status**: ✅ CONCLUÍDA (30/07/2026)
+
+Camada de veto macroeconômico aplicada dentro da `prever_acao()`, baseada em:
+- **DXY** (`DX-Y.NYB`) — força do dólar global
+- **US 10Y** (`^TNX`) — juros americanos
+- **USD/JPY** (`JPY=X`) — proxy de carry trade (JPY = moeda de funding)
+
+**Regras implementadas**:
+```
+DXY sobe + Juros EUA sobem + USD/JPY cai (carry unwind) = RISK-OFF
+    → Sentinela bloqueia SELL (só BUY liberado — dólar forte)
+
+DXY cai + Juros EUA caem + USD/JPY sobe (carry on) = RISK-ON
+    → Sentinela bloqueia BUY (só SELL liberado — dólar fraco)
+```
+
+**Como funciona** (`sentinela_fluxo.py`):
+- Coleta via API Yahoo Finance (query1.finance.yahoo.com) usando só `requests` — sem dependência nova
+- Cache thread-safe de 60s (`_lock` + TTL)
+- Score = DXY(±1) + US10Y(±1) + USD/JPY(±1 com sinal invertido: JPY forte = RISK_OFF)
+- `score >= 2` → RISK_OFF | `score <= -2` → RISK_ON | senão NEUTRO
+- **Fail-open**: qualquer erro/indisponibilidade → NEUTRO → sem veto
+- Thread `atualizar_sentinela()` atualiza globals em background a cada 60s (dashboard + veto)
+
+**Integração** (`monstro_unificado_v22.py`):
+- Classificação UMA vez no topo da `prever_acao()` (após PA1), vetos `_sf_veto_buy`/`_sf_veto_sell`
+- Guardas em TODOS os pontos de saída BUY/SELL: FORÇA BUY/SELL (contexto simples), FORÇA BUY/SELL (expectativa positiva) e decisão final do modelo
+- Globals para dashboard: `sentinela_cenario`, `sentinela_detalhe`, `sentinela_score`, `sentinela_ultima_atualizacao`
+- Flag `SENTINELA_ATIVO = True` (False desativa o veto macro totalmente)
+
+**Observação**: FX Carry do BRL/JPY ficou como proxy via USD/JPY (sinal de carry global). O veto é sempre **só-veto** (nunca força entrada).
+- [x] **Rebuild .exe** (30/07 22:50) — `MonstroDashboard.exe` 27.1MB via `MonstroDashboard.spec` com `sentinela_fluxo` e `requests` em hiddenimports. Verificado: módulos no PYZ.
+
+### 9.2 — Dashboard Neon Terminal
+**Status**: ✅ CONCLUÍDA (30/07/2026)
+
+Visual **neon/synthwave** no dashboard Flask via toggle:
+- Botão **NEON** na action bar (persiste em `localStorage`)
+- `body.neon`: fundo #05010F, bordas/glow neon — verde #00FF41, magenta #FF00FF, ciano #00FFFF
+- Log console com borda/glow verde, horas em neon
+- Cards de métricas com border/glow magenta (highlight em ciano)
+- Header, ticker e sentinela bar com glow
+
+**Escopo**: 100% visual — nenhuma alteração na lógica de trading. Apenas CSS + toggle JS inline.
+
+### 9.3 — Market Ticker + Panorama Global
+**Status**: ✅ CONCLUÍDA (30/07/2026)
+
+Painel de cotações globais no topo do dashboard:
+- **Barra de ticker** horizontal com 7 ativos: DXY, US 10Y, S&P 500, WTI, Ouro, BTC, USD/BRL
+- Cada célula: rótulo, preço formatado e variação % (verde/vermelho)
+- Endpoint novo `/api/ticker` (via `sentinela_fluxo.obter_ticker()`, cache 60s)
+- Frontend atualiza a cada 60s (`fetchTicker` + `setInterval`)
+
+**Observação**: DXY no ticker é o mesmo dado usado pelo Sentinela (9.1).
+
+
+---
+
+### 01/08/2026 — Sessão 15 (Code Review + Fix Escala Entropia + Save Atômico)
+
+**Contexto:** Review completo do código por tech lead / arquiteto após migração WIN→WDO.
+
+| Tipo | Descrição | Linha |
+|------|-----------|-------|
+| ✅ RESTAURADO | Parâmetros modo aprendizado: `sniper_ratio_min` 1.2→1.5, `THRESHOLD_ENTROPIA_BAIXA` 0.4→0.6→2.75 (ver abaixo), `LIMITE_REJEICOES_PARA_APRENDIZADO` 8→20 | v22:91, 522, 900, 904; config.json:10,52 |
+| ✅ SCALER | Reconstruído com dados reais: 18 features de book do CSV real (5000 linhas) + domínio fixo para 4 features PTAX. Eliminado mismatch sintético | `modelo_monstro_wdo_scaler.json` |
+| 🧹 REFACTOR | `GerenciadorDeSaida` duplicada (linha 101) removida — código morto, Python usava sempre a da linha 1964 | v22:101 → removida |
+| 🐛 CRÍTICO | **Save atômico corrigido:** `.tmp_atomic` era extensão inválida para TF (mesmo bug do v2). Corrigido para `_tmp.h5` / `_tmp.keras` + `os.replace()`. Testado: 118KB + 108KB trocados sem erro | v22:3279-3280 |
+| 🐛 CRÍTICO | **Escala de entropia corrigida em 11 pontos:** `calcular_entropia()` usa `scipy.stats.entropy` → escala real (2.69–2.97). Thresholds estavam em [0,1] → comportamentos não-intencionais: modo EXPLOSÃO sempre ativo, filtros de bloqueio mortos, score SniperSupermo inflado (explica 8/10 em 29/07) | v22:902, 904, 1067, 2709, 8169, 8201-8205, 8603-8607 |
+| ℹ️ CÓDIGO MORTO | `MODO_CONSERVADOR_ENTROPIA = 0.3` (linha 1088) — definido mas não referenciado. Mantido sem alteração | v22:1088 |
+
+#### Thresholds de entropia após correção (escala real)
+| Uso | Linha | Antes | Depois |
+|-----|-------|-------|--------|
+| `THRESHOLD_ENTROPIA_BAIXA` (lateral) | 902 | 0.6 | **2.75** |
+| `THRESHOLD_ENTROPIA_ALTA` (explosão) | 904 | 0.7 | **2.85** |
+| `DetectorModo` conservador | 1067 | 0.3 | **2.75** |
+| `SniperSupermo` | 2709 | 0.3 | **2.75** |
+| Filtro 2 bloqueio | 8169 | 0.2 | **2.60** |
+| Score qualidade (2 locais) | 8201/8203/8205, 8603/8605/8607 | 0.7/0.6/0.5 | **2.85/2.80/2.75** |
+
+#### Impacto esperado no próximo pregão
+- Modo EXPLOSÃO: dispara raramente (entropia real entre 2.69–2.97; threshold 2.85 = só nos picos)
+- Score SniperSupermo: não mais inflado — entropia contribui condicionalmente
+- Filtro 2 de bloqueio: volta a ter efeito (bloqueia se entropia < 2.60)
+- Modo CONSERVADOR/LATERAL: pode dispara raramente dado que banda real é estreita (0.28)
+
+**Calibração futura:** monitorar após 30 dias. Se EXPLOSÃO nunca ativar, reduzir 2.85 → 2.80. Se SniperSupermo parar de ativar, investigar qual condição domina o score.
+
+**Validação final:** `py_compile` OK, scan residual [0,1] limpo (só `MODO_CONSERVADOR_ENTROPIA` = código morto), zero arquivos temporários.
