@@ -1,7 +1,7 @@
 # ============================================================
 # ROADMAP — ROBÔ WDO (Mini Dólar)
 # Versão: 22 | Arquivo: monstro_unificado_v22.py
-# Atualizado: 02/08/2026 (Fim do Modo Aprendizado + Parâmetros restaurados + Scaler real + Atomicidade save + Dup class removida + Code Review Aprovado + Fixes Robustez + Automações do ambiente documentadas + Seleção de estratégia por regime - design)
+# Atualizado: 02/08/2026 (Fim do Modo Aprendizado + Parâmetros restaurados + Scaler real + Atomicidade save + Dup class removida + Code Review Aprovado + Fixes Robustez + Automações do ambiente + Seleção por regime - design + Decisão dados WIN)
 # ============================================================
 
 ## VISÃO GERAL
@@ -1259,3 +1259,21 @@ Painel de cotações globais no topo do dashboard:
 4. `validar_config()` no boot impede typos na tabela (falha rápido, não em produção).
 
 **Auditoria de segurança (repo público):** sem emails/senhas/tokens/CPF reais; `config*.json` = placeholders; `mt5.initialize()` sem credenciais; modelo `.keras` fora do git. Decisão: manter público (perde zero — cérebro e credenciais estão protegidos fora do repo).
+
+---
+
+## VALIDAÇÃO COM DADOS WIN — DECISÃO REGISTRADA (Sessão 20, 02/08/2026)
+
+**Contexto:** existem ~6 meses de dados reais de WIN em `C:\AIOFEN` (`decisions.csv` + 58 backups diários 25/01→19/07/2026, `historico_contexto_win.csv`, `experiencias.json`, auxiliares). Já salvos em `Backup_dados_MONSTRO_20260802.zip` (OneDrive Desktop).
+
+**DECISÃO (para não esquecer):**
+
+1. ❌ **NÃO rodar a lógica do robô WDO sobre os dados WIN.** Parâmetros e modelo foram calibrados para WDO (tick 0.5, pontos/R$, thresholds de entropia 2.75/2.85 e ATR, volume 1.0cc, reward em pontos). Replay em WIN = artefato de parâmetros descasados, NÃO é previsão do comportamento WDO. **Concordado entre operador e engenheiro: teste NÃO executado.**
+2. ✅ **Dados WIN servem como LABORATÓRIO** apenas para o que é agnóstico de ativo:
+   - Metodologia do baseline "moeda" (edge real vs 50/50 − custos)
+   - Prior de *feature importance* (quais features de book importam)
+   - Referência conceitual de thresholds (RSI, entropia)
+3. ❌ **Modelo Keras:** treinar SOMENTE com dados WDO — `historico_contexto_wdo.csv` já acumula desde 22/07 (0,49 MB).
+4. ✅ **Backup dos dados WIN:** zip no OneDrive Desktop. **NÃO vai para o git** (repo público + dados mudam diariamente → repo inflaria).
+
+**Regra de validação do WDO (válida de verdade):** só dados WDO reais (≥30 dias) validam o WDO — a mesma lógica do baseline "moeda" aplicada sobre `decisions_wdo.csv`/`historico_contexto_wdo.csv`.
