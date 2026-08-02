@@ -1,0 +1,10 @@
+{
+  "n_amostras": 30000,
+  "n_features": 22,
+  "n_treino": 12920,
+  "n_val": 3220,
+  "max_epochs": 200,
+  "smote": "sim",
+  "split_temporal": "12879 treino + 3220 val",
+  "seed": 42
+}

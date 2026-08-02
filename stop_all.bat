@@ -19,7 +19,7 @@ echo Aguardando encerramento gracioso (45 segundos)...
 timeout /t 45 /nobreak >nul
 
 REM Verifica se o processo Python do Monstro ainda esta rodando
-wmic process where "name='python.exe' and commandline like '%%monstro_unificado_v2%%'" get processid 2>nul | find /i "ProcessId" >nul
+wmic process where "name='python.exe' and commandline like '%%monstro_unificado_v22%%'" get processid 2>nul | find /i "ProcessId" >nul
 if %errorlevel% equ 0 (
     echo Processo ainda ativo, aguardando mais 20 segundos...
     timeout /t 20 /nobreak >nul
@@ -27,7 +27,7 @@ if %errorlevel% equ 0 (
 
 REM Mata o processo Python do Monstro especificamente
 echo Encerrando processo Python do Monstro...
-wmic process where "name='python.exe' and commandline like '%%monstro_unificado_v2%%'" delete >nul 2>&1
+wmic process where "name='python.exe' and commandline like '%%monstro_unificado_v22%%'" delete >nul 2>&1
 
 REM Fecha a janela CMD com titulo "Monstro V2 - WIN" (aberta pelo all.bat)
 echo Fechando janela do Monstro...

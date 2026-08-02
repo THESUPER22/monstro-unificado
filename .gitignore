@@ -56,6 +56,11 @@ debug_*.json
 *_backup.py
 *_corrigido.py
 *_fixed.py
+*.h5.nan_*
+
+# --- Saída de diagnóstico (subir só código de verdade) ---
+exe_*.txt
+test_*.txt
 
 # --- Pastas de cópia/backup do projeto ---
 robo_trader_exe/

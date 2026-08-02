@@ -1,1 +1,441 @@
-[]
+[
+  {
+    "contexto": {
+      "bid_qty": 5681.0,
+      "ask_qty": 2758.0,
+      "spread": 0.0005,
+      "volatility": 172.29958133394402,
+      "candle_type": "baixa",
+      "entropia_book": 2.8278030789351973,
+      "rsi_14": 32.25806451612904,
+      "volume_tick": 1.0,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0
+    },
+    "acao": "BUY",
+    "lucro": 90.0,
+    "score_dist": 90.0,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 6779.0,
+      "ask_qty": 3288.0,
+      "spread": 0.0005,
+      "volatility": 126.32451049751914,
+      "candle_type": "marubozu_baixa",
+      "entropia_book": 2.8127052865834683,
+      "rsi_14": 21.98347107438016,
+      "volume_tick": 3.0,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0
+    },
+    "acao": "BUY",
+    "lucro": 40.0,
+    "score_dist": 40.0,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 6145.0,
+      "ask_qty": 3059.0,
+      "spread": 0.001,
+      "volatility": 111.27705754380813,
+      "candle_type": "marubozu_baixa",
+      "entropia_book": 2.867936326541267,
+      "rsi_14": 40.67796610169491,
+      "volume_tick": 3.0,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0
+    },
+    "acao": "BUY",
+    "lucro": 245.0,
+    "score_dist": 245.0,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 6115.0,
+      "ask_qty": 3032.0,
+      "spread": 0.0005,
+      "volatility": 162.85738115178734,
+      "candle_type": "baixa",
+      "entropia_book": 2.8478413957002204,
+      "rsi_14": 44.35857805255023,
+      "volume_tick": 1.0,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0
+    },
+    "acao": "BUY",
+    "lucro": 65.0,
+    "score_dist": 65.0,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 5452.0,
+      "ask_qty": 2714.0,
+      "spread": 0.0005,
+      "volatility": 165.73676117731358,
+      "candle_type": "shooting_star_baixa",
+      "entropia_book": 2.7958321460827,
+      "rsi_14": 50.27624309392265,
+      "volume_tick": 3.0,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0
+    },
+    "acao": "BUY",
+    "lucro": 90.0,
+    "score_dist": 90.0,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 2852.0,
+      "ask_qty": 6018.0,
+      "spread": 0.0005,
+      "volatility": 164.1871549348464,
+      "candle_type": "alta",
+      "entropia_book": 2.833156763658501,
+      "rsi_14": 49.54128440366973,
+      "volume_tick": 17.0,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0
+    },
+    "acao": "SELL",
+    "lucro": 45.0,
+    "score_dist": 45.0,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 5721.0,
+      "ask_qty": 2838.0,
+      "spread": 0.0005,
+      "volatility": 157.18049934494016,
+      "candle_type": "baixa",
+      "entropia_book": 2.8422315083887946,
+      "rsi_14": 58.33333333333333,
+      "volume_tick": 1.0,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0
+    },
+    "acao": "BUY",
+    "lucro": 105.0,
+    "score_dist": 105.0,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 5646.0,
+      "ask_qty": 2796.0,
+      "spread": 0.0005,
+      "volatility": 164.12879958250136,
+      "candle_type": "baixa",
+      "entropia_book": 2.881198026324934,
+      "rsi_14": 53.51681957186544,
+      "volume_tick": 2.0,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0
+    },
+    "acao": "BUY",
+    "lucro": 250.0,
+    "score_dist": 250.0,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 2665.0,
+      "ask_qty": 5649.0,
+      "spread": 0.0005,
+      "volatility": 184.3640616145437,
+      "candle_type": "alta",
+      "entropia_book": 2.850370028587633,
+      "rsi_14": 61.93895870736086,
+      "volume_tick": 17.0,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0
+    },
+    "acao": "SELL",
+    "lucro": 50.0,
+    "score_dist": 50.0,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 2460.0,
+      "ask_qty": 5383.0,
+      "spread": 0.0005,
+      "volatility": 187.7806665236816,
+      "candle_type": "lower_shadow_baixa",
+      "entropia_book": 2.820435465316708,
+      "rsi_14": 57.22543352601156,
+      "volume_tick": 2.0,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0
+    },
+    "acao": "SELL",
+    "lucro": 75.0,
+    "score_dist": 75.0,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 3025.0,
+      "ask_qty": 6080.0,
+      "spread": 0.0005,
+      "volatility": 187.3942173910484,
+      "candle_type": "alta",
+      "entropia_book": 2.793372983343307,
+      "rsi_14": 63.13253012048193,
+      "volume_tick": 17.0,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0
+    },
+    "acao": "SELL",
+    "lucro": 60.0,
+    "score_dist": 60.0,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 2960.0,
+      "ask_qty": 7140.0,
+      "spread": 0.0005,
+      "volatility": 186.94611960435896,
+      "candle_type": "lower_shadow_alta",
+      "entropia_book": 2.827854164655706,
+      "rsi_14": 56.41025641025641,
+      "volume_tick": 17.0,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0
+    },
+    "acao": "SELL",
+    "lucro": 105.0,
+    "score_dist": 105.0,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 2931.0,
+      "ask_qty": 5955.0,
+      "spread": 0.0005,
+      "volatility": 146.75319775844036,
+      "candle_type": "baixa",
+      "entropia_book": 2.873383606218209,
+      "rsi_14": 31.78869323447637,
+      "volume_tick": 2.0,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0
+    },
+    "acao": "SELL",
+    "lucro": 100.0,
+    "score_dist": 100.0,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 5997.0,
+      "ask_qty": 2594.0,
+      "spread": 0.0005,
+      "volatility": 142.28161509961518,
+      "candle_type": "upper_shadow_alta",
+      "entropia_book": 2.872234777941812,
+      "rsi_14": 33.57664233576642,
+      "volume_tick": 5.0,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0
+    },
+    "acao": "BUY",
+    "lucro": 165.0,
+    "score_dist": 165.0,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 6742.0,
+      "ask_qty": 2832.0,
+      "spread": 0.0005,
+      "volatility": 121.47353233741109,
+      "candle_type": "baixa",
+      "entropia_book": 2.806308692161091,
+      "rsi_14": 26.86567164179104,
+      "volume_tick": 2.0,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0
+    },
+    "acao": "BUY",
+    "lucro": 260.0,
+    "score_dist": 260.0,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 6108.0,
+      "ask_qty": 2970.0,
+      "spread": 0.0005,
+      "volatility": 125.57429232218551,
+      "candle_type": "baixa",
+      "entropia_book": 2.8614830168749026,
+      "rsi_14": 42.48366013071896,
+      "volume_tick": 64.0,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0
+    },
+    "acao": "BUY",
+    "lucro": 50.0,
+    "score_dist": 50.0,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 7676.0,
+      "ask_qty": 3695.0,
+      "spread": 0.0005,
+      "volatility": 56.89578966182605,
+      "candle_type": "baixa",
+      "entropia_book": 2.8719036416312065,
+      "rsi_14": 22.662889518413607,
+      "volume_tick": 1,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0,
+      "preco_maior_escora_bid": 175175.0,
+      "volume_maior_escora_bid": 991.0,
+      "distancia_maior_escora_bid": 47.5,
+      "preco_maior_escora_ask": 175255.0,
+      "volume_maior_escora_ask": 482.0,
+      "distancia_maior_escora_ask": 32.5,
+      "liquidez_top5_bid": 3441.0,
+      "liquidez_top5_ask": 1591.0
+    },
+    "acao": "BUY",
+    "lucro": 75.0,
+    "score_dist": 0.30612244897959184,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 8117.0,
+      "ask_qty": 3953.0,
+      "spread": 0.0005,
+      "volatility": 53.518313483339135,
+      "candle_type": "baixa",
+      "entropia_book": 2.878723458135645,
+      "rsi_14": 29.411764705882362,
+      "volume_tick": 5,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0,
+      "preco_maior_escora_bid": 175210.0,
+      "volume_maior_escora_bid": 1043.0,
+      "distancia_maior_escora_bid": 7.5,
+      "preco_maior_escora_ask": 175265.0,
+      "volume_maior_escora_ask": 611.0,
+      "distancia_maior_escora_ask": 47.5,
+      "liquidez_top5_bid": 3885.0,
+      "liquidez_top5_ask": 1666.0
+    },
+    "acao": "BUY",
+    "lucro": 45.0,
+    "score_dist": 0.18,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 3547.0,
+      "ask_qty": 7514.0,
+      "spread": 0.0005,
+      "volatility": 53.53947870662778,
+      "candle_type": "lower_shadow_alta",
+      "entropia_book": 2.8611762507068565,
+      "rsi_14": 65.71428571428572,
+      "volume_tick": 1,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0,
+      "preco_maior_escora_bid": 174980.0,
+      "volume_maior_escora_bid": 503.0,
+      "distancia_maior_escora_bid": 37.5,
+      "preco_maior_escora_ask": 175050.0,
+      "volume_maior_escora_ask": 1094.0,
+      "distancia_maior_escora_ask": 32.5,
+      "liquidez_top5_bid": 1431.0,
+      "liquidez_top5_ask": 2935.0
+    },
+    "acao": "SELL",
+    "lucro": 40.0,
+    "score_dist": 0.16,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 3775.0,
+      "ask_qty": 7955.0,
+      "spread": 0.0005,
+      "volatility": 51.081977868616775,
+      "candle_type": "upper_shadow_alta",
+      "entropia_book": 2.797756439479181,
+      "rsi_14": 53.846153846153854,
+      "volume_tick": 1,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0,
+      "preco_maior_escora_bid": 174970.0,
+      "volume_maior_escora_bid": 749.0,
+      "distancia_maior_escora_bid": 47.5,
+      "preco_maior_escora_ask": 175065.0,
+      "volume_maior_escora_ask": 1943.0,
+      "distancia_maior_escora_ask": 47.5,
+      "liquidez_top5_bid": 1458.0,
+      "liquidez_top5_ask": 2939.0
+    },
+    "acao": "SELL",
+    "lucro": 255.0,
+    "score_dist": 1.0,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  },
+  {
+    "contexto": {
+      "bid_qty": 3103.0,
+      "ask_qty": 6572.0,
+      "spread": 0.0005,
+      "volatility": 52.88302913645633,
+      "candle_type": "alta",
+      "entropia_book": 2.853744456214722,
+      "rsi_14": 42.98850574712643,
+      "volume_tick": 30,
+      "is_in_trade": 0,
+      "floating_profit": 0.0,
+      "tempo_em_trade": 0,
+      "preco_maior_escora_bid": 174675.0,
+      "volume_maior_escora_bid": 405.0,
+      "distancia_maior_escora_bid": 32.5,
+      "preco_maior_escora_ask": 174735.0,
+      "volume_maior_escora_ask": 935.0,
+      "distancia_maior_escora_ask": 27.5,
+      "liquidez_top5_bid": 1235.0,
+      "liquidez_top5_ask": 2537.0
+    },
+    "acao": "SELL",
+    "lucro": 45.0,
+    "score_dist": 0.17647058823529413,
+    "timestamp": "2026-07-20T18:32:07.214772"
+  }
+]

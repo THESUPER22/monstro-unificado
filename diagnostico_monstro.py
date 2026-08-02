@@ -27,7 +27,14 @@ def checar_arquivos_essenciais() -> Tuple[bool, List[str]]:
         "modelo_monstro_win.keras",
         "historico_contexto_win.csv",
         "decisions.csv",
-        "experiencias.json"
+        "experiencias.json",
+        # WDO v22
+        "monstro_unificado_v22.py",
+        "config.json",
+        "modelo_monstro_wdo.h5",
+        "historico_contexto_wdo.csv",
+        "experiencias_wdo.json",
+        "decisions_wdo.csv",
     ]
 
     erros = []

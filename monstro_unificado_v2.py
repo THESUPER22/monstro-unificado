@@ -2023,10 +2023,16 @@ def setup_logging():
     da posição, trailing, erros) e elimina o spam de DEBUG (ex.: 'Nenhuma posição
     ativa', 'EA Data', logs internos de bibliotecas). Para depurar, trocar para DEBUG.
     """
+    # force=True (18/07/2026): REMOVE qualquer handler pré-existente e reinstala o
+    # FileHandler. Sem isto, se QUALQUER logging.* rodar antes (ex.: no nível de
+    # módulo), o Python instala um handler automático e este basicConfig seria
+    # IGNORADO — o arquivo de log NUNCA seria criado e a inicialização ficaria
+    # invisível. Esta era a causa do "robô não inicia / não loga".
     logging.basicConfig(
         filename=LOG_FILE,
         level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s'
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        force=True
     )
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
@@ -2785,14 +2791,21 @@ def criar_modelo_neural(n_features: int) -> Sequential:
     # Camada de saída para ação (buy/sell)
     modelo.add(tf.keras.layers.Dense(1, activation='sigmoid'))
 
-    # Compila o modelo
+    # Compila o modelo (clipnorm=1.0 evita explosão de gradiente → pesos NaN)
     modelo.compile(
-        optimizer=Adam(learning_rate=0.001),
+        optimizer=Adam(learning_rate=0.001, clipnorm=1.0),
         loss='binary_crossentropy',
         metrics=['accuracy']
     )
 
     return modelo
+
+
+def criar_modelo_inteligente(input_shape: int = N_FEATURES) -> Sequential:
+    """Alias para criar_modelo_neural. Existia como chamada em vários pontos
+    (carregar_modelo, recuperação, cura anti-NaN) mas nunca foi definida —
+    bug latente que quebraria o rebuild do modelo com NameError. Corrigido 20/07/2026."""
+    return criar_modelo_neural(input_shape)
 
 
 def salvar_modelo(modelo: Sequential, caminho: str = MODELO_PATH) -> None:
@@ -2836,8 +2849,9 @@ def salvar_modelo(modelo: Sequential, caminho: str = MODELO_PATH) -> None:
         # (operação atômica no Windows/NTFS). Se o robô for morto NO MEIO do save,
         # o .h5/.keras bom permanece intacto — nunca mais um modelo corrompido por
         # fechamento abrupto. Esta era uma das causas do aprendizado "sumir".
+        # NOTA: Keras exige que a extensão do arquivo temporário TAMBÉM seja .h5/.keras
         caminho_h5_abs = os.path.abspath(caminho)
-        tmp_h5 = f"{caminho_h5_abs}.tmp"
+        tmp_h5 = caminho_h5_abs.replace('.h5', '_tmp.h5')
         modelo.save(tmp_h5)
         os.replace(tmp_h5, caminho_h5_abs)  # troca atômica
         logging.info(
@@ -2846,7 +2860,7 @@ def salvar_modelo(modelo: Sequential, caminho: str = MODELO_PATH) -> None:
         # Salva também em formato keras (backup adicional) — também atômico
         caminho_keras = caminho.replace('.h5', '.keras')
         caminho_keras_abs = os.path.abspath(caminho_keras)
-        tmp_keras = f"{caminho_keras_abs}.tmp"
+        tmp_keras = caminho_keras_abs.replace('.keras', '_tmp.keras')
         modelo.save(tmp_keras)
         os.replace(tmp_keras, caminho_keras_abs)  # troca atômica
         logging.info(
@@ -2864,6 +2878,18 @@ def salvar_modelo(modelo: Sequential, caminho: str = MODELO_PATH) -> None:
         # Em caso de erro, não perde o modelo original!
 
 
+def modelo_tem_nan(modelo) -> bool:
+    """Verifica se algum peso do modelo está NaN/Inf (modelo 'envenenado').
+    Pesos NaN produzem predições NaN e o treino não recupera sozinho."""
+    try:
+        for w in modelo.get_weights():
+            if w is not None and (np.isnan(w).any() or np.isinf(w).any()):
+                return True
+        return False
+    except Exception:
+        return False
+
+
 def carregar_modelo(caminho: str = MODELO_PATH) -> Optional[Sequential]:
     """Carrega o modelo Keras ou cria um novo se não existir ou estiver corrompido."""
     try:
@@ -2874,7 +2900,21 @@ def carregar_modelo(caminho: str = MODELO_PATH) -> Optional[Sequential]:
             # Verifica compatibilidade básica
             expected_features = N_FEATURES
             test_input = np.zeros((1, expected_features), dtype=np.float32)
-            modelo.predict(test_input, verbose=0)
+            pred_teste = modelo.predict(test_input, verbose=0)
+
+            # === PROTEÇÃO ANTI-NaN (20/07/2026) ===
+            # Se os pesos ou a predição estiverem NaN/Inf, o modelo está "envenenado".
+            # Rebuild do zero — os pesos NaN não têm aprendizado real; o CSV retreina limpo.
+            if modelo_tem_nan(modelo) or np.isnan(pred_teste).any() or np.isinf(pred_teste).any():
+                logging.error(
+                    "🚨 MODELO ENVENENADO (pesos/predição NaN)! Reconstruindo do zero. "
+                    "As experiências do CSV serão usadas para retreinar limpo.")
+                # Backup do modelo NaN para análise (não sobrescreve o bom)
+                try:
+                    os.rename(caminho, f"{caminho}.nan_{int(time.time())}")
+                except Exception:
+                    pass
+                return criar_modelo_inteligente(input_shape=N_FEATURES)
 
             logging.info(f"✅ Modelo de IA carregado com sucesso de {caminho}")
             return modelo
@@ -5288,11 +5328,12 @@ try:
     signal.signal(signal.SIGINT, signal_handler)
     if sys.platform == "win32":
         signal.signal(signal.SIGBREAK, signal_handler)
-    logging.info(
-        "🛡️ Handlers de sinal ATIVOS (encerramento seguro no fechamento)")
+    # ⚠️ NÃO usar logging.* aqui (nível de módulo, roda ANTES do setup_logging):
+    # dispararia o basicConfig automático do Python e quebraria o FileHandler.
+    # Foi esta linha (logging.info) que impediu o robô de logar/iniciar. Usar print.
+    print("🛡️ Handlers de sinal ATIVOS (encerramento seguro no fechamento)")
 except Exception as _e_sig:
-    logging.warning(
-        f"⚠️ Não foi possível registrar handlers de sinal: {_e_sig}")
+    print(f"⚠️ Não foi possível registrar handlers de sinal: {_e_sig}")
 
 # region [Loop Principal]
 
@@ -7051,9 +7092,22 @@ def treinar_modelo(modelo: Sequential, memoria: MemoriaExperiencias) -> Sequenti
         except Exception:
             modelo_temp_path = None
 
+        # Sanitiza X_val cedo para o evaluate não propagar NaN
+        X_val = np.nan_to_num(X_val, nan=0.0, posinf=0.0, neginf=0.0)
+
         loss_antiga, acc_antiga = modelo.evaluate(X_val, y_val, verbose=0)
         logging.info(
             f"Performance do Modelo ANTIGO na validação: Loss={loss_antiga:.4f}, Acurácia={acc_antiga:.4f}")
+
+        # === CURA ANTI-NaN (20/07/2026) ===
+        # Se o modelo atual já está envenenado (loss NaN ou pesos NaN), reconstrói do zero
+        # ANTES de treinar. Treinar por cima de pesos NaN só propaga NaN (nunca recupera).
+        if np.isnan(loss_antiga) or np.isinf(loss_antiga) or modelo_tem_nan(modelo):
+            logging.error(
+                "🚨 Modelo ENVENENADO detectado no treino (loss NaN). Reconstruindo do zero "
+                "e retreinando com as experiências limpas do CSV.")
+            modelo = criar_modelo_inteligente(input_shape=N_FEATURES)
+            loss_antiga, acc_antiga = 999.0, 0.0  # força salvar o modelo novo saudável
 
         # 5. TREINAR O NOVO MODELO
         early_stop = tf.keras.callbacks.EarlyStopping(
@@ -7063,12 +7117,16 @@ def treinar_modelo(modelo: Sequential, memoria: MemoriaExperiencias) -> Sequenti
         sample_weight = np.array(
             [r + 0.1 for r in recompensas[:len(X_train)]], dtype=np.float32)
 
-        # NÃO recompila o otimizador — preserva o estado do Adam (momentum/velocidade)
-        # Só recompila se o modelo ainda não foi compilado
-        if not modelo.optimizer:
-            novo_otimizador = Adam(learning_rate=0.001)
-            modelo.compile(optimizer=novo_otimizador,
-                           loss='binary_crossentropy', metrics=['accuracy'])
+        # Recompila o otimizador SEMPRE antes de treinar — ao carregar de disco (.h5),
+        # o Adam perde a associação com as variáveis do modelo e dá "Unknown variable".
+        # Recompilar recria o otimizador limpo, alinhado às variáveis atuais.
+        # clipnorm=1.0 → limita o gradiente e evita explosão que gera pesos NaN.
+        modelo.compile(optimizer=Adam(learning_rate=0.001, clipnorm=1.0),
+                       loss='binary_crossentropy', metrics=['accuracy'])
+
+        # Sanitiza os dados: troca NaN/Inf por 0 antes de treinar (anti-envenenamento)
+        X_train = np.nan_to_num(X_train, nan=0.0, posinf=0.0, neginf=0.0)
+        X_val = np.nan_to_num(X_val, nan=0.0, posinf=0.0, neginf=0.0)
 
         history = modelo.fit(
             X_train, y_train,
@@ -8616,6 +8674,79 @@ def monitorar_spread() -> None:
 # endregion
 
 
+# region [Verificação de Integridade do Código]
+def verificar_integridade_codigo():
+    """
+    Compara o hash MD5 do código atual com o hash salvo em .codigo_hash.
+    Se divergir, significa que alguém alterou o arquivo (acidentalmente ou não).
+    Retorna True se íntegro, False se corrompido/alterado.
+    Se o arquivo .codigo_hash não existir, gera automaticamente (primeira vez).
+    """
+    import hashlib
+    arquivo_py = os.path.join(os.path.dirname(
+        os.path.abspath(__file__)), "monstro_unificado_v2.py")
+    arquivo_hash = os.path.join(os.path.dirname(
+        os.path.abspath(__file__)), ".codigo_hash")
+
+    # Calcula hash atual do código
+    try:
+        with open(arquivo_py, "rb") as f:
+            hash_atual = hashlib.md5(f.read()).hexdigest()
+    except Exception as e:
+        print(f"❌ ERRO ao calcular hash do código: {e}")
+        return False
+
+    # Se .codigo_hash não existe, cria (primeira execução ou após atualização intencional)
+    if not os.path.exists(arquivo_hash):
+        with open(arquivo_hash, "w") as f:
+            f.write(hash_atual)
+        print(f"🔐 Hash de integridade gerado: {hash_atual[:12]}...")
+        return True
+
+    # Compara com o hash salvo
+    with open(arquivo_hash, "r") as f:
+        hash_salvo = f.read().strip()
+
+    if hash_atual == hash_salvo:
+        return True
+    else:
+        print("\n" + "=" * 60)
+        print("🚨🚨🚨 ALERTA: CÓDIGO ALTERADO DESDE ÚLTIMA VALIDAÇÃO! 🚨🚨🚨")
+        print("=" * 60)
+        print(f"  Hash esperado: {hash_salvo[:12]}...")
+        print(f"  Hash atual:    {hash_atual[:12]}...")
+        print("")
+        print("  O arquivo monstro_unificado_v2.py foi modificado.")
+        print("  Pode ser um clique acidental no editor.")
+        print("")
+        print("  OPÇÕES:")
+        print("    1. Se a alteração foi INTENCIONAL:")
+        print("       → Execute: python validar_codigo.py")
+        print("       → Isso atualiza o hash e libera o robô.")
+        print("")
+        print("    2. Se foi ACIDENTAL (clicou sem querer):")
+        print("       → Desfaça com: git checkout monstro_unificado_v2.py")
+        print("       → Ou restaure o backup.")
+        print("=" * 60 + "\n")
+        return False
+
+
+def atualizar_hash_codigo():
+    """Atualiza o .codigo_hash com o hash atual (após alteração intencional)."""
+    import hashlib
+    arquivo_py = os.path.join(os.path.dirname(
+        os.path.abspath(__file__)), "monstro_unificado_v2.py")
+    arquivo_hash = os.path.join(os.path.dirname(
+        os.path.abspath(__file__)), ".codigo_hash")
+    with open(arquivo_py, "rb") as f:
+        hash_atual = hashlib.md5(f.read()).hexdigest()
+    with open(arquivo_hash, "w") as f:
+        f.write(hash_atual)
+    return hash_atual
+
+# endregion
+
+
 # region [Inicialização]
 print("--- BLOCO MAIN PRESTES A INICIAR ---")
 
@@ -8623,6 +8754,16 @@ if __name__ == "__main__":
     print("--- DENTRO DO BLOCO MAIN, ANTES DE SETUP_LOGGING ---")
     # Inicializa logging
     setup_logging()
+
+    # ========== VERIFICAÇÃO DE INTEGRIDADE DO CÓDIGO ==========
+    if not verificar_integridade_codigo():
+        logging.critical(
+            "🚨 ROBÔ NÃO INICIOU — código alterado sem validação. Veja instruções acima.")
+        print("\n⛔ Robô BLOQUEADO. Valide o código antes de rodar.")
+        import sys
+        sys.exit(1)
+    else:
+        logging.info("🔐 Integridade do código verificada — hash OK")
 
     # ========== REGRAS OPERACIONAIS ATIVAS ==========
     logging.info(
