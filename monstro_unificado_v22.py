@@ -358,10 +358,12 @@ CONFIG_FILE = _caminho_dados("config.json")
 def carregar_configuracao():
     """Carrega configuraÃ§Ã£o do arquivo JSON."""
     try:
-        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+        # utf-8-sig: tolera BOM (um BOM aqui fazia json.load falhar e o robo
+        # rodava inteiro nos defaults: SL=5/TP=10/Magic=123457 em vez do config real)
+        with open(CONFIG_FILE, 'r', encoding='utf-8-sig') as f:
             return json.load(f)
     except Exception as e:
-        logging.error(f"âŒ Erro ao carregar configuraÃ§Ã£o: {e}")
+        logging.error(f"âŒ Erro ao carregar configuraÃ§Ã£o: {e}")
         return {}
 
 

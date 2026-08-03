@@ -54,7 +54,8 @@ class ThreadSafeConfig:
         try:
             with self._lock:
                 if os.path.exists(CONFIG_FILE):
-                    with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+                    # utf-8-sig: tolera BOM no config.json
+                    with open(CONFIG_FILE, 'r', encoding='utf-8-sig') as f:
                         self._data = json.load(f)
                 else:
                     self._data = {}

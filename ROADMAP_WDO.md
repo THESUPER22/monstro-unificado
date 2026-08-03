@@ -1406,3 +1406,15 @@ Inicio do MonstroDashboard.exe (build 30/07 23:50) + MT5 + Sentinela OK, sem cra
 - BOOK_RATIO_MIN 1,5 → **1,3** (passa ~20% → ~60% do dia)
 
 **Racional:** destravar a coleta de amostra sem remover a proteção. Se ainda assim 0 trades, o log (agora via script, force=True) revelará o próximo bloqueador. Nota: EXE não grava log (bug corrigido no fonte); diagnóstico via script venv310.
+
+## BUG CRITICO: BOM no config.json zerava a config (03/08/2026, Sessao 20)
+
+**Sintoma:** log mostrava Configuração WDO: SL=5pts, TP=10pts, Magic=123457 e dashboard na 5002, quando o config.json real é SL=8/TP=0/Magic=123456 e porta 5001.
+
+**Causa raiz:** config.json foi salvo com **BOM UTF-8** (bytes EF BB BF). carregar_configuracao() (v22:361) lia com encoding='utf-8' → json.load lança "Unexpected UTF-8 BOM" → retorna {} → **robô rodava INTEIRO nos defaults** (SL=5/TP=10/Magic=123457, porta 5002). O EXE tinha o mesmo bug (por isso usava 5002 e defaults). config_manager.py (editor do painel) lia com utf-8 também.
+
+**Impacto:** SL errado (5 vs 8), TP errado (10 fixo vs 0=saída dinâmica por fluxo), magic errado (123457 do WIN), porta do dashboard errada. Não afetava os filtros de ENTRADA (são constantes de código) — a autópsia de "excesso de rigidez" segue válida.
+
+**Fix aplicado:** (1) BOM removido do config.json; (2) carregar_configuracao → utf-8-sig; (3) config_manager.py read → utf-8-sig. Robô reiniciado: log confirmou SL=8pts, TP=0pts, Magic=123456 e dashboard vivo na **5001**. experiencias_wdo.json e scaler.json não tinham BOM (bug isolado).
+
+**Lição:** qualquer JSON lido com utf-8 puro é vulnerável a BOM de editores externos. Usar utf-8-sig em leituras de JSON editáveis manualmente.
