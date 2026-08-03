@@ -1363,3 +1363,23 @@ Painel de cotações globais no topo do dashboard:
 - Lift vs acaso = win_robô / 30,5% > **1,22x** (37,3/30,5). Meta mais exigente: 1,47x.
 - EV por trade > −0,24 pts (superar custo) e idealmente > 0.
 - Registrar SL/TP realmente usados por trade em `decisions_wdo.csv` para comparar com a mesma estrutura da baseline.
+
+## APURAÇÃO DIÁRIA AUTOMATIZADA (Sessão 20, 02/08/2026)
+
+**Script:** `apuracao_diaria_wdo.py` — utilitário de linha de comando que lê `historico_contexto_wdo.csv` (trades) + `decisions_wdo.csv` (datas) e entrega o veredicto em ~1s. Uso: `venv310\Scripts\python.exe apuracao_diaria_wdo.py`. Salva `relatorio_apuracao_diaria.txt` (ignorado no git via `relatorio_*.txt`).
+
+**O que calcula:**
+- Trades concluídos = linhas com `reward != 0` (entradas/flutuantes com reward 0 descartadas).
+- Win% com **intervalo de confiança Wilson 95%** (honestidade com amostras pequenas), Profit Factor, payoff, EV bruto/líquido (R$2,40/cc), P&L em R$.
+- **Comparação tripla** vs baseline: 30,5% (bater o acaso) / 37,3% (pagar taxas RLP) / 45,7% (pagar spread cheio) — cada uma com status APROVADO/NAO ATINGIU.
+- **Lift** = win% / 30,5% (metas 1,22x e 1,47x).
+- **Maturação:** dias com registro de decisão e dias com entrada BUY/SELL (fontes: timestamps de `decisions_wdo.csv`, pois o `historico_contexto_wdo.csv` **não tem timestamp** — o v22 trunca o histórico em 5000 linhas). Gatilho do Item 3 = ≥30 dias.
+- **Veredicto automático:** AMOSTRA EM COLETA / ABAIXO DO ACASO / EM EDGE / APROVADO para calibrar o v22.
+
+**Primeira execução (02/08/2026, dados reais de 29–30/07/2026):**
+- Trades: **46** (42 LONG / 4 SHORT) | win% **34,78%** (IC95 Wilson 22,7–49,2%) | PF 0,64.
+- avg win +29,69 pts / avg loss −24,67 pts (payoff 1,20) — trades bem maiores que o SL 2/TP 4 da baseline (v22 está com SL de segurança 8 pts; caveat nº 3 no relatório).
+- EV liq **−6,00 pts** = **−R$2.760** até agora. Venceu o acaso (34,78% > 30,5%) mas **não pagou as taxas** (37,3%).
+- Maturação: **2/30 dias**. **Item 3 permanece travado** — não mexer no config do v22.
+
+**Caveats registrados no script:** (1) dias vêm de decisions (proxy), (2) truncamento em 5000 linhas → backup dos CSVs preserva amostra, (3) barras assumem SL2/TP4, (4) fills reais podem pagar spread cheio (barra 45,7%).
