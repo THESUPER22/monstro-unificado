@@ -1306,3 +1306,28 @@ Painel de cotações globais no topo do dashboard:
 2. ❌ **NÃO treinar o modelo Keras de produção com esse CSV** — sem book não dá (e zerar colunas de book = contaminação, lição do WIN out/2025).
 3. ✅ Modelo price-only (se surgir) treina em `barras_1min_wdo.csv` (barras reais, sem fake).
 4. ✅ Módulos de book (escora/entropia) só se validam ao vivo/demo via MT5.
+
+---
+
+## VALIDAÇÃO DO SELECIONADOR REGIME — CAUSAL, FORA DA AMOSTRA (Sessão 20, 02/08/2026)
+
+**Script:** `validar_selecao_regime.py` (usa o módulo real `SelecionadorRegime` da Sessão 19). Classifica **barra a barra, em tempo real** (janelas de 30 min terminando no bar anterior — sem lookahead). **Calibrou no 1º semestre** (132 dias, 14/07/2025→20/01/2026) e **testou no 2º** (132 dias, 21/01→31/07/2026), fora da amostra.
+
+**Método (honesto):** o detector de produção usa ATR + **entropia de book** + volume. Como o CSV só tem trades, entropia foi **proxiada por volatilidade de preço** (std do retorno 1min em 30 min). AGUARDANDO (book desequilibrado) e DEFESA (sequência de losses) não são modeláveis por preço — ficaram de fora. Limiares ajustados SÓ no treino.
+
+**Resultados (2º semestre, 70.820 barras):**
+| Métrica | Valor | Leitura |
+|---|---|---|
+| Spearman (sinal → vol futura) | **+0,771** | o sinal de preço antecipa a volatilidade |
+| Precisão EXPLOSAO | **77,6%** (aleatório 31,8%) | **lift 2,44x** — quando dispara, vale risco maior |
+| Revocação EXPLOSAO | 22,4% | conservador — perde ~4 em 5 explosões |
+| Falsos positivos | 3,0% das não-explosões | baixo |
+| Monotonicidade fwd_vol | LATERAL 0,83 → NORMAL 1,51 → EXPLOSAO 2,10 pts | escala de risco por modo correta |
+| fwd range máx | 6,3 / 12,2 / 17,1 pts | idem |
+| Concordância diária | 66% | vs regime_por_dia_wdo.csv |
+
+**Decisões registradas:**
+1. ✅ A **arquitetura do módulo está validada**: LATERAL reduz risco (volx0.5) e EXPLOSAO aumenta (volx1.5) — e o que realizou depois confirma a direção (monotônico).
+2. ✅ **EXPLOSAO via proxy tem precisão alta** → no v22, quando EXPLOSAO disparar, o risco maior é justificável; mas **não subir volume antes de confirmação** (recall baixo = muitas explosões não avisadas).
+3. ❌ **Não plugar ainda**: entropia de book real (que deve somar poder preditivo) só se valida ao vivo/demo. A validação de preço é o piso, não o teto.
+4. 🐛 **Bug numpy descoberto (lição):** `np.where` criava array `<U7` (LATERAL/NORMAL) e `"EXPLOSAO"` (8 chars) era **truncado para "EXPLOSA"** silenciosamente — comparação nunca casava, dava zero de EXPLOSAO. Corrigido com `.astype("<U9")`. Verificar sempre dtype de strings em numpy.
