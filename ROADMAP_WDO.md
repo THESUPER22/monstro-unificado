@@ -1445,3 +1445,14 @@ Inicio do MonstroDashboard.exe (build 30/07 23:50) + MT5 + Sentinela OK, sem cra
 **Justificativa:** o portão era proteção REDUNDANTE. O objetivo da fase é medir win% real vs baseline (37,3%/30,5%); com 0 trades não há medição. Risco limitado e documentado. confianca_decisao é só informativa (não barra execução) — o penalizador não bloqueia o trade por acidente.
 
 **Execução:** robô parado graciosamente (salvou modelo+experiências), reiniciado via script venv310 (force=True log + config certa SL=8/TP=0/magic 123456 + ADVISORY). EXE será recompilado à noite com ADVISORY + fix CWD.
+
+## DESBLOQUEIO EM CASCATA (03/08/2026, tarde) — 3 gates empilhados + estado final
+
+A autópsia da manhã achou o gate DOL, mas ao destravar surgiram gates MAIS UPSTREAM. Sequência real de bloqueio hoje:
+1. **Gate DOL (7150)** — DOL conf≥0,5+alinhado+book≥1,5 → virou ADVISORY (penalizador).
+2. **Gate SNIPER (6816)** — sniper_ratio_min=1,5 (config): robô só ANALISA se book ratio≥1,5. Hoje ratio ~1,1–1,35 → STANDBY eterno, nunca chegava no modelo. Em 30/07 era **1,2** (66 trades). **Fix: config.json sniper_ratio_min 1,5→1,2** (exceção diagnóstica). Após isso o robô passou a ACORDAR e chegar no modelo.
+3. **Williams %R (veto 8316-8327)** — com o robô finalmente analisando, o %R marcou **-86 a -100** (preço ~5122 no fundo do range 14 candles ~5121,5–5128,5) → veto BUY (faca caindo) + SELL (fundo). **Proteção LEGÍTIMA mantida** — mercado sobrevendido/consolidado. O high=low=preco no williams_r_historico.csv é só o candle atual flat; o %R usa o range real de 14 candles.
+
+**ESTADO FINAL (15:55):** robô CORRETAMENTE desbloqueado — acorda, analisa, chega no modelo. O que segura trades agora é o **Williams %R genuíno (mercado sobrevendido)**, não excesso de rigidez. O robô vai operar quando o preço sair do fundo (%R > -80). NÃO desabilitar o veto de %R (é o que evita pegar faca caindo = perder dinheiro).
+
+**Bugs do dia já corrigidos:** BOM config.json (rodava nos defaults), log EXE (force=True), EXE recompilado, CWD do EXE (urgência p/ noite). Filtros relaxados: DOL advisory + sniper 1,2.
