@@ -1336,23 +1336,30 @@ Painel de cotações globais no topo do dashboard:
 
 ## BASELINE MOEDA NO WDO (Sessão 20, 02/08/2026) — o acaso ganha ou perde?
 
-**Script:** `baseline_moeda_wdo.py`. 15.000 entradas ALEATÓRIAS por config (direção 50/50), mesma estrutura de SL/TP do robô, sobre `barras_1min_wdo.csv` (1 ano). Entrada = abertura do minuto, janela 09:05–17:00. Dentro do minuto, se SL e TP ambos tocados, vale o nível mais próximo da entrada (empate = SL, conservador). Custos: 0,7 pts/viagem (spread 0,5 + taxa/slippage 0,2).
+**Script:** `baseline_moeda_wdo.py`. 15.000 entradas ALEATÓRIAS por config (direção 50/50), mesma estrutura de SL/TP do robô, sobre `barras_1min_wdo.csv` (1 ano). Entrada = abertura do minuto, janela 09:05–17:00. Dentro do minuto, se SL e TP ambos tocados, vale o nível mais próximo da entrada (empate = SL, conservador). **Custo real corrigido: R$2,40/contrato (0,24 pts)** = R$1,20 entrada + R$1,20 saída com RLP ativado (fills no meio do spread).
 
 **Resultados (win% = taxa de acerto do acaso; EV liq = com custos):**
 | Config | win% | SL% | TP% | EV brut | EV liq | R$/trade |
 |---|---|---|---|---|---|---|
-| SL 2.0 / TP 4.0 | 30,5 | 69,5 | 30,5 | −0,17 | −0,87 | −8,7 |
-| SL 2.0 / TP 4.0 (hold 15min) | 33,4 | 62,5 | 25,5 | −0,13 | −0,83 | −8,3 |
-| SL 2.0 / TP 8.0 | 17,7 | 82,2 | 16,9 | −0,26 | −0,96 | −9,6 |
-| SL 1.5 / TP 4.0 | 23,8 | 76,2 | 23,8 | −0,19 | −0,89 | −8,9 |
-| SL 3.0 / TP 6.0 | 31,8 | 68,0 | 31,3 | −0,15 | −0,85 | −8,5 |
+| SL 2.0 / TP 4.0 | 30,5 | 69,5 | 30,5 | −0,17 | −0,41 | −4,1 |
+| SL 2.0 / TP 4.0 (hold 15min) | 33,4 | 62,5 | 25,5 | −0,13 | −0,37 | −3,7 |
+| SL 2.0 / TP 8.0 | 17,7 | 82,2 | 16,9 | −0,26 | −0,50 | −5,0 |
+| SL 1.5 / TP 4.0 | 23,8 | 76,2 | 23,8 | −0,19 | −0,43 | −4,3 |
+| SL 3.0 / TP 6.0 | 31,8 | 68,0 | 31,3 | −0,15 | −0,39 | −3,9 |
 
 **Leituras (registradas):**
-1. ✅ **O WDO é praticamente justo para entradas aleatórias:** win% do acaso ≈ 30-33% (teórico do passeio aleatório = SL/(SL+TP) = 33%). EV bruto ~ −0,15 pts (drag estrutural pequeno); **os custos é que dominam** (−0,7 a −0,9 pts/trade).
-2. ✅ **Stop 2,0 pts NÃO é stop-out catastrófico:** o acaso alcança o TP em ~30% dos trades mesmo com SL 2× mais curto.
-3. 🎯 **DUAS barras para o robô (mesmo SL 2/TP 4):**
+1. ✅ **O WDO é praticamente justo para entradas aleatórias:** win% do acaso ≈ 30-33% (teórico do passeio aleatório = SL/(SL+TP) = 33%). EV bruto ~ −0,15 pts (drag estrutural pequeno); **os custos é que dominam.**
+2. ✅ **Custo REAL corrigido (RLP):** R$1,20 entrada + R$1,20 saída = **R$2,40/contrato** = 0,24 pts (fills no meio do spread, sem pagar o spread inteiro). O modelo anterior (R$7/contrato) era exagerado. Resultados abaixo já com o custo correto. Sensibilidade do script: se cobrar o spread inteiro de ida e volta (+0,5 pts = R$7,40/cc), o break-even do acaso sobe de 37,3% para **45,7%** — usar o cenário que reflita os fills reais no Profit/XP.
+3. ✅ **Stop 2,0 pts NÃO é stop-out catastrófico:** o acaso alcança o TP em ~30% dos trades mesmo com SL 2× mais curto.
+4. 🎯 **DUAS barras para o robô (SL 2/TP 4):**
    - bater o acaso: **win% > 30,5%**
-   - lucrar de verdade: **win% > 45%** (break-even com custos = (SL+c)/(SL+TP))
-4. ✅ **Comparação honesta para o futuro:** quando o robô acumular ≥30 dias de trades reais no WDO (`historico_contexto_wdo.csv` com reward ≠ 0), comparar o win% REAL dele contra 30,5% e 45%. Só então o Item 3 (reajustar SL/TP no v22) tem respaldo.
-5. 🐛 **Bug de sinal corrigido:** P&L de SHORT estava invertido (TP de short = prejuízo). Resultado anterior (win% ~50%, EV ~0) era artefato do bug — longs e shorts se cancelavam.
-6. ⚠️ **Limitação:** entrada na abertura do minuto (não intra-minuto) e aproximação de ordem dentro do minuto (nível mais próximo primeiro). Precisão tick-a-tick exigiria re-varrer o CSV de 2,28 GB.
+   - lucrar de verdade: **win% > 37,3%** (break-even com custos R$2,40 = (SL+c)/(SL+TP))
+5. ✅ **Comparação honesta para o futuro:** quando o robô acumular ≥30 dias de trades reais no WDO (`historico_contexto_wdo.csv` com reward ≠ 0), comparar o win% REAL dele contra 30,5% e 37,3%. Só então o Item 3 (reajustar SL/TP no v22) tem respaldo.
+6. 🐛 **Bug de sinal corrigido:** P&L de SHORT estava invertido (TP de short = prejuízo). Resultado anterior (win% ~50%, EV ~0) era artefato do bug — longs e shorts se cancelavam.
+7. ⚠️ **Limitação:** entrada na abertura do minuto (não intra-minuto) e aproximação de ordem dentro do minuto (nível mais próximo primeiro). Precisão tick-a-tick exigiria re-varrer o CSV de 2,28 GB.
+
+**Checklist diário de apuração (enquanto a amostra acumula):** a cada fim de pregão, conferir no v22:
+- Win rate do robô (trades reais com reward ≠ 0) ≥ **37,3%** (break-even) e, com margem de segurança, ≥ 45%.
+- Lift vs acaso = win_robô / 30,5% > **1,22x** (37,3/30,5). Meta mais exigente: 1,47x.
+- EV por trade > −0,24 pts (superar custo) e idealmente > 0.
+- Registrar SL/TP realmente usados por trade em `decisions_wdo.csv` para comparar com a mesma estrutura da baseline.

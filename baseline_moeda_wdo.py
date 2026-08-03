@@ -8,7 +8,8 @@ OUT = r"C:\AIOFEN\relatorio_baseline_moeda.txt"
 
 SEED = 42
 N_TRADES = 15000
-COSTO_PT = 0.7
+COSTO_PT = 0.24
+COSTO_PT_COM_SPREAD = 0.74
 VALOR_PONTO = 10.0
 ENTRADA_INICIO = "09:05"
 ENTRADA_FIM = "17:00"
@@ -84,7 +85,9 @@ def main():
     linhas.append("que o robo. Entrada = abertura do minuto escolhido. Janela de entrada 09:05-17:00.")
     linhas.append("Detalhe dentro do minuto: se SL e TP fossem tocados no MESMO minuto, assume-se o")
     linhas.append("nivel MAIS PROXIMO da entrada como primeiro (empate = SL, conservador).")
-    linhas.append(f"Custos por viagem (ida+volta): {COSTO_PT} pts (spread 0.5 + taxa/slippage 0.2) = {COSTO_PT*VALOR_PONTO:.0f} R$/contrato")
+    linhas.append(f"Custos por viagem (ida+volta): {COSTO_PT} pts = {COSTO_PT*VALOR_PONTO:.2f} R$/contrato")
+    linhas.append("  (RLP ativado: R$1,20 entrada + R$1,20 saida = R$2,40/contrato. Fills considerados no")
+    linhas.append("   meio do spread (sem pagar o spread inteiro). Se quiser cobrar spread, somar 0,5 pts.)")
     linhas.append(f"Trades por config: {N_TRADES} | seed {SEED}")
     linhas.append("")
 
@@ -139,12 +142,7 @@ def main():
     for nome, det in detalhe_principal.items():
         linhas.append(f"DETALHE (long x short) — {nome}:")
         for sinal, nome_sinal in ((1, "LONG "), (-1, "SHORT")):
-            res_a = np.array(det["res"])
-            idx_s = np.arange(N_TRADES)[::2] if sinal > 0 else np.arange(N_TRADES)[1::2]
-            if sinal > 0:
-                idx_s = np.arange(0, N_TRADES, 2)
-            else:
-                idx_s = np.arange(1, N_TRADES, 2)
+            idx_s = np.arange(0, N_TRADES, 2) if sinal > 0 else np.arange(1, N_TRADES, 2)
             b = det["bruto"][idx_s]
             liq = b - COSTO_PT
             linhas.append(
@@ -154,15 +152,27 @@ def main():
         linhas.append(f"  Break-even do acaso: win% > {(det['beq']*100):.1f}% com SL/TP desta config")
         linhas.append(f"  Barra para o ROBO (mesmo SL/TP): precisa de win% ACIMA de {100.0*det['w']:.1f}%")
         linhas.append("")
+    ev_acaso = float(detalhe_principal["SL 2.0 / TP 4.0"]["bruto"].mean())
+    beq_taxas = (2.0 + COSTO_PT) / 6.0
+    beq_spread = (2.0 + COSTO_PT_COM_SPREAD) / 6.0
+    linhas.append("SENSIBILIDADE AO CUSTO (SL 2.0 / TP 4.0):")
+    linhas.append(f"  Taxas RLP R$2,40 (0,24 pts)          -> acaso EV liq = {ev_acaso - COSTO_PT:+.2f} pts "
+                  f"({(ev_acaso - COSTO_PT)*VALOR_PONTO:+.1f} R$/cc) | break-even win% > {beq_taxas*100:.1f}%")
+    linhas.append(f"  Taxas + spread R$7,40 (0,74 pts)     -> acaso EV liq = {ev_acaso - COSTO_PT_COM_SPREAD:+.2f} pts "
+                  f"({(ev_acaso - COSTO_PT_COM_SPREAD)*VALOR_PONTO:+.1f} R$/cc) | break-even win% > {beq_spread*100:.1f}%")
+    linhas.append("  (spread de 0,5 pts de ida+volta e' o atrito de execucao real: compra no ASK, vende no BID.")
+    linhas.append("   Use o cenario que reflita seus fills reais no Profit/XP.)")
+    linhas.append("")
     linhas.append("CONCLUSAO:")
-    linhas.append("  - O acaso PERDE ~7-9 R$/contrato por trade — os CUSTOS dominam. EV bruto ~ -0.15 pts")
-    linhas.append("    = o WDO e praticamente justo para entradas aleatorias nessa estrutura (teorico")
-    linhas.append("    do passeio aleatorio: win% = SL/(SL+TP) = 33%).")
+    linhas.append(f"  - Com custo REAL de taxas (R${COSTO_PT*VALOR_PONTO:.2f}/cc RLP), o acaso perde ~"
+                  f"{abs(ev_acaso - COSTO_PT)*VALOR_PONTO:.1f} R$/contrato por trade.")
+    linhas.append("    EV bruto ~ -0.15 pts = o WDO e praticamente justo para entradas aleatorias")
+    linhas.append("    nessa estrutura (teorico do passeio aleatorio: win% = SL/(SL+TP) = 33%).")
     linhas.append("  - Stop 2.0 pts NAO e stop-out catastrofico: o acaso ainda alcanca o TP em ~30%")
     linhas.append("    dos trades (proximo do teorico 33%).")
-    linhas.append("  - Duas barras para o ROBO (mesmo SL/TP):")
+    linhas.append("  - Duas barras para o ROBO (SL 2.0 / TP 4.0):")
     linhas.append("      (1) bater o acaso:      win% > ~30.5%   (empatar com entrada aleatoria)")
-    linhas.append("      (2) lucrar de verdade:  win% > 45%      (break-even com custos = (SL+c)/(SL+TP))")
+    linhas.append(f"      (2) lucrar de verdade:  win% > {beq_taxas*100:.1f}%  (break-even com custos de taxas)")
     linhas.append("  - Com win% do robo x, EV esperado = x*TP - (1-x)*SL - custo (usar p/ dimensionar).")
 
     texto = "\n".join(linhas)
