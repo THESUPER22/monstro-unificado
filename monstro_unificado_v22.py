@@ -7145,8 +7145,12 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                                 f"â†’ confianÃ§a: {confianca_decisao:.2f}")
 
                     # ========== NOVOS FILTROS PÓS-DOL (não-SNIPER) ==========
-                    # 1. DOL confiança ≥ 0.5 + alinhado obrigatório para entradas não-sniper
-                    # 2. Book ratio ≥ 1.5x para qualquer trade direcional
+                    # 1. DOL confiança ≥ DOL_CONF_MIN + alinhado obrigatório para entradas não-sniper
+                    # 2. Book ratio ≥ BOOK_RATIO_MIN para qualquer trade direcional
+                    # AJUSTE DIAGNÓSTICO (03/08): portão exigia DOL ratio≥1.5 + WDO ratio≥1.5 + alinhado
+                    # (tripla coincidência rara) → 0 trades com mercado operável. Relaxado p/ destravar amostra.
+                    DOL_CONF_MIN = 0.4    # era 0.5 (DOL ratio ≥1.5); 0.4 = DOL ratio ≥1.2
+                    BOOK_RATIO_MIN = 1.3  # era 1.5 (passava ~20% do dia); 1.3 passa ~60%
                     if not SNIPER_SUPERMO_ATIVO and acao_para_executar != "NADA":
                         dol_conf = sinal_dol.get('confianca', 0) if sinal_dol.get('presente') else 0
                         dol_lado = sinal_dol.get('lado', 'NEUTRO') if sinal_dol.get('presente') else 'NEUTRO'
@@ -7154,8 +7158,8 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                         ask_qty_atual = contexto.get('ask_qty', 0)
                         book_ratio = max(bid_qty_atual, ask_qty_atual) / max(1, min(bid_qty_atual, ask_qty_atual))
 
-                        dol_ok = (dol_conf >= 0.5 and dol_lado != 'NEUTRO' and dol_lado == acao_para_executar)
-                        ratio_ok = book_ratio >= 1.5
+                        dol_ok = (dol_conf >= DOL_CONF_MIN and dol_lado != 'NEUTRO' and dol_lado == acao_para_executar)
+                        ratio_ok = book_ratio >= BOOK_RATIO_MIN
 
                         if not dol_ok:
                             logging.warning(

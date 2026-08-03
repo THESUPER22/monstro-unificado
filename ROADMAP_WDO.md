@@ -1390,3 +1390,19 @@ Inicio do MonstroDashboard.exe (build 30/07 23:50) + MT5 + Sentinela OK, sem cra
 
 - Para operar amanha: usar iniciar_v22_wdo.bat (python + venv310) como fonte confiavel de log. Rebuild do EXE fica pendente (nao urgente; mercado fechado hoje).
 - stop_all.bat NAO mata o MonstroDashboard.exe (so python + terminal64). Encerrar o EXE manualmente se necessario.
+
+## AUTOPSIA 03/08/2026 (manha) — ZERO TRADES: EXCESSO DE RIGIDEZ (Sessao 20)
+
+**Sintoma:** robô ativo no WDOU26 (rolagem OK), 2663 decisões 09:15–12:25 TODAS "NADA", 0 trades.
+
+**Descartado (não bloqueou):** Sentinela NEUTRO; Williams %R −40 (neutro); Multi-TF misto; spread 0,5; entropia 2,91 (alta, passa filtro 2); ATR 2,01 (passa filtro 3). **Modelo Keras funciona:** teste offline com scaler limpo produziu sinal confiante (gap ≥0,15) em 82% das linhas.
+
+**Causa raiz:** portão "NOVOS FILTROS PÓS-DOL" (v22:7147, Sessão 13 de 30/07) exige tripla coincidência: DOL conf ≥0,5 (ratio≥1,5) + DOL alinhado + book ratio WDO ≥1,5. **Prova:** em 30/07 ele operou 66x com book_ratio≥1,5 só 2% do dia e ATR 1,35 — condições que os filtros atuais rejeitariam. Os 5 vetos entraram DEPOIS daquelas operações. DOL conf max histórico 0,44 (<0,5) → portão zera ~100% das entradas. Mercado hoje era operável (não era preservação por lateralidade).
+
+**⚠️ Conflito Item 3:** trava exige 30 dias + win%>37,3%, mas 0 trades → 0 amostra → autossabotagem.
+
+**AJUSTE DIAGNÓSTICO (exceção à trava, documentado):** relaxamento cirúrgico somente no gate de ALINHAMENTO (sem tocar no veto protetivo de contradição DOL v22:7114):
+- DOL_CONF_MIN 0,5 → **0,4** (DOL ratio ≥1,5 → ≥1,2)
+- BOOK_RATIO_MIN 1,5 → **1,3** (passa ~20% → ~60% do dia)
+
+**Racional:** destravar a coleta de amostra sem remover a proteção. Se ainda assim 0 trades, o log (agora via script, force=True) revelará o próximo bloqueador. Nota: EXE não grava log (bug corrigido no fonte); diagnóstico via script venv310.
