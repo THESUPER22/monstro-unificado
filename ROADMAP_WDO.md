@@ -1331,3 +1331,28 @@ Painel de cotações globais no topo do dashboard:
 2. ✅ **EXPLOSAO via proxy tem precisão alta** → no v22, quando EXPLOSAO disparar, o risco maior é justificável; mas **não subir volume antes de confirmação** (recall baixo = muitas explosões não avisadas).
 3. ❌ **Não plugar ainda**: entropia de book real (que deve somar poder preditivo) só se valida ao vivo/demo. A validação de preço é o piso, não o teto.
 4. 🐛 **Bug numpy descoberto (lição):** `np.where` criava array `<U7` (LATERAL/NORMAL) e `"EXPLOSAO"` (8 chars) era **truncado para "EXPLOSA"** silenciosamente — comparação nunca casava, dava zero de EXPLOSAO. Corrigido com `.astype("<U9")`. Verificar sempre dtype de strings em numpy.
+
+---
+
+## BASELINE MOEDA NO WDO (Sessão 20, 02/08/2026) — o acaso ganha ou perde?
+
+**Script:** `baseline_moeda_wdo.py`. 15.000 entradas ALEATÓRIAS por config (direção 50/50), mesma estrutura de SL/TP do robô, sobre `barras_1min_wdo.csv` (1 ano). Entrada = abertura do minuto, janela 09:05–17:00. Dentro do minuto, se SL e TP ambos tocados, vale o nível mais próximo da entrada (empate = SL, conservador). Custos: 0,7 pts/viagem (spread 0,5 + taxa/slippage 0,2).
+
+**Resultados (win% = taxa de acerto do acaso; EV liq = com custos):**
+| Config | win% | SL% | TP% | EV brut | EV liq | R$/trade |
+|---|---|---|---|---|---|---|
+| SL 2.0 / TP 4.0 | 30,5 | 69,5 | 30,5 | −0,17 | −0,87 | −8,7 |
+| SL 2.0 / TP 4.0 (hold 15min) | 33,4 | 62,5 | 25,5 | −0,13 | −0,83 | −8,3 |
+| SL 2.0 / TP 8.0 | 17,7 | 82,2 | 16,9 | −0,26 | −0,96 | −9,6 |
+| SL 1.5 / TP 4.0 | 23,8 | 76,2 | 23,8 | −0,19 | −0,89 | −8,9 |
+| SL 3.0 / TP 6.0 | 31,8 | 68,0 | 31,3 | −0,15 | −0,85 | −8,5 |
+
+**Leituras (registradas):**
+1. ✅ **O WDO é praticamente justo para entradas aleatórias:** win% do acaso ≈ 30-33% (teórico do passeio aleatório = SL/(SL+TP) = 33%). EV bruto ~ −0,15 pts (drag estrutural pequeno); **os custos é que dominam** (−0,7 a −0,9 pts/trade).
+2. ✅ **Stop 2,0 pts NÃO é stop-out catastrófico:** o acaso alcança o TP em ~30% dos trades mesmo com SL 2× mais curto.
+3. 🎯 **DUAS barras para o robô (mesmo SL 2/TP 4):**
+   - bater o acaso: **win% > 30,5%**
+   - lucrar de verdade: **win% > 45%** (break-even com custos = (SL+c)/(SL+TP))
+4. ✅ **Comparação honesta para o futuro:** quando o robô acumular ≥30 dias de trades reais no WDO (`historico_contexto_wdo.csv` com reward ≠ 0), comparar o win% REAL dele contra 30,5% e 45%. Só então o Item 3 (reajustar SL/TP no v22) tem respaldo.
+5. 🐛 **Bug de sinal corrigido:** P&L de SHORT estava invertido (TP de short = prejuízo). Resultado anterior (win% ~50%, EV ~0) era artefato do bug — longs e shorts se cancelavam.
+6. ⚠️ **Limitação:** entrada na abertura do minuto (não intra-minuto) e aproximação de ordem dentro do minuto (nível mais próximo primeiro). Precisão tick-a-tick exigiria re-varrer o CSV de 2,28 GB.
