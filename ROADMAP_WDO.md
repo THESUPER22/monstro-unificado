@@ -1418,3 +1418,15 @@ Inicio do MonstroDashboard.exe (build 30/07 23:50) + MT5 + Sentinela OK, sem cra
 **Fix aplicado:** (1) BOM removido do config.json; (2) carregar_configuracao → utf-8-sig; (3) config_manager.py read → utf-8-sig. Robô reiniciado: log confirmou SL=8pts, TP=0pts, Magic=123456 e dashboard vivo na **5001**. experiencias_wdo.json e scaler.json não tinham BOM (bug isolado).
 
 **Lição:** qualquer JSON lido com utf-8 puro é vulnerável a BOM de editores externos. Usar utf-8-sig em leituras de JSON editáveis manualmente.
+
+## 🔴 URGENCIA PARA HOJE (03/08/2026) — EXE sensivel ao diretorio de lancamento (CWD)
+
+**STATUS: ABERTO — tratar HOJE A NOITE (apos fechamento).**
+
+**Problema:** o EXE recompilado (build 03/08 13:29) so encontra os arquivos de dados (modelo, config, CSVs) quando lancado **de dentro de C:\AIOFEN**. Lancado de outro CWD (ex.: dist\MonstroDashboard), o _caminho_base() cai no fallback dirname(sys.executable) e o robo **cria um modelo NOVO EM BRANCO** (modelo_monstro_wdo.h5 de ~112KB) — perde o cerebro treinado.
+
+**Risco concreto:** a tarefa agendada start_all.bat (08:58) tem o campo **"Start in" VAZIO** (CWD indefinido). Se o CWD default nao for C:\AIOFEN, amanha o robo sobe com modelo em branco = opera sem aprendizado.
+
+**Mitigacao hoje (validada):** lancando o EXE de C:\AIOFEN (como o ll.bat faz com /d "C:\AIOFEN"), o EXE funciona 100% — painel desktop abre, modelo treinado (262 experiencias), config certa (SL=8/TP=0/magic 123456), log gerando (force=True), dashboard na 5001. **O EXE de hoje esta OK porque foi lancado de C:\AIOFEN.**
+
+**Fix definitivo (a fazer HOJE A NOITE):** tornar _caminho_base() deterministico — caminhar para cima a partir de sys.executable ate achar a pasta do projeto (marcador monstro_unificado_v22.py), independente do CWD e da estrutura _MEIPASS do PyInstaller. Aplicar em monstro_unificado_v22.py, dashboard_routes.py e config_manager.py. Recompilar e testar lancando de um CWD fora de C:\AIOFEN. So depois disso o agendador de 08:58 estara seguro.
