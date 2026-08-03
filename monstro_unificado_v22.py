@@ -7163,16 +7163,19 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                         dol_ok = (dol_conf >= DOL_CONF_MIN and dol_lado != 'NEUTRO' and dol_lado == acao_para_executar)
                         ratio_ok = book_ratio >= BOOK_RATIO_MIN
 
+                        # MODO ADVISORY (03/08): DOL/book INFORMAM a confianca, NAO vetam mais.
+                        # O veto seco zerava 100% das entradas em dia de DOL equilibrado (autopsia 03/08),
+                        # autossabotando o Item 3 (0 trades -> 0 amostra -> nunca valida o robo).
+                        # Protecao real MANTIDA: gate#1 (contradicao DOL forte), sentinela, WR, multi-TF,
+                        # score de qualidade, CONFIDENCE_GAP, cooldown, circuit breakers, max_loss_diario.
                         if not dol_ok:
+                            confianca_decisao *= 0.70
                             logging.warning(
-                                f"⛔ VETO DOL: conf={dol_conf:.2f} lado={dol_lado} ≠ {acao_para_executar} (mín 0.5 + alinhado)")
-                            acao_para_executar = "NADA"
-                            confianca_decisao = 0.0
-                        elif not ratio_ok:
+                                f"⚠️ DOL fraco/desalinhado (conf={dol_conf:.2f} lado={dol_lado} ≠ {acao_para_executar}) -> conf ×0.70={confianca_decisao:.2f} (ADVISORY, sem veto)")
+                        if not ratio_ok:
+                            confianca_decisao *= 0.85
                             logging.warning(
-                                f"⛔ VETO BOOK RATIO: {book_ratio:.2f}x < 1.5x (bid={bid_qty_atual:.0f} ask={ask_qty_atual:.0f})")
-                            acao_para_executar = "NADA"
-                            confianca_decisao = 0.0
+                                f"⚠️ Book ratio baixo ({book_ratio:.2f}x < {BOOK_RATIO_MIN}) -> conf ×0.85={confianca_decisao:.2f} (ADVISORY, sem veto)")
 
                     logging.debug(
                         f"ðŸ¤– DecisÃ£o Final: {acao_para_executar} | ConfianÃ§a: {confianca_decisao:.2f}")

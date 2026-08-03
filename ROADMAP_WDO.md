@@ -1430,3 +1430,18 @@ Inicio do MonstroDashboard.exe (build 30/07 23:50) + MT5 + Sentinela OK, sem cra
 **Mitigacao hoje (validada):** lancando o EXE de C:\AIOFEN (como o ll.bat faz com /d "C:\AIOFEN"), o EXE funciona 100% — painel desktop abre, modelo treinado (262 experiencias), config certa (SL=8/TP=0/magic 123456), log gerando (force=True), dashboard na 5001. **O EXE de hoje esta OK porque foi lancado de C:\AIOFEN.**
 
 **Fix definitivo (a fazer HOJE A NOITE):** tornar _caminho_base() deterministico — caminhar para cima a partir de sys.executable ate achar a pasta do projeto (marcador monstro_unificado_v22.py), independente do CWD e da estrutura _MEIPASS do PyInstaller. Aplicar em monstro_unificado_v22.py, dashboard_routes.py e config_manager.py. Recompilar e testar lancando de um CWD fora de C:\AIOFEN. So depois disso o agendador de 08:58 estara seguro.
+
+## DECISAO DO ENGENHEIRO (03/08/2026, tarde) — gate pós-DOL vira ADVISORY (penalizador)
+
+**Contexto:** mesmo com o relaxamento (DOL 0,5→0,4, book 1,5→1,3 da manhã), o DOL ficou equilibrado o dia todo (conf 0,34–0,45) e o veto seco seguiu zerando entradas (15min de tarde, 0 trades).
+
+**Análise ganho/perda das 3 opções:**
+- **A (ADVISORY/penalizador):** ganho = robô opera e acumula amostra real (única via p/ validar win%); perda = perdas pequenas LIMITADAS por circuit breakers + max_loss_diario (-500) + custo R,40/cc. **EV positivo.**
+- **B (só números):** mantém veto seco (estrutura que causou o problema); em DOL equilibrado pode seguir barrando. EV incerto.
+- **C (nada fazer):** ganho = zero risco de mudança; perda = 0 amostra garantido, dia perdido, Item 3 travado. EV negativo.
+
+**DECISÃO: Opção A.** Gate#2 (exigência de alinhamento DOL + book ratio) deixa de ser veto seco e vira **penalizador de confiança** (DOL fraco ×0,70; book ratio baixo ×0,85), SEM derrubar a ação. **Gate#1 (veto de contradição DOL forte) MANTIDO** — protege contra operar contra o fluxo institucional forte. Demais proteções intactas: Sentinela, Williams %R, Multi-TF, score, CONFIDENCE_GAP, cooldown, circuit breakers, max_loss_diario.
+
+**Justificativa:** o portão era proteção REDUNDANTE. O objetivo da fase é medir win% real vs baseline (37,3%/30,5%); com 0 trades não há medição. Risco limitado e documentado. confianca_decisao é só informativa (não barra execução) — o penalizador não bloqueia o trade por acidente.
+
+**Execução:** robô parado graciosamente (salvou modelo+experiências), reiniciado via script venv310 (force=True log + config certa SL=8/TP=0/magic 123456 + ADVISORY). EXE será recompilado à noite com ADVISORY + fix CWD.
