@@ -2084,7 +2084,10 @@ def setup_logging():
         filename=LOG_FILE,
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
-        filemode=filemode
+        filemode=filemode,
+        # force=True: remove handlers pre-existentes (ex.: StreamHandler(stderr=None)
+        # injetado no modo PyInstaller console=False) e garante a criacao do FileHandler.
+        force=True
     )
 
     # Filtra warning repetitivo do Keras sobre compiled metrics
@@ -10092,9 +10095,17 @@ filtro_mean_reversion = FiltroMeanReversion()
 
 
 # region [InicializaÃ§Ã£o]
-print("--- BLOCO MAIN PRESTES A INICIAR ---")
 
 if __name__ == "__main__":
+    # PyInstaller console=False deixa sys.stdout/sys.stderr = None. Redireciona
+    # para devnull para que print() nao lance excecao no build windowed.
+    import sys as _sys_out
+    import os as _os_out
+    if _sys_out.stdout is None:
+        _sys_out.stdout = open(_os_out.devnull, 'w')
+    if _sys_out.stderr is None:
+        _sys_out.stderr = open(_os_out.devnull, 'w')
+
     # ---- BLOQUEIO DE INSTÃ‚NCIA ÃšNICA: se outra cÃ³pia do Monstro V22 jÃ¡ estiver rodando, sai na hora ----
     # FIX (01/08/2026): movido para o __main__ - antes rodava no import e matava qualquer
     # processo que importasse o modulo com outra instancia ativa
@@ -10115,7 +10126,6 @@ if __name__ == "__main__":
             pass
         _sys.exit(0)
 
-    print("--- DENTRO DO BLOCO MAIN, ANTES DE SETUP_LOGGING ---")
     # Inicializa logging
     setup_logging()
 
