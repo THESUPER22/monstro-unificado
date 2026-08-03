@@ -1383,3 +1383,10 @@ Painel de cotações globais no topo do dashboard:
 - Maturação: **2/30 dias**. **Item 3 permanece travado** — não mexer no config do v22.
 
 **Caveats registrados no script:** (1) dias vêm de decisions (proxy), (2) truncamento em 5000 linhas → backup dos CSVs preserva amostra, (3) barras assumem SL2/TP4, (4) fills reais podem pagar spread cheio (barra 45,7%).
+
+## VERIFICACAO DE INICIALIZACAO (02/08/2026, domingo, mercado fechado)
+
+Inicio do MonstroDashboard.exe (build 30/07 23:50) + MT5 + Sentinela OK, sem crash. Porem: **o EXE nao gravou em monstro_wdo.log** (ultima entrada 30/07 19:47), enquanto o historico_contexto_wdo.csv foi corrigido na inicializacao (22:21:49). Suspeita: setup_logging() vira no-op no build PyInstaller (basicConfig ignorado se ja existe handler do root logger na importacao). O script Python (venv310) grava log normalmente (evidencia de 30/07).
+
+- Para operar amanha: usar iniciar_v22_wdo.bat (python + venv310) como fonte confiavel de log. Rebuild do EXE fica pendente (nao urgente; mercado fechado hoje).
+- stop_all.bat NAO mata o MonstroDashboard.exe (so python + terminal64). Encerrar o EXE manualmente se necessario.
