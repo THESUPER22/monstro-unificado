@@ -1,0 +1,30 @@
+name: Monstro CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+    - name: Syntax check (py_compile)
+      run: |
+        python -m py_compile \
+          monstro_unificado_v22.py \
+          agente_monstro_core.py \
+          dashboard_routes.py \
+          sentinela_fluxo.py \
+          selecao_estrategia_regime.py \
+          config_manager.py \
+          tests/testes_pos_fix.py
+    - name: Static post-fix checks (Sessao 17)
+      env:
+        CI: "true"
+      run: python tests/testes_pos_fix.py

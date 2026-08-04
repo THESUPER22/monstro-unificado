@@ -41,8 +41,6 @@
     "min_eventos_standby": 20,
     "min_trades_para_winpct": 10,
     "winpct_acaso": 30.5,
-    "winpct_break_even": 37.3,
-    "max_mudancas_por_ciclo": 1,
     "entropia_min_operavel": 2.75,
     "atr_min_operavel": 1.5
   },
@@ -51,9 +49,11 @@
     "health_timeout_s": 120,
     "smoke_test_s": 25,
     "porta_fallback": 5001,
-    "watchdog_enabled": false,
+    "watchdog_enabled": true,
     "janela_inicio": "12:30",
-    "janela_fim": "14:30"
+    "janela_fim": "14:30",
+    "expediente_inicio": "09:00",
+    "expediente_fim": "17:40"
   },
   "paths": {
     "base": "C:\\AIOFEN",

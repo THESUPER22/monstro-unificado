@@ -18,20 +18,18 @@ echo.
 echo Aguardando encerramento gracioso (45 segundos)...
 timeout /t 45 /nobreak >nul
 
-REM Verifica se o processo Python do Monstro ainda esta rodando
-wmic process where "name='python.exe' and commandline like '%%monstro_unificado_v22%%'" get processid 2>nul | find /i "ProcessId" >nul
-if %errorlevel% equ 0 (
-    echo Processo ainda ativo, aguardando mais 20 segundos...
-    timeout /t 20 /nobreak >nul
-)
-
-REM Mata o processo Python do Monstro especificamente
+REM Mata o processo Python do Monstro especificamente (PowerShell/CIM - compativel com Win10/11)
 echo Encerrando processo Python do Monstro...
-wmic process where "name='python.exe' and commandline like '%%monstro_unificado_v22%%'" delete >nul 2>&1
+powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'python.exe' -and $_.CommandLine -like '*monstro_unificado_v22*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
 
-REM Fecha a janela CMD com titulo "Monstro V2 - WIN" (aberta pelo all.bat)
+REM Mata o EXE do Monstro se estiver rodando (dashboards manuais)
+echo Encerrando MonstroDashboard.exe se ativo...
+powershell -NoProfile -Command "Get-Process MonstroDashboard -ErrorAction SilentlyContinue | Stop-Process -Force"
+
+REM Fecha a janela CMD do Monstro (titulo atual: Monstro V22 - WDO)
 echo Fechando janela do Monstro...
-taskkill /fi "windowtitle eq Monstro V2 - WIN" /f >nul 2>&1
+taskkill /fi "windowtitle eq Monstro V22 - WDO" /f >nul 2>&1
+taskkill /fi "windowtitle eq MONSTRO START (AUTONOMO)" /f >nul 2>&1
 
 REM Aguarda 3 segundos para garantir que fechou
 timeout /t 3 /nobreak >nul
@@ -52,5 +50,4 @@ echo.
 echo ========================================
 echo    ENCERRAMENTO CONCLUIDO
 echo ========================================
-echo.
-pause
+timeout /t 3 /nobreak >nul

@@ -605,7 +605,19 @@ def git_commit_dia():
         log.error(f"git commit falhou: {e}")
 
 
+def dentro_do_expediente():
+    """Seg-Sex dentro de [h_ini, h_fim] configurados em rotinas (padrao 09:00-17:40)."""
+    if datetime.now().weekday() >= 5:
+        return False
+    h_ini, h_fim = R.get("expediente_inicio", "09:00"), R.get("expediente_fim", "17:40")
+    hora_atual = datetime.now().strftime("%H:%M")
+    return h_ini <= hora_atual <= h_fim
+
+
 def run_watchdog():
+    if not dentro_do_expediente():
+        log.info("watchdog: fora do expediente (seg-sex 09:00-17:40) - sem acao")
+        return
     if not pids_robo():
         log.warning("watchdog: robo caido - reiniciando")
         start_mt5()
@@ -645,6 +657,9 @@ def main():
     elif modo == "fecho":
         run_fecho()
     elif modo == "watchdog":
+        if not R.get("watchdog_enabled"):
+            log.info("watchdog desabilitado no config (watchdog_enabled=false) - abortando")
+            return
         run_watchdog()
     elif modo == "dryrun":
         dryrun()

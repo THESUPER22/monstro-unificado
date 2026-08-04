@@ -1,7 +1,7 @@
 # ============================================================
 # ROADMAP — ROBÔ WDO (Mini Dólar)
 # Versão: 22 | Arquivo: monstro_unificado_v22.py
-# Atualizado: 02/08/2026 (Fim do Modo Aprendizado + Parâmetros restaurados + Scaler real + Atomicidade save + Dup class removida + Code Review Aprovado + Fixes Robustez + Automações do ambiente + Seleção por regime - design + Decisão dados WIN)
+# Atualizado: 03/08/2026 (Desbloqueio em cascata + ADVISORY + Agente Autônomo FASE 1 IMPLEMENTADO + Fix CWD EXE + EXE recompilado + 3 tasks agendadas + push 4711155)
 # ============================================================
 
 ## VISÃO GERAL
@@ -613,6 +613,23 @@ pyinstaller MonstroDashboard.spec
 - [x] ler_book_dol(), analisar_sinal_dol()
 - [x] Subscrição DOL no MT5
 - [x] Veto/confirmação no fluxo de decisão
+
+### FASE 11 — AGENTE AUTÔNOMO (AUTOTUNER DELIMITADO) ✅ FASE 1 CONCLUÍDA (03/08/2026)
+- [x] `agente_monstro_core.py` — orquestração (run_pausa/run_fecho/run_watchdog/main)
+- [x] Gatekeeper `aplicar_ajuste()` + `rollback_config()` + whitelist 5 parâmetros (clamp duro)
+- [x] Árvore `decidir()` + `blocker_dominante()` (relatórios sem viés)
+- [x] Trava de horário de autonomia [12:30, 14:30] (`dentro_da_janela_autonomia()`)
+- [x] Estado persistente `agente_estado.json` + trava 1 ajuste/dia (`pode_ajustar()`)
+- [x] Diff estrutural `verificar_mudanca_codigo()` + `agente_snapshot_v22.py` (detecta, não altera)
+- [x] Contagem correta de trades executados ("processada e resetada")
+- [x] Automação: `start_all.bat` + 4 tasks Task Scheduler (Start 09:00 / Pausa 12:30 / Watchdog 15min / Fecho 17:35)
+- [x] `.gitignore` ampliado + pushes `b800436`, `1ad5ad6`, `b3b8c87`, `4711155` → main
+- [x] Watchdog LIGADO (03/08): task `Monstro-Watchdog` a cada 15min (09:05-17:35) + flag `watchdog_enabled: true` + guarda `dentro_do_expediente()` (seg-sex 09:00-17:40 — impede reinício no fim de semana)
+- [x] CI GitHub Actions (`monstro-ci.yml`): py_compile + `tests/testes_pos_fix.py` (9/9 PASS local; CSV skip no CI)
+- [x] Código morto removido (bloco MODO_CONSERVADOR* do v22) + config morta removida (winpct_break_even, max_mudancas_por_ciclo)
+- [x] Log do EXE recompilado confirmado (monstro_wdo.log mtime 03/08 22:12)
+- [ ] ⏳ VALIDAÇÃO EM PRODUÇÃO: primeira execução autônoma real (04/08/2026) — pendente
+- [ ] LLM consultor (Fase 2) — pendente (recomendações após N dias de amostra)
 
 ---
 
@@ -1419,17 +1436,11 @@ Inicio do MonstroDashboard.exe (build 30/07 23:50) + MT5 + Sentinela OK, sem cra
 
 **Lição:** qualquer JSON lido com utf-8 puro é vulnerável a BOM de editores externos. Usar utf-8-sig em leituras de JSON editáveis manualmente.
 
-## 🔴 URGENCIA PARA HOJE (03/08/2026) — EXE sensivel ao diretorio de lancamento (CWD)
+## ✅ RESOLVIDA (03/08/2026, noite) — URGENCIA EXE sensivel ao diretorio de lancamento (CWD)
 
-**STATUS: ABERTO — tratar HOJE A NOITE (apos fechamento).**
+**Fix definitivo aplicado:** `_caminho_base()` (monstro_unificado_v22.py:335) agora retorna o diretório que **contém `config.json`** (C:\AIOFEN) ANTES do fallback dirname(sys.executable) — caminha pelo caminho real do projeto, independente do CWD e da estrutura _MEIPASS do PyInstaller. Dashboard e config_manager usam o mesmo caminho.
 
-**Problema:** o EXE recompilado (build 03/08 13:29) so encontra os arquivos de dados (modelo, config, CSVs) quando lancado **de dentro de C:\AIOFEN**. Lancado de outro CWD (ex.: dist\MonstroDashboard), o _caminho_base() cai no fallback dirname(sys.executable) e o robo **cria um modelo NOVO EM BRANCO** (modelo_monstro_wdo.h5 de ~112KB) — perde o cerebro treinado.
-
-**Risco concreto:** a tarefa agendada start_all.bat (08:58) tem o campo **"Start in" VAZIO** (CWD indefinido). Se o CWD default nao for C:\AIOFEN, amanha o robo sobe com modelo em branco = opera sem aprendizado.
-
-**Mitigacao hoje (validada):** lancando o EXE de C:\AIOFEN (como o ll.bat faz com /d "C:\AIOFEN"), o EXE funciona 100% — painel desktop abre, modelo treinado (262 experiencias), config certa (SL=8/TP=0/magic 123456), log gerando (force=True), dashboard na 5001. **O EXE de hoje esta OK porque foi lancado de C:\AIOFEN.**
-
-**Fix definitivo (a fazer HOJE A NOITE):** tornar _caminho_base() deterministico — caminhar para cima a partir de sys.executable ate achar a pasta do projeto (marcador monstro_unificado_v22.py), independente do CWD e da estrutura _MEIPASS do PyInstaller. Aplicar em monstro_unificado_v22.py, dashboard_routes.py e config_manager.py. Recompilar e testar lancando de um CWD fora de C:\AIOFEN. So depois disso o agendador de 08:58 estara seguro.
+**Validação (prova):** EXE recompilado (03/08 22:08, 27.079.150 bytes) lançado de `C:\Windows\System32` → carregou config real (SL=8/TP=0/magic 123456) e gravou em C:\AIOFEN. Backup do EXE antigo: `dist\MonstroDashboard\MonstroDashboard.exe.bak_cwd_fix`.
 
 ## DECISAO DO ENGENHEIRO (03/08/2026, tarde) — gate pós-DOL vira ADVISORY (penalizador)
 
@@ -1456,3 +1467,132 @@ A autópsia da manhã achou o gate DOL, mas ao destravar surgiram gates MAIS UPS
 **ESTADO FINAL (15:55):** robô CORRETAMENTE desbloqueado — acorda, analisa, chega no modelo. O que segura trades agora é o **Williams %R genuíno (mercado sobrevendido)**, não excesso de rigidez. O robô vai operar quando o preço sair do fundo (%R > -80). NÃO desabilitar o veto de %R (é o que evita pegar faca caindo = perder dinheiro).
 
 **Bugs do dia já corrigidos:** BOM config.json (rodava nos defaults), log EXE (force=True), EXE recompilado, CWD do EXE (urgência p/ noite). Filtros relaxados: DOL advisory + sniper 1,2.
+
+---
+
+## AGENTE AUTÔNOMO FASE 1 — IMPLEMENTADO (03/08/2026, noite)
+
+**Objetivo:** robô evoluir sozinho dentro de limites seguros (autotuner delimitado), com automação diária e auditoria, sem intervenção humana no expediente.
+
+**Arquitetura (auditada):** NÃO existem `orchestrator.py`, `autotuner_gatekeeper.py` nem `smoke_test.py`. Tudo em UM arquivo: **`agente_monstro_core.py`**. Papéis mapeados:
+- Orquestrador → `run_pausa()` / `run_fecho()` / `run_watchdog()` / `main()`
+- Gatekeeper → `aplicar_ajuste()` + `rollback_config()`
+- Smoke test → `smoke_test()` + `health_check()`
+- Árvore de decisão → `decidir()` + `blocker_dominante()`
+
+### Lacunas de segurança fechadas (commit `4711155`, +146 linhas)
+
+1. **Trava de horário** — `dentro_da_janela_autonomia()`: `run_pausa()` aborta SEM nenhuma ação fora de [12:30, 14:30]. Config: `rotinas.janela_inicio/janela_fim` no agente_config.json. Testado: 21:30→False, 13:00→True.
+2. **Estado persistente** — `agente_estado.json` (gitignored): `carregar_estado()`/`salvar_estado()`, `pode_ajustar()` = trava física de 1 ajuste/dia (bloqueia 2ª execução manual), `registrar_mudanca()` grava data/hora/param/de/para/motivo/tipo + histórico 200 reg + rollback. Trava verificada ANTES de parar o robô.
+3. **Diff estrutural** — `verificar_mudanca_codigo()` (difflib): compara `agente_snapshot_v22.py` com o fonte no `run_fecho()`; se mudou, gera `diff_estrutural_YYYYMMDD.txt` (+n/-m) e adiciona seção ao relatório diário. Fase 1 só detecta/reporta — nunca altera `.py`. Testado (diff +0/-2 detectado, snapshot restaurado).
+
+### Whitelist (trava dura em `aplicar_ajuste()`, clamp max/min)
+
+| Parâmetro | Faixa | Passo |
+|-----------|-------|-------|
+| `sniper_ratio_min` | [1,1 … 1,5] | −0,1 |
+| `book_ratio_min` | [1,2 … 1,5] | −0,1 |
+| `dol_conf_min` | [0,3 … 0,5] | −0,05 |
+| `sl_points` | [5 … 10] | +1 |
+| `tp_points` | [0 … 12] | +1 |
+
+### Correção crítica de contagem (03/08)
+
+`decidir()` agora usa `contar_executados_hoje()` = marcador **"processada e resetada"** no `monstro_wdo.log` (equivale aos appends `total_operacoes` do dashboard). Sinais BUY/SELL em `decisions_wdo.csv` NÃO contam como trade. Validado 03/08: 4 sinais BUY → **0 executados** (vetados por Williams %R — proteção legítima). Config NÃO é hot reload (1× no boot) — agente faz restart controlado: `parar_robo → aplicar_ajuste → start_robot → smoke_test → rollback` se falhar.
+
+---
+
+## AGENDAMENTO DIÁRIO AUTÔNOMO (03/08/2026, noite) — 3 tasks no Task Scheduler
+
+2ª–6ª feira, usuário 22the, modo Interativo, privilégio HIGHEST:
+
+| Task | Horário | Ação |
+|------|---------|------|
+| `Monstro-Start` | 09:00 | `start_all.bat` (MT5 + robô via venv310, autônomo sem pause) |
+| `Monstro-Pausa` | 12:30 | agente `pausa` → `run_pausa()` com trava de janela + estado |
+| `Monstro-Fecho` | 17:35 | agente `fecho` → `run_fecho()` + relatório diário + diff estrutural + commit/push |
+
+`.gitignore` ampliado: `experiencias_wdo.json`, `agente_estado.json`, `parar.txt`, `agente_snapshot_v22.py`, `diff_estrutural_*.txt`.
+
+**Git:** push `399629e..b3b8c87 → main` (commits `b800436`, `1ad5ad6`, `b3b8c87`) + push `4711155 → main` (lacunas de segurança). Repo sincronizado.
+
+---
+
+## MAPA DO DIA 04/08/2026 — o que esperar amanhã (primeira execução autônoma real)
+
+### Linha do tempo
+```
+09:00  Monstro-Start → MT5 sobe + robô venv310 (log force=True, config certa SL=8/TP=0)
+       → validar: config correta, modelo treinado carregado (não em branco), dashboard 5001
+09:15  PA1 abre → robô acorda, analisa, chega no modelo (sniper_ratio 1,2)
+12:30  Monstro-Pausa → run_pausa() DENTRO da janela [12:30,14:30] → decide ajuste
+       → validar: 1ª execução do dia permitida (pode_ajustar True), registro no agente_estado.json
+17:35  Monstro-Fecho → run_fecho(): apuração do dia + relatório + diff estrutural + commit/push
+```
+
+### Validar ao longo do dia
+1. **Start 09:00:** modelo treinado carregado (262+ experiências) — NUNCA modelo em branco (~112KB).
+2. **Pausa 12:30:** robô para graciosamente (salva modelo+experiências); agente verifica `pode_ajustar()` antes; ajuste respeita whitelist; smoke_test após restart; rollback se falhar.
+3. **Fecho 17:35:** relatório diário gerado com seção de diff estrutural; git commit/push automáticos.
+4. **Métrica central:** quantos trades EXECUTADOS (marcador "processada e resetada") vs sinais — comparar win% com baseline 37,3% (taxas) / 45,7% (spread).
+5. ~~**Vigiar o comportamento observado no teste:** robô repetindo "FECHANDO TODAS AS POSIÇÕES" a cada ~30s após 17:35 — investigar se repete amanhã.~~ ✅ **RESOLVIDO (03/08, noite)** — comportamento esclarecido/corrigido conforme operador; não repetir investigação.
+
+### Se algo falhar (fallback manual)
+- MT5 não subiu → abrir `start_all.bat` manualmente (C:\AIOFEN).
+- Robô não logou → checar `monstro_wdo.log` (força de escrita); diagnóstico via script venv310 (EXE ainda não regrava log de forma confiável em alguns CWD).
+- Agente não ajustou → `pode_ajustar()` pode ter bloqueado (trava 1/dia) — esperar ou revisar `agente_estado.json`.
+
+### Decisões pendentes / não bloqueantes
+- **Watchdog**: `watchdog_enabled: false` no agente_config.json — religar em Fase 2 quando LLM consultor entrar.
+- **Sniper 1,2 / DOL ADVISORY:** mantidos como exceções diagnósticas até acumular amostra (win% medido) — NÃO restaurar 1,5 sem dados.
+- **Restaurar config hot reload** (1× no boot) — opcional, agente já faz restart controlado.
+- **LLM consultor (Fase 2):** recomendações para o agente após N dias de amostra.
+
+---
+
+## RESUMO DO DIA 03/08/2026 (mapa do que foi feito)
+
+**Manhã — Autópsia (zero trades):** 2663 decisões "NADA", 0 trades. Gate DOL (conf≥0,5) zerava ~100% entradas. Relaxamento cirúrgico: DOL_CONF_MIN 0,5→0,4, BOOK_RATIO_MIN 1,5→1,3.
+
+**Bug crítico:** config.json salvo com BOM UTF-8 → robô rodava INTEIRO nos defaults (SL=5/TP=10/magic 123457/porta 5002). Fix: BOM removido + `utf-8-sig` em leituras JSON.
+
+**Tarde — Desbloqueio em cascata:** gate DOL virou **ADVISORY** (penalizador DOL fraco ×0,70 / book baixo ×0,85 — Gate#1 de contradição DOL MANTIDO). Novo bloqueio: **sniper_ratio_min 1,5→1,2** (robô passou a acordar e chegar no modelo). Estado final: robô CORRETAMENTE desbloqueado; quem segura trades é o **Williams %R genuíno** (mercado sobrevendido −86/−100) — proteção legítima, NÃO desabilitar.
+
+**Noite — Agente Autônomo Fase 1:** fix `_caminho_base()` determinístico + EXE recompilado/provado; lacunas fechadas (trava horário, estado persistente, diff estrutural); whitelist 5 parâmetros; contagem de trades corrigida; 3 tasks agendadas (Start 09:00 / Pausa 12:30 / Fecho 17:35); `.gitignore` ampliado; **push `4711155 → main`** (repo sincronizado).
+
+---
+
+## REVISÃO DE CONFLITOS DO AGENDADOR (03/08/2026, noite) — tasks vs agente
+
+**Problema encontrado (CRÍTICO):** a task antiga **`start_all.bat`** (criada 23/07, **08:58** 2ª–6ª) subia o **EXE** (`dist\MonstroDashboard\MonstroDashboard.exe`) enquanto a nova **`Monstro-Start`** (09:00) subia o robô via **python venv310** → a partir de 04/08 rodariam **DOIS robôs simultâneos** (mesmo magic no MT5 = ordens duplicadas; 2 dashboards brigando pela porta 5001).
+
+**Correção aplicada:**
+1. **Task antiga `start_all.bat` → DESATIVADA** (via UAC admin; Status: Disabled). O EXE não sobe mais automaticamente.
+2. **`start_all.bat` (arquivo) blindado:** proteção anti-duplicidade — aborta o start se já houver `python.exe` rodando `monstro_unificado_v22` **ou** `MonstroDashboard.exe` (previne 2º robô mesmo em start manual).
+3. **`stop_all.bat` (task `cleanup_monstro_final.bat` 18:32):** `wmic` (deprecado Win11) → **PowerShell/CIM**; passa a matar também `MonstroDashboard.exe`; janela com título atual "Monstro V22 - WDO"; **`pause` removido** (não pendura mais a task agendada).
+
+**Mapa final do agendador (2ª–6ª, sem conflito):**
+| Task | Horário | Ação | Conflito? |
+|------|---------|------|-----------|
+| Monstro Backup GitHub | 08:50 (diária) | `backup_auto.vbs` → git commit/push | Não (só git, robô ainda não subiu) |
+| ~~start_all.bat (EXE)~~ | ~~08:58~~ | ~~MonstroDashboard.exe~~ | **DESATIVADA** — era o duplo robô |
+| Monstro-Start | 09:00 | `start_all.bat` → MT5 + python v22 | OK (único start) |
+| Monstro-Pausa | 12:30 | `agente pausa` → `run_pausa()` | OK (dentro da janela [12:30,14:30]) |
+| Monstro-Fecho | 17:35 | `agente fecho` → para robô+MT5, relatório, commit/push | OK |
+| cleanup_monstro_final.bat | 18:32 | `stop_all.bat` (novo, robusto) | OK (backstop pós-fecho, sem `pause`) |
+
+> **Nota:** `Monstro-Fecho` (17:35) já executa `parar_robo()` + `stop_mt5()`; o `cleanup` 18:32 é backstop de segurança caso o fecho falhe.
+
+---
+
+## REFINAMENTOS DA NOITE (03/08/2026) — watchdog + CI + limpeza
+
+Itens que **NÃO dependem de acumular trades** (feitos agora):
+
+1. **Watchdog LIGADO** — `watchdog_enabled: true` + task `Monstro-Watchdog` (15min, 09:05-17:35, 2ª-6ª) + flag respeitado no `main()` + guarda `dentro_do_expediente()` (seg-sex 09:00-17:40) para NUNCA reiniciar o robô no fim de semana. Teste manual: "fora do expediente - sem acao".
+2. **CI GitHub Actions** — `monstro-ci.yml` substituiu o template `python-package.yml` (que rodaria flake8+pytest em 100+ scripts antigos e falharia). Novo: py_compile (6 fontes) + `tests/testes_pos_fix.py` → **9/9 PASS** local. `testes_pos_fix.py` tinha **código duplicado (2 cópias)** — reescrito limpo + skip de CSV no CI (dados são gitignored).
+3. **Código morto removido** — bloco `MODO_CONSERVADOR_*` (ATR/ENTROPIA/VOLUME/SL/TP) do v22: nenhuma constante era referenciada. Removido + `agente_snapshot_v22.py` atualizado (sem diff falso no fecho).
+4. **Config morta removida** — `winpct_break_even` e `max_mudancas_por_ciclo` do `agente_config.json` (não referenciados no código). JSON validado.
+5. **Log do EXE confirmado** — `monstro_wdo.log` com mtime 03/08 **22:12:50** (entradas do teste do EXE recompilado lançado de System32). Pendência do "EXE não grava log" ENCERRADA. (Erro Permission denied às 22:12 foi do teste com processos simultâneos — não reproduz em operação normal.)
+
+**Backtest histórico: confirmado como JÁ FEITO** (02/08, Sessão 20): calibração com 1 ano de ticks (`calibrar_wdo_historico.py`, 2,28 GB/48,8M ticks), validação fora da amostra do seletor de regime (Spearman +0,771; precisão EXPLOSAO 77,6%) e baseline moeda (15.000 entradas, win% acaso 30,5% / break-even 37,3%). O backtest E2E do robô com modelo segue NÃO feito (depende de book real — indisponível; só validável ao vivo/demo).

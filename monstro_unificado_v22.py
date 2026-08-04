@@ -1071,14 +1071,6 @@ class DetectorModoMercado:
         return volume_base, sl_base, tp_base
 
 
-# ConfiguraÃ§Ãµes dos modos de mercado
-# ATR mÃ­nimo para modo conservador (WDO: ATR tÃ­pico 2-10 pontos)
-MODO_CONSERVADOR_ATR = 2.0
-MODO_CONSERVADOR_ENTROPIA = 0.3  # Entropia baixa para modo conservador
-VOLUME_CONSERVADOR_MULT = 0.5     # Volume reduzido em modo conservador
-SL_CONSERVADOR_MULT = 0.7         # SL menor em modo conservador
-TP_CONSERVADOR_MULT = 0.8         # TP menor em modo conservador
-
 # InstÃ¢ncia global do detector de modo
 detector_modo = None
 
