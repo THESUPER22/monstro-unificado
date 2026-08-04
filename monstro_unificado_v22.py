@@ -333,19 +333,24 @@ class GerenciadorBloqueio:
 # region [ConfiguraÃ§Ãµes]
 # ---- RESOLUÃ‡ÃƒO DE CAMINHOS (corrige PyInstaller vs script) ----
 def _caminho_base():
-    """Retorna o diretÃ³rio base para escrita de arquivos de dados.
-       Prioriza o diretÃ³rio do script (C:\AIOFEN) mesmo no PyInstaller,
-       onde o executÃ¡vel estÃ¡ em dist\MonstroDashboard\."""
+    """Retorna o diretÃ³rio base para escrita de arquivos de dados (C:\\AIOFEN).
+       Independente do CWD e da localizaÃ§Ã£o do executÃ¡vel PyInstaller:
+       prioriza o diretÃ³rio que CONTÃ‰M o config.json (assinatura do projeto)."""
+    candidatos = [r"C:\AIOFEN"]
     if getattr(sys, 'frozen', False):
+        candidatos.append(os.path.dirname(sys.executable))
         if hasattr(sys, '_MEIPASS'):
-            # Sobe de _internal para o diretorio do projeto
-            pai = os.path.dirname(os.path.dirname(sys._MEIPASS))
-            if os.path.basename(pai) == 'dist':
-                pai = os.path.dirname(pai)
-            if pai and os.path.isdir(pai) and os.path.exists(os.path.join(pai, 'monstro_unificado_v22.py')):
-                return pai
-        return os.path.dirname(sys.executable)
-    return os.path.dirname(os.path.abspath(__file__))
+            candidatos.append(os.path.dirname(os.path.dirname(sys._MEIPASS)))
+    else:
+        candidatos.append(os.path.dirname(os.path.abspath(__file__)))
+    candidatos.append(os.getcwd())
+    for c in candidatos:
+        try:
+            if c and os.path.isdir(c) and os.path.exists(os.path.join(c, 'config.json')):
+                return c
+        except Exception:
+            continue
+    return candidatos[0]
 
 def _caminho_dados(nome):
     """Retorna caminho absoluto para um arquivo de dados."""
