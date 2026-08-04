@@ -92,6 +92,66 @@ def porta_dashboard():
         return R["porta_fallback"]
 
 
+# ------------------------------------------------------ estado persistente -----
+def carregar_estado():
+    """Le agente_estado.json. Estrutura minima quando ausente/corrompido."""
+    try:
+        with open(ESTADO, encoding="utf-8") as f:
+            st = json.load(f)
+        if not isinstance(st, dict):
+            raise ValueError("estado nao e um dict")
+    except Exception:
+        st = {}
+    st.setdefault("ultima_mudanca", None)
+    st.setdefault("historico", [])
+    st.setdefault("codigo_hash", None)
+    return st
+
+
+def salvar_estado(st):
+    try:
+        with open(ESTADO, "w", encoding="utf-8") as f:
+            json.dump(st, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        log.error(f"falha ao salvar estado: {e}")
+
+
+def pode_ajustar():
+    """Trava fisica: no maximo 1 mudanca de parametro por dia/ciclo.
+    Retorna (permitido, ultima_mudanca_registrada)."""
+    st = carregar_estado()
+    um = st.get("ultima_mudanca")
+    if um and um.get("data") == datetime.now().strftime("%Y-%m-%d"):
+        return False, um
+    return True, um
+
+
+def registrar_mudanca(param, de, para, motivo, tipo="ajuste"):
+    """Registra a mudanca no estado persistente e mantem historico (max 200)."""
+    st = carregar_estado()
+    agora = datetime.now()
+    reg = {"data": agora.strftime("%Y-%m-%d"), "hora": agora.strftime("%H:%M:%S"),
+           "param": param, "de": de, "para": para, "motivo": motivo, "tipo": tipo}
+    st["ultima_mudanca"] = reg
+    st.setdefault("historico", []).append(reg)
+    st["historico"] = st["historico"][-200:]
+    salvar_estado(st)
+    return reg
+
+
+# ------------------------------------------------------- janela de autonomia ---
+def dentro_da_janela_autonomia():
+    """Ajuste de parametro SOMENTE dentro da janela [janela_inicio, janela_fim].
+    Fora dela o agente aborta sem nenhuma acao (seguranca)."""
+    try:
+        agora = datetime.now().strftime("%H:%M")
+        ini, fim = R["janela_inicio"], R["janela_fim"]
+        return ini <= agora <= fim
+    except Exception as e:
+        log.error(f"janela: config invalida ({e}) - bloqueando ajuste por seguranca")
+        return False
+
+
 # ---------------------------------------------------------------- processos -
 def pids_robo():
     out = []
@@ -366,6 +426,10 @@ def smoke_test():
 def run_pausa():
     log.info("=" * 60)
     log.info("PAUSA 12:30 - analise e decisao autonoma")
+    if not dentro_da_janela_autonomia():
+        log.warning(f"FORA DA JANELA DE AUTONOMIA ({R['janela_inicio']}-{R['janela_fim']}) "
+                    f"- abortando SEM nenhuma acao")
+        return
     stats = parse_decisions()
     counts, last = parse_vetos_log()
     param, motivo = decidir(stats, counts, last)
@@ -382,6 +446,11 @@ def run_pausa():
             log.info("robo segue rodando (sem necessidade de restart)")
         return
 
+    permitido, um = pode_ajustar()
+    if not permitido:
+        log.warning(f"TRAVA 1 AJUSTE/DIA: ja houve mudanca hoje {um} - mantendo config intacta")
+        return
+
     log.info(f"DECISAO: AJUSTAR {param}. {motivo}")
     if not parar_robo():
         log.error("NAO consegui parar o robo - abortando ajuste por seguranca")
@@ -394,6 +463,8 @@ def run_pausa():
         health_check(R["health_timeout_s"])
         return
 
+    registrar_mudanca(param, valores[0], valores[1], motivo)
+
     start_mt5()
     start_robot()
     ok, m = smoke_test()
@@ -403,10 +474,60 @@ def run_pausa():
         log.error(f"SMOKE TEST FALHOU ({m}) - rollback de {param}")
         parar_robo()
         rollback_config(param, valores[0])
+        registrar_mudanca(param, valores[1], valores[0], f"rollback apos smoke falho: {m}",
+                          tipo="rollback")
         start_mt5()
         start_robot()
         ok2, m2 = health_check(R["health_timeout_s"])
         log.info(f"apos rollback, robo: {ok2} ({m2})")
+
+
+def verificar_mudanca_codigo():
+    """Detecta alteracoes ESTRUTURAIS no codigo-fonte vs ultima versao conhecida.
+    Gera diff unificado em Python puro (difflib) e salva diff_estrutural_YYYYMMDD.txt.
+    Fase 1: apenas REPORTADA - o agente NUNCA altera o .py de producao sozinho."""
+    from difflib import unified_diff
+    robo = os.path.join(BASE_DIR, P["robo_script"])
+    snap = os.path.join(BASE_DIR, "agente_snapshot_v22.py")
+    if not os.path.exists(robo):
+        return None
+    try:
+        atual = open(robo, encoding="utf-8-sig").read()
+    except Exception as e:
+        log.error(f"erro ao ler fonte p/ diff: {e}")
+        return None
+    if not os.path.exists(snap):
+        try:
+            with open(snap, "w", encoding="utf-8") as f:
+                f.write(atual)
+        except Exception as e:
+            log.error(f"erro ao criar snapshot inicial: {e}")
+        return None
+    try:
+        anterior = open(snap, encoding="utf-8-sig").read()
+    except Exception as e:
+        log.error(f"erro ao ler snapshot: {e}")
+        return None
+    if anterior == atual:
+        return None
+    diff = "\n".join(unified_diff(
+        anterior.splitlines(), atual.splitlines(),
+        fromfile="monstro_unificado_v22.py (ultima execucao)",
+        tofile="monstro_unificado_v22.py (atual)", lineterm=""))
+    if not diff.strip():
+        return None
+    nome = os.path.join(BASE_DIR, f"diff_estrutural_{datetime.now():%Y%m%d}.txt")
+    try:
+        with open(nome, "w", encoding="utf-8") as f:
+            f.write(diff)
+        with open(snap, "w", encoding="utf-8") as f:
+            f.write(atual)
+    except Exception as e:
+        log.error(f"erro ao salvar diff/snapshot: {e}")
+        return None
+    add = sum(1 for l in diff.splitlines() if l.startswith("+") and not l.startswith("+++"))
+    rem = sum(1 for l in diff.splitlines() if l.startswith("-") and not l.startswith("---"))
+    return {"nome": os.path.basename(nome), "add": add, "rem": rem}
 
 
 def run_fecho():
@@ -414,12 +535,18 @@ def run_fecho():
     log.info("FECHO 17:35 - autopsia e consolidacao do dia")
     parar_robo()
     stop_mt5()
-    gerar_relatorio_diario()
+    info_diff = verificar_mudanca_codigo()
+    if info_diff:
+        log.info(f"MUDANCA ESTRUTURAL detectada no fonte: +{info_diff['add']}/-{info_diff['rem']} "
+                 f"(diff em {info_diff['nome']})")
+    else:
+        log.info("codigo-fonte inalterado desde a ultima execucao")
+    gerar_relatorio_diario(info_diff)
     git_commit_dia()
     log.info("FECHO concluido - ambiente pronto para amanha")
 
 
-def gerar_relatorio_diario():
+def gerar_relatorio_diario(info_diff=None):
     stats = parse_decisions()
     counts, last = parse_vetos_log()
     w = winpct_historico()
@@ -446,6 +573,18 @@ def gerar_relatorio_diario():
         v = get_path(cfg, W["caminhos"][0])
         linhas.append(f"  {p_name:<18} = {v}   (limites {W['min']}..{W['max']})")
     linhas.append("")
+    st = carregar_estado()
+    um = st.get("ultima_mudanca")
+    if um:
+        linhas.append("ULTIMA MUDANCA REGISTRADA (trava 1 ajuste/dia):")
+        linhas.append(f"  {um['data']} {um['hora']} {um['tipo']}: {um['param']} {um['de']} -> {um['para']}")
+        linhas.append(f"  motivo: {um['motivo']}")
+        linhas.append("")
+    if info_diff:
+        linhas.append("MUDANCA ESTRUTURAL DETECTADA NO FONTE:")
+        linhas.append(f"  +{info_diff['add']} / -{info_diff['rem']} linhas")
+        linhas.append(f"  diff completo: {info_diff['nome']}")
+        linhas.append("")
     linhas.append("Nota: alteracoes estruturais de codigo ficam como PROPOSTA p/ revisao humana (Fase 1).")
     texto = "\n".join(linhas)
     nome = os.path.join(BASE_DIR, f"relatorio_diario_{data}.txt")

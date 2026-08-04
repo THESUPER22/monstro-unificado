@@ -51,7 +51,9 @@
     "health_timeout_s": 120,
     "smoke_test_s": 25,
     "porta_fallback": 5001,
-    "watchdog_enabled": false
+    "watchdog_enabled": false,
+    "janela_inicio": "12:30",
+    "janela_fim": "14:30"
   },
   "paths": {
     "base": "C:\\AIOFEN",
