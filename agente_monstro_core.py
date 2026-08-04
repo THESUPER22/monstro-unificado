@@ -428,7 +428,7 @@ def gerar_relatorio_diario():
     linhas.append("=" * 66)
     linhas.append(f"RELATORIO DIARIO MONSTRO - {datetime.now():%d/%m/%Y}")
     linhas.append("=" * 66)
-    linhas.append(f"Decisoes hoje: {stats.get('n_decisoes', 0)} | Trades (BUY/SELL): {stats.get('trades', 0)}")
+    linhas.append(f"Decisoes hoje: {stats.get('n_decisoes', 0)} | Sinais BUY/SELL: {stats.get('sinais', 0)} | Trades executados: {contar_executados_hoje()}")
     linhas.append(f"win% (historico reward!=0): {w if w is not None else 'sem amostra'}")
     linhas.append(f"Entropia med: {stats.get('entropia_med')} | ATR med: {stats.get('atr_med')} | Spread med: {stats.get('spread_med')}")
     linhas.append(f"Book ratio med: {stats.get('book_ratio_med')}")

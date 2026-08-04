@@ -113,3 +113,7 @@ Thumbs.db
 # --- Pastas pesadas (JDK, llama.cpp) ---
 Oracle_JDK-24/
 llama.cpp/
+experiencias_wdo.json
+agente_estado.json
+parar.txt
+relatorio_apuracao_diaria.txt
