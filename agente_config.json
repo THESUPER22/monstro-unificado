@@ -1,0 +1,70 @@
+{
+  "comentario": "Config do AGENTE AUTONOMO (nao do robo). Whitelist de parametros que o agente pode ajustar no config.json do robo, com limites duros. Aprovado pelo usuario em 03/08/2026.",
+  "whitelist": {
+    "sniper_ratio_min": {
+      "min": 1.1,
+      "max": 1.5,
+      "passo": -0.1,
+      "caminhos": ["sniper_ratio_min", "risk_management.sniper_ratio_min"],
+      "descricao": "Gate SNIPER de analise (6816). Relaxar quando 0 trades por standby (book equilibrado)."
+    },
+    "book_ratio_min": {
+      "min": 1.2,
+      "max": 1.5,
+      "passo": -0.1,
+      "caminhos": ["book_ratio_min"],
+      "descricao": "Gate pos-DOL book ratio (advisory). Relaxar quando DOL/book domina os vetos."
+    },
+    "dol_conf_min": {
+      "min": 0.3,
+      "max": 0.5,
+      "passo": -0.05,
+      "caminhos": ["dol_conf_min"],
+      "descricao": "Gate pos-DOL confianca DOL (advisory). Relaxar quando DOL conf domina os vetos."
+    },
+    "sl_points": {
+      "min": 5,
+      "max": 10,
+      "passo": 1,
+      "caminhos": ["sl_points", "risk_management.sl_points", "trading.sl_points"],
+      "descricao": "Stop loss em pontos. Ajuste fino (envelope de risco)."
+    },
+    "tp_points": {
+      "min": 0,
+      "max": 12,
+      "passo": 1,
+      "caminhos": ["tp_points", "trading.tp_points"],
+      "descricao": "Take profit em pontos (0 = saida dinamica por fluxo). Ajuste fino."
+    }
+  },
+  "decisao": {
+    "min_eventos_standby": 20,
+    "min_trades_para_winpct": 10,
+    "winpct_acaso": 30.5,
+    "winpct_break_even": 37.3,
+    "max_mudancas_por_ciclo": 1,
+    "entropia_min_operavel": 2.75,
+    "atr_min_operavel": 1.5
+  },
+  "rotinas": {
+    "graceful_timeout_s": 90,
+    "health_timeout_s": 120,
+    "smoke_test_s": 25,
+    "porta_fallback": 5001,
+    "watchdog_enabled": false
+  },
+  "paths": {
+    "base": "C:\\AIOFEN",
+    "robo_script": "monstro_unificado_v22.py",
+    "robo_exe": "dist\\MonstroDashboard\\MonstroDashboard.exe",
+    "python_venv": "venv310\\Scripts\\python.exe",
+    "mt5_exe": "C:\\Program Files\\MetaTrader 5 Terminal\\terminal64.exe",
+    "config_robo": "config.json",
+    "log_robo": "monstro_wdo.log",
+    "decisions_csv": "decisions_wdo.csv",
+    "historico_csv": "historico_contexto_wdo.csv",
+    "log_agente": "agente_autonomo.log",
+    "estado_agente": "agente_estado.json",
+    "relatorio_dir": "."
+  }
+}

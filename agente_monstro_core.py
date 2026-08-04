@@ -1,0 +1,517 @@
+# -*- coding: utf-8 -*-
+"""
+AGENTE AUTONOMO DO MONSTRO - Fase 1 (offline, deterministico)
+Modos de uso (via Agendador de Tarefas, privilegio elevado):
+    agente_monstro_core.py pausa     -> rotina das 12:30 (analise + ajuste + restart)
+    agente_monstro_core.py fecho     -> rotina das 17:35 (autopsia + relatorio + commit)
+    agente_monstro_core.py watchdog  -> checagem de vida (PID + porta)
+    agente_monstro_core.py dryrun    -> so analisa e mostra a decisao (NAO mexe em nada)
+
+Autonomia delimitada: so ajusta parametros da WHITELIST (agente_config.json),
+dentro de limites [min,max], 1 parametro por ciclo, com smoke test + rollback.
+Nao reescreve logica do fonte em producao nesta fase.
+"""
+import glob
+import json
+import logging
+import os
+import subprocess
+import sys
+import time
+from datetime import datetime
+
+import psutil
+import requests
+
+BASE = os.path.dirname(os.path.abspath(__file__))
+CFG = json.load(open(os.path.join(BASE, "agente_config.json"), encoding="utf-8-sig"))
+P = CFG["paths"]
+D = CFG["decisao"]
+R = CFG["rotinas"]
+BASE_DIR = P["base"]
+CONFIG_ROBO = os.path.join(BASE_DIR, P["config_robo"])
+LOG_ROBO = os.path.join(BASE_DIR, P["log_robo"])
+DECISIONS = os.path.join(BASE_DIR, P["decisions_csv"])
+LOG_AGENTE = os.path.join(BASE_DIR, P["log_agente"])
+ESTADO = os.path.join(BASE_DIR, P["estado_agente"])
+PARAR = os.path.join(BASE_DIR, "parar.txt")
+
+# ---------------------------------------------------------------- logging ---
+logging.basicConfig(
+    filename=LOG_AGENTE, level=logging.INFO, filemode="a", force=True,
+    format="%(asctime)s - %(levelname)s - %(message)s")
+_sh = logging.StreamHandler()
+_sh.setLevel(logging.INFO)
+logging.getLogger().addHandler(_sh)
+log = logging.getLogger()
+
+VETO_PATTERNS = {
+    "sniper_standby": "Standby: Aguardando Big Players",
+    "williams_r": "WILLIAMS %R VETO",
+    "veto_total": "VETO TOTAL",
+    "multi_tf": "MULTI-TF VETO",
+    "tendencia": "TENDÊNCIA VETO",
+    "sinal_neutro": "Sinal NEUTRO",
+    "dol_veto": "VETO DOL",
+    "book_ratio_veto": "VETO BOOK RATIO",
+}
+
+
+# ------------------------------------------------------------- config robo --
+def carregar_config_robo():
+    with open(CONFIG_ROBO, encoding="utf-8-sig") as f:
+        return json.load(f)
+
+
+def salvar_config_robo(cfg):
+    with open(CONFIG_ROBO, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=4, ensure_ascii=False)
+
+
+def get_path(obj, dotted):
+    cur = obj
+    for k in dotted.split("."):
+        if not isinstance(cur, dict) or k not in cur:
+            return None
+        cur = cur[k]
+    return cur
+
+
+def set_path(obj, dotted, value):
+    cur = obj
+    ks = dotted.split(".")
+    for k in ks[:-1]:
+        cur = cur.setdefault(k, {})
+    cur[ks[-1]] = value
+
+
+def porta_dashboard():
+    try:
+        return int(carregar_config_robo().get("web_dashboard", {}).get("port", R["porta_fallback"]))
+    except Exception:
+        return R["porta_fallback"]
+
+
+# ---------------------------------------------------------------- processos -
+def pids_robo():
+    out = []
+    for pr in psutil.process_iter(["pid", "name", "cmdline"]):
+        try:
+            cl = " ".join(pr.info.get("cmdline") or [])
+            if "monstro_unificado_v22" in cl or "MonstroDashboard.exe" in cl:
+                out.append(pr.info["pid"])
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    return out
+
+
+def parar_gracioso(timeout):
+    try:
+        with open(PARAR, "w") as f:
+            f.write("PARAR")
+        log.info("parar.txt criado - shutdown gracioso solicitado")
+    except Exception as e:
+        log.error(f"falha ao criar parar.txt: {e}")
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        if not pids_robo():
+            if os.path.exists(PARAR):
+                try:
+                    os.remove(PARAR)
+                except Exception:
+                    pass
+            log.info("robo encerrou graciosamente")
+            return True
+        time.sleep(3)
+    log.warning("timeout no shutdown gracioso")
+    return False
+
+
+def parar_forcado():
+    for pid in pids_robo():
+        try:
+            psutil.Process(pid).kill()
+            log.warning(f"force kill PID {pid}")
+        except Exception as e:
+            log.error(f"falha kill {pid}: {e}")
+    t0 = time.time()
+    while time.time() - t0 < 15 and pids_robo():
+        time.sleep(1)
+    if os.path.exists(PARAR):
+        try:
+            os.remove(PARAR)
+        except Exception:
+            pass
+    ok = not pids_robo()
+    log.info(f"parada forcada: {'ok' if ok else 'FALHOU'}")
+    return ok
+
+
+def parar_robo():
+    if not pids_robo():
+        log.info("robo ja estava parado")
+        return True
+    if parar_gracioso(R["graceful_timeout_s"]):
+        return True
+    return parar_forcado()
+
+
+def start_mt5():
+    if any("terminal64" in (pr.info.get("name") or "").lower() for pr in psutil.process_iter(["name"])):
+        log.info("MT5 ja estava rodando")
+        return
+    try:
+        subprocess.Popen([P["mt5_exe"]], cwd=os.path.dirname(P["mt5_exe"]))
+        log.info("MT5 iniciado, aguardando 15s")
+        time.sleep(15)
+    except Exception as e:
+        log.error(f"falha ao iniciar MT5: {e}")
+
+
+def start_robot():
+    cmd = [os.path.join(BASE_DIR, P["python_venv"]), P["robo_script"]]
+    subprocess.Popen(cmd, cwd=BASE_DIR, creationflags=subprocess.CREATE_NEW_CONSOLE)
+    log.info("robo iniciado (script venv310, CWD=C:\\AIOFEN)")
+
+
+def stop_mt5():
+    for pr in psutil.process_iter(["name"]):
+        try:
+            if "terminal64" in (pr.info.get("name") or "").lower():
+                pr.kill()
+                log.info("MT5 encerrado")
+        except Exception as e:
+            log.error(f"falha ao encerrar MT5: {e}")
+
+
+def health_check(timeout):
+    porta = porta_dashboard()
+    url = f"http://127.0.0.1:{porta}/api/status"
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        if not pids_robo():
+            return False, "processo do robo morreu"
+        try:
+            r = requests.get(url, timeout=3)
+            if r.status_code == 200 and r.json().get("thread_ativo"):
+                return True, f"OK porta {porta}"
+        except Exception:
+            pass
+        time.sleep(3)
+    return False, f"timeout {timeout}s aguardando porta {porta}"
+
+
+# ------------------------------------------------------------------ parsing -
+def parse_vetos_log():
+    hoje = datetime.now().strftime("%Y-%m-%d")
+    counts = {k: 0 for k in VETO_PATTERNS}
+    last = {k: None for k in VETO_PATTERNS}
+    if os.path.exists(LOG_ROBO):
+        with open(LOG_ROBO, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if not line.startswith(hoje):
+                    continue
+                ts = line[:19]
+                for k, pat in VETO_PATTERNS.items():
+                    if pat in line:
+                        counts[k] += 1
+                        last[k] = ts
+    return counts, last
+
+
+def parse_decisions():
+    import pandas as pd
+    if not os.path.exists(DECISIONS):
+        return {"sinais": 0, "n_decisoes": 0}
+    df = pd.read_csv(DECISIONS)
+    df["ts"] = pd.to_datetime(df["timestamp"], format="%Y.%m.%d %H:%M:%S", errors="coerce")
+    hoje = df[df["ts"].dt.date == datetime.now().date()]
+    if len(hoje) == 0:
+        return {"sinais": 0, "n_decisoes": 0}
+    b = hoje["bid_qty"].clip(lower=1)
+    a = hoje["ask_qty"].clip(lower=1)
+    ratio = (pd.concat([b, a], axis=1).max(axis=1) / pd.concat([b, a], axis=1).min(axis=1))
+    return {
+        "sinais": int(hoje["acao"].isin(["BUY", "SELL"]).sum()),
+        "n_decisoes": int(len(hoje)),
+        "entropia_med": float(hoje["entropia_book"].median()),
+        "atr_med": float(hoje["volatility"].median()),
+        "spread_med": float(hoje["spread"].median()),
+        "book_ratio_med": float(ratio.median()),
+    }
+
+
+def contar_executados_hoje():
+    """Trades FECHADOS hoje (marcador 'processada e resetada' do v22).
+    Corresponde aos appends de historico_lucro (= total_operacoes do dashboard).
+    Sinais BUY/SELL em decisions_wdo.csv NAO sao execucao: muitos sao vetados
+    por gates pos-decisao (Williams/protecao) antes de virar ordem."""
+    hoje = datetime.now().strftime("%Y-%m-%d")
+    n = 0
+    if os.path.exists(LOG_ROBO):
+        with open(LOG_ROBO, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if line.startswith(hoje) and "processada e resetada" in line:
+                    n += 1
+    return n
+
+
+def winpct_historico():
+    import pandas as pd
+    hist = os.path.join(BASE_DIR, "historico_contexto_wdo.csv")
+    if not os.path.exists(hist):
+        return None
+    df = pd.read_csv(hist, on_bad_lines="skip")
+    r = pd.to_numeric(df["reward"], errors="coerce").fillna(0)
+    r = r[r != 0]
+    if len(r) == 0:
+        return None
+    return float((r > 0).mean() * 100)
+
+
+# ------------------------------------------------------------------ decisao -
+def blocker_dominante(counts, last):
+    """Bloqueador ATUAL = o veto com a ocorrencia MAIS RECENTE no log.
+    (contagem bruta nao serve: standby loga 1x/5min, williams a cada 2s)"""
+    recentes = [(ts, k) for k, ts in last.items() if ts]
+    if not recentes:
+        return "nenhum"
+    return max(recentes)[1]
+
+
+def decidir(stats, counts, last):
+    mercado_operavel = (stats.get("entropia_med", 0) >= D["entropia_min_operavel"]
+                        and stats.get("atr_med", 0) >= D["atr_min_operavel"])
+    sinais = stats.get("sinais", 0)
+    exec = contar_executados_hoje()
+    log.info(f"decisao: sinais={sinais} executados={exec} entropia_med={stats.get('entropia_med')} "
+             f"atr_med={stats.get('atr_med')} vetos={counts} operavel={mercado_operavel}")
+
+    if exec == 0:
+        if sinais > 0:
+            return None, (f"Robo gerou {sinais} sinais hoje mas 0 executados - "
+                          f"gates pos-decisao (protecao legitima) estao vetando. Manter quieto.")
+        b = blocker_dominante(counts, last)
+        standby_persistente = counts.get("sniper_standby", 0) >= D["min_eventos_standby"]
+        if b == "sniper_standby" and standby_persistente and mercado_operavel:
+            return "sniper_ratio_min", "Gate SNIPER (standby) bloqueia analise AGORA com mercado operavel"
+        if b == "dol_veto":
+            return "dol_conf_min", "Veto DOL e o bloqueio atual com mercado operavel"
+        if b == "book_ratio_veto":
+            return "book_ratio_min", "Veto Book Ratio e o bloqueio atual com mercado operavel"
+        if b in ("williams_r", "veto_total", "multi_tf", "tendencia"):
+            return None, f"Bloqueio legitimo de protecao ATUAL ({b}) - mercado em extremo/sem padrao. Manter quieto."
+        if b == "sinal_neutro":
+            return None, "Modelo indeciso (confidence gap) e o bloqueio atual - revisar modelo (notificar humano)"
+        return None, f"0 executados; bloqueio atual '{b}' nao exige ajuste (mercado sem oportunidade ou protecao correta). Manter."
+
+    if exec >= D["min_trades_para_winpct"]:
+        w = winpct_historico()
+        if w is not None and w < D["winpct_acaso"]:
+            return None, (f"win% {w:.1f}% < acaso {D['winpct_acaso']}% - NAO apertar sozinho "
+                          f"(risco). Notificar humano p/ analise.")
+        return None, f"Robo operou ({exec} trades executados, win% {w}). Sem ajuste automatico necessario."
+    return None, f"Amostra insuficiente ({exec} trades executados). Manter."
+
+
+def aplicar_ajuste(param, motivo):
+    W = CFG["whitelist"].get(param)
+    if not W:
+        return False, None, f"{param} fora da whitelist"
+    cfg = carregar_config_robo()
+    atual = None
+    for cam in W["caminhos"]:
+        v = get_path(cfg, cam)
+        if v is not None:
+            atual = float(v)
+            break
+    if atual is None:
+        return False, None, f"{param} nao encontrado no config"
+    novo = round(atual + float(W["passo"]), 4)
+    novo = max(float(W["min"]), min(float(W["max"]), novo))
+    if abs(novo - atual) < 1e-9:
+        return False, atual, f"{param} ja esta no limite ({atual})"
+    for cam in W["caminhos"]:
+        set_path(cfg, cam, novo)
+    salvar_config_robo(cfg)
+    log.info(f"AJUSTE APLICADO: {param} {atual} -> {novo} | motivo: {motivo}")
+    return True, (atual, novo), f"{param} {atual} -> {novo}"
+
+
+def rollback_config(param, valor_antigo):
+    W = CFG["whitelist"].get(param)
+    if not W:
+        return
+    cfg = carregar_config_robo()
+    for cam in W["caminhos"]:
+        set_path(cfg, cam, valor_antigo)
+    salvar_config_robo(cfg)
+    log.warning(f"ROLLBACK: {param} restaurado para {valor_antigo}")
+
+
+# ------------------------------------------------------------------ rotinas -
+def smoke_test():
+    ok, msg = health_check(R["smoke_test_s"])
+    if not ok:
+        return False, msg
+    try:
+        cfg = carregar_config_robo()
+        if int(cfg.get("sl_points", 0)) == 0:
+            return False, "config suspeita (sl_points=0)"
+    except Exception as e:
+        return False, f"config invalida: {e}"
+    return True, "smoke OK"
+
+
+def run_pausa():
+    log.info("=" * 60)
+    log.info("PAUSA 12:30 - analise e decisao autonoma")
+    stats = parse_decisions()
+    counts, last = parse_vetos_log()
+    param, motivo = decidir(stats, counts, last)
+
+    if param is None:
+        log.info(f"DECISAO: SEM AJUSTE. {motivo}")
+        if not pids_robo():
+            log.info("robo estava parado - reiniciando para a tarde")
+            start_mt5()
+            start_robot()
+            ok, m = health_check(R["health_timeout_s"])
+            log.info(f"health pos-restart: {ok} ({m})")
+        else:
+            log.info("robo segue rodando (sem necessidade de restart)")
+        return
+
+    log.info(f"DECISAO: AJUSTAR {param}. {motivo}")
+    if not parar_robo():
+        log.error("NAO consegui parar o robo - abortando ajuste por seguranca")
+        return
+    ok, valores, msg = aplicar_ajuste(param, motivo)
+    if not ok:
+        log.warning(f"ajuste nao aplicado: {msg} - reiniciando robo sem mudanca")
+        start_mt5()
+        start_robot()
+        health_check(R["health_timeout_s"])
+        return
+
+    start_mt5()
+    start_robot()
+    ok, m = smoke_test()
+    if ok:
+        log.info(f"AJUSTE VALIDADO ({msg}) - robo operacional para a tarde")
+    else:
+        log.error(f"SMOKE TEST FALHOU ({m}) - rollback de {param}")
+        parar_robo()
+        rollback_config(param, valores[0])
+        start_mt5()
+        start_robot()
+        ok2, m2 = health_check(R["health_timeout_s"])
+        log.info(f"apos rollback, robo: {ok2} ({m2})")
+
+
+def run_fecho():
+    log.info("=" * 60)
+    log.info("FECHO 17:35 - autopsia e consolidacao do dia")
+    parar_robo()
+    stop_mt5()
+    gerar_relatorio_diario()
+    git_commit_dia()
+    log.info("FECHO concluido - ambiente pronto para amanha")
+
+
+def gerar_relatorio_diario():
+    stats = parse_decisions()
+    counts, last = parse_vetos_log()
+    w = winpct_historico()
+    data = datetime.now().strftime("%Y%m%d")
+    linhas = []
+    linhas.append("=" * 66)
+    linhas.append(f"RELATORIO DIARIO MONSTRO - {datetime.now():%d/%m/%Y}")
+    linhas.append("=" * 66)
+    linhas.append(f"Decisoes hoje: {stats.get('n_decisoes', 0)} | Trades (BUY/SELL): {stats.get('trades', 0)}")
+    linhas.append(f"win% (historico reward!=0): {w if w is not None else 'sem amostra'}")
+    linhas.append(f"Entropia med: {stats.get('entropia_med')} | ATR med: {stats.get('atr_med')} | Spread med: {stats.get('spread_med')}")
+    linhas.append(f"Book ratio med: {stats.get('book_ratio_med')}")
+    linhas.append("")
+    linhas.append("MAPA DE VETOS (bloqueios do dia):")
+    for k, v in sorted(counts.items(), key=lambda x: -x[1]):
+        if v:
+            linhas.append(f"  {k:<18} {v}")
+    if not any(counts.values()):
+        linhas.append("  (nenhum veto registrado)")
+    linhas.append("")
+    cfg = carregar_config_robo()
+    linhas.append("PARAMETROS ATUAIS (whitelist):")
+    for p_name, W in CFG["whitelist"].items():
+        v = get_path(cfg, W["caminhos"][0])
+        linhas.append(f"  {p_name:<18} = {v}   (limites {W['min']}..{W['max']})")
+    linhas.append("")
+    linhas.append("Nota: alteracoes estruturais de codigo ficam como PROPOSTA p/ revisao humana (Fase 1).")
+    texto = "\n".join(linhas)
+    nome = os.path.join(BASE_DIR, f"relatorio_diario_{data}.txt")
+    with open(nome, "w", encoding="utf-8") as f:
+        f.write(texto)
+    log.info(f"relatorio salvo: {nome}")
+    print(texto)
+
+
+def git_commit_dia():
+    try:
+        subprocess.run(["git", "-C", BASE_DIR, "add", "-A"], capture_output=True, timeout=60)
+        msg = f"fecho autonomo {datetime.now():%Y-%m-%d} (agente Fase 1)"
+        subprocess.run(["git", "-C", BASE_DIR, "commit", "-m", msg], capture_output=True, timeout=60)
+        subprocess.run(["git", "-C", BASE_DIR, "push"], capture_output=True, timeout=120)
+        log.info("git commit+push do dia concluido")
+    except Exception as e:
+        log.error(f"git commit falhou: {e}")
+
+
+def run_watchdog():
+    if not pids_robo():
+        log.warning("watchdog: robo caido - reiniciando")
+        start_mt5()
+        start_robot()
+        ok, m = health_check(R["health_timeout_s"])
+        log.info(f"watchdog restart: {ok} ({m})")
+    else:
+        ok, m = health_check(10)
+        log.info(f"watchdog: robo vivo ({m})")
+
+
+def dryrun():
+    stats = parse_decisions()
+    counts, last = parse_vetos_log()
+    print("=" * 60)
+    print("DRY-RUN - analise (sem mexer em nada)")
+    print("=" * 60)
+    print("stats:", stats)
+    print("sinais hoje:", stats.get("sinais"), "| executados hoje:", contar_executados_hoje())
+    print("vetos:", counts)
+    print("ultima ocorrencia de cada veto:", {k: v for k, v in last.items() if v})
+    param, motivo = decidir(stats, counts, last)
+    print(f"\nDECISAO: parametro={param} | {motivo}")
+    if param:
+        W = CFG["whitelist"][param]
+        cfg = carregar_config_robo()
+        atual = get_path(cfg, W["caminhos"][0])
+        novo = max(W["min"], min(W["max"], round(float(atual) + float(W["passo"]), 4)))
+        print(f"SIMULACAO: {param} {atual} -> {novo} (limites {W['min']}..{W['max']})")
+
+
+def main():
+    modo = sys.argv[1].lower() if len(sys.argv) > 1 else "dryrun"
+    log.info(f"### agente iniciado no modo: {modo}")
+    if modo == "pausa":
+        run_pausa()
+    elif modo == "fecho":
+        run_fecho()
+    elif modo == "watchdog":
+        run_watchdog()
+    elif modo == "dryrun":
+        dryrun()
+    else:
+        print(f"modo desconhecido: {modo}. Use pausa|fecho|watchdog|dryrun")
+
+
+if __name__ == "__main__":
+    main()
