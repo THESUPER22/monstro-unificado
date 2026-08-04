@@ -35,6 +35,20 @@
       "passo": 1,
       "caminhos": ["tp_points", "trading.tp_points"],
       "descricao": "Take profit em pontos (0 = saida dinamica por fluxo). Ajuste fino."
+    },
+    "sniper_volume_min": {
+      "min": 200,
+      "max": 800,
+      "passo": 50,
+      "caminhos": ["sniper_volume_min", "risk_management.sniper_volume_min"],
+      "descricao": "Volume minimo do book SNIPER. Aumentar para ser mais seletivo."
+    },
+    "max_spread": {
+      "min": 3,
+      "max": 10,
+      "passo": 1,
+      "caminhos": ["max_spread", "risk_management.max_spread_pontos"],
+      "descricao": "Spread maximo em pontos WDO para operar."
     }
   },
   "decisao": {

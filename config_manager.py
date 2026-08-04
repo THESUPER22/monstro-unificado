@@ -36,6 +36,8 @@ PARAM_SCHEMA = {
     "trailing_distancia":  {"type": float, "min": 0.5, "max": 20, "default": 2},
     "max_spread":          {"type": float, "min": 1, "max": 50, "default": 5},
     "max_loss_diario":     {"type": float, "min": -5000, "max": -10, "default": -500},
+    "dol_conf_min":        {"type": float, "min": 0.2, "max": 0.8, "default": 0.4},
+    "book_ratio_min":      {"type": float, "min": 1.0, "max": 2.0, "default": 1.3},
 }
 
 

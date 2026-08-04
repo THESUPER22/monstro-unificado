@@ -480,7 +480,7 @@ DIGITS_INDICE = config.get("contrato", {}).get(
 MIN_TICKS = 500             # 1 ponto WDO = 500 ticks
 MAX_TICKS = 5000            # 10 pontos WDO = 5000 ticks (TP dinÃ¢mico)
 MAX_DISTANCIA_SL_PONTOS = config.get(
-    "sl_points", 5)      # 5 pontos WDO
+    "sl_points", 8)      # 8 pontos WDO
 MAX_DISTANCIA_TP_PONTOS = config.get(
     "tp_points", 10)     # 10 pontos WDO (TP dinÃ¢mico)
 
@@ -493,7 +493,7 @@ TRAILING_INTERVALO = config.get(
 
 # Stop Loss e Take Profit (em pontos) - CONFIGURAÃ‡ÃƒO WDO (REFATORADO)
 # 5 pontos WDO = 5000 ticks (SL como rede de seguranÃ§a)
-SL_POINTS = config.get("sl_points", 5)
+SL_POINTS = config.get("sl_points", 8)
 # 10 pontos WDO = 10000 ticks (TP dinÃ¢mico - Keras decide saÃ­da)
 TP_POINTS = config.get("tp_points", 10)
 
