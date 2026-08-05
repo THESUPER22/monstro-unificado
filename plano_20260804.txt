@@ -1,0 +1,11 @@
+============================================================
+PLANO DO DIA SEGUINTE - MONSTRO WDO v22
+Gerado em: 04/08/2026 22:20:00
+============================================================
+[PRIORIDADE 2] Multiplos SELLs loss detectados.
+  -> Contramedida: na pausa 12:30, considerar aumentar dol_conf_min ou CONFIDENCE_GAP.
+  -> Reversivel: sim, voltar ao valor anterior no fecho.
+[PRIORIDADE 4] Breakevens frequentes.
+  -> Contramedida: trailing stop pode estar muito agressivo; verificar TRAILING_GATILHO.
+  -> Reversivel: sim, ajustar trailing_gatilho 5->7 pts.
+[PADRAO] Manter parametros atuais se nenhuma prioridade critica acionar.
