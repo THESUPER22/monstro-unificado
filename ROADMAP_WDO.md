@@ -1638,3 +1638,147 @@ Itens que **NÃO dependem de acumular trades** (feitos agora):
 - Kill-switch: 5 execuções sem falso positivo; dispara corretamente em dia ruim (se houver).
 - Plano `.txt`: útil e actionable (você lê e concorda com prioridades).
 - Sem crash no `agente_monstro_core.py`; git commit do fecho OK todos os dias; loss do log bate com saldo real.
+
+---
+
+### 📐 Pilar 3 — Especificação Detalhada + Data Limite
+
+**Data limite de implementação:** **12/08/2026** (deploy no pregão de 12/08/2026, após 5 pregões de estabilização dos Pilares 1 e 2).
+
+**Objetivo:** permitir uma segunda pausa de análise/autotuning às **14:30**, mantendo a trava de **1 ajuste por janela** (manhã 12:30 + tarde 14:30).
+
+#### Decisões de design (a definir antes de codar)
+
+| Decisão | Opção padrão | Racional |
+|---------|--------------|----------|
+| Chave de trava | `data+janela` no `agente_estado.json` | Evita 2 ajustes/dia (overfitting) ou 0 ajustes (trava excessiva) |
+| Nome das janelas | `"manha"` (12:30) e `"tarde"` (14:30) | Claro e extensível |
+| Janela tarde no config | `janela_tarde_inicio: "14:30"`, `janela_tarde_fim: "14:35"` | Curta, só ajuste, não análise longa |
+| Reutilização | Generalizar `run_pausa(janela="manha")` | Minimiza código novo |
+| Comportamento se já ajustou de manhã | Não ajusta de tarde, a não ser que condição seja forte | Manter conservadorismo |
+| Smoke test/rollback | Mesmo mecanismo da pausa 12:30 | Reutilizar |
+
+#### Alterações em `agente_config.json`
+
+```json
+"rotinas": {
+    "graceful_timeout_s": 90,
+    "health_timeout_s": 120,
+    "smoke_test_s": 25,
+    "porta_fallback": 5001,
+    "watchdog_enabled": true,
+    "janela_inicio": "12:30",
+    "janela_fim": "14:30",
+    "janela_tarde_inicio": "14:30",
+    "janela_tarde_fim": "14:35",
+    "expediente_inicio": "09:00",
+    "expediente_fim": "17:40"
+}
+```
+
+#### Alterações em `agente_monstro_core.py`
+
+1. **Generalizar `dentro_da_janela_autonomia()`** para receber início/fim:
+
+```python
+def dentro_da_janela_autonomia(ini=None, fim=None):
+    agora = datetime.now().strftime("%H:%M")
+    ini = ini or R["janela_inicio"]
+    fim = fim or R["janela_fim"]
+    return ini <= agora <= fim
+```
+
+2. **Mudar `pode_ajustar()`** para receber a janela:
+
+```python
+def pode_ajustar(janela="manha"):
+    st = carregar_estado()
+    chave = f"{datetime.now().strftime('%Y-%m-%d')}_{janela}"
+    return st.get("ultima_mudanca_janela") != chave, chave
+```
+
+3. **Mudar `registrar_mudanca()`** para registrar a janela:
+
+```python
+def registrar_mudanca(param, de, para, motivo, tipo="ajuste", janela="manha"):
+    st = carregar_estado()
+    agora = datetime.now()
+    reg = {"data": agora.strftime("%Y-%m-%d"), "hora": agora.strftime("%H:%M:%S"),
+           "janela": janela, "param": param, "de": de, "para": para, "motivo": motivo, "tipo": tipo}
+    st["ultima_mudanca"] = reg
+    st["ultima_mudanca_janela"] = f"{agora.strftime('%Y-%m-%d')}_{janela}"
+    st.setdefault("historico", []).append(reg)
+    st["historico"] = st["historico"][-200:]
+    salvar_estado(st)
+    return reg
+```
+
+4. **Generalizar `run_pausa()`**:
+
+```python
+def run_pausa(janela="manha"):
+    ini = R["janela_inicio"] if janela == "manha" else R["janela_tarde_inicio"]
+    fim = R["janela_fim"] if janela == "manha" else R["janela_tarde_fim"]
+    log.info(f"PAUSA {janela.upper()} ({ini}-{fim}) - analise e decisao autonoma")
+    if not dentro_da_janela_autonomia(ini, fim):
+        log.warning(f"FORA DA JANELA DE AUTONOMIA ({ini}-{fim}) - abortando")
+        return
+    # ... resto igual, usando janela em pode_ajustar/registrar_mudanca
+```
+
+5. **Task Scheduler:** adicionar `agente_monstro_core.py pausa` às **14:30** (janela tarde) — com o mesmo modo `pausa`, pois a janela será decidida pelo horário atual.
+
+#### Alterações no `main()`
+
+```python
+elif modo == "pausa":
+    run_pausa()  # detecta manha/tarde pelo horário automaticamente
+```
+
+Ou, se preferir controle explícito:
+
+```python
+elif modo == "pausa":
+    run_pausa("manha")  # 12:30
+elif modo == "pausa_tarde":
+    run_pausa("tarde")  # 14:30
+```
+
+**Recomendação:** automática por horário é menos propenso a erro de agendamento.
+
+#### Critérios de aceitação
+
+- [ ] `py_compile` OK
+- [ ] `testes_pos_fix.py` 9/9 PASS
+- [ ] Agente às 14:30 executa e respeita a trava (se já ajustou de manhã, não ajusta de tarde)
+- [ ] Agente às 14:30 ajusta se houver evidência forte e manhã não ajustou
+- [ ] Smoke test + rollback funcionam na janela tarde
+- [ ] 5 pregões sem regressão
+
+#### NÃO incluir no Pilar 3
+
+- Não alterar lógica de decisão (`decidir()`)
+- Não alterar whitelist
+- Não alterar modelo Keras
+- Não alterar mecanismo de kill-switch
+- Não adicionar fontes externas macro
+
+---
+
+### 🌍 Pilar 4 — Macro Gatekeeper (nota arquitetural)
+
+**Status:** arquitetura apenas, **não implementar junto com Pilar 3**.
+
+**Dependências externas que não existem hoje:**
+- Fonte confiável de DXY, VIX, US10Y, USDJPY
+- Fonte de agenda econômica (payroll, FOMC, Copom, PIB)
+- Histórico de 20-30 pregões para calibrar níveis NORMAL/RESTRITO/NAO_OPERAR
+
+**Padrão de integração seguro:**
+```
+Macro Gatekeeper (offline, 08:55) → escreve em config.json (ex: "macro_status": "RESTRITO") → v22 lê no startup
+```
+
+**Nunca:** o agente macro tomar decisão de trade paralela ao v22.
+
+**Data estimada:** após Pilar 3 estável por 10+ pregões (final de agosto/2026).
