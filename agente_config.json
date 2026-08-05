@@ -51,13 +51,23 @@
       "descricao": "Spread maximo em pontos WDO para operar."
     }
   },
-  "decisao": {
-    "min_eventos_standby": 20,
-    "min_trades_para_winpct": 10,
-    "winpct_acaso": 30.5,
-    "entropia_min_operavel": 2.75,
-    "atr_min_operavel": 1.5
-  },
+ "decisao": {
+  "min_eventos_standby": 20,
+  "min_trades_para_winpct": 10,
+  "winpct_acaso": 30.5,
+  "entropia_min_operavel": 2.75,
+  "atr_min_operavel": 1.5
+ },
+ "kill_switch": {
+  "ativo": true,
+  "limite_1": -250,
+  "limite_2": -400,
+  "obs": "limite_1 cria parar.txt; limite_2 mata processo e MT5. Ativacao unica/dia."
+ },
+ "autopsia_eod": {
+  "ativo": true,
+  "gerar_plano": true
+ },
   "rotinas": {
     "graceful_timeout_s": 90,
     "health_timeout_s": 120,

@@ -15,6 +15,7 @@ import glob
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import time
@@ -542,8 +543,28 @@ def run_fecho():
     else:
         log.info("codigo-fonte inalterado desde a ultima execucao")
     gerar_relatorio_diario(info_diff)
+    autopsia_eod = CFG.get("autopsia_eod", {})
+    if autopsia_eod.get("ativo", True):
+        gerar_plano_dia_seguinte()
     git_commit_dia()
     log.info("FECHO concluido - ambiente pronto para amanha")
+
+
+def gerar_plano_dia_seguinte():
+    """Pilar 2 - roda autopsia EOD e salva plano do dia seguinte (somente leitura).
+    Nunca aplica acao automatica; o arquivo e consulta humana para o proximo dia."""
+    try:
+        sys.path.insert(0, BASE_DIR)
+        from tools.autopsia_automatizada import run_autopsia
+        metricas, plano, _trades = run_autopsia()
+        data = datetime.now().strftime("%Y%m%d")
+        plano_path = os.path.join(BASE_DIR, f"plano_{data}.txt")
+        with open(plano_path, "w", encoding="utf-8") as f:
+            f.write(plano)
+        log.info(f"plano do dia seguinte salvo: {plano_path}")
+        print(plano)
+    except Exception as e:
+        log.error(f"autopsia EOD falhou: {e}")
 
 
 def gerar_relatorio_diario(info_diff=None):
@@ -614,9 +635,86 @@ def dentro_do_expediente():
     return h_ini <= hora_atual <= h_fim
 
 
+# ------------------------------------------------------------ kill switch -----
+RE_DEAL_SAIDA = re.compile(r"Deal de sa.da encontrado.*?Lucro=(-?\d+\.?\d*)")
+
+
+def calcular_loss_acumulado_hoje():
+    """Soma os Lucro= dos Deals de saida reais do log para o dia atual.
+    Conta SOMENTE 'Deal de saida encontrado' (nao 'Experiencia salva' nem
+    'Resultado confluencia', que triplicariam o valor)."""
+    hoje = datetime.now().strftime("%Y-%m-%d")
+    total = 0.0
+    if not os.path.exists(LOG_ROBO):
+        return 0.0
+    try:
+        with open(LOG_ROBO, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if not line.startswith(hoje):
+                    continue
+                m = RE_DEAL_SAIDA.search(line)
+                if m:
+                    total += float(m.group(1))
+    except Exception as e:
+        log.error(f"erro ao calcular loss acumulado: {e}")
+    return total
+
+
+def kill_switch_ja_ativado():
+    st = carregar_estado()
+    return st.get("kill_switch_ativado", {}).get(datetime.now().strftime("%Y-%m-%d"), False)
+
+
+def marcar_kill_switch_ativado():
+    st = carregar_estado()
+    st.setdefault("kill_switch_ativado", {})[datetime.now().strftime("%Y-%m-%d")] = True
+    salvar_estado(st)
+
+
+def verificar_kill_switch():
+    """Pilar 1 - protege o capital: se loss diario cruza limite_1 cria parar.txt;
+    se cruza limite_2 para o robo + MT5. Ativacao unica por dia. Retorna True se parou."""
+    ks = CFG.get("kill_switch", {})
+    if not ks.get("ativo", False):
+        return False
+    if kill_switch_ja_ativado():
+        log.info("kill-switch: ja ativado hoje - sem nova acao")
+        return False
+
+    loss_hoje = calcular_loss_acumulado_hoje()
+    limite_1 = float(ks.get("limite_1", -250))
+    limite_2 = float(ks.get("limite_2", -400))
+    cfg_robo = carregar_config_robo()
+    max_loss = float(get_path(cfg_robo, "risk_management.max_loss_diario") or
+                     cfg_robo.get("max_loss_diario", -500))
+    if limite_2 < max_loss:
+        limite_2 = max_loss * 0.8
+
+    if loss_hoje <= limite_2:
+        log.error(f"KILL-SWITCH NIVEL 2: loss {loss_hoje:.2f} <= {limite_2:.2f}. Parando robo e MT5.")
+        marcar_kill_switch_ativado()
+        parar_robo()
+        stop_mt5()
+        return True
+    elif loss_hoje <= limite_1:
+        log.warning(f"KILL-SWITCH NIVEL 1: loss {loss_hoje:.2f} <= {limite_1:.2f}. Criando parar.txt.")
+        try:
+            if not os.path.exists(PARAR):
+                with open(PARAR, "w", encoding="utf-8") as f:
+                    f.write(f"KILL-SWITCH LOSS DIARIO: {loss_hoje:.2f}")
+        except Exception as e:
+            log.error(f"falha ao criar parar.txt: {e}")
+    else:
+        log.info(f"kill-switch: loss hoje {loss_hoje:.2f} (limites {limite_1:.0f}/{limite_2:.0f}) - ok")
+    return False
+
+
 def run_watchdog():
     if not dentro_do_expediente():
         log.info("watchdog: fora do expediente (seg-sex 09:00-17:40) - sem acao")
+        return
+    if verificar_kill_switch():
+        log.warning("watchdog: kill-switch parou o robo - abortando ciclo")
         return
     if not pids_robo():
         log.warning("watchdog: robo caido - reiniciando")

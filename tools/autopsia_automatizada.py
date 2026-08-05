@@ -15,8 +15,15 @@ from collections import defaultdict
 BASE = r"C:\AIOFEN"
 LOG_FILE = os.path.join(BASE, "monstro_wdo.log")
 
-DATA_PREGAO = sys.argv[1] if len(sys.argv) > 1 else datetime.now().strftime("%Y-%m-%d")
-FIM_MANHA = f"{DATA_PREGAO} 12:30:00"
+
+def data_pregao(args=None):
+    """Data do pregao a analisar: sys.argv[1] ou hoje. Nunca avalia sys.argv no import."""
+    args = args if args is not None else sys.argv
+    return args[1] if len(args) > 1 else datetime.now().strftime("%Y-%m-%d")
+
+
+def fim_manha(data):
+    return f"{data} 12:30:00"
 
 
 def ler_log():
@@ -208,12 +215,14 @@ def analisar_agente(lines):
     return dict(acoes), decisoes
 
 
-def analisar_sniper():
+def analisar_sniper(data=None):
     path = os.path.join(BASE, "sniper_supermo_historico.csv")
     if not os.path.exists(path):
         return None
     rows = ler_csv_data(path, dt_col="timestamp", fmt="%Y.%m.%d %H:%M:%S")
-    hoje = [r for r in rows if r.get("dt") and r["dt"].date() == datetime(2026, 8, 4).date()]
+    data_uso = data or data_pregao()
+    alvo = datetime.strptime(data_uso, "%Y-%m-%d").date()
+    hoje = [r for r in rows if r.get("dt") and r["dt"].date() == alvo]
     return hoje
 
 
@@ -225,9 +234,55 @@ def analisar_experiencias():
         return json.load(f)
 
 
+def gerar_plano(metricas, trades):
+    """Pilar 2 - gera plano do dia seguinte a partir das metricas/trades.
+    SOMENTE LEITURA para humano: nenhuma acao automatica nesta fase."""
+    plano = []
+    plano.append("=" * 60)
+    plano.append("PLANO DO DIA SEGUINTE - MONSTRO WDO v22")
+    plano.append(f"Gerado em: {datetime.now():%d/%m/%Y %H:%M:%S}")
+    plano.append("=" * 60)
+
+    if metricas["saldo"] <= -100:
+        plano.append("[PRIORIDADE 1] Saldo negativo acentuado.")
+        plano.append("  -> Contramedida: manter SL=8pts, NAO relaxar filtros.")
+        plano.append("  -> Reversivel: sim, ajustar sniper_ratio_min +0.1 na pausa 12:30 se amanha melhorar.")
+
+    sells_loss = [t for t in trades if t.get("tipo") == "SELL" and (t.get("lucro") or 0) < 0]
+    if len(sells_loss) >= 3:
+        plano.append("[PRIORIDADE 2] Multiplos SELLs loss detectados.")
+        plano.append("  -> Contramedida: na pausa 12:30, considerar aumentar dol_conf_min ou CONFIDENCE_GAP.")
+        plano.append("  -> Reversivel: sim, voltar ao valor anterior no fecho.")
+
+    if metricas["win_rate"] < 35:
+        plano.append("[PRIORIDADE 3] Win rate abaixo de 35%.")
+        plano.append("  -> Contramedida: NAO ajustar nada automaticamente; aguardar mais amostra.")
+        plano.append("  -> Reversivel: nao se aplica.")
+
+    if metricas["be"] > 5:
+        plano.append("[PRIORIDADE 4] Breakevens frequentes.")
+        plano.append("  -> Contramedida: trailing stop pode estar muito agressivo; verificar TRAILING_GATILHO.")
+        plano.append("  -> Reversivel: sim, ajustar trailing_gatilho 5->7 pts.")
+
+    plano.append("[PADRAO] Manter parametros atuais se nenhuma prioridade critica acionar.")
+    return "\n".join(plano)
+
+
+def run_autopsia(data=None):
+    """Interface importavel para o agente (Pilar 2). Retorna (metricas, plano, trades)."""
+    data_uso = data or data_pregao()
+    lines = ler_log()
+    trades = extrair_trades(lines)
+    metricas = calcular_metricas(trades)
+    plano = gerar_plano(metricas, trades)
+    return metricas, plano, trades
+
+
 def main():
+    data_uso = data_pregao()
+    fim = fim_manha(data_uso)
     print("=" * 80)
-    print(f"AUTOPSIA PREGAO {DATA_PREGAO} - MONSTRO WDO v22")
+    print(f"AUTOPSIA PREGAO {data_uso} - MONSTRO WDO v22")
     print("=" * 80)
 
     lines = ler_log()
@@ -258,7 +313,7 @@ def main():
     print(f"Payoff Medio: {metricas['payoff']:.2f}")
 
     # Periodo da manha (ate 12:30)
-    trades_manha = [t for t in trades if t["abertura_log"] and t["abertura_log"] <= FIM_MANHA]
+    trades_manha = [t for t in trades if t["abertura_log"] and t["abertura_log"] <= fim]
     met_manha = calcular_metricas(trades_manha)
     print("\n--- METRICAS FINANCEIRAS (ATE 12:30) ---")
     print(f"Total trades: {met_manha['n']}")
@@ -287,7 +342,7 @@ def main():
         print(f"{i:<3} {c['tipo']:<5} {str(c['decisao']):<6} {c['confianca']:<6.3f} {c['atr']:<6.2f} {c['rsi']:<6.1f} {c['entropia']:<9.3f} {str(c['action_ctx']):<10} {mtf_wr:<35} {str(c['wr_value'])[:7]:<8} {c['lucro']:<8.2f}")
 
     # Sniper
-    sniper_hoje = analisar_sniper()
+    sniper_hoje = analisar_sniper(data_uso)
     print(f"\n--- SNIPER SUPERMO ---")
     print(f"Registros hoje: {len(sniper_hoje) if sniper_hoje else 0}")
     if sniper_hoje:
@@ -307,14 +362,14 @@ def main():
 
     # Salva JSON intermediário
     output = {
-        "data": DATA_PREGAO,
+        "data": data_uso,
         "metricas": metricas,
         "metricas_manha": met_manha,
         "trades": trades,
         "agente": {"atuacoes": acoes_agente, "decisoes": decisoes_agente},
         "cruzamento": cruzado,
     }
-    out_path = os.path.join(BASE, f"autopsia_{DATA_PREGAO.replace('-', '')}.json")
+    out_path = os.path.join(BASE, f"autopsia_{data_uso.replace('-', '')}.json")
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, ensure_ascii=False, default=str)
     print(f"\n[OK] Relatorio intermediario salvo em: {out_path}")
