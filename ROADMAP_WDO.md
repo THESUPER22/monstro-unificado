@@ -1,7 +1,7 @@
 # ============================================================
 # ROADMAP — ROBÔ WDO (Mini Dólar)
 # Versão: 22 | Arquivo: monstro_unificado_v22.py
-# Atualizado: 03/08/2026 (Desbloqueio em cascata + ADVISORY + Agente Autônomo FASE 1 IMPLEMENTADO + Fix CWD EXE + EXE recompilado + 3 tasks agendadas + push 4711155)
+# Atualizado: 04/08/2026 (Autópsia 27 trades + Fix SL fator 2 + Kill-switch + Autópsia EOD/plano + Fecho executado + Roadmap Fase 2)
 # ============================================================
 
 ## VISÃO GERAL
@@ -1596,3 +1596,45 @@ Itens que **NÃO dependem de acumular trades** (feitos agora):
 5. **Log do EXE confirmado** — `monstro_wdo.log` com mtime 03/08 **22:12:50** (entradas do teste do EXE recompilado lançado de System32). Pendência do "EXE não grava log" ENCERRADA. (Erro Permission denied às 22:12 foi do teste com processos simultâneos — não reproduz em operação normal.)
 
 **Backtest histórico: confirmado como JÁ FEITO** (02/08, Sessão 20): calibração com 1 ano de ticks (`calibrar_wdo_historico.py`, 2,28 GB/48,8M ticks), validação fora da amostra do seletor de regime (Spearman +0,771; precisão EXPLOSAO 77,6%) e baseline moeda (15.000 entradas, win% acaso 30,5% / break-even 37,3%). O backtest E2E do robô com modelo segue NÃO feito (depende de book real — indisponível; só validável ao vivo/demo).
+
+## DIA 04/08/2026 — PRIMEIRA EXECUÇÃO AUTÔNOMA REAL + AUTOPSIA + FASE 2 PARCIAL
+
+### Resumo do dia (autópsia `tools/autopsia_automatizada.py`)
+- **27 trades** (11 wins / 9 losses / 7 BE), win rate 40,7%, saldo **-R$ 45,00**, profit factor 0,88, payoff 0,72.
+- Watchdog reiniciou o robô às **09:05** ("robo caido - reiniciando") — sem isso o pregão não teria começado.
+- Pausa 12:30: **SEM AJUSTE** (decisão correta: 17 trades/37,9% é amostra pequena demais — apertar = overfitting).
+- Relatório diário: 1422 decisões, 110 sinais, 27 trades, win% histórico 46%, entropia 2,903, ATR 2,117.
+- Vetos do dia: williams_r 958, veto_total 321, sinal_neutro 142, sniper_standby 42, multi_tf 7.
+
+### 🔴 Bug crítico corrigido: SL real era metade do configurado (fator TICK_SIZE)
+- Causa: `calcular_preco_sl_tp` usava `sl_dist = sl_points * TICK_SIZE` → `8 * 0.5 = 4.0` (SL de 4 pts, não 8). WDO: 1 ponto = 1.0 de preço (tick 0.5, 2 ticks/ponto). As v1/v2 usavam `* 1.0`; a v22 introduziu a regressão de fator 2.
+- Evidência: trades com SL exatamente 4,0 do preço de entrada e perdas de -40,00 (4 pontos × R$10).
+- Fix (`7a07595`): `sl_dist = float(sl_points)` + `tp_dist = float(tp_points)` (mesmo bug latente no TP). `travar_lucro` já estava correto (via TICKS_POR_PONTO).
+- Validação: py_compile OK + testes 9/9 PASS.
+
+### Autópsia vs relatório — claims refutadas (decisão: NÃO mexer)
+1. **"Modelo não aprende com erros"** → FALSO: treino usa CSV (`carregar_experiencias_do_csv`) com wins+losses (68 trades: 45L/23W). JSON só-positivo é por design (PA2) e afeta apenas replay.
+2. **"Não há threshold de confiança"** → FALSO: `CONFIDENCE_GAP = 0.15` (L8571) + `score_qualidade >= 2` em `filtros_alta_acertividade` (L8223).
+3. **"GerenciadorDeSaida força saídas antecipadas"** → causa real era o bug do SL acima, não o gerenciador.
+
+### 🛡️ Pilar 1 — KILL-SWITCH por loss diário (commit `9ad8bd1`)
+- `verificar_kill_switch()` no `run_watchdog()`: **N1 (-250)** cria `parar.txt`; **N2 (-400)** → `parar_robo()` + `stop_mt5()`. Ativação única/dia via `agente_estado.json`.
+- `calcular_loss_acumulado_hoje()` soma **só** "Deal de saída encontrado...Lucro=" (não duplica com "Experiência salva"/"Resultado confluência").
+- Fallback: se `limite_2 < max_loss_diario`, usa 80% do `risk_management.max_loss_diario` (-500 → -400).
+- Testado: N1 (-300) cria parar.txt ✅ | N2 (-500) para robô+MT5 ✅ | loss real -45 não dispara ✅.
+
+### 📊 Pilar 2 — AUTOPSIA EOD + PLANO DO DIA SEGUINTE (commit `9ad8bd1`)
+- `tools/autopsia_automatizada.py` refatorado: `run_autopsia()`/`gerar_plano()` importáveis, data via `data_pregao()` (sem sys.argv no import), sniper sem data hardcoded.
+- `run_fecho()` agora chama `gerar_plano_dia_seguinte()` → salva `plano_YYYYMMDD.txt` (somente leitura p/ humano, NUNCA aplica ação automática).
+- **Fecho executado 04/08 22:20** (mercado fechado): relatório + plano gerados (`plano_20260804.txt`), commit `ff1fe07` pushado.
+
+### 📋 Roadmap Fase 2 — o que vem (decisão: ESPERAR 5 pregões de estabilização)
+1. ✅ **Pilar 1 (kill-switch)** — IMPLEMENTADO, em produção.
+2. ✅ **Pilar 2 (autópsia EOD + plano)** — IMPLEMENTADO, em produção.
+3. ⏸️ **Pilar 3 (Pausa 14:30 + trava por janela)** — planejado, NÃO implementado. Requer migração de `pode_ajustar()` de chave `data` → `data+janela` (1 ajuste/janela: manhã 12:30 + tarde 14:30), segunda janela no config, dispatch. Design: reutiliza `run_pausa()`/`decidir()`/whitelist/smoke test + rollback.
+4. ⏸️ **Pilar 4 (Macro Gatekeeper)** — arquitetura apenas, NÃO implementado. Depende de fontes externas (DXY/VIX/agenda) que não existem no projeto + histórico 20-30 pregões para calibrar níveis. É Fase 2.5/3.
+
+**Critério de liberação do Pilar 3** (após 5 pregões ≈ 1 semana):
+- Kill-switch: 5 execuções sem falso positivo; dispara corretamente em dia ruim (se houver).
+- Plano `.txt`: útil e actionable (você lê e concorda com prioridades).
+- Sem crash no `agente_monstro_core.py`; git commit do fecho OK todos os dias; loss do log bate com saldo real.
