@@ -9012,9 +9012,9 @@ def calcular_preco_sl_tp(preco_entrada: float, action: str, sl_points: int, tp_p
             "InformaÃ§Ãµes do sÃ­mbolo indisponÃ­veis para cÃ¡lculo de SL/TP.")
 
     ponto = symbol_info_obj.point
-    # Para WDO: 1 ponto = TICK_SIZE (0.5), NÃƒO symbol_info.point (0.001)
-    # symbol_info.point Ã© a precisÃ£o decimal, nÃ£o o tick real do contrato
-    sl_dist = sl_points * TICK_SIZE  # 5 pontos = 5 * 0.5 = 2.5
+    # Para WDO: 1 ponto = 1.0 de distÃ¢ncia de preÃ§o (tick = 0.5)
+    # Corrigido: NÃƒO multiplicar por TICK_SIZE (dava fator 2, SL apertado)
+    sl_dist = float(sl_points)  # 8 pontos = 8.0
 
     # Garante distÃ¢ncia mÃ­nima conforme trade_stops_level do broker
     min_stops_ticks = symbol_info_obj.trade_stops_level  # ex: 5 ticks
@@ -9025,7 +9025,7 @@ def calcular_preco_sl_tp(preco_entrada: float, action: str, sl_points: int, tp_p
     sl_dist = min_dist
 
     # TP=0 â†’ sem take profit (saÃ­da dinÃ¢mica)
-    tp_dist = tp_points * TICK_SIZE if tp_points > 0 else 0.0
+    tp_dist = float(tp_points) if tp_points > 0 else 0.0
 
     # Log detalhado para debug
     logging.info(
