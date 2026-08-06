@@ -1813,3 +1813,7 @@ Macro Gatekeeper (offline, 08:55) → escreve em config.json (ex: "macro_status"
 
 - `Monstro-Start` (09:00) + `Monstro-Watchdog` (09:05, 15min) agora são redundantes entre si: se um falhar, o outro recupera.
 - Próxima validação: 06/08 09:00 (Start) e 09:05 (Watchdog) — conferir `LastResult=0` em ambos via `schtasks /Query`.
+
+### PENDENTE (melhoria para revisão noturna)
+
+- [ ] Autópsia EOD deve incluir **contador de incidentes do dia**: nº de restarts do watchdog ("robo caido - reiniciando"), kill-switch acionado/não acionado e motivo. Objetivo: facilitar a revisão do usuário à noite (pós-pregão), já que a única interação é noturna.
