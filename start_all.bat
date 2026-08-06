@@ -8,7 +8,7 @@ if exist parar.txt del /f /q parar.txt
 REM Protecao anti-duplicidade: se o robo (python ou EXE) ja esta rodando, nao sobe outro
 powershell -NoProfile -Command "$p = Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'python.exe' -and $_.CommandLine -like '*monstro_unificado_v22*') -or ($_.Name -eq 'MonstroDashboard.exe') }; if ($p) { exit 1 } else { exit 0 }"
 if %errorlevel% equ 1 (
-    echo [AVISO] Monstro ja esta rodando - start cancelado para evitar duplicidade (2 robos = conflito de porta 5001 e ordens duplicadas).
+    echo [AVISO] Monstro ja esta rodando - start cancelado para evitar duplicidade ^(2 robos = conflito de porta 5001 e ordens duplicadas^).
     exit /b 0
 )
 

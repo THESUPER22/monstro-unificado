@@ -1782,3 +1782,34 @@ Macro Gatekeeper (offline, 08:55) → escreve em config.json (ex: "macro_status"
 **Nunca:** o agente macro tomar decisão de trade paralela ao v22.
 
 **Data estimada:** após Pilar 3 estável por 10+ pregões (final de agosto/2026).
+
+---
+
+## DIA 05/08/2026 - SEGUNDO PREGÃO AUTÔNOMO + DIAGNÓSTICO DO START FALHADO
+
+### Resultado do dia
+
+- **3 trades / -R$145** (14:30 BUY -80, 15:32 SELL -80, 16:42 SELL +15).
+- Robô **não operou de manhã** (primeiro trade só às 14:30) → perdeu a janela da manhã.
+- Kill-switch **não acionado** (loss -145 > limite N1 -250). Autópsia EOD rodou; fecho 17:35 OK (commit `f5c46ef`).
+
+### Causa raiz 1 - Watchdog expirado (corrigido no dia anterior)
+
+- Trigger antigo do `Monstro-Watchdog` tinha `EndBoundary=2026-08-04T17:35:00` (data única) e **expirou**.
+- Recreado com `CalendarTrigger` semanal (seg-sex, repetição 15min, duração 8h30) — **sem expiração**. Próxima execução confirmada: 06/08 09:05.
+
+### Causa raiz 2 (NOVA) - `Monstro-Start` falhou com **255** em 05/08 09:00
+
+**Bug:** em `start_all.bat`, o `echo [AVISO] ... (2 robos = conflito de porta 5001 ... duplicadas)` tem `(`/`)` **sem escape dentro de um bloco `if (...)`**. O cmd parseia o bloco inteiro mesmo quando a condição é falsa; os parênteses quebram o parse → erro `"." foi inesperado neste momento` e o batch morre com exit 255 **antes** de chegar ao `start` do MT5/robô.
+
+**Impacto:** 05/08 09:00 → MT5 + robô nunca subiram; sem watchdog ativo (causa raiz 1), ninguém recuperou. Manhã perdida.
+
+**Fix:** parênteses escapados (`^(` `^)`). Validado em 05/08 21:15:
+- Dry-run do arquivo real (start/timeout trocados por echo): **exit 0**, sem parse error.
+- Ramo anti-duplicidade (errorlevel=1 simulado): **AVISO + exit 0**.
+- `grep` confirmou que nenhum outro `.bat` usa o padrão `if %errorlevel% equ 1 (`.
+
+### Lição / proteção em camadas
+
+- `Monstro-Start` (09:00) + `Monstro-Watchdog` (09:05, 15min) agora são redundantes entre si: se um falhar, o outro recupera.
+- Próxima validação: 06/08 09:00 (Start) e 09:05 (Watchdog) — conferir `LastResult=0` em ambos via `schtasks /Query`.
