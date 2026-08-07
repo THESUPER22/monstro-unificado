@@ -1817,3 +1817,41 @@ Macro Gatekeeper (offline, 08:55) → escreve em config.json (ex: "macro_status"
 ### PENDENTE (melhoria para revisão noturna)
 
 - [ ] Autópsia EOD deve incluir **contador de incidentes do dia**: nº de restarts do watchdog ("robo caido - reiniciando"), kill-switch acionado/não acionado e motivo. Objetivo: facilitar a revisão do usuário à noite (pós-pregão), já que a única interação é noturna.
+
+---
+
+## DIA 06/08/2026 - PRIMEIRO DIA COMPLETO + FECHO ABORTADO (CORRIGIDO)
+
+### Resultado do dia
+
+- **13 trades / -R$50** (10 wins +R$160; 3 losses: #1 09:19 BUY -50, #7 10:36 BUY -80, #10 12:16 SELL -80).
+- Robô operou o dia inteiro (09:19-17:03) - primeira vez desde o fix do SL (sl_points=8) com dia completo.
+- Kill-switch **não acionado** (loss acumulado nunca passou de N1 -250).
+- Trade #1 e #7 entraram contra a tendência multi-TF; trade #7 com RSI 47.7 e candle `upper_shadow_baixa` (confirmado em decisions_wdo.csv).
+
+### Falha: fecho 17:35 ABORTADO (robô encerrou gracioso, mas SEM artefatos)
+
+- Robô: "PARADA GRACIL"/"ENCERRAMENTO CONCLUÍDO" 17:35:11-17:35:16, mas **sem** relatorio_diario/plano/commit no pregão.
+- `agente_autonomo.log`: fecho iniciou 17:35:02, "robo ja estava parado", sem "FECHO concluido".
+- `Monstro-Fecho` LastTaskResult = **-2147023829 (0x8007042B = ERROR_PROCESS_ABORTED)**. Watchdog 17:35 rodou com resultado 0; sem eventos System/Application 17:34-17:40.
+- **Hipótese:** notebook HP (PCSystemType=2, bateria) com "Parar se bateria" nas tasks + colisão watchdog 17:35 x fecho 17:35.
+
+### Correções aplicadas (commit `9fc322f`)
+
+- `run_fecho()` reordenado: `sinalizar_parada_robo()` -> gerar relatório+plano -> `git_commit_dia()` -> `parar_robo()` (bloqueante) -> "FECHO concluido". Artefatos gravados ANTES do shutdown - sobrevivem a abort.
+- Removido `stop_mt5()` do fecho (Fecho não deve fechar MT5).
+- Fecho reexecutado à noite -> `relatorio_diario_20260806` + `plano_20260807` gerados; commit `8bf17c4` (push OK).
+
+### PENDENTE RECORRÊNCIA (exige admin/UAC - aguarda usuário)
+
+- [ ] `Monstro-Watchdog`: duração **PT8H30M -> PT8H15M** (eliminar colisão com fecho 17:35). XML pronto em `%TEMP%\opencode\watchdog_task.xml`.
+- [ ] Revisar "Parar se bateria"/"Iniciar somente CA" das tasks `Monstro-*` (notebook HP).
+
+### Análise da confiança da autópsia (trade #7: confianca 0.23 EXECUTADO)
+
+- Confirmado no `decisions_wdo.csv` 10:36:27: `BUY, confianca 0.232`. As outras 2 losses tiveram confiança normal (0.85 e 0.67).
+- **Causa:** NÃO existe piso de `confianca_decisao` para executar BUY/SELL. Gates atuais: (a) `CONFIDENCE_GAP=0.15` na probabilidade do sinal em `prever_acao()` (L8571) - só filtra sinais quase neutros; (b) C10 `score_qualidade >= 2` (L8223), com caminho de **aprendizado forçado** (3/dia) que aceita score baixo. Ajustes "advisory" (DOL/book desde 03/08) reduzem a confiança final mas **não vetam**.
+- **Decisão:** **NÃO alterar a lógica agora** - 06/08 é o 2º pregão da janela de estabilização (5 pregões) desde o fix do SL. Registrar para revisão pós-estabilização:
+  - [ ] Opção A: piso de execução (ex.: `confianca_decisao >= 0.5` para BUY/SELL).
+  - [ ] Opção B: elevar `CONFIDENCE_GAP` de 0.15.
+
