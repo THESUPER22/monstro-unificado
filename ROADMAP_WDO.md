@@ -1844,8 +1844,8 @@ Macro Gatekeeper (offline, 08:55) → escreve em config.json (ex: "macro_status"
 
 ### PENDENTE RECORRÊNCIA (exige admin/UAC - aguarda usuário)
 
-- [ ] `Monstro-Watchdog`: duração **PT8H30M -> PT8H15M** (eliminar colisão com fecho 17:35). XML pronto em `%TEMP%\opencode\watchdog_task.xml`.
-- [ ] Revisar "Parar se bateria"/"Iniciar somente CA" das tasks `Monstro-*` (notebook HP).
+- [x] `Monstro-Watchdog`: duração **PT8H30M -> PT8H15M** (eliminar colisão com fecho 17:35). XML pronto em `%TEMP%\opencode\watchdog_task.xml`.
+- [x] Revisar "Parar se bateria"/"Iniciar somente CA" das tasks `Monstro-*` (notebook HP).
 
 ### Análise da confiança da autópsia (trade #7: confianca 0.23 EXECUTADO)
 
