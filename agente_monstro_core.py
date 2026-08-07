@@ -217,6 +217,21 @@ def parar_robo():
     return parar_forcado()
 
 
+def sinalizar_parada_robo():
+    """Cria parar.txt para o robo comecar o encerramento gracioso EM PARALELO
+    com a geracao dos artefatos do fecho. Se o processo do fecho for abortado
+    logo depois, o robo ainda encerra sozinho e os artefatos ja existem."""
+    if not pids_robo():
+        log.info("robo ja estava parado - sem sinal necessario")
+        return
+    try:
+        with open(PARAR, "w") as f:
+            f.write("PARAR")
+        log.info("parar.txt criado - shutdown gracioso solicitado")
+    except Exception as e:
+        log.error(f"falha ao criar parar.txt: {e}")
+
+
 def start_mt5():
     if any("terminal64" in (pr.info.get("name") or "").lower() for pr in psutil.process_iter(["name"])):
         log.info("MT5 ja estava rodando")
@@ -534,8 +549,11 @@ def verificar_mudanca_codigo():
 def run_fecho():
     log.info("=" * 60)
     log.info("FECHO 17:35 - autopsia e consolidacao do dia")
-    parar_robo()
-    stop_mt5()
+    # 1) Sinaliza parada IMEDIATAMENTE: robo encerra em paralelo (se o fecho
+    #    for abortado, o robo ainda para sozinho).
+    sinalizar_parada_robo()
+    # 2) Artefatos do dia gerados cedo -> sobrevivem mesmo se o processo for
+    #    morto (ex: abort 0x8007042B no pregao 06/08).
     info_diff = verificar_mudanca_codigo()
     if info_diff:
         log.info(f"MUDANCA ESTRUTURAL detectada no fonte: +{info_diff['add']}/-{info_diff['rem']} "
@@ -547,6 +565,8 @@ def run_fecho():
     if autopsia_eod.get("ativo", True):
         gerar_plano_dia_seguinte()
     git_commit_dia()
+    # 3) Por ultimo: aguarda o robo encerrar e fecha o MT5.
+    parar_robo()
     log.info("FECHO concluido - ambiente pronto para amanha")
 
 
