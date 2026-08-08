@@ -907,11 +907,16 @@ MIN_LUCRO_DESBLOQUEIO = 0.0  # Lucro mÃ­nimo para desbloquear lado antes do te
 
 # ========== CONFIGURAÃ‡Ã•ES MELHORIA 1: TRAILING STOP INTELIGENTE ==========
 TRAILING_ATIVO = True
-# pontos WDO â€” sÃ³ ativa apÃ³s lucro real (AJUSTE FINO: era 80, agora 5 para WDO)
-TRAILING_GATILHO = 5
-# pontos WDO â€” respira sem violinar (AJUSTE FINO: era 40, agora 2 para WDO)
-TRAILING_DISTANCIA = 2
+# pontos WDO â€” sÃ³ ativa apÃ³s lucro real (AJUSTE FINO: era 80/5, agora 8 para WDO - AÃ§Ã£o 1 07/08)
+TRAILING_GATILHO = 8
+# pontos WDO â€” respira sem violinar (AJUSTE FINO: era 40/2, agora 4 para WDO - AÃ§Ã£o 1 07/08)
+TRAILING_DISTANCIA = 4
 TRAILING_PERCENTUAL_TRAVA = 0.7  # Trava 70% do lucro quando > 5 pontos
+
+# AÃ§Ã£o 2 (07/08): piso mÃ­nimo de confianÃ§a para executar ordem
+# EmpÃ­rico (simulaÃ§Ã£o 07/08): conf < 0.50 concentra lixo; 0.50 corta
+# parte das perdas sem matar os winners (0.60 anularia todos os trades).
+PISO_CONFIANCA_MINIMA = 0.50
 
 # InstÃ¢ncia global do trailing stop
 trailing_stop = None
@@ -6114,10 +6119,10 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
             'percentual_perda_pico': 0.35,       # Sai se perder 35% do pico
             'tempo_max_estagnacao_s': 240,       # 4 minutos de estagnaÃ§Ã£o
             'lucro_max_estagnacao_pts': 20,      # Lucro "pequeno" = menos de 20pts
-            # Trailing sÃ³ ativa apÃ³s 3pts de lucro (WDO â€” mais sensÃ­vel)
-            'trailing_gatilho_pts': 3,
-            # 2pts de distÃ¢ncia â€” respira sem violinar (WDO)
-            'trailing_distancia_pts': 2
+            # Trailing sÃ³ ativa apÃ³s 8pts de lucro (AÃ§Ã£o 1 07/08: era 3 â€” deixar o winner respirar)
+            'trailing_gatilho_pts': 8,
+            # 4pts de distÃ¢ncia (AÃ§Ã£o 1 07/08: era 2 â€” nÃ£o cortar winner em +1pt)
+            'trailing_distancia_pts': 4
         }
         gerenciador_saida = GerenciadorDeSaida(config_saida)
         logging.info("âœ… Gerenciador de SaÃ­da Unificado INICIALIZADO.")
@@ -7412,6 +7417,18 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                         # na memÃ³ria e no disco). O veto Ã© uma REGRA fixa, nÃ£o aprendizado.
                         time.sleep(5)  # re-checa a cada 5s (nÃ£o precisa 1s p/ nÃ£o brigar)
                         continue
+
+                # ========== PISO DE CONFIANÃ‡A MÃNIMA (AÃ‡ÃƒO 2 â€” ROADMAP 07/08) ==========
+                # DecisÃµes BUY/SELL com confianÃ§a < 0.50 nÃ£o executam. PolÃ­tica fixa
+                # (nÃ£o grava experiÃªncia, mesmo padrÃ£o do veto de bigs). A decisÃ£o
+                # jÃ¡ foi salva no CSV (salvar_decisao_csv acima) para mÃ©tricas contÃ­nuas.
+                if acao_para_executar in ["BUY", "SELL"] and confianca_decisao < PISO_CONFIANCA_MINIMA:
+                    if _log_periodico('piso_confianca', 300):
+                        logging.info(
+                            f"ðŸš« PISO DE CONFIANÃ‡A: {acao_para_executar} bloqueado "
+                            f"(confianÃ§a {confianca_decisao:.2f} < {PISO_CONFIANCA_MINIMA:.2f})")
+                    time.sleep(5)
+                    continue
 
                 # Executa ordem com a aÃ§Ã£o final decidida
                 # Se SNIPER SUPERMO ativo, usa volume maior (5cc) e SL=5pts

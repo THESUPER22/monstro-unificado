@@ -1882,3 +1882,34 @@ Macro Gatekeeper (offline, 08:55) → escreve em config.json (ex: "macro_status"
 - Qualidade de entradas fraca: win rate 36.7%, profit factor 0.54, 21 BE em 60 trades (35%).
 - Confirmado: sem piso de confianca_decisao -> recomendações A/B já registradas (aguardando janela de 5 pregões).
 
+---
+
+## DIA 07/08/2026 (noite) - DECISÃO + IMPLEMENTAÇÃO DAS AÇÕES 1 E 2
+
+### Análise decisiva: é problema de SAÍDA, não de entrada
+
+- Payoff 0.37 (gain médio +R$29,55 ≈ +3pts; loss médio -R$79,71 ≈ -8pts). Break-even exigiria **73% de acerto** (temos 36,7%). Com assimetria atual é impossível ser lucrativo por mais acerto.
+- **Simulação piso 0.60 em 07/08:** sobrariam 3 trades, todos BE (saldo 0,00) - cortaria até o winner +70 (entrou com conf 0.57). Prova de que piso alto NÃO resolve e confiança é fracamente preditiva.
+- **Causa raiz da sangria encontrada:** o trailing VIVO é o `GerenciadorDeSaida` (config_saida L6118-6120): **gatilho 3pts / distância 2pts** -> qualquer winner que toca +3pts tem SL puxado para +1pt e é cortado em +1pt. `monitorar_posicao_ativa` (L9196) e `atualizar_trailing_stop()` (L5254, TRAILING_GATILHO/DISTANCIA) são **código morto** (nunca chamados).
+
+### Ação 1 - Assimetria de saída (APLICADA)
+
+- `config_saida`: `trailing_gatilho_pts` **3 -> 8** e `trailing_distancia_pts` **2 -> 4** (L6123/6125) - o winner só arma trailing após 8pts e o SL mínimo trava em +4pts (nunca mais corta em +1pt).
+- Constantes de legado atualizadas por coerência: `TRAILING_GATILHO=8`, `TRAILING_DISTANCIA=4` (L911/913).
+- Breakeven por inversão de fluxo (NÍVEL 2, L6457-6470) revisado: OK como está - é defensivo (move p/ entrada) e só dispara com inversão real de book (ratio >= SNIPER_RATIO_MIN). Ganho mínimo garantido: saídas de trailing/proteção nunca fecham < 4pts; exceções só inversão forte (NÍVEL 1 em prejuízo) e breakeven defensivo.
+- SNIPER trail 1pt/1pt (L6479) permanece como está (por design, entradas ratio 2.0; global `SNIPER_SUPERMO_ATIVO=False`).
+
+### Ação 2 - Piso de confiança (APLICADA)
+
+- `PISO_CONFIANCA_MINIMA = 0.50` (L919). Bloqueio de execução antes de `executar_ordem` (L7425): BUY/SELL com `confianca_decisao < 0.50` não executam (política fixa, sem gravação de experiência, mesmo padrão do veto de bigs).
+- A decisão continua salva no `decisions_wdo.csv` (antes do filtro) para validação contínua do piso.
+- Escolha do usuário: 0.50 (0.60 anularia tudo; 0.50 corta lixo mantendo winners - simulação 07/08: -45 em vez de -110).
+
+### Validação
+
+- `py_compile` OK; testes pos-fix **9/9 PASS**; dryrun real requer MT5+pregão (executar na 2ª 09:00).
+
+### Ação 3 (PENDENTE - pós-semana de validação)
+
+- SL por ATR: ATR < 1,5 não operar ou SL 5-6pts; ATR 1,5-2,5 SL 8pts; acima disso não operar. Aguardar 5 pregões da Ação 1+2 antes de mexer em SL.
+
