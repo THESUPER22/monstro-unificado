@@ -1855,3 +1855,30 @@ Macro Gatekeeper (offline, 08:55) → escreve em config.json (ex: "macro_status"
   - [ ] Opção A: piso de execução (ex.: `confianca_decisao >= 0.5` para BUY/SELL).
   - [ ] Opção B: elevar `CONFIDENCE_GAP` de 0.15.
 
+
+---
+
+## DIA 07/08/2026 - AUTÓPSIA SEMANAL + FIX DO BUG DO PLANO
+
+### Resultado do dia (validado pela autópsia corrigida)
+
+- **18 trades / -R$110** (5 wins +R$125, 3 losses -R$235, 10 BE). Win rate 27.8%.
+- Inclui ticket **2497704960 SELL -65** sincronizado do MT5 (após restart) - antes omitido pela autópsia.
+- Kill-switch não acionado. Fecho 17:35 rodou: relatório gerado, **mas plano FALHOU** (autópsia EOD com erro).
+
+### Bug 1: autópsia EOD crashava ('>' NoneType vs int) -> plano nunca gerado
+
+- Causa: `extrair_trades()` retornava `lucro=None` para posições fechadas sem linha "Deal de saída" (ex.: fechamento manual/automático 17:35) -> `calcular_metricas()` `t["lucro"] > 0` explodia.
+- **Fix (autopsia_automatizada.py):** `lucro` default `0.0` (BE) quando não há deal logado + extração agora captura **posições sincronizadas do MT5** (re_sync + re_entry_sync) e faz união de tickets (aberturas U posicoes U saidas).
+- Plano regenerado corretamente: `plano_20260807.txt` (saldo -110 -> prioridades P1/P3/P4).
+
+### Bug 2 (alarme falso): agente_estado.json "não existe"
+
+- **Não é problema.** `carregar_estado()` trata arquivo ausente (retorna defaults). O arquivo só é criado na 1ª `registrar_mudanca()` - o agente não ajustou nada na semana (decisão correta).
+
+### Auditoria da semana (60 trades / -R$455)
+
+- Infra corrigida (start_all 255, bateria, fecho abortado) -> semana operacional completa a partir de 06/08.
+- Qualidade de entradas fraca: win rate 36.7%, profit factor 0.54, 21 BE em 60 trades (35%).
+- Confirmado: sem piso de confianca_decisao -> recomendações A/B já registradas (aguardando janela de 5 pregões).
+

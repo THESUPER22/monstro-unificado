@@ -43,6 +43,14 @@ def extrair_trades(lines):
     re_saida = re.compile(
         r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+.*?Deal de sa.da encontrado para ticket (\d+):.*?Lucro=(-?[\d.]+).*?Pre.o Sa.da=([\d.]+).*?Hora=(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})"
     )
+    # Posicoes sincronizadas do MT5 apos restart (watchdog): sem "Ordem executada"
+    # no log. Captura sync + preco de entrada para nao perder o trade na autopsia.
+    re_sync = re.compile(
+        r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+.*?Sincronizando com posi..o ativa encontrada no MT5: #(\d+)"
+    )
+    re_entry_sync = re.compile(
+        r"Found entry deal for score_dist calc \(Order: (\d+)\), execution price: ([\d.]+)"
+    )
 
     aberturas = {}
     posicoes = {}
@@ -53,6 +61,18 @@ def extrair_trades(lines):
         if m:
             ts, tipo, ticket = m.groups()
             aberturas[ticket] = {"ts": ts, "tipo": tipo}
+            continue
+
+        m = re_sync.search(line)
+        if m:
+            ts, ticket = m.groups()
+            aberturas.setdefault(ticket, {"ts": ts, "tipo": None})
+            continue
+
+        m = re_entry_sync.search(line)
+        if m:
+            ticket, preco = m.groups()
+            posicoes.setdefault(ticket, {}).setdefault("entrada", float(preco))
             continue
 
         m = re_posicao.search(line)
@@ -77,21 +97,27 @@ def extrair_trades(lines):
                 "hora_saida": hora,
             }
 
-    for ticket, ab in aberturas.items():
+    # Uniao de tickets: inclui posicoes sincronizadas (so com deal de saida) e
+    # aberturas sem deal (fechamento manual/automatico sem log do deal).
+    for ticket in sorted(set(aberturas) | set(posicoes) | set(saidas)):
+        ab = aberturas.get(ticket, {})
         pos = posicoes.get(ticket, {})
         sai = saidas.get(ticket, {})
         trades.append({
             "ticket": ticket,
-            "tipo": pos.get("tipo", ab.get("tipo")),
-            "abertura_log": ab.get("ts"),
+            "tipo": pos.get("tipo") or ab.get("tipo") or "?",
+            "abertura_log": ab.get("ts") or pos.get("ts_posicao"),
             "abertura_pos": pos.get("ts_posicao"),
-            "entrada": pos.get("entrada"),
-            "sl": pos.get("sl"),
-            "tp": pos.get("tp"),
+            "entrada": pos.get("entrada") or 0.0,
+            "sl": pos.get("sl") or 0.0,
+            "tp": pos.get("tp") or 0.0,
             "fechamento_log": sai.get("ts_log"),
             "hora_saida": sai.get("hora_saida"),
-            "preco_saida": sai.get("preco_saida"),
-            "lucro": sai.get("lucro"),
+            "preco_saida": sai.get("preco_saida") or 0.0,
+            # Sem "Deal de saida" (ex.: fechamento manual/automático 17:35 sem log
+            # do deal) o lucro fica None e quebra calcular_metricas ('>' NoneType).
+            # Trata como 0.0 (BE) - consistente com o fechamento manual registrado.
+            "lucro": sai.get("lucro", 0.0),
         })
 
     trades.sort(key=lambda x: x["abertura_log"] or "")
