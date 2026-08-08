@@ -1938,3 +1938,65 @@ Macro Gatekeeper (offline, 08:55) → escreve em config.json (ex: "macro_status"
 - Validação: py_compile OK, testes 9/9. Dryrun real 2ª 09:00.
 - Ação 3 (SL por ATR) fica para depois de 5 pregões de validação.
 
+---
+
+## DIA 07/08/2026 (noite 3) - POR QUE O SNIPER SUPERMO ESTÁ PARADO (causa raiz matemática)
+
+### Pergunta do usuário
+"O sniper supremo está parado há 2 semanas. Por que os parâmetros não são atingidos?"
+
+### Descoberta 1 - O CSV de ativação NUNCA foi criado
+`sniper_supermo_historico.csv` não existe em `C:\AIOFEN\data\`. O CSV só é gravado na ATIVAÇÃO (`_salvar_csv` L2750, chamado apenas quando `ativo=True`). Resultado: **zero ativações em 2 semanas**.
+
+### Descoberta 2 - O sniper é matematicamente impossível de ativar (sem DOL)
+Gatilho real (L2721): `ativo = score >= 7 and direcao_sugerida != "NADA"`.
+
+Pontuação máxima por condição: DOL(2) + ratio(1) + %R(2) + RSI(1) + ATR(1) + ENT(1) + HR(1 fixo) = 9.
+
+A condição DOL (L2653) exige `dol_conf > 0.7`. **Sem os 2 pontos do DOL, o teto do score é 6/7 → o sniper NUNCA ativa**, não importa quão perfeitos sejam %R, RSI, book, volatilidade e entropia.
+
+### Descoberta 3 - O DOL real entrega confiança 0.34-0.43, nunca 0.7
+Análise do log 07/08 (20 linhas "DOL fraco/desalinhado"): MIN 0.34 / MAX 0.43 / AVG 0.37 / apenas 6 de 20 acima de 0.4 (o gate do robô principal). O threshold 0.7 do sniper é irreal para um sinal de book do dólar.
+
+### Descoberta 4 - Sem observabilidade, o agente nunca teve dados
+- O sniper NÃO loga standby nem score parcial (só o banner na ativação).
+- O "sniper ativo" do sprint do meio-dia 12:30 é o TREINO do agente (texto em `agente_monstro_core.py` L50, parse "sniper_standby"), não o sniper real.
+- Conclusão: o agente tentava ajustar um `sniper_ratio_min` (2.0) que é o gate de INVERSÃO DE FLUXO, não do sniper — o sniper usa hardcode `ratio > 2.0` (L2666). O agente mexia no parâmetro errado.
+
+### Impacto no robô principal (efeito colateral)
+O DOL advisory (03/08) aplica `confianca_decisao *= 0.70` em toda decisão com DOL < 0.4 (L7201-7204). Como o DOL raramente passa de 0.4, quase toda decisão perde 30% de confiança — e com o piso 0.50 (fix `675e0a1`), decisões com confiança bruta < ~0.72 são bloqueadas. Não é bug (é o desenho de 03/08), mas o multiplicador é quase sistemático.
+
+### Correção proposta (aguardando aprovação + backtest antes de mudar)
+1. **Reescrever o sniper em torno da tese %R (reversão de extremo):** %R extremo (≤-80 compra / ≥-20 venda) como timing OBRIGATÓRIO; confirmação = book ratio do WDO (não DOL); risco ATR; gate realista (ex. score ≥ 4-5). Logar standby/score parcial a cada verificação para o agente ter dados reais.
+2. **Remover o DOL do gate do sniper** (ou rebaixá-lo a bônus com threshold ~0.45, o que o DOL real entrega).
+3. **Rebaixar o ×0.70 permanente** do robô principal (punir só DOL fortemente contrário, não DOL ausente/neutro).
+
+---
+
+## DIA 08/08/2026 (noite 4) - SNIPER %R VARIANTE A IMPLEMENTADO (novo cérebro)
+
+### Contexto
+O custo real por operação é R$1,20 (R$0,60 ida + R$0,60 volta por contrato, RLP ativo) — não os R$2,5-3,0 estimados na noite 3. Com o custo real, a tese %R fica líquida-positiva.
+
+### Backtest com custo real (8918 ticks, 29/07→07/08, 7 pregões, 1 contrato)
+- **Variante A (AMPLA — escolhida):** 130 trades, Win 53,1%, **+R$167 líquido**, MaxDD −7R. Sinal = %R ≤ −80 (BUY) / ≥ −20 (SELL), sem filtro de horário, sem limite de trades/dia. Gestão: SL = 1,5×ATR (R), TP = 3×ATR (2R), trailing 50% do ganho pós-1R.
+- Variante D (horário 09:00-17:00 + máx 8 trades/dia): +R$17 | C (máx 4/dia): +R$14 | M (SL×2,5): +R$25.
+- ATR médio/dia: 1,35-2,43 pts.
+
+### Implementação em `monstro_unificado_v22.py`
+- **`SniperSupermo` reescrito** (L2615+): SÓ %R (≤−80/≥−20), debounce de zona com reset de `em_zona=0` ao sinalizar (replicado do backtest L178, permite re-entrada na mesma zona), SL/TP por ATR no resultado, log standby a cada 60s, cooldown pós-ativação.
+- **`SNIPER_APENAS=true`** (config.json): sem sinal %R o robô faz NADA — a IA principal (que sangrava −R$455/semana) não executa mais.
+- Loop (L7223): sniper INICIA operação própria sobrepondo a IA; volume próprio `SNIPER_SUPERMO_VOLUME=1.0`; SL/TP por ATR enviados via `executar_ordem(sl_points_override/tp_points_override)`.
+- **Gestão de saída exclusiva do sniper** (posições marcadas `entry_context['sniper_wr']=1`): pulam inversão de fluxo (L6419) e `gerenciador_saida` (L6540-6541); SL/TP no MT5 + trailing 50% pós-1R no monitoramento (L6500-6533). Encerramento 17:35 fecha qualquer sobra.
+- **Kill-switch ajustado:** `max_loss_diario` −500 → **−100** (≈ −2R) em `risk_management` e no nível raiz; `max_drawdown` → −100.
+- Filtros pulados quando sniper ativo: volume, seguir bigs, piso de confiança, bloqueio de lado (L7328, não inverte a direção do %R).
+- Sincronização de posição: TP > 0 ⇒ marca `sniper_wr` (robô principal sempre usa TP=0).
+
+### Validação
+- `py_compile` OK; `test_sniper_wr.py` (strings) OK; `test_sniper_logic.py` (8 testes de lógica via AST) todos passaram.
+
+### Pendências
+- Observar 5 pregões reais para validar a curva (target: manter Win ≥ 50% e liquidez com o custo real).
+
+
+

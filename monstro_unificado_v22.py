@@ -2604,33 +2604,42 @@ class MonitorWilliamsR:
 williams_r_monitor = MonitorWilliamsR()
 
 
-# ========== SNIPER SUPERMO (entrada cirÃºrgica com confluÃªncia TOTAL) ==========
-SNIPER_SUPERMO_ATIVO = False
-SNIPER_SUPERMO_VOLUME = 5.0
+# ========== SNIPER %R (reversão de extremo — Larry Williams) ==========
+SNIPER_SUPERMO_ATIVO = True
+SNIPER_SUPERMO_VOLUME = 1.0
+# Modo "sniper apenas": quando o sniper %R não ativa, o robô NÃO opera pela IA
+# principal (que sangrou -455 na semana). Só o sniper executa ordens.
+SNIPER_APENAS = bool(config.get('sniper_apenas', True))
 SNIPER_SUPERMO_CSV = _caminho_dados("sniper_supermo_historico.csv")
 
 
 class SniperSupermo:
-    """Modo de operaÃ§Ã£o de alta convicÃ§Ã£o. SÃ³ entra quando TODOS os filtros se alinham.
+    """SNIPER %R (Larry Williams) — reversão de extremo, validado em backtest.
 
-    CondiÃ§Ãµes verificadas:
-      1. DOL confianÃ§a > 0.7 + lado alinhado com direÃ§Ã£o
-      2. Williams %R em zona extrema (< -85 ou > -15) OU divergÃªncia
-      3. RSI em zona (< 25 ou > 75)
-      4. ATR > 2.0
-      5. Entropia > 2.75 (livro com direÃ§Ã£o, escala real)
-      6. HorÃ¡rio: 09:30-11:00 ou 14:45-16:00
-      7. Sniper ratio > 2.0 (desequilÃ­brio forte)
+    Estratégia escolhida: variante A (ampla) do backtest de 07/08/2026 sobre
+    8918 ticks reais (7 pregões), com custo real de R$1,20/operação (0,60 ida
+    + 0,60 volta por contrato, RLP ativo):
+      - 130 trades, Win 53,1%, Payoff 1,81, +167 R$/semana LÍQUIDO, MaxDD -7R.
+      - Entrada no %R extremo (<= -80 BUY / >= -20 SELL), sem filtro horário,
+        sem limite de trades/dia.
+      - Gestão no MT5: SL = 1.5xATR(14) M1, TP = 3xATR (alvo 2R), trailing 50%
+        do ganho pós-1R no loop de monitoramento (fiel ao backtest).
+
+    Diferente do sniper antigo (que exigia DOL conf>0.7 = score 7/7 e nunca
+    disparava porque o DOL real ficava em 0.34-0.43), este sniper SÓ usa %R.
     """
 
     def __init__(self):
         self._csv_header_escrito = False
         self.ultimo_log = 0
         self.cooldown_ate: float = 0
-        self.cooldown_segundos = 0  # Sem cooldown â€” sniper Ã© raro, pode re-ativar
+        self.cooldown_segundos = 0  # Sem cooldown — pode re-ativar após sair da zona
+        self.em_zona = 0  # 1=SOBREVENDIDO(BUY), -1=SOBRECOMPRADO(SELL), 0=fora
+        self.wr_anterior = -50.0
 
     def verificar(self, contexto: dict, acao_sugerida: str) -> dict:
-        """Retorna {'ativo': bool, 'direcao': str, 'score': int, 'detalhes': list}."""
+        """Retorna {'ativo': bool, 'direcao': str, 'score': int, 'detalhes': list,
+        'sl_points': float, 'tp_points': float}."""
         agora = time.time()
         if agora < self.cooldown_ate:
             return {'ativo': False, 'direcao': 'NADA', 'score': 0, 'detalhes': ['cooldown']}
@@ -2638,112 +2647,75 @@ class SniperSupermo:
         if not contexto:
             return {'ativo': False, 'direcao': 'NADA', 'score': 0, 'detalhes': ['sem_contexto']}
 
-        # Bloqueio por PTAX day ou payroll (sniper 5cc = risco alto)
+        # Bloqueio por PTAX day ou payroll
         if contexto.get('sniper_bloqueado', 0):
             return {'ativo': False, 'direcao': 'NADA', 'score': 0, 'detalhes': ['BLOQ_PTAX/PAYROLL']}
 
+        # Já em posição: não re-entra (gestão de saída cuida do trade vigente)
+        if contexto.get('is_in_trade', 0):
+            return {'ativo': False, 'direcao': 'NADA', 'score': 0, 'detalhes': ['ja_em_posicao']}
+
+        wr = float(contexto.get('williams_r', -50))
         score = 0
         detalhes = []
-        direcao_sugerida = "NADA"
+        direcao = "NADA"
 
-        # 1. DOL confianÃ§a > 0.7 + lado
-        dol_lado = contexto.get('dol_lado', 'NEUTRO')
-        dol_conf = contexto.get('dol_confianca', 0)
-        dol_presente = contexto.get('dol_presente', 0)
-        if dol_presente and dol_lado != 'NEUTRO' and dol_conf > 0.7:
+        # Sinal %R extremo com trava de zona: só entra na ENTRADA da zona
+        # (debounce), evitando múltiplos sinais dentro do mesmo extremo.
+        if wr <= -80:
             score += 2
-            detalhes.append(f"DOL={dol_lado}({dol_conf:.2f})")
-            if dol_lado == 'BUY':
-                direcao_sugerida = 'BUY'
-            else:
-                direcao_sugerida = 'SELL'
-
-        # 2. Sniper ratio > 2.0
-        bid_qty = float(contexto.get('bid_qty', 0))
-        ask_qty = float(contexto.get('ask_qty', 0))
-        if bid_qty > 0 and ask_qty > 0:
-            ratio = max(bid_qty, ask_qty) / min(bid_qty, ask_qty)
-            if ratio > 2.0:
-                score += 1
-                detalhes.append(f"SNIPER={ratio:.1f}x")
-                lado_book = "BUY" if bid_qty > ask_qty else "SELL"
-                if direcao_sugerida == "NADA":
-                    direcao_sugerida = lado_book
-
-        # 3. Williams %R em zona extrema ou divergÃªncia
-        williams_r = float(contexto.get('williams_r', -50))
-        wr_div = contexto.get('wr_divergencia', 'NEUTRO')
-        if williams_r < -85:
+            detalhes.append(f"%R={wr:.0f}(SEV)")
+            if self.em_zona != 1:
+                self.em_zona = 1
+                direcao = "BUY"
+                detalhes.append("BUY")
+        elif wr >= -20:
             score += 2
-            detalhes.append(f"%R={williams_r:.0f}(SEV)")  # SobreVendido
-            if direcao_sugerida == "NADA":
-                direcao_sugerida = "BUY"
-        elif williams_r > -15:
-            score += 2
-            detalhes.append(f"%R={williams_r:.0f}(SEC)")  # SobreComprado
-            if direcao_sugerida == "NADA":
-                direcao_sugerida = "SELL"
-        elif wr_div != "NEUTRO":
-            score += 1
-            detalhes.append(f"%R_DIV={wr_div}")
-            if "BULL" in wr_div and direcao_sugerida == "NADA":
-                direcao_sugerida = "BUY"
-            elif "BEAR" in wr_div and direcao_sugerida == "NADA":
-                direcao_sugerida = "SELL"
+            detalhes.append(f"%R={wr:.0f}(SEC)")
+            if self.em_zona != -1:
+                self.em_zona = -1
+                direcao = "SELL"
+                detalhes.append("SELL")
+        else:
+            self.em_zona = 0
+            detalhes.append(f"%R={wr:.0f}(neutro)")
 
-        # 4. RSI em zona extrema (usando raw do contexto)
-        rsi_raw = float(contexto.get('rsi_14', 50))
-        if rsi_raw < 25:
-            score += 1
-            detalhes.append(f"RSI={rsi_raw:.0f}(SEV)")
-        elif rsi_raw > 75:
-            score += 1
-            detalhes.append(f"RSI={rsi_raw:.0f}(SEC)")
+        ativo = direcao != "NADA"
 
-        # 5. ATR > 2.0
-        atr = float(contexto.get('volatility', 0))
-        if atr > 2.0:
-            score += 1
-            detalhes.append(f"ATR={atr:.1f}")
-
-        # 6. Entropia > 2.75 (escala real, era 0.3 em [0,1] -> sempre verdadeira)
-        entropia = float(contexto.get('entropia_book', 0))
-        if entropia > 2.75:
-            score += 1
-            detalhes.append(f"ENT={entropia:.2f}")
-
-        # 7. HorÃ¡rio (checagem global jÃ¡ feita em horario_permitido, mas pontua)
-        agora_h = datetime.now().hour
-        agora_m = datetime.now().minute
-        score += 1
-        detalhes.append(f"HR={agora_h:02d}:{agora_m:02d}")
-
-        ativo = score >= 7 and direcao_sugerida != "NADA"
-
-        if ativo:
-            # Verifica se a direÃ§Ã£o sugerida Ã© coerente com DOL
-            if dol_presente and dol_lado != 'NEUTRO' and direcao_sugerida != dol_lado:
-                ativo = False
-                detalhes.append("DOL_CONTRARIA")
+        # SL/TP por ATR do contexto (mesma gestão do backtest: 1.5x/3x)
+        atr = float(contexto.get('volatility', 0)) or 2.0
+        sl_points = 1.5 * atr
+        tp_points = 3.0 * atr
 
         resultado = {
             'ativo': ativo,
-            'direcao': direcao_sugerida if ativo else 'NADA',
+            'direcao': direcao,
             'score': score,
-            'detalhes': detalhes
+            'detalhes': detalhes,
+            'sl_points': sl_points,
+            'tp_points': tp_points,
         }
 
-        if ativo and agora - self.ultimo_log > 30:
+        # Observabilidade: loga standby/score a cada 60s (o agente via texto de
+        # sprint de treino antes, não o robô real)
+        if agora - self.ultimo_log > 60:
+            self.ultimo_log = agora
+            logging.info(
+                f"SNIPER %R | wr={wr:.0f} | zona={self.em_zona} | "
+                f"score={score} | {'ATIVO ' + direcao if ativo else 'standby'} | "
+                f"{' | '.join(detalhes)} | SL={sl_points:.1f}pt TP={tp_points:.1f}pt")
+
+        if ativo:
             banner = (
                 f"\n{'='*60}\n"
-                f"ðŸ”´âš¡ðŸ”´âš¡ðŸ”´ SNIPER SUPERMO ATIVADO âš¡ðŸ”´âš¡ðŸ”´âš¡\n"
-                f"DIREÃ‡ÃƒO: {direcao_sugerida} | SCORE: {score}/10\n"
-                f"CONDIÃ‡Ã•ES: {' | '.join(detalhes)}\n"
+                f"⚡ SNIPER %R ATIVADO ⚡\n"
+                f"DIREÇÃO: {direcao} | %R={wr:.0f}\n"
+                f"CONDIÇÕES: {' | '.join(detalhes)}\n"
+                f"SL={sl_points:.1f}pt ({1.5}xATR) | TP={tp_points:.1f}pt (2R)\n"
                 f"{'='*60}"
             )
             logging.info(banner)
-            self.ultimo_log = agora
-            self._salvar_csv(contexto, direcao_sugerida, score, detalhes)
+            self._salvar_csv(contexto, direcao, score, detalhes)
 
         return resultado
 
@@ -4952,7 +4924,9 @@ class ModoOperacional:
 def executar_ordem(action: str, lots: float = VOLUME_PADRAO, symbol: str = None,
                    sl: Optional[float] = None, tp: Optional[float] = None,
                    modo_operacional: Optional[ModoOperacional] = None,
-                   sniper: bool = False) -> Optional[int]:
+                   sniper: bool = False,
+                   sl_points_override: Optional[float] = None,
+                   tp_points_override: Optional[float] = None) -> Optional[int]:
     """Executa uma ordem de compra ou venda com SL fixo de 5 pontos e sem TP (robÃ´ decide saÃ­da)."""
 
     # ========== âœ… PA1: VERIFICAÃ‡ÃƒO DE HORÃRIO OBRIGATÃ“RIA ==========
@@ -5050,8 +5024,9 @@ def executar_ordem(action: str, lots: float = VOLUME_PADRAO, symbol: str = None,
     logging.info(f"ðŸ“Š Volume ajustado: {lote_corrigido:.1f} contratos")
 
     # ========== WDO: SL=5 (seguranÃ§a), TP=0 (saÃ­da dinÃ¢mica por Keras+Book) ==========
-    sl_points_dinamico = SL_POINTS  # 5 pontos WDO (mÃ¡ximo)
-    tp_points_dinamico = TP_POINTS  # 0 = SEM TP â€” GerenciadorDeSaida decide
+    # Sniper %R passa SL/TP por ATR (sl_points_override / tp_points_override)
+    sl_points_dinamico = sl_points_override if sl_points_override else SL_POINTS  # 5 pontos WDO (mÃ¡ximo)
+    tp_points_dinamico = tp_points_override if tp_points_override is not None else TP_POINTS  # 0 = SEM TP â€” GerenciadorDeSaida decide
     logging.info(
         f"ðŸ›¡ï¸ WDO CONFIG: SL={sl_points_dinamico}pts, TP={tp_points_dinamico} (saÃ­da dinÃ¢mica)")
 
@@ -6345,6 +6320,12 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                             score_inicial=0.0,  # NÃ£o temos o contexto original, entÃ£o usamos um valor neutro
                             entry_context=_ctx_recover  # Salva contexto atual para nÃ£o perder o registro no CSV
                         )
+                        # Se a posiÃ§Ã£o sincronizada tem TP > 0, Ã© do SNIPER %R
+                        # (o robÃ´ principal sempre usa TP=0)
+                        if posicao_ativa_no_mt5.tp and posicao_ativa_no_mt5.tp > 0:
+                            if not isinstance(posicao_atual.entry_context, dict):
+                                posicao_atual.entry_context = {}
+                            posicao_atual.entry_context['sniper_wr'] = 1
                         # Inicia o monitoramento do gerenciador de saÃ­da para esta posiÃ§Ã£o
                         gerenciador_saida.iniciar_monitoramento(
                             posicao_ativa_no_mt5)
@@ -6377,6 +6358,11 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                                     score_inicial=0.0,
                                     entry_context=_ctx_recover2
                                 )
+                                # PosiÃ§Ã£o com TP > 0 = SNIPER %R (robÃ´ principal usa TP=0)
+                                if posicao_ativa_no_mt5.tp and posicao_ativa_no_mt5.tp > 0:
+                                    if not isinstance(posicao_atual.entry_context, dict):
+                                        posicao_atual.entry_context = {}
+                                    posicao_atual.entry_context['sniper_wr'] = 1
                                 gerenciador_saida.iniciar_monitoramento(
                                     posicao_ativa_no_mt5)
                                 logging.info(
@@ -6423,9 +6409,14 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                         # gate config=2.0, breakeven substituÃ­do por trava de lucro):
                         #   â€¢ Em PREJUÃZO  -> SAI IMEDIATO (corta a perda, big players viraram)
                         #   â€¢ Em LUCRO      -> TRAVA 50% do lucro (protege e deixa correr)
+                        # (PULADO para posiÃ§Ã£o SNIPER %R â€” SL/TP por ATR no MT5 + trailing
+                        # 50% abaixo gerenciam a saÃ­da, fiel ao backtest variante A)
                         try:
                             book_fluxo = ler_book_nativo()
-                            if book_fluxo and posicao_atual:
+                            _pos_eh_sniper_wr = bool(
+                                (posicao_atual.entry_context or {}).get('sniper_wr', 0)
+                            ) if posicao_atual else False
+                            if book_fluxo and posicao_atual and not _pos_eh_sniper_wr:
                                 bid_total = book_fluxo.get(
                                     'total_bid_volume', 0)
                                 ask_total = book_fluxo.get(
@@ -6506,11 +6497,12 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                             logging.debug(
                                 f"[InversÃ£o Fluxo] Erro na verificaÃ§Ã£o: {e}")
 
-                        # ========== âš¡ SNIPER SUPERMO: TRAILING ESPECÃFICO ==========
-                        # 1. SL inicial 5pts da entrada (jÃ¡ Ã© o padrÃ£o)
-                        # 2. Lucro >= 2.5pts â†’ move SL para breakeven (entrada)
-                        # 3. Depois do breakeven: trailing 1pt/1pt (SL = preco - 1pt)
-                        if SNIPER_SUPERMO_ATIVO and posicao_atual is not None:
+                        # ========== âš¡ SNIPER %R: TRAILING (fiel ao backtest variante A) ==========
+                        # R = SL = 1.5xATR. Após lucro >= R, move SL para a entrada +
+                        # 50% do ganho (trailing 50%), apenas melhorando o SL.
+                        # O TP (2R) já está no MT5; o GerenciadorDeSaida é pulado
+                        # para posições sniper (regras dele cortariam o trade %R cedo).
+                        if posicao_atual is not None and bool((posicao_atual.entry_context or {}).get('sniper_wr', 0)):
                             try:
                                 _pos_mt5 = mt5.positions_get(ticket=posicao_atual.ticket)
                                 if _pos_mt5 and len(_pos_mt5) > 0:
@@ -6522,29 +6514,34 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                                     )
                                     _entrada = posicao_atual.preco_entrada
                                     _is_buy = gerenciador_saida.tipo_posicao == "BUY"
-                                    _ja_breakeven = (
-                                        _sl_atual >= _entrada if _is_buy else _sl_atual <= _entrada
-                                    )
-                                    if _lucro_pts >= 2.5:
-                                        if not _ja_breakeven:
-                                            # Passo 1: breakeven garantido
-                                            if atualizar_sl(posicao_atual.ticket, _entrada, eh_breakeen_forcado=True):
+                                    _r_sniper = float(posicao_atual.entry_context.get(
+                                        'sniper_sl_points', 2.5) or 2.5)
+                                    if _lucro_pts >= _r_sniper:
+                                        _sl_alvo_trail = (
+                                            _entrada + 0.5 * _lucro_pts if _is_buy
+                                            else _entrada - 0.5 * _lucro_pts
+                                        )
+                                        _melhoria = (
+                                            _sl_alvo_trail > _sl_atual if _is_buy
+                                            else _sl_alvo_trail < _sl_atual
+                                        )
+                                        if _melhoria:
+                                            if atualizar_sl(posicao_atual.ticket, _sl_alvo_trail, eh_breakeen_forcado=True):
                                                 logging.info(
-                                                    f"âš¡ SNIPER: lucro {_lucro_pts:.0f}pts â†’ breakeven")
-                                        else:
-                                            # Passo 2: trailing 1pt atrÃ¡s do preÃ§o
-                                            _sl_1pt = preco_atual - 1.0 if _is_buy else preco_atual + 1.0
-                                            _melhoria = _sl_1pt > _sl_atual if _is_buy else _sl_1pt < _sl_atual
-                                            if _melhoria:
-                                                if atualizar_sl(posicao_atual.ticket, _sl_1pt, eh_breakeen_forcado=True):
-                                                    logging.debug(
-                                                        f"âš¡ SNIPER: trailing â†’ {_sl_1pt:.0f}")
+                                                    f"⚡ SNIPER %R: trailing 50% → SL {_sl_alvo_trail:.2f} (lucro {_lucro_pts:.1f}pts, R={_r_sniper:.1f})")
                             except Exception:
                                 pass
 
-                        # CHAMA O GERENCIADOR UNIFICADO
-                        deve_sair, motivo, novo_sl = gerenciador_saida.verificar_condicoes_saida(
-                            preco_atual, rsi_atual=50)  # Passe o RSI real
+                        # CHAMA O GERENCIADOR UNIFICADO (PULADO para SNIPER %R — SL/TP
+                        # por ATR no MT5 + trailing acima já gerenciam a saída)
+                        _pos_eh_sniper_wr = bool(
+                            (posicao_atual.entry_context or {}).get('sniper_wr', 0)
+                        ) if posicao_atual else False
+                        if _pos_eh_sniper_wr:
+                            deve_sair, motivo, novo_sl = False, None, None
+                        else:
+                            deve_sair, motivo, novo_sl = gerenciador_saida.verificar_condicoes_saida(
+                                preco_atual, rsi_atual=50)  # Passe o RSI real
 
                         if deve_sair:
                             logging.info(f"ðŸšª DecisÃ£o de SaÃ­da: {motivo}")
@@ -7223,17 +7220,27 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                 ultima_decisao = acao_para_executar  # Atualiza ultima_decisao global
                 # >>> Fim do Bloco de DecisÃ£o e Salvamento de DecisÃ£o <<<
 
-                # ========== âš¡ SNIPER SUPERMO CHECK ==========
-                # Se TODAS as condiÃ§Ãµes de alta convicÃ§Ã£o forem atendidas,
-                # sobrepÃµe a aÃ§Ã£o e pula filtros normais (volume, big players)
+                # ========== ⚡ SNIPER %R CHECK (INICIA OPERAÇÃO PRÓPRIA) ==========
+                # O sniper %R é o novo cérebro: quando o %R cruza a zona extrema
+                # (<= -80 BUY / >= -20 SELL) ele INICIA a operação com direção
+                # própria, sobrepondo a IA e pulando os filtros do robô normal.
+                # Gestão de saída: SL=1.5xATR e TP=3xATR no MT5 + trailing 50%
+                # pós-1R no loop de monitoramento (fiel ao backtest variante A).
                 sniper_result = sniper_supermo.verificar(contexto, acao_para_executar)
-                sniper_ativo = sniper_result['ativo'] and sniper_result['direcao'] == acao_para_executar
-                if sniper_ativo:
+                if sniper_result['ativo']:
                     SNIPER_SUPERMO_ATIVO = True
+                    acao_para_executar = sniper_result['direcao']
+                    # Fiel ao backtest (L178): reseta a trava de zona ao sinalizar,
+                    # permitindo re-entrada na mesma zona quando a posição fechar.
+                    sniper_supermo.em_zona = 0
                     logging.info(
-                        f"âš¡ SNIPER SUPERMO CONFIRMA {acao_para_executar} â€” pulando filtros normais, volume=5cc")
+                        f"⚡ SNIPER %R INICIA {acao_para_executar} — sobrepondo IA, pulando filtros normais")
                 else:
                     SNIPER_SUPERMO_ATIVO = False
+                    # Modo "sniper apenas": sem sinal %R o robô espera — a IA
+                    # principal não executa (evita voltar a sangrar).
+                    if SNIPER_APENAS:
+                        acao_para_executar = "NADA"
 
                 rates = mt5.copy_rates_from_pos(
                     SYMBOL, TIMEFRAME, 0, PERIODO_ATR + 1)
@@ -7318,7 +7325,8 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     continue
 
                 # Aplica bloqueio de lado APÃ“S a previsÃ£o inicial - SÃ“ PARA AÃ‡Ã•ES DE TRADING
-                if acao_para_executar in ["BUY", "SELL"] and gerenciador_bloqueio.verificar_bloqueio(acao_para_executar):
+                # (pulado se SNIPER %R ativo: a direÃ§Ã£o extrema do %R nÃ£o pode ser invertida)
+                if acao_para_executar in ["BUY", "SELL"] and not SNIPER_SUPERMO_ATIVO and gerenciador_bloqueio.verificar_bloqueio(acao_para_executar):
                     acao_original_bloqueada = acao_para_executar
                     acao_para_executar = gerenciador_bloqueio.obter_acao_alternativa(
                         acao_original_bloqueada)
@@ -7451,7 +7459,8 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                 # DecisÃµes BUY/SELL com confianÃ§a < 0.50 nÃ£o executam. PolÃ­tica fixa
                 # (nÃ£o grava experiÃªncia, mesmo padrÃ£o do veto de bigs). A decisÃ£o
                 # jÃ¡ foi salva no CSV (salvar_decisao_csv acima) para mÃ©tricas contÃ­nuas.
-                if acao_para_executar in ["BUY", "SELL"] and confianca_decisao < PISO_CONFIANCA_MINIMA:
+                # (Pulado se SNIPER %R ativo — o sniper tem regra própria de entrada)
+                if not SNIPER_SUPERMO_ATIVO and acao_para_executar in ["BUY", "SELL"] and confianca_decisao < PISO_CONFIANCA_MINIMA:
                     if _log_periodico('piso_confianca', 300):
                         logging.info(
                             f"ðŸš« PISO DE CONFIANÃ‡A: {acao_para_executar} bloqueado "
@@ -7460,13 +7469,16 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     continue
 
                 # Executa ordem com a aÃ§Ã£o final decidida
-                # Se SNIPER SUPERMO ativo, usa volume maior (5cc) e SL=5pts
+                # Se SNIPER %R ativo, usa volume próprio e SL/TP por ATR (1.5x/3x)
                 _volume_exec = SNIPER_SUPERMO_VOLUME if SNIPER_SUPERMO_ATIVO else VOLUME_PADRAO
+                _sl_override = sniper_result.get('sl_points') if SNIPER_SUPERMO_ATIVO else None
+                _tp_override = sniper_result.get('tp_points') if SNIPER_SUPERMO_ATIVO else None
                 ticket = executar_ordem(
                     acao_para_executar, lots=_volume_exec, modo_operacional=modo_operacional,
-                    sniper=SNIPER_SUPERMO_ATIVO)
+                    sniper=SNIPER_SUPERMO_ATIVO,
+                    sl_points_override=_sl_override, tp_points_override=_tp_override)
                 if SNIPER_SUPERMO_ATIVO:
-                    logging.info(f"âš¡ SNIPER SUPERMO: ordem enviada com {_volume_exec}cc")
+                    logging.info(f"⚡ SNIPER %R: ordem enviada com {_volume_exec}cc, SL/TP por ATR")
                     sniper_supermo.ativar_cooldown()
                 if not ticket:
                     logging.warning(
@@ -7550,6 +7562,12 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     score_inicial=score_inicial,
                     entry_context=contexto.copy()  # Salva o contexto que levou Ã  decisÃ£o
                 )
+                if SNIPER_SUPERMO_ATIVO:
+                    posicao_atual.entry_context['sniper_wr'] = 1
+                    posicao_atual.entry_context['sniper_sl_points'] = _sl_override
+                    posicao_atual.entry_context['sniper_tp_points'] = _tp_override
+                    logging.info(
+                        f"⚡ Posição SNIPER %R registrada: SL={_sl_override:.1f}pt TP={_tp_override:.1f}pt")
 
                 # ATIVA O GERENCIADOR DE SAÃDA (PASSO 2)
                 posicao_obj_mt5 = mt5.positions_get(ticket=ticket)[0]
