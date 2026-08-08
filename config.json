@@ -1,13 +1,13 @@
 {
     "symbol_prefix": "WDO",
     "volume_padrao": 1.0,
-    "sl_points": 8,
+    "sl_points": 5,
     "tp_points": 0,
     "max_loss_diario": -500.0,
     "max_spread": 5,
     "min_volume_book": 200,
     "sniper_volume_min": 400,
-    "sniper_ratio_min": 1.2,
+    "sniper_ratio_min": 2.0,
     "horarios": {
         "pregao": "09:00",
         "limite_ordens": "17:33",

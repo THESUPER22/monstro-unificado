@@ -1913,3 +1913,28 @@ Macro Gatekeeper (offline, 08:55) → escreve em config.json (ex: "macro_status"
 
 - SL por ATR: ATR < 1,5 não operar ou SL 5-6pts; ATR 1,5-2,5 SL 8pts; acima disso não operar. Aguardar 5 pregões da Ação 1+2 antes de mexer em SL.
 
+---
+
+## DIA 07/08/2026 (noite 2) - GARGALO REAL ENCONTRADO (análise de motivos de saída nos logs)
+
+### O que os logs revelaram (monstro_wdo.log) - estava corrigindo o sintoma, não a doença
+
+1. **SL real era 8pts, não 5pts** (`config.json sl_points: 8`). Losses do dia: -85, -65, -85 (8,5/6,5/8,5pts). O comentário no código dizia "SL=5" mas o valor carregado era 8. Cada perda = R$80+.
+2. **Inversão de fluxo com gate 1.2** (`sniper_ratio_min: 1.2`) disparava com QUALQUER desequilíbrio mínimo (ratios 1.20-1.46 no log) - não é "big players viraram", é ruído.
+3. **Breakeven cortava os winners:** trade 09:47 ia a +2,5pts -> SL puxado para a entrada -> fechou em +10. Trade 11:43 (+1,5pts) -> fechou +15.
+4. **Breakeven em prejuízo leve é INVIÁVEL no MT5:** posição presa em -1,5/-2pts (17:10-17:35) -> 27 tentativas de mover SL -> **27x retcode 10016 "Invalid stops"** (preço colado na entrada, abaixo da distância mínima de stop). O sistema batia na porta do MT5 a cada 5s sem conseguir nada.
+
+### Correções aplicadas (config.json + monstro_unificado_v22.py)
+
+1. `sl_points` **8 -> 5** (perda máxima R$50/trade; default no código também 5).
+2. `sniper_ratio_min` **1.2 -> 2.0** (inversão de fluxo só reage a desequilíbrio real de book, como no config_win_v2).
+3. **Inversão de fluxo NÍVEL 2 reescrita:** em LUCRO real -> **trava 50% do lucro** (SL deixa a entrada para trás); em zero/prejuízo leve + fluxo contra -> **SAIR** (cortar a perda em -1,5/-2 em vez de deixar sangrar até -5/-8).
+4. **Cooldown anti-espasmo:** no máximo 1 ajuste de SL por fluxo a cada 60s + distância mínima SL-preço de 2pts (evita retcode 10016).
+
+### Conclusão honesta
+
+- O gargalo NÃO era o trailing (era o sintoma): era a combinação **SL 8pts + gate de inversão 1.2 + breakeven** que cortava winners em +1pt e prendia perdas por horas.
+- Keras e agentes não "aprendiam" porque o resultado por sinal era uma roleta (mesmo sinal -> +70 ou -85 dependendo da saída). Com a saída corrigida, o aprendizado volta a fazer sentido.
+- Validação: py_compile OK, testes 9/9. Dryrun real 2ª 09:00.
+- Ação 3 (SL por ATR) fica para depois de 5 pregões de validação.
+

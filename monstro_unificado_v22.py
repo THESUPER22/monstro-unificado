@@ -480,7 +480,7 @@ DIGITS_INDICE = config.get("contrato", {}).get(
 MIN_TICKS = 500             # 1 ponto WDO = 500 ticks
 MAX_TICKS = 5000            # 10 pontos WDO = 5000 ticks (TP dinÃ¢mico)
 MAX_DISTANCIA_SL_PONTOS = config.get(
-    "sl_points", 8)      # 8 pontos WDO
+    "sl_points", 5)      # 5 pontos WDO (FIX 07/08: era 8 -> perdas de R$80)
 MAX_DISTANCIA_TP_PONTOS = config.get(
     "tp_points", 10)     # 10 pontos WDO (TP dinÃ¢mico)
 
@@ -492,8 +492,8 @@ TRAILING_INTERVALO = config.get(
 # Os valores do config.json sÃ£o sobrescritos pelos valores ajustados manualmente
 
 # Stop Loss e Take Profit (em pontos) - CONFIGURAÃ‡ÃƒO WDO (REFATORADO)
-# 5 pontos WDO = 5000 ticks (SL como rede de seguranÃ§a)
-SL_POINTS = config.get("sl_points", 8)
+# 5 pontos WDO = 5000 ticks (SL como rede de seguranÃ§a - FIX 07/08: era 8)
+SL_POINTS = config.get("sl_points", 5)
 # 10 pontos WDO = 10000 ticks (TP dinÃ¢mico - Keras decide saÃ­da)
 TP_POINTS = config.get("tp_points", 10)
 
@@ -520,6 +520,12 @@ SNIPER_RATIO_MIN = config.get("sniper_ratio_min", 1.5)  # Restaurado para 1.5 (f
 # ========================================================================
 _veto_estado = {'ultimo_log': 0.0}
 VETO_LOG_INTERVALO_S = 60   # loga o veto no mÃ¡ximo 1x a cada 60s
+
+# Cooldown anti-espasmo da inversÃ£o de fluxo (FIX 07/08: era 1x/5s -> 27x FALHA 10016)
+_fluxo_estado = {'ultimo_ajuste': 0.0}
+FLUXO_COOLDOWN_S = 60         # no mÃ¡ximo 1 ajuste de SL por fluxo a cada 60s
+FLUXO_TRAVA_LUCRO_PCT = 0.50  # trava 50% do lucro quando o fluxo vira (nÃ£o breakeven)
+FLUXO_DIST_MINIMA_PTS = 2.0   # distÃ¢ncia mÃ­nima SL-preÃ§o para tentar ajuste (evita retcode 10016)
 _log_estado = {'ultimo_pulso': 0.0, 'ultimo_heartbeat': 0.0}
 PULSO_LOG_INTERVALO_S = 60      # pulso de mercado (ðŸ“Š) 1x a cada 60s em standby
 HEARTBEAT_LOG_INTERVALO_S = 15  # heartbeat da posiÃ§Ã£o (ðŸ’“) 1x a cada 15s operando
@@ -6413,9 +6419,10 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
 
                         # ========== ï¿½ðŸ”„ SAÃDA POR INVERSÃƒO DE FLUXO (BIG PLAYERS INVERTERAM) ==========
                         # Book nativo (tempo real). Se o fluxo vira contra a posiÃ§Ã£o
-                        # (ratio >= SNIPER_RATIO_MIN), reage em 2 NÃVEIS:
+                        # (ratio >= SNIPER_RATIO_MIN), reage em 2 NÃVEIS (FIX 07/08:
+                        # gate config=2.0, breakeven substituÃ­do por trava de lucro):
                         #   â€¢ Em PREJUÃZO  -> SAI IMEDIATO (corta a perda, big players viraram)
-                        #   â€¢ Em LUCRO/zero -> move SL para breakeven (protege e deixa correr)
+                        #   â€¢ Em LUCRO      -> TRAVA 50% do lucro (protege e deixa correr)
                         try:
                             book_fluxo = ler_book_nativo()
                             if book_fluxo and posicao_atual:
@@ -6460,19 +6467,41 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                                             posicao_atual = None
                                             posicao_aberta = False
                                         elif lucro_pontos_inv >= -2.0 and posicoes_check and len(posicoes_check) > 0:
-                                            # NÃVEL 2 â€” PREJUÃZO LEVE/LUCRO/ZERO + fluxo contra: breakeen
-                                            sl_breakeven = posicao_atual.preco_entrada
+                                            # NÃVEL 2 â€” fluxo contra (FIX 07/08: breakeven era ineficaz):
+                                            #   * Em LUCRO real -> TRAVA 50% do lucro (SL deixa a entrada p/ trÃ¡s)
+                                            #   * Em zero/prejuÃ­zo leve -> SAI (breakeven inviÃ¡vel: MT5 retcode
+                                            #     10016 "Invalid stops" quando o preÃ§o estÃ¡ colado na entrada)
+                                            entrada_fluxo = posicao_atual.preco_entrada
                                             sl_atual = posicoes_check[0].sl
-                                            melhoria = (gerenciador_saida.tipo_posicao == "SELL" and sl_breakeven < sl_atual) or \
-                                                       (gerenciador_saida.tipo_posicao ==
-                                                        "BUY" and sl_breakeven > sl_atual)
-                                            if melhoria:
+                                            preco_atual_pos = posicoes_check[0].price_current
+                                            if lucro_pontos_inv > 0:
+                                                # Trava 50% do lucro atual (em vez de voltar para a entrada)
+                                                if gerenciador_saida.tipo_posicao == "SELL":
+                                                    sl_alvo = entrada_fluxo - lucro_pontos_inv * FLUXO_TRAVA_LUCRO_PCT
+                                                else:
+                                                    sl_alvo = entrada_fluxo + lucro_pontos_inv * FLUXO_TRAVA_LUCRO_PCT
+                                                # Respeita distÃ¢ncia mÃ­nima de stop (evita retcode 10016)
+                                                dist_sl = (preco_atual_pos - sl_alvo) if gerenciador_saida.tipo_posicao == "BUY" \
+                                                    else (sl_alvo - preco_atual_pos)
+                                                melhoria = (gerenciador_saida.tipo_posicao == "SELL" and sl_alvo < sl_atual) or \
+                                                           (gerenciador_saida.tipo_posicao == "BUY" and sl_alvo > sl_atual)
+                                                cooldown_ok = (time.time() - _fluxo_estado['ultimo_ajuste']) >= FLUXO_COOLDOWN_S
+                                                if melhoria and cooldown_ok and dist_sl >= FLUXO_DIST_MINIMA_PTS:
+                                                    _fluxo_estado['ultimo_ajuste'] = time.time()
+                                                    logging.warning(
+                                                        f"ðŸ”„ INVERSÃƒO DE FLUXO (lucro {lucro_pontos_inv:+.1f}pts)! Ratio contrÃ¡rio: {ratio_inversao:.2f} | "
+                                                        f"SL travado em {sl_alvo:.2f} (trava {FLUXO_TRAVA_LUCRO_PCT*100:.0f}% do lucro) â€” protegendo!")
+                                                    atualizar_sl(
+                                                        posicao_atual.ticket, sl_alvo)
+                                            else:
+                                                # zero/prejuÃ­zo leve + fluxo MUITO contra: corta em vez de breakeven
                                                 logging.warning(
                                                     f"ðŸ”„ INVERSÃƒO DE FLUXO (lucro {lucro_pontos_inv:+.1f}pts)! Ratio contrÃ¡rio: {ratio_inversao:.2f} | "
-                                                    f"SL movido para breakeen ({sl_breakeven:.2f}) â€” protegendo!")
-                                                # FIX: ForÃ§ar breakeen sem validaÃ§Ã£o de distÃ¢ncia
-                                                atualizar_sl(
-                                                    posicao_atual.ticket, sl_breakeven, eh_breakeen_forcado=True)
+                                                    f"SAINDO para cortar a perda (breakeven nÃ£o protege e nÃ£o Ã© executÃ¡vel)")
+                                                fechar_posicao_atual(
+                                                    motivo=f"InversÃ£o de fluxo (ratio {ratio_inversao:.2f})")
+                                                posicao_atual = None
+                                                posicao_aberta = False
                         except Exception as e:
                             logging.debug(
                                 f"[InversÃ£o Fluxo] Erro na verificaÃ§Ã£o: {e}")
