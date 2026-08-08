@@ -127,6 +127,18 @@ def api_status():
         for i, l in enumerate(lucros):
             trades_list.append({'index': i + 1, 'lucro': round(l, 2)})
 
+        # Sniper %R (cérebro desde 08/08/2026)
+        sniper = _g('sniper_supermo')
+        sniper_wr = -50.0
+        sniper_zona = 0
+        if sniper and hasattr(sniper, 'wr_anterior'):
+            sniper_wr = getattr(sniper, 'wr_anterior', -50.0)
+        if sniper and hasattr(sniper, 'em_zona'):
+            sniper_zona = getattr(sniper, 'em_zona', 0)
+        sniper_apenas = bool(_g('SNIPER_APENAS', True))
+        sniper_supermo_ativo = bool(_g('SNIPER_SUPERMO_ATIVO', True))
+        zona_txt = {1: 'SOBREVENDIDO (BUY)', -1: 'SOBRECOMPRADO (SELL)', 0: 'FORA DE ZONA'}.get(sniper_zona, '?')
+
         return jsonify({
             'thread_ativo': bool(_g('thread_ativo', True)),
             'tendencia': tendencia,
@@ -154,6 +166,10 @@ def api_status():
             'dolar_casado': _g('dolar_casado', None),
             'sniper_bloqueado': bool(_g('sniper_bloqueado', False)),
             'sniper_bloqueio_motivo': _g('sniper_bloqueio_motivo', ''),
+            'sniper_apenas': sniper_apenas,
+            'sniper_supermo_ativo': sniper_supermo_ativo,
+            'sniper_wr': round(float(sniper_wr), 1),
+            'sniper_zona': zona_txt,
             'payroll_ativado': bool(_g('payroll_ativado', False)),
             'sentinela': _g('sentinela_cenario', 'NEUTRO'),
             'sentinela_detalhe': _g('sentinela_detalhe', 'Inicializando...'),

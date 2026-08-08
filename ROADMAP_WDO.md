@@ -1631,19 +1631,21 @@ Itens que **NÃO dependem de acumular trades** (feitos agora):
 ### 📋 Roadmap Fase 2 — o que vem (decisão: ESPERAR 5 pregões de estabilização)
 1. ✅ **Pilar 1 (kill-switch)** — IMPLEMENTADO, em produção.
 2. ✅ **Pilar 2 (autópsia EOD + plano)** — IMPLEMENTADO, em produção.
-3. ⏸️ **Pilar 3 (Pausa 14:30 + trava por janela)** — planejado, NÃO implementado. Requer migração de `pode_ajustar()` de chave `data` → `data+janela` (1 ajuste/janela: manhã 12:30 + tarde 14:30), segunda janela no config, dispatch. Design: reutiliza `run_pausa()`/`decidir()`/whitelist/smoke test + rollback.
-4. ⏸️ **Pilar 4 (Macro Gatekeeper)** — arquitetura apenas, NÃO implementado. Depende de fontes externas (DXY/VIX/agenda) que não existem no projeto + histórico 20-30 pregões para calibrar níveis. É Fase 2.5/3.
+3. ❌ **Pilar 3 (Pausa 14:30 + trava por janela)** — **CANCELADO em 08/08/2026 (noite 4).** O Pilar 3 era autotuning com a whitelist do agente; desde o sniper %R (cérebro fixo, parametrizado no código e validado em backtest) a whitelist está VAZIA — não existe mais parâmetro seguro de ajuste automático. Especificação abaixo mantida apenas como registro histórico.
+4. ⏸️ **Pilar 4 (Macro Gatekeeper)** — arquitetura apenas, NÃO implementado. Depende de fontes externas (DXY/VIX/agenda) que não existem no projeto + histórico 20-30 pregões para calibrar níveis. Sem prioridade com o sniper %R (que não usa macro).
 
-**Critério de liberação do Pilar 3** (após 5 pregões ≈ 1 semana):
-- Kill-switch: 5 execuções sem falso positivo; dispara corretamente em dia ruim (se houver).
-- Plano `.txt`: útil e actionable (você lê e concorda com prioridades).
-- Sem crash no `agente_monstro_core.py`; git commit do fecho OK todos os dias; loss do log bate com saldo real.
+**Critério de liberação do Pilar 3 (CANCELADO — não se aplica):**
+- ~~Kill-switch: 5 execuções sem falso positivo; dispara corretamente em dia ruim (se houver).~~
+- ~~Plano `.txt`: útil e actionable (você lê e concorda com prioridades).~~
+- ~~Sem crash no `agente_monstro_core.py`; git commit do fecho OK todos os dias; loss do log bate com saldo real.~~ → O agente agora roda em **modo vigilância** (sem autotuning): kill-switch alinhado ao robô (-100/-150), watchdog, fecho e relatório. Página do dia contém os relatórios.
 
 ---
 
 ### 📐 Pilar 3 — Especificação Detalhada + Data Limite
 
-**Data limite de implementação:** **12/08/2026** (deploy no pregão de 12/08/2026, após 5 pregões de estabilização dos Pilares 1 e 2).
+> ⚠️ **CANCELADO em 08/08/2026 (noite 4)** — mantido apenas como registro histórico. Ver nota no Roadmap Fase 2. O autotuning (whitelist) foi desativado; o agente opera em modo vigilância.
+
+**Data limite de implementação:** ~~12/08/2026~~
 
 **Objetivo:** permitir uma segunda pausa de análise/autotuning às **14:30**, mantendo a trava de **1 ajuste por janela** (manhã 12:30 + tarde 14:30).
 
@@ -1767,7 +1769,7 @@ elif modo == "pausa_tarde":
 
 ### 🌍 Pilar 4 — Macro Gatekeeper (nota arquitetural)
 
-**Status:** arquitetura apenas, **não implementar junto com Pilar 3**.
+**Status:** arquitetura apenas, **sem prioridade** (adiado — o sniper %R não usa macro). Não implementar junto com outros pilares.
 
 **Dependências externas que não existem hoje:**
 - Fonte confiável de DXY, VIX, US10Y, USDJPY
@@ -1852,8 +1854,8 @@ Macro Gatekeeper (offline, 08:55) → escreve em config.json (ex: "macro_status"
 - Confirmado no `decisions_wdo.csv` 10:36:27: `BUY, confianca 0.232`. As outras 2 losses tiveram confiança normal (0.85 e 0.67).
 - **Causa:** NÃO existe piso de `confianca_decisao` para executar BUY/SELL. Gates atuais: (a) `CONFIDENCE_GAP=0.15` na probabilidade do sinal em `prever_acao()` (L8571) - só filtra sinais quase neutros; (b) C10 `score_qualidade >= 2` (L8223), com caminho de **aprendizado forçado** (3/dia) que aceita score baixo. Ajustes "advisory" (DOL/book desde 03/08) reduzem a confiança final mas **não vetam**.
 - **Decisão:** **NÃO alterar a lógica agora** - 06/08 é o 2º pregão da janela de estabilização (5 pregões) desde o fix do SL. Registrar para revisão pós-estabilização:
-  - [ ] Opção A: piso de execução (ex.: `confianca_decisao >= 0.5` para BUY/SELL).
-  - [ ] Opção B: elevar `CONFIDENCE_GAP` de 0.15.
+  - [x] Opção A: piso de execução (ex.: `confianca_decisao >= 0.5` para BUY/SELL) — **APLICADA** em 07/08 (`PISO_CONFIANCA_MINIMA=0.50`, ver Ação 2 abaixo).
+  - [x] Opção B: elevar `CONFIDENCE_GAP` de 0.15 — **SUPERADA** em 08/08 (noite 4): com `SNIPER_APENAS=true` a IA principal não executa mais, então o gap de probabilidade só afeta o treino/replay, não a operação.
 
 
 ---
@@ -1909,9 +1911,9 @@ Macro Gatekeeper (offline, 08:55) → escreve em config.json (ex: "macro_status"
 
 - `py_compile` OK; testes pos-fix **9/9 PASS**; dryrun real requer MT5+pregão (executar na 2ª 09:00).
 
-### Ação 3 (PENDENTE - pós-semana de validação)
+### Ação 3 (SUPERADA em 08/08/2026 - noite 4)
 
-- SL por ATR: ATR < 1,5 não operar ou SL 5-6pts; ATR 1,5-2,5 SL 8pts; acima disso não operar. Aguardar 5 pregões da Ação 1+2 antes de mexer em SL.
+- ~~SL por ATR: ATR < 1,5 não operar ou SL 5-6pts; ATR 1,5-2,5 SL 8pts; acima disso não operar. Aguardar 5 pregões da Ação 1+2 antes de mexer em SL.~~ → Implementado de forma mais limpa pelo **sniper %R** (cérebro atual): SL = 1,5×ATR e TP = 3×ATR por trade, validado em backtest. A IA principal (que usaria o SL em pontos) não executa mais (`SNIPER_APENAS=true`).
 
 ---
 
@@ -1936,7 +1938,7 @@ Macro Gatekeeper (offline, 08:55) → escreve em config.json (ex: "macro_status"
 - O gargalo NÃO era o trailing (era o sintoma): era a combinação **SL 8pts + gate de inversão 1.2 + breakeven** que cortava winners em +1pt e prendia perdas por horas.
 - Keras e agentes não "aprendiam" porque o resultado por sinal era uma roleta (mesmo sinal -> +70 ou -85 dependendo da saída). Com a saída corrigida, o aprendizado volta a fazer sentido.
 - Validação: py_compile OK, testes 9/9. Dryrun real 2ª 09:00.
-- Ação 3 (SL por ATR) fica para depois de 5 pregões de validação.
+- Ação 3 (SL por ATR) ficou para depois — **SUPERADA** em 08/08 pelo sniper %R (SL=1,5×ATR/TP=3×ATR).
 
 ---
 
@@ -1997,6 +1999,41 @@ O custo real por operação é R$1,20 (R$0,60 ida + R$0,60 volta por contrato, R
 
 ### Pendências
 - Observar 5 pregões reais para validar a curva (target: manter Win ≥ 50% e liquidez com o custo real).
+
+---
+
+## DIA 08/08/2026 (noite 4, continuação) - CONSOLIDAÇÃO: AGENTE EM VIGILÂNCIA + DASHBOARD + .BAT
+
+### Pergunta do usuário: "o robô principal (IA/Keras) ainda opera? como em paralelo?"
+- **NÃO.** Com `SNIPER_APENAS=true`, a IA principal **só observa e treina** — sem sinal %R, `acao_para_executar` vira "NADA" e nada é executado por ela.
+- **Não existe paralelismo:** loop principal (sniper + IA) e thread Flask do dashboard rodam no **mesmo processo**. O sniper %R é a ÚNICA via de ordens.
+- Keras vê todas as experiências históricas (inclusive trades do sniper, marcadas `sniper_wr=1` na memória) mas **nunca decide execução**.
+
+### Ajuste do agente (`agente_monstro_core.py` + `agente_config.json`) — modo VIGILÂNCIA
+- **Whitelist esvaziada** (`{}`): o sniper %R é fixo no código (thresholds %R, SL/TP por ATR) — nenhum parâmetro do config.json tem efeito real na operação. O agente NÃO ajusta mais nada.
+- `decidir()` com whitelist vazia → retorna relatório de vigilância (trades executados + win% histórico), nunca ajuste.
+- **Kill-switch alinhado ao robô:** `limite_1=-100`, `limite_2=-150` (antes -250/-400). N2 = redundância (robo já trava em -100 via `max_loss_diario`). Removido fallback `limite_2 = max_loss*0.8` que viraria bug (-80) com o novo limite.
+- `smoke_test()`: agora valida `sniper_apenas=true` e `max_loss_diario` ≤ -50 (antes checava `sl_points=0`).
+- Padrões de log atualizados para o sniper novo (`SNIPER %R | wr=` / `SNIPER %R ATIVADO`).
+- **Pilar 3 (autotuning) CANCELADO** — ver marcações acima.
+
+### Dashboard (`dashboard_routes.py` + `templates/dashboard.html`)
+- `/api/status` agora expõe: `sniper_apenas`, `sniper_supermo_ativo`, `sniper_wr` (Williams %R ao vivo — `wr_anterior` passa a ser atualizado no `verificar()`), `sniper_zona`.
+- Card "Sniper %R": mostra WR atual + zona (SOBREVENDIDO/SOBRECOMPRADO/FORA) em vez de só LIVRE/BLOQUEADO; novo card "Modo Robo" (SNIPER-APENAS).
+
+### .bat corrigidos (robo desatualizado NÃO sobe mais)
+- `all.bat`: apontava para `dist\MonstroDashboard\MonstroDashboard.exe` (build 30/07, robô v2 antigo, SEM sniper %R) → agora inicia `python monstro_unificado_v22.py` (igual `iniciar_v22_wdo.bat`).
+- `iniciar_monstro.bat` e `run_robo.bat`: mesmo problema (`MonstroDashboard.exe` / `monstro_unificado_v2_obf.exe`) → redirecionados para o v22 via python.
+- **Referência correta:** usar `iniciar_v22_wdo.bat` ou `start_all.bat` (ambos rodam o v22). `stop_all.bat` para tudo (v22 + dashboard + MT5).
+- `dist\MonstroDashboard\` (1.44GB) agora é **legado** — não usar.
+
+### Validação
+- `py_compile` OK (v22, dashboard_routes, agente_monstro_core); JSON do agente válido. Dashboard teste: card sniper %R atualiza a cada poll.
+
+### Pendências
+- Observar 5 pregões reais para validar a curva do sniper %R (Win ≥ 50% e liquidez com custo real).
+- Autópsia EOD: contador de incidentes do dia (restarts do watchdog, kill-switch acionado/motivo) — registro de 05/08 ainda pendente.
+- `dist\MonstroDashboard\` e `dist\monstro_unificado_v2_obf.exe`: deletar (legado) ou manter congelado — decisão do usuário.
 
 
 

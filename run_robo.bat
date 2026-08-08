@@ -1,22 +1,16 @@
 @echo off
-echo Iniciando Robo Trader Monstro...
+echo Iniciando Robo Trader Monstro (v22 - sniper %%R)...
 echo.
 
-REM Verifica se o executável existe
-if not exist "dist\monstro_unificado_v2_obf.exe" (
-    echo ERRO: Executavel nao encontrado!
-    echo Certifique-se de que o arquivo 'dist\monstro_unificado_v2_obf.exe' existe.
-    pause
-    exit /b 1
-)
+cd /d C:\AIOFEN
+if exist parar.txt del parar.txt
 
-REM Executa o robô trader
+REM Executa o robo trader v22
 echo Executando o robo trader...
-cd dist
-monstro_unificado_v2_obf.exe
+call venv310\Scripts\activate
+python monstro_unificado_v22.py
 
 REM Se chegou até aqui, o programa terminou
 echo.
 echo Robo trader finalizado.
 pause
-

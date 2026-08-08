@@ -1,56 +1,6 @@
 {
-  "comentario": "Config do AGENTE AUTONOMO (nao do robo). Whitelist de parametros que o agente pode ajustar no config.json do robo, com limites duros. Aprovado pelo usuario em 03/08/2026.",
-  "whitelist": {
-    "sniper_ratio_min": {
-      "min": 1.1,
-      "max": 1.5,
-      "passo": -0.1,
-      "caminhos": ["sniper_ratio_min", "risk_management.sniper_ratio_min"],
-      "descricao": "Gate SNIPER de analise (6816). Relaxar quando 0 trades por standby (book equilibrado)."
-    },
-    "book_ratio_min": {
-      "min": 1.2,
-      "max": 1.5,
-      "passo": -0.1,
-      "caminhos": ["book_ratio_min"],
-      "descricao": "Gate pos-DOL book ratio (advisory). Relaxar quando DOL/book domina os vetos."
-    },
-    "dol_conf_min": {
-      "min": 0.3,
-      "max": 0.5,
-      "passo": -0.05,
-      "caminhos": ["dol_conf_min"],
-      "descricao": "Gate pos-DOL confianca DOL (advisory). Relaxar quando DOL conf domina os vetos."
-    },
-    "sl_points": {
-      "min": 5,
-      "max": 10,
-      "passo": 1,
-      "caminhos": ["sl_points", "risk_management.sl_points", "trading.sl_points"],
-      "descricao": "Stop loss em pontos. Ajuste fino (envelope de risco)."
-    },
-    "tp_points": {
-      "min": 0,
-      "max": 12,
-      "passo": 1,
-      "caminhos": ["tp_points", "trading.tp_points"],
-      "descricao": "Take profit em pontos (0 = saida dinamica por fluxo). Ajuste fino."
-    },
-    "sniper_volume_min": {
-      "min": 200,
-      "max": 800,
-      "passo": 50,
-      "caminhos": ["sniper_volume_min", "risk_management.sniper_volume_min"],
-      "descricao": "Volume minimo do book SNIPER. Aumentar para ser mais seletivo."
-    },
-    "max_spread": {
-      "min": 3,
-      "max": 10,
-      "passo": 1,
-      "caminhos": ["max_spread", "risk_management.max_spread_pontos"],
-      "descricao": "Spread maximo em pontos WDO para operar."
-    }
-  },
+  "comentario": "Config do AGENTE AUTONOMO (nao do robo). Whitelist vazia desde 08/08/2026 (noite 4): o cerebro passou a ser o SNIPER %R (var. A) com parametros fixos validados em backtest (thresholds %R e SL/TP por ATR sao hardcoded no fonte). Nenhum parametro do config.json tem efeito real nas operacoes, entao o agente NAO ajusta nada - vira modo VIGILANCIA (kill-switch + watchdog + fecho + relatorio).",
+  "whitelist": {},
  "decisao": {
   "min_eventos_standby": 20,
   "min_trades_para_winpct": 10,
@@ -60,9 +10,9 @@
  },
  "kill_switch": {
   "ativo": true,
-  "limite_1": -250,
-  "limite_2": -400,
-  "obs": "limite_1 cria parar.txt; limite_2 mata processo e MT5. Ativacao unica/dia."
+  "limite_1": -100,
+  "limite_2": -150,
+  "obs": "Alinhado ao max_loss_diario do robo (-100) em 08/08/2026. limite_1 cria parar.txt; limite_2 mata processo e MT5. Ativacao unica/dia."
  },
  "autopsia_eod": {
   "ativo": true,

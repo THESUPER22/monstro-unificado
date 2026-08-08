@@ -2656,6 +2656,7 @@ class SniperSupermo:
             return {'ativo': False, 'direcao': 'NADA', 'score': 0, 'detalhes': ['ja_em_posicao']}
 
         wr = float(contexto.get('williams_r', -50))
+        self.wr_anterior = wr
         score = 0
         detalhes = []
         direcao = "NADA"

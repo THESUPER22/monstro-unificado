@@ -15,12 +15,13 @@ echo Aguardando MT5 (10s)...
 timeout /t 10 /nobreak >nul
 
 cd /d C:\AIOFEN
-start "" /d "C:\AIOFEN" "dist\MonstroDashboard\MonstroDashboard.exe"
+start "Monstro V22 - WDO" cmd /k "cd /d C:\AIOFEN && call venv310\Scripts\activate && python monstro_unificado_v22.py"
 
 echo.
 echo SISTEMAS INICIADOS:
 echo   - MetaTrader 5
 echo   - Monstro V22 (WDO)
+echo   - Dashboard: http://localhost:5001
 echo.
 echo Para parar: stop_all.bat
 echo.

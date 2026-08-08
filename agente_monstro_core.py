@@ -47,7 +47,9 @@ logging.getLogger().addHandler(_sh)
 log = logging.getLogger()
 
 VETO_PATTERNS = {
-    "sniper_standby": "Standby: Aguardando Big Players",
+    "sniper_wr_standby": "SNIPER %R | wr=",
+    "sniper_wr_ativo": "SNIPER %R ATIVADO",
+    "sniper_inicia": "SNIPER %R INICIA",
     "williams_r": "WILLIAMS %R VETO",
     "veto_total": "VETO TOTAL",
     "multi_tf": "MULTI-TF VETO",
@@ -363,13 +365,23 @@ def decidir(stats, counts, last):
     log.info(f"decisao: sinais={sinais} executados={exec} entropia_med={stats.get('entropia_med')} "
              f"atr_med={stats.get('atr_med')} vetos={counts} operavel={mercado_operavel}")
 
+    # Desde 08/08/2026 o cerebro e o SNIPER %R com parametros FIXOS validados em
+    # backtest. A whitelist esta vazia de proposito: NAO existe parametro seguro
+    # de autotuning. O agente apenas vigia e reporta (kill-switch, watchdog, fecho).
+    if not CFG["whitelist"]:
+        w = winpct_historico()
+        if exec > 0:
+            log.info(f"VIGILANCIA: {exec} trades executados hoje (sniper %R), win% hist {w}")
+        return None, (f"Whitelist vazia (sniper %R fixo desde 08/08) - sem autotuning. "
+                      f"{exec} trades executados hoje, win% hist {w}")
+
     if exec == 0:
         if sinais > 0:
             return None, (f"Robo gerou {sinais} sinais hoje mas 0 executados - "
                           f"gates pos-decisao (protecao legitima) estao vetando. Manter quieto.")
         b = blocker_dominante(counts, last)
-        standby_persistente = counts.get("sniper_standby", 0) >= D["min_eventos_standby"]
-        if b == "sniper_standby" and standby_persistente and mercado_operavel:
+        standby_persistente = counts.get("sniper_wr_standby", 0) >= D["min_eventos_standby"]
+        if b == "sniper_wr_standby" and standby_persistente and mercado_operavel:
             return "sniper_ratio_min", "Gate SNIPER (standby) bloqueia analise AGORA com mercado operavel"
         if b == "dol_veto":
             return "dol_conf_min", "Veto DOL e o bloqueio atual com mercado operavel"
@@ -432,8 +444,13 @@ def smoke_test():
         return False, msg
     try:
         cfg = carregar_config_robo()
-        if int(cfg.get("sl_points", 0)) == 0:
-            return False, "config suspeita (sl_points=0)"
+        # Desde 08/08 o cerebro e o SNIPER %R: o config deve estar em modo
+        # "sniper apenas" e com kill-switch diario -100 (sniper nao opera via IA).
+        if not bool(cfg.get("sniper_apenas", True)):
+            return False, "config suspeita (sniper_apenas=false - IA voltaria a operar)"
+        ml = float(cfg.get("risk_management", {}).get("max_loss_diario") or cfg.get("max_loss_diario", -100))
+        if ml > -50:
+            return False, f"config suspeita (max_loss_diario={ml} frouxo demais)"
     except Exception as e:
         return False, f"config invalida: {e}"
     return True, "smoke OK"
@@ -702,13 +719,13 @@ def verificar_kill_switch():
         return False
 
     loss_hoje = calcular_loss_acumulado_hoje()
-    limite_1 = float(ks.get("limite_1", -250))
-    limite_2 = float(ks.get("limite_2", -400))
-    cfg_robo = carregar_config_robo()
-    max_loss = float(get_path(cfg_robo, "risk_management.max_loss_diario") or
-                     cfg_robo.get("max_loss_diario", -500))
-    if limite_2 < max_loss:
-        limite_2 = max_loss * 0.8
+    limite_1 = float(ks.get("limite_1", -100))
+    limite_2 = float(ks.get("limite_2", -150))
+    # Consistencia: N2 deve permitir MAIS perda que N1 (N1 so para ordens,
+    # N2 mata processo+MT5). Com negativos, limite_2 <= limite_1.
+    if limite_2 > limite_1:
+        limite_2 = limite_1
+        log.warning(f"kill-switch: limite_2 ajustado p/ {limite_2} (nao pode ser mais agressivo que N1)")
 
     if loss_hoje <= limite_2:
         log.error(f"KILL-SWITCH NIVEL 2: loss {loss_hoje:.2f} <= {limite_2:.2f}. Parando robo e MT5.")
