@@ -6842,7 +6842,12 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     sniper_ratio = max(sniper_bid, sniper_ask) / \
                         min(sniper_bid, sniper_ask)
 
-                if sniper_total < SNIPER_VOLUME_MIN or sniper_ratio < SNIPER_RATIO_MIN:
+                # Em modo SNIPER_APENAS o gate de "Big Players" é PULADO: o
+                # sniper %R (cérebro atual) decide SÓ pelo %R (<= -80 / >= -20),
+                # fiel ao backtest variante A — sem exigência de volume/ratio de
+                # book. O gate permanece ativo quando o robô normal (IA) opera.
+                if not SNIPER_APENAS and (
+                    sniper_total < SNIPER_VOLUME_MIN or sniper_ratio < SNIPER_RATIO_MIN):
                     if _log_periodico('standby', 300):  # 1x a cada 5min (pulso jÃ¡ mostra vida)
                         logging.info(
                             f"ðŸ˜´ Standby: Aguardando Big Players... "
@@ -6969,7 +6974,8 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                 volume_adaptativo.adicionar_volume_atual(volume_total_book)
 
                 # MODO EMERGÃŠNCIA: ForÃ§a operaÃ§Ã£o apÃ³s muitas rejeiÃ§Ãµes
-                if not volume_adaptativo.pode_operar(volume_total_book):
+                # (pulado em SNIPER_APENAS — o sniper %R nÃ£o usa volume adaptativo)
+                if not SNIPER_APENAS and not volume_adaptativo.pode_operar(volume_total_book):
                     contador_rejeicoes_consecutivas += 1
 
                     if contador_rejeicoes_consecutivas >= LIMITE_REJEICOES_EMERGENCIA:
