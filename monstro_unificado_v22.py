@@ -2681,6 +2681,17 @@ class SniperSupermo:
             self.em_zona = 0
             detalhes.append(f"%R={wr:.0f}(neutro)")
 
+        # FIX 11/08: filtro contra-tendência — o dia 11/08 sangrou 8 SELL
+        # seguidos numa tendência de alta forte. O sniper só opera NA direção
+        # da tendência EMA9/21 M1 (ou em NEUTRO). Mantém a trava de zona para
+        # não re-disparar no mesmo extremo enquanto a tendência não mudar.
+        if direcao != "NADA":
+            tendencia_m1 = contexto.get('tendencia_m1', 'NEUTRO')
+            if (direcao == "BUY" and tendencia_m1 == "BAIXA") or \
+               (direcao == "SELL" and tendencia_m1 == "ALTA"):
+                detalhes.append(f"tendência={tendencia_m1} bloqueia {direcao}")
+                direcao = "NADA"
+
         ativo = direcao != "NADA"
 
         # SL/TP por ATR do contexto (mesma gestão do backtest: 1.5x/3x)
@@ -5349,43 +5360,43 @@ def atualizar_sl(ticket: int, novo_sl: float, eh_breakeen_forcado: bool = False)
         freeze_level = 1  # WDO: 1pt mÃ­nimo (freeze_level real do MT5)
     distancia_minima = freeze_level  # Sem multiplicador â€” precisa ser mÃ­nimo real, nÃ£o conservador
 
-    # Breakeen: SL no preÃ§o de entrada â€” SEM validaÃ§Ã£o de distÃ¢ncia mÃ­nima
-    eh_breakeen = abs(novo_sl - posicao.price_open) < 2.0  # tolerÃ¢ncia de 2 ticks
-
+    # FIX 11/08 (retcode 10016 "Invalid stops"): a validaÃ§Ã£o de distÃ¢ncia mÃ­nima
+    # Ã© SEMPRE aplicada â€” antes, o breakeen (auto-detectado ou forÃ§ado) pulava a
+    # validaÃ§Ã£o e enviava SL dentro da zona de freeze da corretora (ex.: trailing
+    # 50% do sniper SL=5130.75 a 0.25pt do ask). Agora o SL Ã© corrigido para
+    # respeitar a distÃ¢ncia mÃ­nima ou rejeitado (aguarda prÃ³ximo tick).
+    eh_breakeen = abs(novo_sl - posicao.price_open) < 2.0  # tolerÃ¢ncia de 2 ticks (sÃ³ p/ log)
     if eh_breakeen_forcado:
         logging.info(
-            f"\U0001f510 Breakeen FORCADO (SL={novo_sl:.2f} ~ entrada={posicao.price_open:.2f}) \u2014 sem validacao")
-    elif not eh_breakeen:
-        # Validar distÃ¢ncia mÃ­nima baseada no tipo de posiÃ§Ã£o
-        if posicao.type == mt5.POSITION_TYPE_BUY:
-            preco_referencia = tick.bid
-            distancia_atual = preco_referencia - novo_sl  # BUY: SL fica abaixo do bid
-            if distancia_atual < distancia_minima:
-                novo_sl_corrigido = preco_referencia - distancia_minima
-                # SAFETY: Se correÃ§Ã£o piora SL, nÃ£o mover â€” esperar prÃ³ximo tick
-                if posicao.sl != 0 and novo_sl_corrigido <= posicao.sl:
-                    logging.debug(
-                        f"ðŸ”„ Trailing BUY: correÃ§Ã£o ({novo_sl_corrigido:.2f}) pior que atual ({posicao.sl:.2f}). Aguardando preÃ§o.")
-                    return False
-                logging.warning(
-                    f"âš ï¸ SL BUY muito prÃ³ximo! Corrigido: {novo_sl:.2f} â†’ {novo_sl_corrigido:.2f}")
-                novo_sl = novo_sl_corrigido
-        else:  # SELL
-            preco_referencia = tick.ask
-            distancia_atual = novo_sl - preco_referencia  # SELL: SL fica acima do ask
-            if distancia_atual < distancia_minima:
-                novo_sl_corrigido = preco_referencia + distancia_minima
-                # SAFETY: Se correÃ§Ã£o piora SL, nÃ£o mover â€” esperar prÃ³ximo tick
-                if posicao.sl != 0 and novo_sl_corrigido >= posicao.sl:
-                    logging.debug(
-                        f"ðŸ”„ Trailing SELL: correÃ§Ã£o ({novo_sl_corrigido:.2f}) pior que atual ({posicao.sl:.2f}). Aguardando preÃ§o.")
-                    return False
-                logging.warning(
-                    f"âš ï¸ SL SELL muito prÃ³ximo! Corrigido: {novo_sl:.2f} â†’ {novo_sl_corrigido:.2f}")
-                novo_sl = novo_sl_corrigido
-    else:
-        logging.debug(
-            f"[atualizar_sl] Breakeen detectado (SL={novo_sl:.2f} â‰ˆ entrada={posicao.price_open:.2f}) â€” sem validaÃ§Ã£o de distÃ¢ncia")
+            f"\U0001f510 Breakeen FORCADO (SL={novo_sl:.2f} ~ entrada={posicao.price_open:.2f}) \u2014 validando distÃ¢ncia mesmo assim")
+
+    # Validar distÃ¢ncia mÃ­nima baseada no tipo de posiÃ§Ã£o
+    if posicao.type == mt5.POSITION_TYPE_BUY:
+        preco_referencia = tick.bid
+        distancia_atual = preco_referencia - novo_sl  # BUY: SL fica abaixo do bid
+        if distancia_atual < distancia_minima:
+            novo_sl_corrigido = preco_referencia - distancia_minima
+            # SAFETY: Se correÃ§Ã£o piora SL, nÃ£o mover â€” esperar prÃ³ximo tick
+            if posicao.sl != 0 and novo_sl_corrigido <= posicao.sl:
+                logging.debug(
+                    f"ðŸ”„ Trailing BUY: correÃ§Ã£o ({novo_sl_corrigido:.2f}) pior que atual ({posicao.sl:.2f}). Aguardando preÃ§o.")
+                return False
+            logging.warning(
+                f"âš ï¸ SL BUY muito prÃ³ximo! Corrigido: {novo_sl:.2f} â†’ {novo_sl_corrigido:.2f}")
+            novo_sl = novo_sl_corrigido
+    else:  # SELL
+        preco_referencia = tick.ask
+        distancia_atual = novo_sl - preco_referencia  # SELL: SL fica acima do ask
+        if distancia_atual < distancia_minima:
+            novo_sl_corrigido = preco_referencia + distancia_minima
+            # SAFETY: Se correÃ§Ã£o piora SL, nÃ£o mover â€” esperar prÃ³ximo tick
+            if posicao.sl != 0 and novo_sl_corrigido >= posicao.sl:
+                logging.debug(
+                    f"ðŸ”„ Trailing SELL: correÃ§Ã£o ({novo_sl_corrigido:.2f}) pior que atual ({posicao.sl:.2f}). Aguardando preÃ§o.")
+                return False
+            logging.warning(
+                f"âš ï¸ SL SELL muito prÃ³ximo! Corrigido: {novo_sl:.2f} â†’ {novo_sl_corrigido:.2f}")
+            novo_sl = novo_sl_corrigido
 
     # Verificar se o novo SL Ã© realmente uma melhoria
     if posicao.sl != 0:  # Se jÃ¡ tem SL definido
@@ -6527,7 +6538,10 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                                             else _sl_alvo_trail < _sl_atual
                                         )
                                         if _melhoria:
-                                            if atualizar_sl(posicao_atual.ticket, _sl_alvo_trail, eh_breakeen_forcado=True):
+                                            # FIX 11/08: SEM eh_breakeen_forcado — a validação de
+                                            # distância mínima no atualizar_sl evita o retcode 10016
+                                            # "Invalid stops" (SL dentro da zona de freeze).
+                                            if atualizar_sl(posicao_atual.ticket, _sl_alvo_trail):
                                                 logging.info(
                                                     f"⚡ SNIPER %R: trailing 50% → SL {_sl_alvo_trail:.2f} (lucro {_lucro_pts:.1f}pts, R={_r_sniper:.1f})")
                             except Exception:
@@ -6681,6 +6695,10 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     posicao_atual = None
                     logging.info(
                         f"âœ… PosiÃ§Ã£o {ticket_processado} processada e resetada.")
+                    # FIX 11/08: trava de zona reseta apenas quando a posição
+                    # FECHA (fiel ao backtest L178) — permite re-entrada na mesma
+                    # zona, mas SEM o spam de sinal a cada 2s do loop.
+                    sniper_supermo.em_zona = 0
 
                     # Pequena pausa para evitar loop imediato
                     time.sleep(1)
@@ -6935,6 +6953,8 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     "dia_ptax": dia_ptax,
                     "payroll_ativado": 1 if payroll_ativado else 0,
                     "sniper_bloqueado": 1 if sniper_blq else 0,
+                    # FIX 11/08: tendência EMA9/21 M1 do detector (filtro contra-tendência do sniper)
+                    "tendencia_m1": detector_tendencia.tendencia_atual if (detector_tendencia and DETECTOR_TENDENCIA_ATIVO) else "NEUTRO",
                     **features_profundidade  # Adiciona todas as novas features de uma vez!
                 }
                 # ========== COLETA MULTI-TIMEFRAME (M5/M15/M30) ==========
@@ -7227,19 +7247,43 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                 ultima_decisao = acao_para_executar  # Atualiza ultima_decisao global
                 # >>> Fim do Bloco de DecisÃ£o e Salvamento de DecisÃ£o <<<
 
+                # ========== FIX 11/08: TENDENCIA FRESCA ANTES DO SNIPER ==========
+                # Atualiza o detector EMA9/21 ANTES do sniper e injeta no contexto,
+                # para o filtro contra-tendencia usar o valor mais recente.
+                if detector_tendencia and DETECTOR_TENDENCIA_ATIVO:
+                    if close_price_para_tendencia > 0:
+                        detector_tendencia.atualizar_tendencia(
+                            close_price_para_tendencia)
+                        status_tendencia = detector_tendencia.get_status()
+                        logging.debug(
+                            f"📈 Tendencia atualizada: {status_tendencia['tendencia']} | Close: {close_price_para_tendencia}")
+                    else:
+                        logging.warning(
+                            "⚠️ Close price nao disponivel para detector de tendencia")
+                if contexto is not None:
+                    contexto['tendencia_m1'] = (
+                        detector_tendencia.tendencia_atual
+                        if (detector_tendencia and DETECTOR_TENDENCIA_ATIVO) else "NEUTRO"
+                    )
+
                 # ========== ⚡ SNIPER %R CHECK (INICIA OPERAÇÃO PRÓPRIA) ==========
                 # O sniper %R é o novo cérebro: quando o %R cruza a zona extrema
                 # (<= -80 BUY / >= -20 SELL) ele INICIA a operação com direção
                 # própria, sobrepondo a IA e pulando os filtros do robô normal.
                 # Gestão de saída: SL=1.5xATR e TP=3xATR no MT5 + trailing 50%
                 # pós-1R no loop de monitoramento (fiel ao backtest variante A).
-                sniper_result = sniper_supermo.verificar(contexto, acao_para_executar)
+                # FIX 11/08: sniper NÃO dispara em modo DEFESA (evita 330 ordens
+                # bloqueadas em loop após 3 losses seguidos) e a trava de zona
+                # (em_zona) só reseta quando a posição FECHA — não a cada sinal
+                # (elimina o spam de "INICIA" a cada 2s com o %R preso no extremo).
+                if modo_operacional.modo_atual == "DEFESA":
+                    sniper_result = {'ativo': False, 'direcao': 'NADA', 'score': 0,
+                                     'detalhes': ['modo_defesa']}
+                else:
+                    sniper_result = sniper_supermo.verificar(contexto, acao_para_executar)
                 if sniper_result['ativo']:
                     SNIPER_SUPERMO_ATIVO = True
                     acao_para_executar = sniper_result['direcao']
-                    # Fiel ao backtest (L178): reseta a trava de zona ao sinalizar,
-                    # permitindo re-entrada na mesma zona quando a posição fechar.
-                    sniper_supermo.em_zona = 0
                     logging.info(
                         f"⚡ SNIPER %R INICIA {acao_para_executar} — sobrepondo IA, pulando filtros normais")
                 else:
@@ -7398,18 +7442,6 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                             f"ðŸŒ Modo CONSERVADOR detectado (ATR: {atr:.1f}, Entropia: {entropia:.3f})")
 
                 # ========== INTEGRAÃ‡ÃƒO NOVAS MELHORIAS 7 E 9 ==========
-                # Atualiza detector de tendÃªncia com preÃ§o de fechamento
-                if detector_tendencia and DETECTOR_TENDENCIA_ATIVO:
-                    if close_price_para_tendencia > 0:
-                        detector_tendencia.atualizar_tendencia(
-                            close_price_para_tendencia)
-                        status_tendencia = detector_tendencia.get_status()
-                        logging.debug(
-                            f"ðŸ“ˆ TendÃªncia atualizada: {status_tendencia['tendencia']} | Close: {close_price_para_tendencia}")
-                    else:
-                        logging.warning(
-                            "âš ï¸ Close price nÃ£o disponÃ­vel para detector de tendÃªncia")
-
                 # Atualiza filtro de spread dinÃ¢mico com ATR
                 if filtro_spread and SPREAD_DINAMICO_ATIVO:
                     atr_atual = contexto.get('volatility', 0)
