@@ -2683,13 +2683,18 @@ class SniperSupermo:
 
         # FIX 11/08: filtro contra-tendência — o dia 11/08 sangrou 8 SELL
         # seguidos numa tendência de alta forte. O sniper só opera NA direção
-        # da tendência EMA9/21 M1 (ou em NEUTRO). Mantém a trava de zona para
-        # não re-disparar no mesmo extremo enquanto a tendência não mudar.
+        # da tendência (ou em NEUTRO). Mantém a trava de zona para não
+        # re-disparar no mesmo extremo enquanto a tendência não mudar.
+        # FIX 12/08: usa os vetos do FiltroTendencia (SMA-50 + momentum) —
+        # que detectou a tendência corretamente no dia 12/08 — além do EMA9/21.
         if direcao != "NADA":
             tendencia_m1 = contexto.get('tendencia_m1', 'NEUTRO')
-            if (direcao == "BUY" and tendencia_m1 == "BAIXA") or \
-               (direcao == "SELL" and tendencia_m1 == "ALTA"):
-                detalhes.append(f"tendência={tendencia_m1} bloqueia {direcao}")
+            _veto_buy = contexto.get('tendencia_veto_buy', False)
+            _veto_sell = contexto.get('tendencia_veto_sell', False)
+            _motivo = contexto.get('tendencia_motivo', '')
+            if (direcao == "BUY" and (tendencia_m1 == "BAIXA" or _veto_buy)) or \
+               (direcao == "SELL" and (tendencia_m1 == "ALTA" or _veto_sell)):
+                detalhes.append(f"tendência={tendencia_m1} bloqueia {direcao} ({_motivo or 'EMA'})")
                 direcao = "NADA"
 
         ativo = direcao != "NADA"
@@ -7265,6 +7270,23 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                         detector_tendencia.tendencia_atual
                         if (detector_tendencia and DETECTOR_TENDENCIA_ATIVO) else "NEUTRO"
                     )
+                    # FIX 12/08: vetos do FiltroTendencia (SMA-50 + momentum) —
+                    # mesmo detector que bloqueou o dia 11/08 corretamente. O
+                    # EMA9/21 ficava NEUTRO nos momentos de entrada; o SMA-50
+                    # detectou a tendência o dia todo.
+                    _preco_tend_sniper = (contexto.get('preco', 0)
+                                          or contexto.get('preco_maior_escora_bid', 0))
+                    if _preco_tend_sniper and _preco_tend_sniper > 0:
+                        try:
+                            _res_tend_sniper = filtro_tendencia.avaliar_tendencia(_preco_tend_sniper)
+                            contexto['tendencia_veto_buy'] = _res_tend_sniper['veto_buy']
+                            contexto['tendencia_veto_sell'] = _res_tend_sniper['veto_sell']
+                            contexto['tendencia_motivo'] = _res_tend_sniper['motivo']
+                        except Exception as e:
+                            logging.error(
+                                f"⚠️ Erro ao avaliar tendência SMA-50 p/ sniper: {e}")
+                            contexto['tendencia_veto_buy'] = False
+                            contexto['tendencia_veto_sell'] = False
 
                 # ========== ⚡ SNIPER %R CHECK (INICIA OPERAÇÃO PRÓPRIA) ==========
                 # O sniper %R é o novo cérebro: quando o %R cruza a zona extrema
