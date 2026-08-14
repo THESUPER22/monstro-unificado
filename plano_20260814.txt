@@ -1,0 +1,5 @@
+============================================================
+PLANO DO DIA SEGUINTE - MONSTRO WDO v22
+Gerado em: 14/08/2026 17:38:00
+============================================================
+[PADRAO] Manter parametros atuais se nenhuma prioridade critica acionar.

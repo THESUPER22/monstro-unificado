@@ -1,0 +1,50 @@
+==================================================================
+RESUMO DA SEMANA - MONSTRO WDO (10/08 a 13/08/2026)
+P&L em pontos brutos (sem taxas). Fonte: historico_contexto_wdo.csv
+==================================================================
+
+--- RESULTADO POR DIA ---
+  Seg 10/08 : 0 trades    | -0 pts    (robô decidiu 0x - dia de baixa liquidez)
+  Ter 11/08 : 19 trades   | -110 pts  | win 42.1% (primeiro dia completo)
+  Qua 12/08 : 3 trades    | -140 pts  | win  0.0% (FIX SMA-50 aplicado)
+  Qui 13/08 : 3 trades    | -120 pts  | win  0.0% (FIX Multi-TF aplicado)
+  ---------------------------------------------------------------
+  SEMANA    : 25 trades   | -370 pts  | win 37.5% (9W/16L)
+
+--- HISTORICO ACUMULADO ---
+  total 64 ops | win 46.9% | soma R$ -825 (~-825 pts, 1pt=R$1/cc)
+  SELL: 35 ops -> R$ -730  (lado que sangra: vender contra alta)
+  BUY : 29 ops -> R$ -95   (quase break-even)
+
+--- CAUSA RAIZ (por que sangramos) ---
+  1. 12/08: robô VENDIA contra tendência de baixa real (FiltroTendencia
+     nao atuava: exigia >=5 precos unicos e o loop rodou pouco).
+  2. 13/08: robô VENDEU 3x contra ALTA forte (M15/M30 sobrecomprados,
+     %R M1 em SEC mostrava "sobrecomprado" e o robô interpretou como
+     reversão). O dia abriu 5209 e subiu para ~5218.
+  3. Erro estrutural Nº 10016 (MetaTrader): SL rejeitado "Invalid stops"
+     em 3 trades (12/08) porque o tick consultado estava defasado e o SL
+     caía dentro da zona de freeze real.
+
+--- CORREÇÕES APLICADAS NA SEMANA ---
+  12/08: FiltroTendencia (SMA-50 + momentum) integrado ao veto do sniper
+         + correção de sequência de fechamentos.
+  13/08: (a) VETO MULTI-TF: SELL bloqueado se M15 E M30 sobrecomprados
+         (WR >= -20); BUY se ambos <= -80. Preserva reversões em lateral.
+         (b) FIX 10016: re-obtém tick FRESCO e revalida SL imediatamente
+         antes do order_send.
+
+--- VALIDAÇÃO DOS FIXES ---
+  py_compile: SINTAXE OK
+  Veto Multi-TF testado com valores reais de 13/08 (M15 -18.5/-7.7/-2.8,
+  M30 -16.9/-7.0/-2.6): bloquearia os 3 SELL de hoje. Casos laterais
+  (M15/M30 neutros) continuam permitidos = reversões legítimas intactas.
+
+--- LIÇÃO / PLANO PRA FRENTE ---
+  - O problema é ESTRUTURAL (direção), não de tuning do modelo. Keras
+    treinado com 64 ops reais (win 46.9%, soma -825) é amostra pequena
+    demais pra rede neural aprender edge.
+  - Prioridade: parar de operar CONTRA a tendência multi-timeframe.
+  - Próximos passos possíveis: (1) exigir confluência BUY/SELL do
+    contexto (confluencia_buy/sell) além do sniper; (2) subir o limiar
+    de score do sniper; (3) só operar com 3+ TFs alinhados.

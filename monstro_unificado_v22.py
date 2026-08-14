@@ -2687,14 +2687,34 @@ class SniperSupermo:
         # re-disparar no mesmo extremo enquanto a tendência não mudar.
         # FIX 12/08: usa os vetos do FiltroTendencia (SMA-50 + momentum) —
         # que detectou a tendência corretamente no dia 12/08 — além do EMA9/21.
+        # FIX 13/08: veto Multi-TF — o dia 13/08 vendeu 3x contra alta forte
+        # com M15/M30 sobrecomprados (WR >= -20 em ambos). O %R M1 em SEC
+        # num contexto de M15/M30 sobrecomprados NÃO é reversão, é tendência.
+        # Regra: SELL bloqueado se M15 E M30 sobrecomprados; BUY se ambos
+        # sobrevendidos (<= -80). Só bloqueia em consenso, preservando
+        # reversões legítimas em mercado lateral.
         if direcao != "NADA":
             tendencia_m1 = contexto.get('tendencia_m1', 'NEUTRO')
             _veto_buy = contexto.get('tendencia_veto_buy', False)
             _veto_sell = contexto.get('tendencia_veto_sell', False)
             _motivo = contexto.get('tendencia_motivo', '')
-            if (direcao == "BUY" and (tendencia_m1 == "BAIXA" or _veto_buy)) or \
-               (direcao == "SELL" and (tendencia_m1 == "ALTA" or _veto_sell)):
-                detalhes.append(f"tendência={tendencia_m1} bloqueia {direcao} ({_motivo or 'EMA'})")
+            # Multi-TF: M15/M30 WR disponíveis no contexto (L6979-6981)
+            _m15_wr = contexto.get('m15_wr', None)
+            _m30_wr = contexto.get('m30_wr', None)
+            _veto_mt_buy = False
+            _veto_mt_sell = False
+            if _m15_wr is not None and _m30_wr is not None:
+                if _m15_wr >= -20 and _m30_wr >= -20:
+                    _veto_mt_sell = True
+                if _m15_wr <= -80 and _m30_wr <= -80:
+                    _veto_mt_buy = True
+            if (direcao == "BUY" and (tendencia_m1 == "BAIXA" or _veto_buy or _veto_mt_buy)) or \
+               (direcao == "SELL" and (tendencia_m1 == "ALTA" or _veto_sell or _veto_mt_sell)):
+                if _veto_mt_sell or _veto_mt_buy:
+                    detalhes.append(
+                        f"multiTF M15={_m15_wr:.0f} M30={_m30_wr:.0f} bloqueia {direcao}")
+                else:
+                    detalhes.append(f"tendência={tendencia_m1} bloqueia {direcao} ({_motivo or 'EMA'})")
                 direcao = "NADA"
 
         ativo = direcao != "NADA"
@@ -5413,6 +5433,28 @@ def atualizar_sl(ticket: int, novo_sl: float, eh_breakeen_forcado: bool = False)
             logging.debug(
                 f"ðŸ”„ SL SELL nÃ£o Ã© melhoria: {novo_sl:.2f} >= {posicao.sl:.2f}")
             return False
+
+    # FIX 13/08 (10016 "Invalid stops"): o tick consultado no inÃ­cio da funÃ§Ã£o
+    # pode estar defasado — entre a validaÃ§Ã£o e o order_send o mercado andou,
+    # deixando o SL dentro da zona de freeze real. Re-obtÃ©m o tick FRESCO e
+    # revalida a distÃ¢ncia mÃ­nima IMEDIATAMENTE antes de enviar.
+    try:
+        tick_fresco = mt5.symbol_info_tick(SYMBOL)
+        if tick_fresco:
+            if posicao.type == mt5.POSITION_TYPE_BUY:
+                _dist_fresca = tick_fresco.bid - novo_sl
+                if _dist_fresca < distancia_minima:
+                    novo_sl = tick_fresco.bid - distancia_minima
+                    logging.warning(
+                        f"⚠️ SL BUY revalidado (tick fresco bid={tick_fresco.bid:.2f}): novo_sl â†’ {novo_sl:.2f}")
+            else:  # SELL
+                _dist_fresca = novo_sl - tick_fresco.ask
+                if _dist_fresca < distancia_minima:
+                    novo_sl = tick_fresco.ask + distancia_minima
+                    logging.warning(
+                        f"⚠️ SL SELL revalidado (tick fresco ask={tick_fresco.ask:.2f}): novo_sl â†’ {novo_sl:.2f}")
+    except Exception as e:
+        logging.warning(f"⚠️ Erro ao revalidar SL com tick fresco: {e}")
 
     logging.debug(
         f"[atualizar_sl] Ticket: {ticket}, Novo SL: {novo_sl:.2f}, TP: {tp_original:.2f}, Freeze: {freeze_level}")
