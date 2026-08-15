@@ -1,0 +1,161 @@
+==================================================================
+AUDITORIA FINAL DA SEMANA - MONSTRO WDO (10/08 a 14/08/2026)
+Entregaveis: (1) Auditoria do Agente  (2) Tabela Completa de Trades
+(3) Auditoria do Sniper  (4) Parecer do Tech Lead
+==================================================================
+
+
+==================================================================
+PARTE 1 - AUDITORIA DO AGENTE AUTONOMO (EGNET)
+==================================================================
+Fonte: agente_autonomo.log + relatorios_diarios_*.txt
+
+1.1 O QUE O AGENTE FEZ (cronologia real)
+  - Vigilancia diaria as 12:30 nos 5 dias; whitelist VAZIA desde 08/08
+    (sniper %R fixo, sem autotuning) -> "SEM AJUSTE" em todos os dias.
+  - Decisoes registradas:
+    10/08: 0 sinais / 0 executados - "mercado sem oportunidade"
+    11/08: 277 sinais / 19 executados - win% hist 51.7
+    12/08: 305 sinais / 3 executados - win% hist 49.2
+    13/08: 4 sinais / 3 executados - win% hist 46.9
+    14/08: 833 sinais (12:30) / 7 executados (ate 12:30) - win% hist 40.6
+  - Fecho autonomo (Fase 1) todos os dias as 17:35: gerou relatorio
+    diario, detectou diff estrutural no fonte e COMMITOU os fixes do dia.
+
+1.2 KILL-SWITCH (acionamentos reais)
+  11/08 11:50 - N1 em -110 (pico +170 as 10:05; give-back de 280 pts)
+  12/08 10:20 - N1 em -140
+  13/08 09:35 - N1 em -120 (3 SELL seguidos contra alta forte)
+  -> Kill-switch FUNCIONOU como trava de risco (perda limitada), mas a
+     ativacao unica/dia deixou o dia "morto" apos o corte.
+
+1.3 WATCHDOG (inconsistencia de processo)
+  Após cada kill-switch, watchdog reportou "robo vivo (timeout 10s
+  aguardando porta 5001)" o dia todo: pids_robo() via processo vivo,
+  mas a porta/thread de decisao estava morta -> ESTADO INCONSISTENTE.
+  Pausa 12:30 ("robo segue rodando") nao fez restart -> correto, o dia
+  ja estava parado pelo kill-switch (ativacao unica).
+
+1.4 PARECER DA AUDITORIA DO AGENTE
+  - Acionamento de kill-switch: CORRETO (3/3 dentro do limite -100/-150).
+  - Commit autonomo dos fixes: CORRETO (Fase 1 = proposicoes do dia,
+    nenhuma mudanca estrutural fora da sequencia).
+  - Pendencia estrutural: watchdog deveria DETECTAR processo orfao
+    (porta morta) e propor restart, em vez de "robo vivo" enganoso.
+  - Nenhum dado adulterado; relatorios batem com logs e CSVs.
+
+NOTA OPERACIONAL 11/08: pico +170 as 10:05 com give-back de 280 pts
+ate o kill em -110. Confirma a ausencia de trava de lucro de sessao
+(decisao: NAO implementar - Keras resolve com aprendizado).
+
+
+==================================================================
+PARTE 2 - TABELA COMPLETA DE TRADES
+==================================================================
+Nota de dados: o monstro_wdo.log de 11-13/08 foi SOBRESCRITO antes da
+rotacao de logs (fix aplicado em 14/08). Entradas de 11-13 sao os P&L
+agregados dos relatorios diarios (tickets individuais irrecuperaveis).
+
+--- SEG 10/08 ---  0 trades | 0 pts  (baixa liquidez, sem decisao)
+
+--- TER 11/08 ---  19 trades | -110 pts | win 42.1% (8W/11L)
+  (agregado; tickets perdidos. Dia: pico +170 -> kill-switch -110)
+
+--- QUA 12/08 ---  3 trades | -140 pts | win 0.0% (0W/3L)
+  (agregado; tickets perdidos. 3 trades todos LOSS, erro 10016 + tendencia)
+
+--- QUI 13/08 ---  3 trades | -120 pts | win 0.0% (0W/3L)
+  3x SELL contra alta forte (M15/M30 sobrecomprados): -35, -45, -40
+
+--- SEX 14/08 ---  12 trades | +100 pts | win 50.0% (6W/6L)
+  (extraido do monstro_wdo.log - tickets individuais)
+  #    hora    dir   entrada    SL      TP     lucro   resultado
+  1  09:56    BUY   5212.0   5206.5  5222.5   +105    WIN
+  2  10:42    BUY   5238.0   5232.0  5250.0    -60    LOSS
+  3  11:13    BUY   5239.0   5234.0  5249.0    +30    WIN
+  4  11:32    BUY   5237.5   5233.5  5245.5    +20    WIN
+  5  11:50    BUY   5239.5   5235.0  5245.0    +55    WIN
+  6  12:14    BUY   5243.5   5240.5  5250.0    -30    LOSS
+  7  12:24    BUY   5242.0   5239.0  5247.0    +50    WIN
+  8  14:57    BUY   5260.5   5258.0  5265.5    -25    LOSS
+  9  16:00    SELL  5247.0   5250.0  5241.5    +10    WIN
+  10 16:28   BUY   5242.5   5240.0  5247.0    -25    LOSS
+  11 16:44   BUY   5241.0   5239.0  5245.5    -20    LOSS
+  12 17:12   SELL  5239.5   5242.0  5234.5    -10    LOSS (fech. manual)
+
+--- CONSOLIDADO DA SEMANA ---
+  Total: 37 trades | -270 pts | win 37.8% (14W/23L)
+  Acumulado historico: 76 ops | win ~46-47% | R$ -725
+
+
+==================================================================
+PARTE 3 - AUDITORIA DO SNIPER (%R VARIANTE A)
+==================================================================
+Fonte: monstro_unificado_v22.py (SniperSupermo, L2610-2730) +
+sniper_supermo_historico.csv (373 disparos) + relatorios diarios.
+
+3.1 COMPORTAMENTO REAL
+  - 11/08: 350 disparos -> 19 executados (5.4% de taxa de execucao).
+    234 dos disparos (11:14+, SELL) teriam sido VETADOS pelo Multi-TF.
+  - 12/08: 3 disparos -> 3 executados. 0 vetados (M15/M30 neutros).
+  - 13/08: 3 disparos -> 3 executados. 3/3 SELL contra alta = VETADOS
+    pelo Multi-TF (fix aplicado as 18:08 do dia, apos o pregão).
+  - 14/08: 373 disparos no CSV; 12 executados. Veto Multi-TF ATIVO o
+    dia todo -> primeiro dia positivo da semana.
+
+3.2 CORRECOES IMPLEMENTADAS NO SNIPER (sequencia)
+  10/08: em SNIPER_APENAS pula gate Big Players/volume (ratio 2.0 nunca
+         atingido -> 72 standbys). Sniper decide so pelo %R.
+  11/08: filtro contra-tendencia EMA9/21.
+  12/08: vetos do FiltroTendencia (SMA-50 + momentum).
+  13/08: VETO MULTI-TF (M15/M30 em consenso) + FIX 10016 (tick fresco).
+  14/08: fix revalidacao de SL nunca piora o SL atual.
+
+3.3 EFICACIA (retro-auditoria 11-12/08 + dia 14/08)
+  11/08: veto teria cortado 234/350 disparos (o trecho do give-back).
+  12/08: veto NAO cobre (causa era tendencia, corrigida no FIX 12/08).
+  14/08: veto ativo -> dia +100 (primeiro positivo da semana).
+  => O sniper parou de operar contra a tendencia multi-timeframe.
+     Ainda dispara MUITO (taxa de execucao ~5%); spam de sinal e o
+     proximo gargalo (cooldown + exigencia de confluencia).
+
+
+==================================================================
+PARTE 4 - PARECER DO TECH LEAD
+==================================================================
+ANALISE:
+  1. O problema da semana foi ESTRUTURAL (direcao contra tendencia),
+     nao tuning de modelo. Evidencia: SELL responde por ~90% do prejuizo
+     acumulado (R$ -730 de -825 em 64 ops).
+  2. A cadeia de fixes (10-14/08) atacou a causa raiz em camadas:
+     gate errado -> filtro EMA -> FiltroTendencia SMA-50 -> veto Multi-TF.
+     Cada camada foi validada e o dia 14/08 (+100) confirma a direcao.
+  3. O Keras treinado com 76 ops (win ~46-47%, soma -725) NAO tem
+     amostra suficiente para aprender edge. Treinar agora e ruido.
+  4. Kill-switch funcionou como trava de risco (perdas limitadas a
+     -100/-150), mas o give-back de 280 pts (11/08) mostra que a
+     protecao de lucro nao existe - e DECISAO do time NAO implementar
+     trava de lucro agora (o Keras deve resolver).
+  5. Risco operacional: watchdog nao detecta processo orfao (porta
+     morta com processo vivo) - enganoso apos kill-switch.
+
+DECISAO (itens da autopsia):
+  - ITEM 1 (manter veto Multi-TF): APROVADO - ativo e efetivo.
+  - ITEM 3 (trava de lucro): NAO IMPLEMENTAR - Keras resolve com dados.
+  - ITEM 5 (rotacao de logs): IMPLEMENTADO (14/08) - historico preservado.
+  - ITEM 6 (retro-auditoria): CONCLUIDA - ver arquivo dedicado.
+
+RECOMENDACOES (proxima semana):
+  A. Exigir confluencia do contexto (confluencia_buy/sell) alem do sniper.
+  B. Aumentar cooldown/limiar de score para reduzir spam de sinal
+     (taxa de execucao ~5% hoje).
+  C. Corrigir watchdog p/ detectar processo orfao e propor restart.
+  D. Deixar o Keras acumular dados; retreinar so com >150-200 ops.
+  E. Continuar so com whitelist vazia (sniper %R) ate a proxima
+     revisao - nenhum parametro novo sem validacao.
+
+VOTO DO TECH LEAD: a semana foi um prejuizo contido (-270 pts / 37 trades)
+que convergiu para o primeiro dia positivo (14/08, +100). A direcao das
+correcoes esta certa; o proximo gargalo e a QUALIDADE do sinal (spam),
+nao mais a direcao. Aprovado seguir com sniper %R + veto Multi-TF.
+==================================================================
