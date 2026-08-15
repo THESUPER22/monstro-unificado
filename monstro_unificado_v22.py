@@ -2646,7 +2646,11 @@ class SniperSupermo:
         self._csv_header_escrito = False
         self.ultimo_log = 0
         self.cooldown_ate: float = 0
-        self.cooldown_segundos = 0  # Sem cooldown — pode re-ativar após sair da zona
+        # FIX 15/08 (gargalo de spam): cooldown entre disparos vem do config.
+        # A semana teve 373 disparos/dia no CSV com apenas ~5% de execução
+        # (spam de sinal). Cooldown de 2min força o sniper a esperar entre
+        # sinais consecutivos, filtrando ruído e processamento desperdiçado.
+        self.cooldown_segundos = float(config.get('sniper_cooldown_s', 120))
         self.em_zona = 0  # 1=SOBREVENDIDO(BUY), -1=SOBRECOMPRADO(SELL), 0=fora
         self.wr_anterior = -50.0
 
@@ -2766,6 +2770,10 @@ class SniperSupermo:
             )
             logging.info(banner)
             self._salvar_csv(contexto, direcao, score, detalhes)
+            # FIX 15/08 (spam): disparou 1 sinal -> cooldown entre disparos.
+            # Mesmo que a ordem falhe nos filtros posteriores, o sniper espera
+            # o cooldown antes de gerar o próximo sinal (filtra ~373 disparos/dia).
+            self.cooldown_ate = time.time() + self.cooldown_segundos
 
         return resultado
 

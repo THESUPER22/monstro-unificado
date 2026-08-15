@@ -753,6 +753,15 @@ def run_watchdog():
     if verificar_kill_switch():
         log.warning("watchdog: kill-switch parou o robo - abortando ciclo")
         return
+    # FIX 15/08 (autopsia da semana): kill-switch ja ativado hoje = dia parado
+    # por DECISAO de risco. Se sobrou processo orfao (PID vivo, porta/thread
+    # morta), encerra o orfao mas NAO reinicia - reiniciar anularia o corte.
+    if kill_switch_ja_ativado():
+        log.info("watchdog: kill-switch ja ativado hoje - dia parado (sem restart)")
+        if pids_robo():
+            log.warning("watchdog: encerrando processo orfao remanescente do kill-switch")
+            parar_forcado()
+        return
     if not pids_robo():
         log.warning("watchdog: robo caido - reiniciando")
         start_mt5()
@@ -761,7 +770,17 @@ def run_watchdog():
         log.info(f"watchdog restart: {ok} ({m})")
     else:
         ok, m = health_check(10)
-        log.info(f"watchdog: robo vivo ({m})")
+        if ok:
+            log.info(f"watchdog: robo vivo ({m})")
+        else:
+            # FIX 15/08 (autopsia): processo vivo + porta morta = robo TRAVADO
+            # (falso positivo do pids_robo, que so checa PID). Antes o watchdog
+            # reportava "robo vivo (timeout...)" e nunca reiniciava.
+            log.warning(f"watchdog: robo travado - processo vivo mas porta morta ({m}) - reiniciando")
+            start_mt5()
+            start_robot()
+            ok2, m2 = health_check(R["health_timeout_s"])
+            log.info(f"watchdog restart travado: {ok2} ({m2})")
 
 
 def dryrun():
