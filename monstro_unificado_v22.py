@@ -2087,8 +2087,21 @@ def setup_logging():
         modificacao = datetime.fromtimestamp(os.path.getmtime(LOG_FILE)).date()
         log_existe_hoje = (modificacao == hoje)
 
-    # Se o log Ã© de hoje (reiniciando durante o mercado) â†’ append
-    # Se o log nÃ£o existe ou Ã© de ontem/antes â†’ sobrescreve (nova sessÃ£o)
+    # FIX 14/08 (item 5 da autopsia): rotaciona o log de dias anteriores em vez
+    # de sobrescrever. Antes, o monstro_wdo.log de 11-13/08 foi perdido quando o
+    # robo iniciou em 14/08 (filemode='w'), impossibilitando a auditoria dos dias.
+    # Agora: log anterior vira monstro_wdo_YYYYMMDD.log e um novo e criado para
+    # a sessao de hoje. O dashboard/agente continuam lendo monstro_wdo.log (hoje).
+    if os.path.exists(LOG_FILE) and not log_existe_hoje:
+        data_anterior = modificacao.strftime("%Y%m%d")
+        log_rotacionado = f"{os.path.splitext(LOG_FILE)[0]}_{data_anterior}.log"
+        try:
+            os.replace(LOG_FILE, log_rotacionado)
+        except Exception as e:
+            logging.warning(f"⚠️ Falha ao rotacionar log anterior ({log_rotacionado}): {e}")
+
+    # Se o log é de hoje (reiniciando durante o mercado) → append
+    # Se o log não existe ou foi rotacionado → nova sessão
     filemode = 'a' if log_existe_hoje else 'w'
     logging.basicConfig(
         filename=LOG_FILE,
@@ -5445,14 +5458,26 @@ def atualizar_sl(ticket: int, novo_sl: float, eh_breakeen_forcado: bool = False)
                 _dist_fresca = tick_fresco.bid - novo_sl
                 if _dist_fresca < distancia_minima:
                     novo_sl = tick_fresco.bid - distancia_minima
+                    # FIX 14/08: a revalidacao com tick fresco NUNCA pode piorar
+                    # o SL atual (o mercado pode ter andado contra entre a 1a
+                    # validacao e o order_send). Se a correcao piora, aguarda o
+                    # proximo tick em vez de enviar um SL PIOR.
+                    if posicao.sl != 0 and novo_sl <= posicao.sl:
+                        logging.debug(
+                            f"⚠️ Revalidacao BUY piora SL ({novo_sl:.2f} <= {posicao.sl:.2f}) - aguardando proximo tick")
+                        return False
                     logging.warning(
-                        f"⚠️ SL BUY revalidado (tick fresco bid={tick_fresco.bid:.2f}): novo_sl â†’ {novo_sl:.2f}")
+                        f"⚠️ SL BUY revalidado (tick fresco bid={tick_fresco.bid:.2f}): novo_sl → {novo_sl:.2f}")
             else:  # SELL
                 _dist_fresca = novo_sl - tick_fresco.ask
                 if _dist_fresca < distancia_minima:
                     novo_sl = tick_fresco.ask + distancia_minima
+                    if posicao.sl != 0 and novo_sl >= posicao.sl:
+                        logging.debug(
+                            f"⚠️ Revalidacao SELL piora SL ({novo_sl:.2f} >= {posicao.sl:.2f}) - aguardando proximo tick")
+                        return False
                     logging.warning(
-                        f"⚠️ SL SELL revalidado (tick fresco ask={tick_fresco.ask:.2f}): novo_sl â†’ {novo_sl:.2f}")
+                        f"⚠️ SL SELL revalidado (tick fresco ask={tick_fresco.ask:.2f}): novo_sl → {novo_sl:.2f}")
     except Exception as e:
         logging.warning(f"⚠️ Erro ao revalidar SL com tick fresco: {e}")
 

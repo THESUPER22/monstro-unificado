@@ -1,0 +1,39 @@
+==================================================================
+RETRO-AUDITORIA DO VETO MULTI-TF (FIX 13/08)
+Aplicada retroativamente aos disparos do sniper de 11-12/08/2026
+Gerado em: 14/08/2026 (script retroauditoria_mtf.py)
+==================================================================
+
+METODOLOGIA
+  Regra testada = regra EXATA implementada no codigo (L2714-2730):
+    - SELL bloqueado se M15_WR >= -20 E M30_WR >= -20 (ambos sobrecomprados)
+    - BUY  bloqueado se M15_WR <= -80 E M30_WR <= -80 (ambos sobrevendidos)
+    - Soh bloqueia em consenso, preservando reversoes legitimas em lateral.
+  Fonte: sniper_supermo_historico.csv (disparos) + historico_multitf.csv (WR)
+  pelo timestamp mais proximo.
+
+RESULTADO 11/08 (dia do give-back: pico +170 as 10:05, fechou -110):
+  234 disparos VETADOS | 116 permitidos | total 350
+  - TODOS os SELLs das 11:14+ foram bloqueados (M15/M30 sobrecomprados,
+    WR em consenso >= -20) - exatamente o trecho da sangria do fim da manha.
+  - SELLs de 09:15-10:53 (zona neutra -12..-71) teriam seguido permitidos.
+  => O veto teria cortado o pior trecho do give-back de 11/08.
+
+RESULTADO 12/08 (dia -140, 3 trades):
+  0 disparos VETADOS | 3 permitidos | total 3
+  - BUY 09:24 (M15=-95 M30=-68), SELL 09:55 (M15=-61 M30=-68),
+    SELL 09:59 (M15=-54 M30=-62) - M15/M30 em zona NEUTRA/sobrevendida,
+    fora do consenso exigido.
+  => O veto Multi-TF NAO cobre o caso de 12/08. Aquele -140 tinha outra
+     causa (tendencia real detectada pelo FiltroTendencia SMA-50, ja
+     corrigido no FIX 12/08). Confirmado: o problema estrutural de 12/08
+     NAO era Multi-TF.
+
+CONCLUSAO DA RETRO-AUDITORIA
+  - 11/08: veto teria evitado boa parte do give-back (efetivo).
+  - 12/08: veto nao atua (causa era tendencia, nao multi-TF) (esperado).
+  - 13/08: veto bloqueia os 3 SELLs reais (validacao unitaria anterior).
+  - 14/08: veto ATIVO desde o inicio do dia; dia fechou +100 (12 trades).
+  Decisao: MANTER o veto Multi-TF (item 1). Nao implementar trava de
+  lucro (item 3) - o Keras resolve quando aprender com mais dados.
+==================================================================

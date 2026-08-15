@@ -1,6 +1,7 @@
 ==================================================================
-RESUMO DA SEMANA - MONSTRO WDO (10/08 a 13/08/2026)
+RESUMO DA SEMANA - MONSTRO WDO (10/08 a 14/08/2026)
 P&L em pontos brutos (sem taxas). Fonte: historico_contexto_wdo.csv
+e relatorios diarios (11-13/08, CSV rotacionado)
 ==================================================================
 
 --- RESULTADO POR DIA ---
@@ -8,13 +9,13 @@ P&L em pontos brutos (sem taxas). Fonte: historico_contexto_wdo.csv
   Ter 11/08 : 19 trades   | -110 pts  | win 42.1% (primeiro dia completo)
   Qua 12/08 : 3 trades    | -140 pts  | win  0.0% (FIX SMA-50 aplicado)
   Qui 13/08 : 3 trades    | -120 pts  | win  0.0% (FIX Multi-TF aplicado)
+  Sex 14/08 : 12 trades   | +100 pts  | win 50.0% (veto Multi-TF ativo)
   ---------------------------------------------------------------
-  SEMANA    : 25 trades   | -370 pts  | win 37.5% (9W/16L)
+  SEMANA    : 37 trades   | -270 pts  | win 37.8% (14W/23L)
 
 --- HISTORICO ACUMULADO ---
-  total 64 ops | win 46.9% | soma R$ -825 (~-825 pts, 1pt=R$1/cc)
-  SELL: 35 ops -> R$ -730  (lado que sangra: vender contra alta)
-  BUY : 29 ops -> R$ -95   (quase break-even)
+  total 76 ops | win ~46-47% | soma R$ -725 (~-725 pts, 1pt=R$1/cc)
+  SELL: lado que sangra (vender contra alta) | BUY: quase break-even
 
 --- CAUSA RAIZ (por que sangramos) ---
   1. 12/08: robô VENDIA contra tendência de baixa real (FiltroTendencia
@@ -39,12 +40,24 @@ P&L em pontos brutos (sem taxas). Fonte: historico_contexto_wdo.csv
   Veto Multi-TF testado com valores reais de 13/08 (M15 -18.5/-7.7/-2.8,
   M30 -16.9/-7.0/-2.6): bloquearia os 3 SELL de hoje. Casos laterais
   (M15/M30 neutros) continuam permitidos = reversões legítimas intactas.
+  Retro-auditoria 11-12/08 (14/08): ver
+  retroauditoria_veto_multitf_20260814.txt
+    - 11/08: 234/350 disparos vetados (todos os SELLs 11:14+ = trecho
+      do give-back); o veto teria cortado o pior trecho do dia.
+    - 12/08: 0/3 vetados (M15/M30 neutros) - o veto NAO cobre 12/08;
+      aquela causa era tendência (FIX 12/08), confirmado.
 
 --- LIÇÃO / PLANO PRA FRENTE ---
   - O problema é ESTRUTURAL (direção), não de tuning do modelo. Keras
-    treinado com 64 ops reais (win 46.9%, soma -825) é amostra pequena
+    treinado com 76 ops reais (win ~46-47%, soma -725) é amostra pequena
     demais pra rede neural aprender edge.
   - Prioridade: parar de operar CONTRA a tendência multi-timeframe.
   - Próximos passos possíveis: (1) exigir confluência BUY/SELL do
     contexto (confluencia_buy/sell) além do sniper; (2) subir o limiar
     de score do sniper; (3) só operar com 3+ TFs alinhados.
+
+--- NOTAS OPERACIONAIS (14/08) ---
+  - Rotação de logs implementada: monstro_wdo.log vira
+    monstro_wdo_YYYYMMDD.log na virada do dia (não é mais sobrescrito).
+  - FIX revalidação de SL com tick fresco: nunca envia SL PIOR que o
+    atual (aguarda próximo tick se o mercado andou contra).
