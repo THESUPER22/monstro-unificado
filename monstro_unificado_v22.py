@@ -2737,8 +2737,12 @@ class SniperSupermo:
         ativo = direcao != "NADA"
 
         # SL/TP por ATR do contexto (mesma gestão do backtest: 1.5x/3x)
+        # FIX 17/08: piso mínimo de SL respeita o config (8.0 pts). Sem esse
+        # floor, o ATR baixo em dias de baixa volatilidade gerava stops de
+        # 3.5-4.0pts que eram atingidos por ruído natural do book (stop hunt).
         atr = float(contexto.get('volatility', 0)) or 2.0
-        sl_points = 1.5 * atr
+        _sl_min = float(config.get('sl_max_pontos', 8.0))
+        sl_points = max(1.5 * atr, _sl_min)
         tp_points = 3.0 * atr
 
         resultado = {
@@ -2765,7 +2769,7 @@ class SniperSupermo:
                 f"⚡ SNIPER %R ATIVADO ⚡\n"
                 f"DIREÇÃO: {direcao} | %R={wr:.0f}\n"
                 f"CONDIÇÕES: {' | '.join(detalhes)}\n"
-                f"SL={sl_points:.1f}pt ({1.5}xATR) | TP={tp_points:.1f}pt (2R)\n"
+                f"SL={sl_points:.1f}pt (max({1.5}xATR,{_sl_min:.0f})) | TP={tp_points:.1f}pt (2R)\n"
                 f"{'='*60}"
             )
             logging.info(banner)
