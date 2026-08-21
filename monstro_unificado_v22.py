@@ -448,6 +448,177 @@ MODELO_PATH = config.get("aprendizado", {}).get(
     "modelo_path", _caminho_dados("modelo_monstro_wdo.h5"))
 LOG_FILE = _caminho_dados("monstro_wdo.log")
 
+# ========== SHADOW MODE - MODELO A (veto ML em avaliacao passiva) ==========
+# Registra a probabilidade do Modelo A em cada ordem SEM bloquear execucao.
+# Dados gravados em logs/modelo_a_shadow.csv para validacao futura do veto.
+SHADOW_CSV = os.path.join(_caminho_base(), "logs", "modelo_a_shadow.csv")
+_shadow_modelo_a = None
+_shadow_scaler_a = None
+_SHADOW_FEATS = [
+    "estado_alta", "estado_baixa", "estado_consol", "estado_breakout",
+    "estado_prev_alta", "estado_prev_baixa", "estado_prev_consol",
+    "estado_prev_breakout",
+    "atr_ratio", "slope", "dist_ema_atr", "corpo_atr",
+    "sessao_manha", "sessao_almoco", "sessao_tarde",
+    "mtf_close_5", "mtf_rsi_5", "mtf_atr_5", "mtf_wr_5", "mtf_tick_volume_5",
+    "mtf_close_15", "mtf_rsi_15", "mtf_atr_15", "mtf_wr_15",
+    "mtf_tick_volume_15",
+    "mtf_close_30", "mtf_rsi_30", "mtf_atr_30", "mtf_wr_30",
+    "mtf_tick_volume_30",
+]
+
+
+def _shadow_carregar_modelo():
+    """Carrega o Modelo A e o scaler uma unica vez. Retorna True se pronto."""
+    global _shadow_modelo_a, _shadow_scaler_a
+    if _shadow_modelo_a is not None:
+        return True
+    try:
+        from tensorflow.keras.models import load_model as _lm
+        caminho_modelo = os.path.join(_caminho_base(), "modelo_a_filtro_wdo.keras")
+        caminho_scaler = os.path.join(_caminho_base(), "modelo_a_scaler.json")
+        if not (os.path.exists(caminho_modelo) and os.path.exists(caminho_scaler)):
+            return False
+        _shadow_modelo_a = _lm(caminho_modelo)
+        with open(caminho_scaler, encoding="utf-8") as f:
+            params = json.load(f)
+        _shadow_scaler_a = (np.array(params["mean"]), np.array(params["scale"]))
+        logging.info("SHADOW: Modelo A carregado para modo passivo.")
+        return True
+    except Exception as e:
+        logging.warning(f"SHADOW: modelo A indisponivel ({e})")
+        return False
+
+
+def _shadow_features_atuais(symbol):
+    """Replica o pipeline de treinar_modelo_a na ultima barra M5 FECHADA."""
+    rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M1, 0, 1800)
+    if rates is None or len(rates) < 400:
+        return None
+    m1 = pd.DataFrame(rates)
+    m1["time"] = pd.to_datetime(m1["time"], unit="s")
+    m1.set_index("time", inplace=True)
+
+    def indicadores_tf(d, regra):
+        t = d.resample(regra).agg(
+            {"open": "first", "high": "max", "low": "min",
+             "close": "last", "tick_volume": "sum"}).dropna()
+        delta = t["close"].diff()
+        ganho = delta.clip(lower=0).ewm(alpha=1 / 14, adjust=False).mean()
+        perda = (-delta.clip(upper=0)).ewm(alpha=1 / 14, adjust=False).mean()
+        rs = ganho / perda.replace(0, np.nan)
+        t["rsi"] = 100 - 100 / (1 + rs)
+        hl = t["high"] - t["low"]
+        hc = (t["high"] - t["close"].shift()).abs()
+        lc = (t["low"] - t["close"].shift()).abs()
+        t["atr"] = pd.concat([hl, hc, lc], axis=1).max(axis=1).ewm(
+            alpha=1 / 14, adjust=False).mean()
+        maior = t["high"].rolling(14).max()
+        menor = t["low"].rolling(14).min()
+        t["wr"] = -100 * (maior - t["close"]) / (maior - menor).replace(0, np.nan)
+        return t[["close", "rsi", "atr", "wr", "tick_volume"]]
+
+    partes = {}
+    for tf, regra in [("5", "5min"), ("15", "15min"), ("30", "30min")]:
+        t = indicadores_tf(m1, regra)
+        for col in t.columns:
+            partes[f"mtf_{col}_{tf}"] = t[col]
+    grade = m1.resample("5min").close.last().index
+    mtf = pd.DataFrame(partes).reindex(grade).ffill()
+
+    d5 = m1.resample("5min").agg(
+        {"open": "first", "high": "max", "low": "min", "close": "last"}).dropna()
+
+    ema = d5["close"].ewm(span=21, adjust=False).mean()
+    ref = ema.shift(3)
+    slope = np.where(ref != 0, (ema - ref) / ref, 0.0)
+    hl = d5["high"] - d5["low"]
+    hc = (d5["high"] - d5["close"].shift()).abs()
+    lc = (d5["low"] - d5["close"].shift()).abs()
+    atr = pd.concat([hl, hc, lc], axis=1).max(axis=1).ewm(
+        span=14, adjust=False).mean()
+    atr_ma = atr.ewm(span=14, adjust=False).mean()
+    ratio_ref = atr_ma.shift(3)
+    atr_ratio = np.where(ratio_ref > 0, atr / ratio_ref, 1.0)
+
+    estado = np.full(len(d5), 2, dtype=int)
+    estado[atr_ratio >= 1.0] = 3
+    zona = (atr_ratio >= 0.6) & (atr_ratio < 1.0)
+    estado[zona & (slope > 0.0003)] = 0
+    estado[zona & (slope < -0.0003)] = 1
+
+    i = len(d5) - 2  # ultima barra FECHADA
+    feats = {}
+    for k, nome in [(0, "alta"), (1, "baixa"), (2, "consol"), (3, "breakout")]:
+        feats[f"estado_{nome}"] = float(estado[i] == k)
+        feats[f"estado_prev_{nome}"] = float(estado[i - 1] == k)
+    feats["atr_ratio"] = float(atr_ratio[i])
+    feats["slope"] = float(slope[i])
+    feats["dist_ema_atr"] = float((d5["close"].iloc[i] - ema.iloc[i]) / atr.iloc[i])
+    feats["corpo_atr"] = float(
+        (d5["close"].iloc[i] - d5["open"].iloc[i]) / atr.iloc[i])
+    ts = d5.index[i]
+    h, m = ts.hour, ts.minute
+    feats["sessao_manha"] = float((h == 9 and m >= 10) or (10 <= h < 12))
+    feats["sessao_almoco"] = float(12 <= h < 14)
+    feats["sessao_tarde"] = float(14 <= h < 17)
+
+    linha_mtf = mtf.iloc[i]
+    for c in mtf.columns:
+        feats[c] = float(linha_mtf[c]) if pd.notna(linha_mtf[c]) else 0.0
+
+    return np.array([feats[c] for c in _SHADOW_FEATS], dtype=float)
+
+
+def shadow_registrar_entrada(ticket, direcao, symbol):
+    """Grava a probabilidade do Modelo A no momento da entrada (passivo)."""
+    try:
+        if not _shadow_carregar_modelo():
+            return
+        x_raw = _shadow_features_atuais(symbol)
+        if x_raw is None:
+            return
+        mean, scale = _shadow_scaler_a
+        x = ((x_raw - mean) / scale).reshape(1, -1)
+        prob = float(_shadow_modelo_a.predict(x, verbose=0)[0][0])
+        os.makedirs(os.path.dirname(SHADOW_CSV), exist_ok=True)
+        novo = not os.path.exists(SHADOW_CSV)
+        import csv as _csv
+        with open(SHADOW_CSV, "a", newline="", encoding="utf-8") as f:
+            w = _csv.writer(f)
+            if novo:
+                w.writerow(["timestamp", "ticket_mt5", "direcao",
+                            "prob_modelo_a", "resultado_bruto",
+                            "resultado_pontos"])
+            w.writerow([datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        ticket, direcao, f"{prob:.4f}", "", ""])
+        logging.info(f"SHADOW Modelo A: ticket {ticket} {direcao} p={prob:.3f}")
+    except Exception as e:
+        logging.warning(f"SHADOW: falha ao registrar entrada ({e})")
+
+
+def shadow_registrar_resultado(ticket, lucro):
+    """Preenche o resultado da ordem na linha shadow correspondente."""
+    try:
+        if not os.path.exists(SHADOW_CSV):
+            return
+        df = pd.read_csv(SHADOW_CSV)
+        if "ticket_mt5" not in df.columns:
+            return
+        mask = (df["ticket_mt5"] == ticket) & (
+            df["resultado_bruto"].isna() | (df["resultado_bruto"] == ""))
+        if not mask.any():
+            return
+        idx = df[mask].index[-1]
+        df.loc[idx, "resultado_bruto"] = round(float(lucro), 2)
+        df.to_csv(SHADOW_CSV, index=False)
+        logging.info(f"SHADOW Modelo A: resultado ticket {ticket} "
+                     f"lucro={lucro:.2f}")
+    except Exception as e:
+        logging.warning(f"SHADOW: falha ao registrar resultado ({e})")
+# ========== FIM SHADOW MODE ==========
+
+
 # ConfiguraÃ§Ãµes Web
 PORT = config.get("web_dashboard", {}).get("port", 5002)
 DEBUG = config.get("web_dashboard", {}).get("debug", True)
@@ -3074,6 +3245,7 @@ def salvar_experiencia_csv(contexto: Dict[str, Any], acao: str, lucro: float, sc
 
         # Garante que o contexto tem todas as colunas necessÃ¡rias e valores vÃ¡lidos
         dados = {
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             'bid_qty': max(0, float(contexto.get('bid_qty', 0))),
             'ask_qty': max(0, float(contexto.get('ask_qty', 0))),
             'spread': max(0, float(contexto.get('spread', 0))),
@@ -5129,6 +5301,9 @@ def executar_ordem(action: str, lots: float = VOLUME_PADRAO, symbol: str = None,
     logging.info(
         f"   PreÃ§o: {preco:.3f} | SL: {sl_calculado:.3f} | TP: {'SEM TP (saÃ­da dinÃ¢mica)' if tp_calculado == 0 else f'{tp_calculado:.3f}'}")
 
+    # SHADOW MODE: registra prob do Modelo A sem interferir na execucao
+    shadow_registrar_entrada(resultado.order, action, symbol)
+
     # Aguarda um momento para o MT5 processar
     time.sleep(0.5)
 
@@ -5229,6 +5404,9 @@ def obter_lucro_ultima_ordem(ticket_ordem_abertura: Optional[int] = None) -> Tup
     # O atributo 'profit' de um deal no MT5 geralmente jÃ¡ inclui comissÃµes e swaps.
 
     logging.info(f"ðŸ’° Deal de saÃ­da encontrado para ticket {ticket_ordem_abertura}: DealTicket={deal_final_de_saida.ticket}, PositionID={deal_final_de_saida.position_id}, Lucro={lucro_total_operacao:.2f}, PreÃ§o SaÃ­da={deal_final_de_saida.price}, Volume={deal_final_de_saida.volume}, Hora={datetime.fromtimestamp(deal_final_de_saida.time)})")
+
+    # SHADOW MODE: fecha o ciclo do registro passivo do Modelo A
+    shadow_registrar_resultado(ticket_ordem_abertura, lucro_total_operacao)
 
     score_dist = 0.0
     # Para calcular o score_dist, precisamos da ordem original de abertura.

@@ -1,5 +1,5 @@
 # 🚀 ROADMAP OFICIAL — MONSTRO TRADER V2
-**Última atualização:** 19/07/2026
+**Última atualização:** 20/08/2026
 **Versão:** Monstro Unificado V2 — Arquitetura Nativa (Book direto do MT5)
 **Arquivo principal:** `monstro_unificado_v2.py`
 **Status geral:** Fase 10 concluída — IA com features corrigidas, aprendendo limpo
@@ -269,6 +269,51 @@ Nº de features proporcional aos dados de treino. Adicionar INCREMENTAL e medir 
 ### Ideias Adicionais
 - SL/TP colados em escoras fortes (stop atrás da parede)
 - Fluxo agressivo vs passivo como critério de veto (evolução do "seguir os bigs")
+
+---
+
+## 🔬 FASE 13 — PESQUISA QUANTITATIVA + SHADOW MODE (Agosto/2026)
+
+**Última atualização:** 20/08/2026
+**Arquivo principal:** `monstro_unificado_v22.py` (evolução do v2, ~10.700 linhas)
+
+### Estado Atual (20/08/2026)
+
+| Item | Valor |
+|---|---|
+| Símbolo | WDOU26 |
+| SL | 8 pts (floor `max(1.5×ATR, sl_max)`) |
+| Estratégia ativa | Sniper %R (`SNIPER_APENAS=true`) |
+| Cooldown sniper | 120s |
+| Horário nobre | 09:15–12:30 / 14:30–17:15 (abertura 09:00–09:14 bloqueada) |
+| Dashboard | `http://localhost:5001` |
+
+### ✅ Aprovados e Operacionais
+- **Sniper %R + vetos multi-TF:** edge estatístico principal do robô.
+- **Log de contexto com timestamp:** primeira coluna do `historico_contexto_wdo.csv` — prepara o Modelo B (book/microestrutura + regime).
+- **Infraestrutura:** rotação de logs diária, watchdog, kill-switch, cooldown, SL floor.
+
+### ❌ Descartados (falsas hipóteses — mortas por dados)
+- **Abertura WIN/WDO (09:00–09:14):** reprovada em 7 cenários (M1/M5, alvos 1:1 e 2:1, SL=TP 200/400pts, filtro véspera). WR 27–46%, todos negativos. Candle de abertura = ruído HFT.
+- **Grade de Consolidação (Markov):** reprovada nos dois ativos. Comprar mínima/vender máxima sem direção = pegar faca caindo.
+- **Backtests WIN encerramento:** sem edge real; resultado dependia de outlier único.
+
+### ⏳ Em Teste Passivo (Shadow Mode) — Modelo A
+- **O que é:** veto ML (Keras) com features Markov + MTF retroativo (RSI/ATR/WR em 5m/15m/30m).
+- **Diagnóstico honesto:** AUC walk-forward real **0,653** (min 0,543 / max 0,758). Veto p≥0,65 positivo no OOS (PF 7,22) mas n=9 trades — inconclusivo; in-sample negativo (PF 0,41). Não integrado como veto.
+- **Ação atual:** calcula e grava a probabilidade `p` em cada ordem real em `logs/modelo_a_shadow.csv` (timestamp, ticket_mt5, direcao, prob_modelo_a, resultado_bruto, resultado_pontos) SEM bloquear execução.
+- **Meta:** reavaliar após 30–60 sinais gravados em produção.
+- **Candidato validado aguardando decisão:** Markov Tendência WDO com stop de emergência — PF 1,47 ano / 1,88 OOS (+R$3.214, 161 trades). Ainda não conectado ao robô.
+
+### Lições Registradas
+1. Amostra curta ilude: Modelo C de abertura tinha 77,8% WR em 9 dias e −R$9 mil em 250 dias.
+2. Teto de dados da corretora: M1/M5/M15 param em 29/08/2025. Validações futuras = shadow mode, não mais backtest.
+3. Features MTF exigem forward-fill ao alinhar com grade M5 (viés de barras :00/:30 inflava AUC de 0,653 para 0,827).
+
+### Próximos Passos
+1. Acompanhar coleta do `modelo_a_shadow.csv` na operação ao vivo (meta 30–60 sinais).
+2. Decidir integração do módulo Markov Tendência WDO (shadow ou real com 1 contrato).
+3. Modelo B quando houver base de book com timestamp suficiente (2–3 semanas).
 
 ---
 
