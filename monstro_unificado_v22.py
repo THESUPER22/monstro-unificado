@@ -444,6 +444,33 @@ TIMEFRAME = mt5.TIMEFRAME_M1
 
 HISTORICO_CSV = config.get("aprendizado", {}).get(
     "historico_csv", _caminho_dados("historico_contexto_wdo.csv"))
+
+
+def _migrar_historico_timestamp():
+    """Migracao unica de schema: arquivo antigo sem 'timestamp' vai para .bak.
+
+    O log de contexto passou a gravar 'timestamp' como primeira coluna.
+    Como o append usa header=False, um arquivo antigo geraria desalinhamento
+    de colunas e perda silenciosa de linhas nos loads (on_bad_lines='skip').
+    """
+    try:
+        if not os.path.exists(HISTORICO_CSV):
+            return
+        with open(HISTORICO_CSV, encoding="utf-8-sig") as f:
+            cabecalho = f.readline().strip().split(",")
+        if cabecalho and cabecalho[0].strip().lower() == "timestamp":
+            return
+        backup = f"{HISTORICO_CSV}.sem_timestamp.bak"
+        os.rename(HISTORICO_CSV, backup)
+        logging.warning(
+            "HISTORICO: schema antigo sem timestamp migrado para %s. "
+            "Novo arquivo sera criado com timestamp.", os.path.basename(backup))
+    except Exception as e:
+        logging.warning("HISTORICO: falha na migracao de schema (%s)", e)
+
+
+_migrar_historico_timestamp()
+
 MODELO_PATH = config.get("aprendizado", {}).get(
     "modelo_path", _caminho_dados("modelo_monstro_wdo.h5"))
 LOG_FILE = _caminho_dados("monstro_wdo.log")
