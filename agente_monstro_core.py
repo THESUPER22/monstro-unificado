@@ -193,8 +193,16 @@ def parar_gracioso(timeout):
 def parar_forcado():
     for pid in pids_robo():
         try:
-            psutil.Process(pid).kill()
-            log.warning(f"force kill PID {pid}")
+            pr = psutil.Process(pid)
+            # mata a arvore inteira (filhos primeiro) - evita zumbis segurando
+            # a porta do dashboard apos o restart
+            for filho in pr.children(recursive=True):
+                try:
+                    filho.kill()
+                except Exception:
+                    pass
+            pr.kill()
+            log.warning(f"force kill PID {pid} (arvore)")
         except Exception as e:
             log.error(f"falha kill {pid}: {e}")
     t0 = time.time()
@@ -208,6 +216,64 @@ def parar_forcado():
     ok = not pids_robo()
     log.info(f"parada forcada: {'ok' if ok else 'FALHOU'}")
     return ok
+
+
+ARQ_BACKOFF = os.path.join(BASE_DIR, "watchdog_estado.json")
+
+
+def _backoff_carregar():
+    try:
+        with open(ARQ_BACKOFF, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _backoff_salvar(ts):
+    try:
+        with open(ARQ_BACKOFF, "w", encoding="utf-8") as f:
+            json.dump({"ultimo_restart_falhou": ts}, f)
+    except Exception as e:
+        log.error(f"falha ao salvar backoff: {e}")
+
+
+def em_backoff(minimo_seg=600):
+    """True se o ultimo restart falhou ha menos de minimo_seg segundos.
+    Estado persistido: cada ciclo do agente e um processo novo."""
+    st = _backoff_carregar()
+    ts = st.get("ultimo_restart_falhou", 0)
+    if ts and (time.time() - ts) < minimo_seg:
+        restante = int(minimo_seg - (time.time() - ts))
+        log.warning(f"watchdog: em backoff - ultimo restart falhou ha "
+                    f"{int(time.time()-ts)}s; aguardando mais {restante}s")
+        return True
+    return False
+
+
+def porta_livre(porta, timeout_s=45):
+    """Espera a porta do dashboard liberar (ninguem aceitando conexao).
+    Exige 3 recusas CONSECUTIVAS: um listener zumbi com backlog saturado
+    pode recusar um probe isolado e gerar falso 'livre'."""
+    import socket
+    t0 = time.time()
+    recusas = 0
+    while time.time() - t0 < timeout_s:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(2)
+        try:
+            s.connect(("127.0.0.1", porta))
+            recusas = 0  # conectou -> ainda ha alguem ouvindo
+        except OSError:
+            recusas += 1
+            if recusas >= 3:
+                return True  # recusado 3x seguidas = porta liberada
+        finally:
+            try:
+                s.close()
+            except Exception:
+                pass
+        time.sleep(1)
+    return False
 
 
 def parar_robo():
@@ -763,10 +829,14 @@ def run_watchdog():
             parar_forcado()
         return
     if not pids_robo():
+        if em_backoff():
+            return
         log.warning("watchdog: robo caido - reiniciando")
         start_mt5()
         start_robot()
         ok, m = health_check(R["health_timeout_s"])
+        if not ok:
+            _backoff_salvar(time.time())
         log.info(f"watchdog restart: {ok} ({m})")
     else:
         ok, m = health_check(10)
@@ -774,12 +844,24 @@ def run_watchdog():
             log.info(f"watchdog: robo vivo ({m})")
         else:
             # FIX 15/08 (autopsia): processo vivo + porta morta = robo TRAVADO
-            # (falso positivo do pids_robo, que so checa PID). Antes o watchdog
-            # reportava "robo vivo (timeout...)" e nunca reiniciava.
+            # FIX 23/08: matar o zumbi ANTES de reiniciar - o novo processo
+            # morria no bind da porta ocupada e o ciclo repetia por horas
+            # (30 travamentos em 17/08).
             log.warning(f"watchdog: robo travado - processo vivo mas porta morta ({m}) - reiniciando")
+            if em_backoff():
+                return
+            parar_forcado()
+            porta = porta_dashboard()
+            if not porta_livre(porta, timeout_s=30):
+                _backoff_salvar(time.time())
+                log.error(f"watchdog: porta {porta} ainda ocupada apos kill - "
+                          "abortando restart (backoff ativado)")
+                return
             start_mt5()
             start_robot()
             ok2, m2 = health_check(R["health_timeout_s"])
+            if not ok2:
+                _backoff_salvar(time.time())
             log.info(f"watchdog restart travado: {ok2} ({m2})")
 
 

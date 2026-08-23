@@ -6172,12 +6172,22 @@ def api_data_files():
 
 
 def iniciar_flask():
-    """Inicia o servidor Flask."""
-    # Suprime logs de requests HTTP (GET/POST 200) — só loga erros
+    """Inicia o servidor Flask.
+
+    Usa waitress (WSGI de producao, multi-thread) quando disponivel; o
+    servidor dev do Flask trava sob concorrencia de requisicoes e foi a
+    causa raiz dos travamentos da porta 5001 auditados em 17-18/08.
+    """
     flask_log = logging.getLogger('werkzeug')
     flask_log.setLevel(logging.WARNING)
     app.logger.setLevel(logging.WARNING)
-    app.run(host='0.0.0.0', port=PORT, debug=DEBUG, use_reloader=False)
+    try:
+        from waitress import serve
+        logging.info("Dashboard via waitress (producao, threads=8) na porta %s", PORT)
+        serve(app, host='0.0.0.0', port=PORT, threads=8)
+    except ImportError:
+        logging.warning("waitress ausente - usando servidor dev do Flask")
+        app.run(host='0.0.0.0', port=PORT, debug=DEBUG, use_reloader=False)
 
 
 def atualizar_sentinela():

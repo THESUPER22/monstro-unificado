@@ -120,3 +120,6 @@ relatorio_apuracao_diaria.txt
 agente_snapshot_v22.py
 diff_estrutural_*.txt
 autopsia_*.json
+
+# --- Estado runtime do watchdog (backoff) ---
+watchdog_estado.json
