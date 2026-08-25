@@ -1,0 +1,8 @@
+============================================================
+PLANO DO DIA SEGUINTE - MONSTRO WDO v22
+Gerado em: 25/08/2026 17:35:15
+============================================================
+[PRIORIDADE 1] Saldo negativo acentuado.
+  -> Contramedida: manter SL=8pts, NAO relaxar filtros.
+  -> Reversivel: sim, ajustar sniper_ratio_min +0.1 na pausa 12:30 se amanha melhorar.
+[PADRAO] Manter parametros atuais se nenhuma prioridade critica acionar.
