@@ -42,7 +42,7 @@
         "tp_max_pontos": 0
     },
     "risk_management": {
-        "max_loss_diario": -100.0,
+        "max_loss_diario": -1000.0,
         "max_drawdown": -100.0,
         "max_spread_pontos": 5,
         "max_losses_sequencia": 3,
@@ -111,14 +111,14 @@
     "sniper_apenas": true,
     "sniper_cooldown_s": 120,
     "sete_velas": {
-        "ativo": false,
+        "ativo": true,
         "variante": 9,
         "sl": 8.0,
         "tp": 10.0,
         "volume": 5.0,
         "magic": 7007,
         "hora_inicio": 9.0,
-        "hora_fim": 11.3,
+        "hora_fim": 11.5,
         "abortar_se_payroll": false
     }
 }

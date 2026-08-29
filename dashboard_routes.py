@@ -5,6 +5,7 @@ Fornece endpoints REST para status, trades, logs, controle e config.
 import os
 import sys
 import time
+import json
 from flask import Blueprint, render_template, jsonify, request
 
 from config_manager import get_config_manager, PARAM_SCHEMA
@@ -29,6 +30,90 @@ def _g(name, default=None):
     if _main_mod is None:
         return default
     return getattr(_main_mod, name, default)
+
+
+def _get_sete_velas_status():
+    """Retorna status do módulo 7 Velas para o dashboard."""
+    try:
+        import json
+        import os
+        from datetime import datetime
+        
+        # Lê config.json
+        cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
+        with open(cfg_path, 'r', encoding='utf-8') as f:
+            cfg = json.load(f)
+        sv_cfg = cfg.get('sete_velas', {})
+        
+        # Lê estado do orquestrador (se existir)
+        state_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs', 'sete_velas_state.json')
+        state = {}
+        if os.path.exists(state_path):
+            with open(state_path, 'r', encoding='utf-8') as f:
+                state = json.load(f)
+        
+        # Determina se está na janela ativa
+        now = datetime.now()
+        h = now.hour + now.minute / 60.0
+        na_janela = sv_cfg.get('ativo', False) and 9.0 <= h < 11.5
+        
+        # Status do CVD/Maioria (lê do estado se disponível)
+        hoje = datetime.now().date().isoformat()
+        variante = sv_cfg.get('variante', 9)
+        chave = f"{hoje}_{variante}"
+        estado_dia = state.get(chave, {})
+        
+        # Determina status dos filtros
+        cvd_ok = estado_dia.get('cvd_confluente', False) if isinstance(estado_dia.get('cvd_confluente'), bool) else 'AGUARDANDO'
+        maioria_ok = estado_dia.get('sinal') if isinstance(estado_dia.get('sinal'), str) else 'AGUARDANDO'
+        
+        # Próxima janela
+        if h < 10.75:
+            proxima = '10:45 (V7)'
+        elif h < 11.25:
+            proxima = '11:15 (V9)'
+        else:
+            proxima = 'ENCERRADA'
+        
+        # P&L do dia (aprox - lê do CSV se existir)
+        pnl_hoje = 0.0
+        ops_hoje = 0
+        try:
+            import csv
+            csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs', 'sete_velas_trades.csv')
+            if os.path.exists(csv_path):
+                with open(csv_path, encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row.get('dia') == hoje and row.get('resultado_pts'):
+                            pts = float(row['resultado_pts'])
+                            pnl_hoje += pts * 10 * 5  # pts * R$10/pt * 5 CC
+                            ops_hoje += 1
+        except Exception:
+            pass
+        
+        return {
+            'ativo': bool(sv_cfg.get('ativo', False)),
+            'estado_faixa': 'SETE_VELAS_EXCLUSIVO' if na_janela else 'INATIVO',
+            'variante': sv_cfg.get('variante', 9),
+            'volume': sv_cfg.get('volume', 5.0),
+            'magic': sv_cfg.get('magic', 7007),
+            'sl_tp': f"{sv_cfg.get('sl', 8.0)} / {sv_cfg.get('tp', 10.0)} pts",
+            'sl_pontos': sv_cfg.get('sl', 8.0),
+            'tp_pontos': sv_cfg.get('tp', 10.0),
+            'cvd_ok': cvd_ok,
+            'maioria_ok': maioria_ok,
+            'proxima_janela': proxima,
+            'pnl_hoje': f"R$ {pnl_hoje:,.2f}",
+            'ops_hoje': ops_hoje,
+            'na_janela': na_janela,
+        }
+    except Exception as e:
+        return {
+            'ativo': False,
+            'estado_faixa': 'ERRO',
+            'erro': str(e)
+        }
 
 
 def _caminho_base():
@@ -177,6 +262,8 @@ def api_status():
             'sentinela_atualizado': _g('sentinela_ultima_atualizacao', ''),
             'sentinela_ativo': bool(_g('SENTINELA_ATIVO', True)),
             'trades': trades_list,
+            # ===== 7 VELAS STATUS =====
+            'sete_velas': _get_sete_velas_status()
         })
     except Exception as e:
         return jsonify({'erro': str(e)}), 500
