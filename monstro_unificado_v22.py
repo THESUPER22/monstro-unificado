@@ -1,19 +1,19 @@
-﻿# âœ… MONSTRO UNIFICADO V22 - COMPLETO E FUNCIONAL COM MELHORIAS
-# Inclui: IA contÃ­nua com Keras, entropia do book, painel web, score,
+# Ã¢Åâ¦ MONSTRO UNIFICADO V22 - COMPLETO E FUNCIONAL COM MELHORIAS
+# Inclui: IA contÃÂ­nua com Keras, entropia do book, painel web, score,
 # logs e aprendizado real
 #
-# ðŸš€ MELHORIAS IMPLEMENTADAS (+10% EFICÃCIA TOTAL):
-# âœ… 1. TRAILING STOP INTELIGENTE (+3% eficÃ¡cia)
-# âœ… 2. BALANCEAMENTO BUY/SELL (+2% eficÃ¡cia)
-# âœ… 3. MODOS DE MERCADO SIMPLIFICADOS (+2% eficÃ¡cia)
-# âœ… 4. CIRCUIT BREAKERS ESSENCIAIS (+1.5% eficÃ¡cia)
-# âœ… 5. SAÃDA INTELIGENTE DE POSIÃ‡ÃƒO (+1.5% eficÃ¡cia)
+# Ã°Å¸Å¡â¬ MELHORIAS IMPLEMENTADAS (+10% EFICÃÂCIA TOTAL):
+# Ã¢Åâ¦ 1. TRAILING STOP INTELIGENTE (+3% eficÃÂ¡cia)
+# Ã¢Åâ¦ 2. BALANCEAMENTO BUY/SELL (+2% eficÃÂ¡cia)
+# Ã¢Åâ¦ 3. MODOS DE MERCADO SIMPLIFICADOS (+2% eficÃÂ¡cia)
+# Ã¢Åâ¦ 4. CIRCUIT BREAKERS ESSENCIAIS (+1.5% eficÃÂ¡cia)
+# Ã¢Åâ¦ 5. SAÃÂDA INTELIGENTE DE POSIÃâ¡ÃÆO (+1.5% eficÃÂ¡cia)
 
 import collections
 import glob
 import json
 # region [Imports]
-# Bibliotecas padrÃ£o
+# Bibliotecas padrÃÂ£o
 import logging
 import math
 import os
@@ -38,12 +38,12 @@ import numpy as np
 import pandas as pd
 
 # Silencia logs verbosos do TensorFlow (C++). PRECISA ser definido ANTES de importar o TF.
-# '3' = sÃ³ FATAL (esconde a mensagem repetida "NodeDef ... use_unbounded_threadpool").
+# '3' = sÃÂ³ FATAL (esconde a mensagem repetida "NodeDef ... use_unbounded_threadpool").
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ.setdefault('TF_ENABLE_ONEDNN_OPTS', '0')
 import warnings
 
-# Warnings benignos e repetitivos das libs (sklearn feature names, TF eager) â€” nÃ£o afetam o robÃ´.
+# Warnings benignos e repetitivos das libs (sklearn feature names, TF eager) Ã¢â¬â nÃÂ£o afetam o robÃÂ´.
 warnings.filterwarnings('ignore', category=UserWarning)
 # Deep Learning
 import tensorflow as tf
@@ -59,41 +59,45 @@ from tensorflow.keras.optimizers import Adam
 import sentinela_fluxo
 from dashboard_routes import dashboard_bp, register_main_module
 from diagnostico_monstro import checar_arquivos_essenciais
+from sete_velas_orquestrador import Orquestrador7Velas
+from sete_velas_util import (brt_agora, epoch_para_brt, brt_para_epoch,
+                           velas_m15_do_dia, majority, calcular_cvd_janela,
+                           velas_para_entrada, get_hora_entrada)
 
 # Reduz warnings do TensorFlow
 tf.config.experimental.enable_op_determinism()
-# CORREÃ‡ÃƒO CRÃTICA (C6): Adiciona semente global para resolver o erro de determinismo e permitir o treinamento.
+# CORREÃâ¡ÃÆO CRÃÂTICA (C6): Adiciona semente global para resolver o erro de determinismo e permitir o treinamento.
 tf.random.set_seed(42)
 
-# TF_CPP_MIN_LOG_LEVEL jÃ¡ definido ANTES do import (acima). ReforÃ§a o logger Python do TF.
+# TF_CPP_MIN_LOG_LEVEL jÃÂ¡ definido ANTES do import (acima). ReforÃÂ§a o logger Python do TF.
 tf.get_logger().setLevel('ERROR')
-# (Book nativo: a correÃ§Ã£o de timestamp do CSV do EA foi removida â€” nÃ£o hÃ¡ mais CSV)
+# (Book nativo: a correÃÂ§ÃÂ£o de timestamp do CSV do EA foi removida Ã¢â¬â nÃÂ£o hÃÂ¡ mais CSV)
 
 
-# ===== CONTROLE DE APRENDIZADO FORÃ‡ADO =====
+# ===== CONTROLE DE APRENDIZADO FORÃâ¡ADO =====
 CONTADOR_OPERACOES_REJEITADAS = 0
-LIMITE_REJEICOES_PARA_APRENDIZADO = 20  # Restaurado para 20 (fim do modo aprendizado temporÃ¡rio)
+LIMITE_REJEICOES_PARA_APRENDIZADO = 20  # Restaurado para 20 (fim do modo aprendizado temporÃÂ¡rio)
 MODO_APRENDIZADO_FORCADO = False
-# Limite diÃ¡rio de operaÃ§Ãµes forÃ§adas â€” evita contaminar modelo com trades ruins
+# Limite diÃÂ¡rio de operaÃÂ§ÃÂµes forÃÂ§adas Ã¢â¬â evita contaminar modelo com trades ruins
 FORCADOS_HOJE = 0
 FORCADOS_DATA = None
-MAX_FORCADOS_DIA = 3  # MÃ¡ximo 3 operaÃ§Ãµes forÃ§adas por dia
+MAX_FORCADOS_DIA = 3  # MÃÂ¡ximo 3 operaÃÂ§ÃÂµes forÃÂ§adas por dia
 
 # ===== CLASSES PARA MELHORIAS IMPLEMENTADAS =====
 
 
 class VolumeAdaptativo:
-    """ðŸ“Š Calcula um volume mÃ­nimo para operar de forma adaptativa."""
+    """Ã°Å¸âÅ  Calcula um volume mÃÂ­nimo para operar de forma adaptativa."""
 
     def __init__(self, janela_minutos=15, percentual_da_media=0.8):
         self.janela_segundos = janela_minutos * 60
         self.percentual_da_media = percentual_da_media
         # Deque armazena (timestamp, volume)
         self.historico_volumes = collections.deque()
-        self.volume_minimo_adaptativo = 500  # Valor inicial padrÃ£o (WDO)
+        self.volume_minimo_adaptativo = 500  # Valor inicial padrÃÂ£o (WDO)
 
     def adicionar_volume_atual(self, volume_total: float):
-        """Adiciona o volume total do book ao histÃ³rico."""
+        """Adiciona o volume total do book ao histÃÂ³rico."""
         agora = time.time()
         self.historico_volumes.append((agora, volume_total))
         self._limpar_historico_antigo(agora)
@@ -108,32 +112,32 @@ class VolumeAdaptativo:
                 break
 
     def _calcular_novo_minimo(self):
-        """Calcula o novo volume mÃ­nimo com base na mÃ©dia do histÃ³rico."""
+        """Calcula o novo volume mÃÂ­nimo com base na mÃÂ©dia do histÃÂ³rico."""
         if not self.historico_volumes:
             return
 
         volumes_na_janela = [vol for ts, vol in self.historico_volumes]
         media_volume = sum(volumes_na_janela) / len(volumes_na_janela)
 
-        # O novo mÃ­nimo Ã© um percentual da mÃ©dia
+        # O novo mÃÂ­nimo ÃÂ© um percentual da mÃÂ©dia
         self.volume_minimo_adaptativo = media_volume * self.percentual_da_media
 
-        # Garante um piso mÃ­nimo para nÃ£o operar com volume muito baixo
+        # Garante um piso mÃÂ­nimo para nÃÂ£o operar com volume muito baixo
         piso_absoluto = 500
         self.volume_minimo_adaptativo = max(
             self.volume_minimo_adaptativo, piso_absoluto)
 
     def pode_operar(self, volume_atual: float) -> bool:
-        """Verifica se o volume atual atende ao mÃ­nimo adaptativo."""
+        """Verifica se o volume atual atende ao mÃÂ­nimo adaptativo."""
         return volume_atual >= self.volume_minimo_adaptativo
 
 
-# ConfiguraÃ§Ã£o TensorFlow
+# ConfiguraÃÂ§ÃÂ£o TensorFlow
 tf.config.run_functions_eagerly(True)
 
 # endregion
 
-# ========== MELHORIA 1: TRAILING STOP INTELIGENTE (+3% EFICÃCIA) ==========
+# ========== MELHORIA 1: TRAILING STOP INTELIGENTE (+3% EFICÃÂCIA) ==========
 
 
 class TrailingStopInteligente:
@@ -148,7 +152,7 @@ class TrailingStopInteligente:
         self.sl_original = 0.0
 
     def iniciar_trailing(self, ticket: int, tipo: str, preco_entrada: float, sl_original: float):
-        """Inicia o trailing stop para uma posiÃ§Ã£o."""
+        """Inicia o trailing stop para uma posiÃÂ§ÃÂ£o."""
         self.posicao_ativa = ticket
         self.preco_entrada = preco_entrada
         self.melhor_preco = preco_entrada
@@ -157,7 +161,7 @@ class TrailingStopInteligente:
         self.sl_original = sl_original
 
     def atualizar_trailing(self, preco_atual: float, tipo_posicao: str) -> Optional[float]:
-        """Atualiza o trailing stop e retorna novo SL se necessÃ¡rio."""
+        """Atualiza o trailing stop e retorna novo SL se necessÃÂ¡rio."""
         if not self.posicao_ativa:
             return None
 
@@ -173,11 +177,11 @@ class TrailingStopInteligente:
             if preco_atual < self.melhor_preco:
                 self.melhor_preco = preco_atual
 
-        # Ativa trailing apÃ³s atingir gatilho (20 pontos WDO)
+        # Ativa trailing apÃÂ³s atingir gatilho (20 pontos WDO)
         if lucro_pontos >= 20 and not self.trailing_ativo:
             self.trailing_ativo = True
             logging.info(
-                f"ðŸŽ¯ Trailing stop ativado! Lucro: {lucro_pontos:.1f} pontos")
+                f"Ã°Å¸Å½Â¯ Trailing stop ativado! Lucro: {lucro_pontos:.1f} pontos")
 
         # Trava 70% do lucro quando > 20 pontos
         if lucro_pontos >= 20 and not self.lucro_travado:
@@ -186,10 +190,10 @@ class TrailingStopInteligente:
                 novo_sl = self.preco_entrada + (lucro_pontos * 0.7 * TICK_SIZE)
             else:
                 novo_sl = self.preco_entrada - (lucro_pontos * 0.7 * TICK_SIZE)
-            logging.info(f"ðŸ”’ Lucro travado em 70%! Novo SL: {novo_sl}")
+            logging.info(f"Ã°Å¸ââ Lucro travado em 70%! Novo SL: {novo_sl}")
             return novo_sl
 
-        # Trailing normal (10 pontos de distÃ¢ncia)
+        # Trailing normal (10 pontos de distÃÂ¢ncia)
         if self.trailing_ativo:
             if tipo_posicao == "BUY":
                 novo_sl = self.melhor_preco - (10 * TICK_SIZE)  # 10 pontos WDO
@@ -211,19 +215,19 @@ class TrailingStopInteligente:
 # endregion
 
 
-# region [ConfiguraÃ§Ãµes de Bloqueio]
-MAX_LOSSES_SEQUENCIA = 3     # MÃ¡ximo de losses seguidos no mesmo lado
-CICLOS_BLOQUEIO = 5         # NÃºmero de ciclos que o lado fica bloqueado
-MIN_LUCRO_DESBLOQUEIO = 0.0  # Lucro mÃ­nimo para desbloquear lado antes do tempo
+# region [ConfiguraÃÂ§ÃÂµes de Bloqueio]
+MAX_LOSSES_SEQUENCIA = 3     # MÃÂ¡ximo de losses seguidos no mesmo lado
+CICLOS_BLOQUEIO = 5         # NÃÂºmero de ciclos que o lado fica bloqueado
+MIN_LUCRO_DESBLOQUEIO = 0.0  # Lucro mÃÂ­nimo para desbloquear lado antes do tempo
 # endregion
 
-# region [SeleÃ§Ã£o DinÃ¢mica do Contrato]
+# region [SeleÃÂ§ÃÂ£o DinÃÂ¢mica do Contrato]
 
 
 def get_front_month_symbol_dynamic(prefix="WDO") -> str:
     """Busca no MT5 todos os contratos prefixados por WDO, filtra por trade_mode FULL
-       e retorna aquele com expiraÃ§Ã£o mais prÃ³xima no futuro."""
-    symbols = mt5.symbols_get()  # lista de todos sÃ­mbolos do terminal
+       e retorna aquele com expiraÃÂ§ÃÂ£o mais prÃÂ³xima no futuro."""
+    symbols = mt5.symbols_get()  # lista de todos sÃÂ­mbolos do terminal
     agora_ts = datetime.now().timestamp()
     candidatas = []
     for s in symbols:
@@ -233,12 +237,12 @@ def get_front_month_symbol_dynamic(prefix="WDO") -> str:
                 candidatas.append(s)
     if not candidatas:
         logging.error(
-            f"âŒ Nenhum contrato mensal {prefix}* ativo encontrado. Usando {prefix}$ como fallback.")
+            f"Ã¢ÂÅ Nenhum contrato mensal {prefix}* ativo encontrado. Usando {prefix}$ como fallback.")
         return f"{prefix}$"
     # escolhe o que vence primeiro
     front = min(candidatas, key=lambda s: s.expiration_time)
     logging.info(
-        f"âœ… Contrato dinÃ¢mico selecionado: {front.name} (venc.: {datetime.fromtimestamp(front.expiration_time)})")
+        f"Ã¢Åâ¦ Contrato dinÃÂ¢mico selecionado: {front.name} (venc.: {datetime.fromtimestamp(front.expiration_time)})")
     return front.name
 # endregion
 
@@ -246,7 +250,7 @@ def get_front_month_symbol_dynamic(prefix="WDO") -> str:
 
 
 class GerenciadorBloqueio:
-    """Gerencia o bloqueio de lados apÃ³s sequÃªncia de prejuÃ­zos."""
+    """Gerencia o bloqueio de lados apÃÂ³s sequÃÂªncia de prejuÃÂ­zos."""
 
     def __init__(self):
         self.historico_acoes = []  # Lista de tuplas (acao, lucro)
@@ -256,36 +260,36 @@ class GerenciadorBloqueio:
         self.losses_sequencia = {"BUY": 0, "SELL": 0}
 
     def registrar_operacao(self, acao: str, lucro: float) -> None:
-        """Registra uma operaÃ§Ã£o e atualiza contadores."""
-        # SÃ³ processa aÃ§Ãµes vÃ¡lidas de trading
+        """Registra uma operaÃÂ§ÃÂ£o e atualiza contadores."""
+        # SÃÂ³ processa aÃÂ§ÃÂµes vÃÂ¡lidas de trading
         if acao not in ["BUY", "SELL"]:
             logging.debug(
-                f"Ignorando registro de operaÃ§Ã£o para aÃ§Ã£o invÃ¡lida: {acao}")
+                f"Ignorando registro de operaÃÂ§ÃÂ£o para aÃÂ§ÃÂ£o invÃÂ¡lida: {acao}")
             return
 
         self.historico_acoes.append((acao, lucro))
-        if len(self.historico_acoes) > 10:  # MantÃ©m histÃ³rico limitado
+        if len(self.historico_acoes) > 10:  # MantÃÂ©m histÃÂ³rico limitado
             self.historico_acoes.pop(0)
 
-        # Atualiza contagem de losses em sequÃªncia - MAIS AGRESSIVO
-        # SÃ³ conta como loss se for prejuÃ­zo significativo (maior que 25 reais)
+        # Atualiza contagem de losses em sequÃÂªncia - MAIS AGRESSIVO
+        # SÃÂ³ conta como loss se for prejuÃÂ­zo significativo (maior que 25 reais)
         if acao in ["BUY", "SELL"] and lucro < -25.0:
             self.losses_sequencia[acao] += 1
             # Verifica se atingiu limite de losses seguidos
             if self.losses_sequencia[acao] >= MAX_LOSSES_SEQUENCIA:
                 self.bloquear_lado(acao)
                 logging.warning(
-                    f"ðŸš« Bloqueando lado {acao} por {CICLOS_BLOQUEIO} ciclos apÃ³s {MAX_LOSSES_SEQUENCIA} losses seguidos")
+                    f"Ã°Å¸Å¡Â« Bloqueando lado {acao} por {CICLOS_BLOQUEIO} ciclos apÃÂ³s {MAX_LOSSES_SEQUENCIA} losses seguidos")
         else:
-            # Reseta contador de losses se teve lucro OU prejuÃ­zo pequeno
+            # Reseta contador de losses se teve lucro OU prejuÃÂ­zo pequeno
             self.losses_sequencia[acao] = max(
                 0, self.losses_sequencia[acao] - 1)  # Decrementa gradualmente
-            # Verifica se pode desbloquear por lucro (critÃ©rio mais flexÃ­vel)
+            # Verifica se pode desbloquear por lucro (critÃÂ©rio mais flexÃÂ­vel)
             if lucro >= MIN_LUCRO_DESBLOQUEIO and self.bloqueio_lado[acao] > 0:
                 # Reduz bloqueio gradualmente
                 self.bloqueio_lado[acao] = max(0, self.bloqueio_lado[acao] - 1)
                 logging.info(
-                    f"âœ… Reduzindo bloqueio do lado {acao} por resultado nÃ£o negativo")
+                    f"Ã¢Åâ¦ Reduzindo bloqueio do lado {acao} por resultado nÃÂ£o negativo")
 
         self.ultima_acao = acao
 
@@ -294,11 +298,11 @@ class GerenciadorBloqueio:
         if lado in ["BUY", "SELL"]:
             self.bloqueio_lado[lado] = CICLOS_BLOQUEIO
         else:
-            logging.debug(f"Tentativa de bloquear lado invÃ¡lido: {lado}")
+            logging.debug(f"Tentativa de bloquear lado invÃÂ¡lido: {lado}")
 
     def verificar_bloqueio(self, acao: str) -> bool:
-        """Verifica se uma aÃ§Ã£o estÃ¡ bloqueada e atualiza contadores."""
-        # SÃ³ verifica bloqueio para aÃ§Ãµes vÃ¡lidas de trading
+        """Verifica se uma aÃÂ§ÃÂ£o estÃÂ¡ bloqueada e atualiza contadores."""
+        # SÃÂ³ verifica bloqueio para aÃÂ§ÃÂµes vÃÂ¡lidas de trading
         if acao not in ["BUY", "SELL"]:
             return False
 
@@ -308,15 +312,15 @@ class GerenciadorBloqueio:
         return False
 
     def obter_acao_alternativa(self, acao_original: str) -> str:
-        """Retorna a aÃ§Ã£o oposta quando hÃ¡ bloqueio."""
+        """Retorna a aÃÂ§ÃÂ£o oposta quando hÃÂ¡ bloqueio."""
         if acao_original == "BUY":
             return "SELL"
         elif acao_original == "SELL":
             return "BUY"
         else:
-            # Fallback para aÃ§Ã£o invÃ¡lida
+            # Fallback para aÃÂ§ÃÂ£o invÃÂ¡lida
             logging.warning(
-                f"AÃ§Ã£o original invÃ¡lida para alternativa: {acao_original}")
+                f"AÃÂ§ÃÂ£o original invÃÂ¡lida para alternativa: {acao_original}")
             return "BUY"  # Default
 
     def get_status(self) -> dict:
@@ -330,12 +334,12 @@ class GerenciadorBloqueio:
 # endregion
 
 
-# region [ConfiguraÃ§Ãµes]
-# ---- RESOLUÃ‡ÃƒO DE CAMINHOS (corrige PyInstaller vs script) ----
+# region [ConfiguraÃÂ§ÃÂµes]
+# ---- RESOLUÃâ¡ÃÆO DE CAMINHOS (corrige PyInstaller vs script) ----
 def _caminho_base():
-    """Retorna o diretÃ³rio base para escrita de arquivos de dados (C:\\AIOFEN).
-       Independente do CWD e da localizaÃ§Ã£o do executÃ¡vel PyInstaller:
-       prioriza o diretÃ³rio que CONTÃ‰M o config.json (assinatura do projeto)."""
+    """Retorna o diretÃÂ³rio base para escrita de arquivos de dados (C:\\AIOFEN).
+       Independente do CWD e da localizaÃÂ§ÃÂ£o do executÃÂ¡vel PyInstaller:
+       prioriza o diretÃÂ³rio que CONTÃâ°M o config.json (assinatura do projeto)."""
     candidatos = [r"C:\AIOFEN"]
     if getattr(sys, 'frozen', False):
         candidatos.append(os.path.dirname(sys.executable))
@@ -356,26 +360,26 @@ def _caminho_dados(nome):
     """Retorna caminho absoluto para um arquivo de dados."""
     return os.path.join(_caminho_base(), nome)
 
-# Carrega configuraÃ§Ã£o especÃ­fica do WDO
+# Carrega configuraÃÂ§ÃÂ£o especÃÂ­fica do WDO
 CONFIG_FILE = _caminho_dados("config.json")
 
 
 def carregar_configuracao():
-    """Carrega configuraÃ§Ã£o do arquivo JSON."""
+    """Carrega configuraÃÂ§ÃÂ£o do arquivo JSON."""
     try:
         # utf-8-sig: tolera BOM (um BOM aqui fazia json.load falhar e o robo
         # rodava inteiro nos defaults: SL=5/TP=10/Magic=123457 em vez do config real)
         with open(CONFIG_FILE, 'r', encoding='utf-8-sig') as f:
             return json.load(f)
     except Exception as e:
-        logging.error(f"âŒ Erro ao carregar configuraÃ§Ã£o: {e}")
+        logging.error(f"Ã¢Å Erro ao carregar configuraÃÂ§ÃÂ£o: {e}")
         return {}
 
 
-# Carrega configuraÃ§Ã£o
+# Carrega configuraÃÂ§ÃÂ£o
 config = carregar_configuracao()
 
-# Cache TTL e configuraÃ§Ãµes de retry
+# Cache TTL e configuraÃÂ§ÃÂµes de retry
 CACHE_TTL = 1  # segundos
 MAX_RETRY_ATTEMPTS = 5  # Aumentado para mais tentativas
 RETRY_WAIT_MULTIPLIER = 2  # segundos - Aumentado o tempo entre tentativas
@@ -385,7 +389,7 @@ RETRY_WAIT_MULTIPLIER = 2  # segundos - Aumentado o tempo entre tentativas
 
 @lru_cache(maxsize=128)
 def get_cached_symbol_info(symbol: str) -> Optional[Any]:
-    """Cache para informaÃ§Ãµes do sÃ­mbolo."""
+    """Cache para informaÃÂ§ÃÂµes do sÃÂ­mbolo."""
     return mt5.symbol_info(symbol)
 
 
@@ -393,13 +397,13 @@ def reconectar_mt5() -> bool:
     """Tenta reconectar ao MetaTrader 5."""
     try:
         if mt5.initialize():
-            logging.info("âœ… Reconectado ao MetaTrader 5")
+            logging.info("Ã¢Åâ¦ Reconectado ao MetaTrader 5")
             return True
         else:
-            logging.error(f"âŒ Erro ao reconectar: {mt5.last_error()}")
+            logging.error(f"Ã¢ÂÅ Erro ao reconectar: {mt5.last_error()}")
             return False
     except Exception as e:
-        logging.error(f"âŒ Erro na reconexÃ£o: {e}")
+        logging.error(f"Ã¢ÂÅ Erro na reconexÃÂ£o: {e}")
         return False
 
 
@@ -415,31 +419,31 @@ def retry_market_book_get(symbol: str) -> Optional[Any]:
                     result = mt5.market_book_get(symbol)
 
         if result is None or len(result) == 0:
-            logging.warning("âš ï¸ Book vazio ou nulo - tentando reconexÃ£o")
+            logging.warning("Ã¢Å¡Â Ã¯Â¸Â Book vazio ou nulo - tentando reconexÃÂ£o")
             if reconectar_mt5():
                 result = mt5.market_book_get(symbol)
 
         return result
     except Exception as e:
-        logging.error(f"âŒ Erro ao obter book: {e}")
+        logging.error(f"Ã¢ÂÅ Erro ao obter book: {e}")
         raise Exception("Falha ao obter market book")
 
 
 @retry(stop=stop_after_attempt(MAX_RETRY_ATTEMPTS),
        wait=wait_exponential(multiplier=RETRY_WAIT_MULTIPLIER))
 def retry_positions_get(symbol: str = None) -> Optional[Any]:
-    """Tenta obter posiÃ§Ãµes com retry em caso de falha."""
+    """Tenta obter posiÃÂ§ÃÂµes com retry em caso de falha."""
     return mt5.positions_get(symbol=symbol)
 
 # endregion
 
 
-# region [ConfiguraÃ§Ãµes]
+# region [ConfiguraÃÂ§ÃÂµes]
 # Paths e arquivos - ADAPTADO PARA WDO
 MT5_PATH = config.get("geral", {}).get(
     "mt5_path", r"C:\Program Files\MetaTrader 5 Terminal\terminal64.exe")
-SYMBOL = None  # SerÃ¡ definido apÃ³s inicializar o MT5
-SYMBOL_DOL = None  # DÃ³lar Cheio (DOL) â€” referÃªncia de fluxo institucional
+SYMBOL = None  # SerÃÂ¡ definido apÃÂ³s inicializar o MT5
+SYMBOL_DOL = None  # DÃÂ³lar Cheio (DOL) Ã¢â¬â referÃÂªncia de fluxo institucional
 TIMEFRAME = mt5.TIMEFRAME_M1
 
 HISTORICO_CSV = config.get("aprendizado", {}).get(
@@ -682,93 +686,93 @@ def shadow_registrar_resultado(ticket, lucro):
 # ========== FIM SHADOW MODE ==========
 
 
-# ConfiguraÃ§Ãµes Web
+# ConfiguraÃÂ§ÃÂµes Web
 PORT = config.get("web_dashboard", {}).get("port", 5002)
 DEBUG = config.get("web_dashboard", {}).get("debug", True)
 
-# ConfiguraÃ§Ãµes Trading - ADAPTADO PARA WDO
+# ConfiguraÃÂ§ÃÂµes Trading - ADAPTADO PARA WDO
 MAGIC_NUMBER = config.get("geral", {}).get("magic_number", 123457)
-# Volume mÃ­nimo REAL para considerar nÃ­vel vÃ¡lido no book (WDO tem menos volume)
+# Volume mÃÂ­nimo REAL para considerar nÃÂ­vel vÃÂ¡lido no book (WDO tem menos volume)
 VOLUME_MINIMO = 50
 # Atualizado para 22 features (10 originais + 8 profundidade + 4 ptax/payroll)
 N_FEATURES = 22
 DEVIATION = config.get("geral", {}).get("deviation", 20)
 
-# ConfiguraÃ§Ãµes B3 - MINI DÃ“LAR (WDO)
+# ConfiguraÃÂ§ÃÂµes B3 - MINI DÃâLAR (WDO)
 TICK_SIZE = config.get("contrato", {}).get(
     "tick_size", 0.5)           # Tamanho do tick WDO
 TICKS_POR_PONTO = config.get("contrato", {}).get(
     "ticks_por_ponto", 1000)    # WDO: 1 ponto = 1000 ticks
-# Volume padrÃ£o (1 contrato WDO)
+# Volume padrÃÂ£o (1 contrato WDO)
 VOLUME_PADRAO = config.get("volume_padrao", 1.0)
 HORARIO_PREGAO = config.get("horarios", {}).get("pregao", "09:00")
 HORARIO_LIMITE_ORDENS = config.get(
     "horarios", {}).get("limite_ordens", "17:30")
 HORARIO_ENCERRAMENTO = config.get("horarios", {}).get("encerramento", "17:35")
 HORARIO_AFTER = config.get("horarios", {}).get("after_market", "17:40")
-HORARIO_AJUSTE = "23:59"  # HorÃ¡rio do ajuste (ajustado para testes)
+HORARIO_AJUSTE = "23:59"  # HorÃÂ¡rio do ajuste (ajustado para testes)
 DIGITS_INDICE = config.get("contrato", {}).get(
-    "digits_indice", 0)         # Casas decimais do Mini Ãndice
+    "digits_indice", 0)         # Casas decimais do Mini ÃÂndice
 
-# Limites de distÃ¢ncia em ticks e pontos - ADAPTADO PARA WDO
+# Limites de distÃÂ¢ncia em ticks e pontos - ADAPTADO PARA WDO
 MIN_TICKS = 500             # 1 ponto WDO = 500 ticks
-MAX_TICKS = 5000            # 10 pontos WDO = 5000 ticks (TP dinÃ¢mico)
+MAX_TICKS = 5000            # 10 pontos WDO = 5000 ticks (TP dinÃÂ¢mico)
 MAX_DISTANCIA_SL_PONTOS = config.get(
     "sl_points", 5)      # 5 pontos WDO (FIX 07/08: era 8 -> perdas de R$80)
 MAX_DISTANCIA_TP_PONTOS = config.get(
-    "tp_points", 10)     # 10 pontos WDO (TP dinÃ¢mico)
+    "tp_points", 10)     # 10 pontos WDO (TP dinÃÂ¢mico)
 
 # Trailing Stop (em pontos) - ADAPTADO PARA WDO
 TRAILING_ATIVO = config.get("trailing_stop", {}).get("ativo", True)
 TRAILING_INTERVALO = config.get(
     "trailing_stop", {}).get("intervalo_segundos", 5)
-# NOTA: TRAILING_GATILHO e TRAILING_DISTANCIA sÃ£o definidos em linha ~964 (apÃ³s melhorias)
-# Os valores do config.json sÃ£o sobrescritos pelos valores ajustados manualmente
+# NOTA: TRAILING_GATILHO e TRAILING_DISTANCIA sÃÂ£o definidos em linha ~964 (apÃÂ³s melhorias)
+# Os valores do config.json sÃÂ£o sobrescritos pelos valores ajustados manualmente
 
-# Stop Loss e Take Profit (em pontos) - CONFIGURAÃ‡ÃƒO WDO (REFATORADO)
-# 5 pontos WDO = 5000 ticks (SL como rede de seguranÃ§a - FIX 07/08: era 8)
+# Stop Loss e Take Profit (em pontos) - CONFIGURAÃâ¡ÃÆO WDO (REFATORADO)
+# 5 pontos WDO = 5000 ticks (SL como rede de seguranÃÂ§a - FIX 07/08: era 8)
 SL_POINTS = config.get("sl_points", 5)
-# 10 pontos WDO = 10000 ticks (TP dinÃ¢mico - Keras decide saÃ­da)
+# 10 pontos WDO = 10000 ticks (TP dinÃÂ¢mico - Keras decide saÃÂ­da)
 TP_POINTS = config.get("tp_points", 10)
 
 # ========================================================================
-# ðŸŽ¯ FILTRO SNIPER DE ELITE (BOOK NATIVO MT5) - AJUSTE FÃCIL AQUI
+# Ã°Å¸Å½Â¯ FILTRO SNIPER DE ELITE (BOOK NATIVO MT5) - AJUSTE FÃÂCIL AQUI
 # ------------------------------------------------------------------------
-# Estes 2 valores controlam quando o robÃ´ "acorda" para operar.
+# Estes 2 valores controlam quando o robÃÂ´ "acorda" para operar.
 # Migrados do EA MQL5 para o Python (arquitetura nativa, sem CSV/EA).
-#   SNIPER_VOLUME_MIN : volume TOTAL somado (bid+ask) nos 10 nÃ­veis do book
-#                       necessÃ¡rio para o robÃ´ considerar operar (big players).
-#   SNIPER_RATIO_MIN  : desequilÃ­brio mÃ­nimo entre os lados (um lado precisa
-#                       ter pelo menos este mÃºltiplo do volume do outro).
-# Basta alterar os nÃºmeros abaixo e reiniciar o robÃ´ â€” sem recompilar EA.
-# AJUSTADO PARA WDO (Mini DÃ³lar): thresholds 3-5x menores que WIN (Mini Ãndice)
+#   SNIPER_VOLUME_MIN : volume TOTAL somado (bid+ask) nos 10 nÃÂ­veis do book
+#                       necessÃÂ¡rio para o robÃÂ´ considerar operar (big players).
+#   SNIPER_RATIO_MIN  : desequilÃÂ­brio mÃÂ­nimo entre os lados (um lado precisa
+#                       ter pelo menos este mÃÂºltiplo do volume do outro).
+# Basta alterar os nÃÂºmeros abaixo e reiniciar o robÃÂ´ Ã¢â¬â sem recompilar EA.
+# AJUSTADO PARA WDO (Mini DÃÂ³lar): thresholds 3-5x menores que WIN (Mini ÃÂndice)
 # ========================================================================
 SNIPER_VOLUME_MIN = config.get("sniper_volume_min", 800)
-SNIPER_RATIO_MIN = config.get("sniper_ratio_min", 1.5)  # Restaurado para 1.5 (fim do modo aprendizado temporÃ¡rio)
+SNIPER_RATIO_MIN = config.get("sniper_ratio_min", 1.5)  # Restaurado para 1.5 (fim do modo aprendizado temporÃÂ¡rio)
 
 # ========================================================================
-# ðŸ”‡ CONTROLE DE VERBOSIDADE DOS LOGS (NÃƒO afeta a velocidade/decisÃ£o do robÃ´!)
-# O robÃ´ monitora e decide sempre no ritmo mÃ¡ximo (1-5s). Isto controla apenas
-# a FREQUÃŠNCIA de ESCRITA no arquivo de log, para ficar legÃ­vel (~60 linhas/hora
-# em standby). Dicts mutÃ¡veis = nÃ£o precisam de 'global' nas funÃ§Ãµes.
+# Ã°Å¸ââ¡ CONTROLE DE VERBOSIDADE DOS LOGS (NÃÆO afeta a velocidade/decisÃÂ£o do robÃÂ´!)
+# O robÃÂ´ monitora e decide sempre no ritmo mÃÂ¡ximo (1-5s). Isto controla apenas
+# a FREQUÃÅ NCIA de ESCRITA no arquivo de log, para ficar legÃÂ­vel (~60 linhas/hora
+# em standby). Dicts mutÃÂ¡veis = nÃÂ£o precisam de 'global' nas funÃÂ§ÃÂµes.
 # ========================================================================
 _veto_estado = {'ultimo_log': 0.0}
-VETO_LOG_INTERVALO_S = 60   # loga o veto no mÃ¡ximo 1x a cada 60s
+VETO_LOG_INTERVALO_S = 60   # loga o veto no mÃÂ¡ximo 1x a cada 60s
 
-# Cooldown anti-espasmo da inversÃ£o de fluxo (FIX 07/08: era 1x/5s -> 27x FALHA 10016)
+# Cooldown anti-espasmo da inversÃÂ£o de fluxo (FIX 07/08: era 1x/5s -> 27x FALHA 10016)
 _fluxo_estado = {'ultimo_ajuste': 0.0}
-FLUXO_COOLDOWN_S = 60         # no mÃ¡ximo 1 ajuste de SL por fluxo a cada 60s
-FLUXO_TRAVA_LUCRO_PCT = 0.50  # trava 50% do lucro quando o fluxo vira (nÃ£o breakeven)
-FLUXO_DIST_MINIMA_PTS = 2.0   # distÃ¢ncia mÃ­nima SL-preÃ§o para tentar ajuste (evita retcode 10016)
+FLUXO_COOLDOWN_S = 60         # no mÃÂ¡ximo 1 ajuste de SL por fluxo a cada 60s
+FLUXO_TRAVA_LUCRO_PCT = 0.50  # trava 50% do lucro quando o fluxo vira (nÃÂ£o breakeven)
+FLUXO_DIST_MINIMA_PTS = 2.0   # distÃÂ¢ncia mÃÂ­nima SL-preÃÂ§o para tentar ajuste (evita retcode 10016)
 _log_estado = {'ultimo_pulso': 0.0, 'ultimo_heartbeat': 0.0}
-PULSO_LOG_INTERVALO_S = 60      # pulso de mercado (ðŸ“Š) 1x a cada 60s em standby
-HEARTBEAT_LOG_INTERVALO_S = 15  # heartbeat da posiÃ§Ã£o (ðŸ’“) 1x a cada 15s operando
+PULSO_LOG_INTERVALO_S = 60      # pulso de mercado (Ã°Å¸âÅ ) 1x a cada 60s em standby
+HEARTBEAT_LOG_INTERVALO_S = 15  # heartbeat da posiÃÂ§ÃÂ£o (Ã°Å¸ââ) 1x a cada 15s operando
 _throttle_estado = {}
 
 
 def _log_periodico(chave: str, intervalo_s: float) -> bool:
-    """Retorna True no mÃ¡ximo 1x a cada intervalo_s para a 'chave'. Controla apenas
-    a FREQUÃŠNCIA de logs â€” NÃƒO altera o processamento/decisÃ£o do robÃ´."""
+    """Retorna True no mÃÂ¡ximo 1x a cada intervalo_s para a 'chave'. Controla apenas
+    a FREQUÃÅ NCIA de logs Ã¢â¬â NÃÆO altera o processamento/decisÃÂ£o do robÃÂ´."""
     agora = time.time()
     if agora - _throttle_estado.get(chave, 0.0) >= intervalo_s:
         _throttle_estado[chave] = agora
@@ -777,29 +781,29 @@ def _log_periodico(chave: str, intervalo_s: float) -> bool:
 
 # Circuit Breakers - ADAPTADO PARA WDO
 MAX_LOSS_DIARIO = config.get("risk_management", {}).get(
-    "max_loss_diario", -500.0)   # Limite de perda diÃ¡ria em reais
+    "max_loss_diario", -500.0)   # Limite de perda diÃÂ¡ria em reais
 MAX_DRAWDOWN = config.get("risk_management", {}).get(
-    "max_drawdown", -250.0)      # Limite de drawdown por operaÃ§Ã£o em reais
-# Spread mÃ¡ximo em pontos WDO
+    "max_drawdown", -250.0)      # Limite de drawdown por operaÃÂ§ÃÂ£o em reais
+# Spread mÃÂ¡ximo em pontos WDO
 MAX_SPREAD = config.get("max_spread", 5)
-MIN_TICKS_VALIDOS = 10      # MÃ­nimo de ticks vÃ¡lidos WDO
-# Volume mÃ­nimo no book WDO - FILTRO ULTRA SELETIVO
-# Aumentado para 200cc para SEGUIR BIG PLAYERS - mÃ¡xima acertividade
+MIN_TICKS_VALIDOS = 10      # MÃÂ­nimo de ticks vÃÂ¡lidos WDO
+# Volume mÃÂ­nimo no book WDO - FILTRO ULTRA SELETIVO
+# Aumentado para 200cc para SEGUIR BIG PLAYERS - mÃÂ¡xima acertividade
 MIN_VOLUME_BOOK = config.get("min_volume_book", 200)
 
-# ConfiguraÃ§Ãµes de Aprendizado
-MIN_EXPERIENCIAS_TREINO = 3    # MÃ­nimo de experiÃªncias para comeÃ§ar treino
-MAX_EXPERIENCIAS_MEMORIA = 1000  # MÃ¡ximo de experiÃªncias na memÃ³ria
-EPOCHS_TREINO = 3               # NÃºmero de Ã©pocas por treino
+# ConfiguraÃÂ§ÃÂµes de Aprendizado
+MIN_EXPERIENCIAS_TREINO = 3    # MÃÂ­nimo de experiÃÂªncias para comeÃÂ§ar treino
+MAX_EXPERIENCIAS_MEMORIA = 1000  # MÃÂ¡ximo de experiÃÂªncias na memÃÂ³ria
+EPOCHS_TREINO = 3               # NÃÂºmero de ÃÂ©pocas por treino
 BATCH_SIZE = 32                 # Tamanho do batch de treino
-MIN_DELTA_LOSS = 0.001         # MÃ­nima melhoria na loss para continuar
-PATIENCE_EARLY_STOP = 3        # PaciÃªncia para early stopping
+MIN_DELTA_LOSS = 0.001         # MÃÂ­nima melhoria na loss para continuar
+PATIENCE_EARLY_STOP = 3        # PaciÃÂªncia para early stopping
 DECAY_MEIA_VIDA = 12           # Meia-vida do decay em horas
 INTERVALO_REPLAY = 60          # Intervalo em minutos para replay
-PESO_REPLAY = 0.3              # Peso das experiÃªncias no replay
-JANELA_CONSISTENCIA = 5        # Janela para calcular consistÃªncia
+PESO_REPLAY = 0.3              # Peso das experiÃÂªncias no replay
+JANELA_CONSISTENCIA = 5        # Janela para calcular consistÃÂªncia
 
-# Arquivos de dados (HISTORICO_CSV jÃ¡ definido acima via config)
+# Arquivos de dados (HISTORICO_CSV jÃÂ¡ definido acima via config)
 EXPERIENCIAS_JSON = _caminho_dados("experiencias_wdo.json")
 DECISIONS_CSV = _caminho_dados("decisions_wdo.csv")
 MULTITF_CSV = _caminho_dados("historico_multitf.csv")
@@ -808,16 +812,16 @@ MULTITF_CSV = _caminho_dados("historico_multitf.csv")
 
 
 class BloqueadorContexto:
-    """Sistema de bloqueio de contextos perdedores baseado em experiÃªncias passadas."""
+    """Sistema de bloqueio de contextos perdedores baseado em experiÃÂªncias passadas."""
 
     def __init__(self):
         # {hash_coeado_ate''losses': count, 'bloqueado_ate': timestamp}}
         self.contextos_bloqueados = {}
-        self.max_losses_contexto = 3  # MÃ¡ximo de losses no mesmo contexto
+        self.max_losses_contexto = 3  # MÃÂ¡ximo de losses no mesmo contexto
         self.tempo_bloqueio = 3600  # 1 hora de bloqueio
 
     def _hash_contexto(self, contexto: dict) -> str:
-        """Cria hash Ãºnico do contexto para identificaÃ§Ã£o."""
+        """Cria hash ÃÂºnico do contexto para identificaÃÂ§ÃÂ£o."""
         # Agrupa por faixas para criar contextos similares
         hora = datetime.now().hour
         faixa_horario = f"{hora//2*2:02d}-{(hora//2*2)+1:02d}"  # Faixas de 2h
@@ -828,10 +832,10 @@ class BloqueadorContexto:
             'rsi_14', 50) < 40 else "alto" if contexto.get('rsi_14', 50) > 60 else "neutro"
         candle_type = contexto.get('candle_type', 'unknown')
 
-        # PressÃ£o do book
+        # PressÃÂ£o do book
         bid_qty = contexto.get('bid_qty', 0)
         ask_qty = contexto.get('ask_qty', 0)
-        ratio = bid_qty / (ask_qty + 1)  # +1 para evitar divisÃ£o por zero
+        ratio = bid_qty / (ask_qty + 1)  # +1 para evitar divisÃÂ£o por zero
         book_pressure = "compra" if ratio > 1.5 else "venda" if ratio < 0.7 else "neutro"
 
         return f"{faixa_horario}_{volatilidade_faixa}_{rsi_faixa}_{candle_type}_{book_pressure}"
@@ -851,10 +855,10 @@ class BloqueadorContexto:
             self.contextos_bloqueados[hash_ctx]['bloqueado_ate'] = time.time(
             ) + self.tempo_bloqueio
             logging.warning(
-                f"ðŸš« CONTEXTO BLOQUEADO: {hash_ctx} - {self.max_losses_contexto} losses consecutivos")
+                f"Ã°Å¸Å¡Â« CONTEXTO BLOQUEADO: {hash_ctx} - {self.max_losses_contexto} losses consecutivos")
 
     def contexto_bloqueado(self, contexto: dict) -> bool:
-        """Verifica se contexto estÃ¡ bloqueado."""
+        """Verifica se contexto estÃÂ¡ bloqueado."""
         hash_ctx = self._hash_contexto(contexto)
 
         if hash_ctx not in self.contextos_bloqueados:
@@ -862,18 +866,18 @@ class BloqueadorContexto:
 
         ctx_data = self.contextos_bloqueados[hash_ctx]
 
-        # Verifica se ainda estÃ¡ no perÃ­odo de bloqueio
+        # Verifica se ainda estÃÂ¡ no perÃÂ­odo de bloqueio
         if ctx_data['bloqueado_ate'] > time.time():
             tempo_restante = int(ctx_data['bloqueado_ate'] - time.time())
             logging.info(
-                f"â³ Contexto {hash_ctx} bloqueado por mais {tempo_restante}s")
+                f"Ã¢ÂÂ³ Contexto {hash_ctx} bloqueado por mais {tempo_restante}s")
             return True
 
         # Se passou o tempo, reseta o contador
         if ctx_data['bloqueado_ate'] > 0 and ctx_data['bloqueado_ate'] <= time.time():
             self.contextos_bloqueados[hash_ctx] = {
                 'losses': 0, 'bloqueado_ate': 0}
-            logging.info(f"âœ… Contexto {hash_ctx} desbloqueado")
+            logging.info(f"Ã¢Åâ¦ Contexto {hash_ctx} desbloqueado")
 
         return False
 
@@ -886,13 +890,13 @@ class BloqueadorContexto:
                 0, self.contextos_bloqueados[hash_ctx]['losses'] - 1)
             if self.contextos_bloqueados[hash_ctx]['losses'] == 0:
                 self.contextos_bloqueados[hash_ctx]['bloqueado_ate'] = 0
-                logging.info(f"âœ… Contexto {hash_ctx} reabilitado apÃ³s win")
+                logging.info(f"Ã¢Åâ¦ Contexto {hash_ctx} reabilitado apÃÂ³s win")
 
-# ========== FASE 2: REPLAY DE EXPERIÃŠNCIAS ATIVO ==========
+# ========== FASE 2: REPLAY DE EXPERIÃÅ NCIAS ATIVO ==========
 
 
 class ReplayExperiencias:
-    """Sistema de consulta ativa de experiÃªncias passadas antes de operar."""
+    """Sistema de consulta ativa de experiÃÂªncias passadas antes de operar."""
 
     def __init__(self):
         self.experiencias_cache = []
@@ -900,7 +904,7 @@ class ReplayExperiencias:
         self.cache_valido_por = 300  # 5 minutos
 
     def carregar_experiencias(self):
-        """Carrega experiÃªncias do arquivo JSON."""
+        """Carrega experiÃÂªncias do arquivo JSON."""
         try:
             if not os.path.exists(EXPERIENCIAS_JSON):
                 return []
@@ -912,7 +916,7 @@ class ReplayExperiencias:
             with open(EXPERIENCIAS_JSON, 'r', encoding='utf-8') as f:
                 experiencias = json.load(f)
 
-            # Filtra apenas experiÃªncias dos Ãºltimos 7 dias
+            # Filtra apenas experiÃÂªncias dos ÃÂºltimos 7 dias
             cutoff_time = datetime.now() - timedelta(days=7)
             experiencias_recentes = []
 
@@ -929,21 +933,21 @@ class ReplayExperiencias:
             self.ultimo_carregamento = time.time()
 
             logging.debug(
-                f"ðŸ“š Carregadas {len(experiencias_recentes)} experiÃªncias recentes")
+                f"Ã°Å¸âÅ¡ Carregadas {len(experiencias_recentes)} experiÃÂªncias recentes")
             return experiencias_recentes
 
         except Exception as e:
-            logging.error(f"âŒ Erro ao carregar experiÃªncias: {e}")
+            logging.error(f"Ã¢ÂÅ Erro ao carregar experiÃÂªncias: {e}")
             return []
 
     def calcular_expectativa_contexto(self, contexto_atual: dict, acao_proposta: str) -> dict:
-        """Calcula expectativa matemÃ¡tica para contexto similar."""
+        """Calcula expectativa matemÃÂ¡tica para contexto similar."""
         experiencias = self.carregar_experiencias()
 
         if not experiencias:
             return {'expectativa': 0, 'trades_similares': 0, 'taxa_acerto': 0, 'lucro_medio': 0, 'perda_media': 0}
 
-        # Busca experiÃªncias similares com critÃ©rios relaxados
+        # Busca experiÃÂªncias similares com critÃÂ©rios relaxados
         similares = []
 
         for exp in experiencias:
@@ -953,13 +957,13 @@ class ReplayExperiencias:
             ctx = exp.get('contexto', {})
             similar = True
 
-            # Volatilidade similar (Â±40% â€” relaxado de 20%)
+            # Volatilidade similar (ÃÂ±40% Ã¢â¬â relaxado de 20%)
             vol_atual = contexto_atual.get('volatility', 0)
             vol_exp = ctx.get('volatility', 0)
             if vol_atual > 0 and abs(vol_atual - vol_exp) > vol_atual * 0.4:
                 similar = False
 
-            # RSI similar (Â±25 pontos â€” relaxado de 15)
+            # RSI similar (ÃÂ±25 pontos Ã¢â¬â relaxado de 15)
             rsi_atual = contexto_atual.get('rsi_14', 50)
             rsi_exp = ctx.get('rsi_14', 50)
             if abs(rsi_atual - rsi_exp) > 25:
@@ -993,7 +997,7 @@ class ReplayExperiencias:
         if not similares:
             return {'expectativa': 0, 'trades_similares': 0, 'taxa_acerto': 0, 'lucro_medio': 0, 'perda_media': 0}
 
-        # Calcula estatÃ­sticas
+        # Calcula estatÃÂ­sticas
         lucros = [exp.get('lucro', 0) for exp in similares]
         wins = [l for l in lucros if l > 0]
         losses = [l for l in lucros if l < 0]
@@ -1002,7 +1006,7 @@ class ReplayExperiencias:
         lucro_medio = sum(wins) / len(wins) if wins else 0
         perda_media = abs(sum(losses) / len(losses)) if losses else 0
 
-        # Expectativa matemÃ¡tica
+        # Expectativa matemÃÂ¡tica
         expectativa = (taxa_acerto * lucro_medio) - \
             ((1 - taxa_acerto) * perda_media)
 
@@ -1015,20 +1019,20 @@ class ReplayExperiencias:
         }
 
         logging.debug(
-            f"ðŸ“Š Expectativa {acao_proposta}: {expectativa:.2f} | Similares: {len(similares)} | Taxa: {taxa_acerto*100:.1f}%")
+            f"Ã°Å¸âÅ  Expectativa {acao_proposta}: {expectativa:.2f} | Similares: {len(similares)} | Taxa: {taxa_acerto*100:.1f}%")
 
         return resultado
 
 
-# ========== INSTÃ‚NCIAS GLOBAIS â€” definidas aqui para ficarem disponÃ­veis em todo o mÃ³dulo ==========
+# ========== INSTÃâNCIAS GLOBAIS Ã¢â¬â definidas aqui para ficarem disponÃÂ­veis em todo o mÃÂ³dulo ==========
 bloqueador_contexto = BloqueadorContexto()
 replay_experiencias = ReplayExperiencias()
 
-# ========== SISTEMA DE VETO SIMPLES E DIRETO (BASEADO NA SUGESTÃƒO DA IA) ==========
+# ========== SISTEMA DE VETO SIMPLES E DIRETO (BASEADO NA SUGESTÃÆO DA IA) ==========
 
 
 def carregar_experiencias_simples():
-    """Carrega experiÃªncias do JSON de forma simples."""
+    """Carrega experiÃÂªncias do JSON de forma simples."""
     if not os.path.exists(EXPERIENCIAS_JSON):
         return []
     try:
@@ -1039,8 +1043,8 @@ def carregar_experiencias_simples():
 
 
 def contexto_similar_simples(exp_contexto, contexto_atual):
-    """Verifica se contextos sÃ£o similares usando critÃ©rios simples."""
-    # Faixa horÃ¡ria (2h)
+    """Verifica se contextos sÃÂ£o similares usando critÃÂ©rios simples."""
+    # Faixa horÃÂ¡ria (2h)
     hora_atual = datetime.now().hour
     faixa_atual = f"{hora_atual//2*2:02d}-{(hora_atual//2*2)+1:02d}"
 
@@ -1051,7 +1055,7 @@ def contexto_similar_simples(exp_contexto, contexto_atual):
     # RSI
     rsi_atual = contexto_atual.get('rsi_14', 50)
     rsi_exp = exp_contexto.get('rsi_14', 50)
-    rsi_similar = abs(rsi_atual - rsi_exp) <= 20  # Â±20 pontos
+    rsi_similar = abs(rsi_atual - rsi_exp) <= 20  # ÃÂ±20 pontos
 
     # Candle type
     candle_atual = contexto_atual.get('candle_type', '')
@@ -1061,8 +1065,8 @@ def contexto_similar_simples(exp_contexto, contexto_atual):
 
 
 def calcular_expectativa_simples(experiencias):
-    """Calcula expectativa matemÃ¡tica simples."""
-    if len(experiencias) < 5:  # MÃ­nimo de dados
+    """Calcula expectativa matemÃÂ¡tica simples."""
+    if len(experiencias) < 5:  # MÃÂ­nimo de dados
         return None
 
     ganhos = [e['lucro'] for e in experiencias if e['lucro'] > 0]
@@ -1080,10 +1084,10 @@ def calcular_expectativa_simples(experiencias):
 
 
 def deve_operar_contexto(contexto_atual, acao_proposta, expectativa_minima=0):
-    """VETO SIMPLES: Verifica se deve operar baseado no histÃ³rico."""
+    """VETO SIMPLES: Verifica se deve operar baseado no histÃÂ³rico."""
     experiencias = carregar_experiencias_simples()
 
-    # Busca experiÃªncias similares com a mesma aÃ§Ã£o
+    # Busca experiÃÂªncias similares com a mesma aÃÂ§ÃÂ£o
     similares = []
     for exp in experiencias:
         if (exp.get('acao') == acao_proposta and
@@ -1093,7 +1097,7 @@ def deve_operar_contexto(contexto_atual, acao_proposta, expectativa_minima=0):
     expectativa = calcular_expectativa_simples(similares)
 
     if expectativa is None:
-        return True, "Sem histÃ³rico suficiente"
+        return True, "Sem histÃÂ³rico suficiente"
 
     if expectativa <= expectativa_minima:
         return False, f"Expectativa negativa: {expectativa:.2f} (similares: {len(similares)})"
@@ -1101,71 +1105,71 @@ def deve_operar_contexto(contexto_atual, acao_proposta, expectativa_minima=0):
     return True, f"Expectativa positiva: {expectativa:.2f} (similares: {len(similares)})"
 
 
-# Alias para compatibilidade â€” prever_acao chama deve_operar_contexto_simples
+# Alias para compatibilidade Ã¢â¬â prever_acao chama deve_operar_contexto_simples
 deve_operar_contexto_simples = deve_operar_contexto
 
 
-# ConfiguraÃ§Ãµes de Stop Inteligente - VALORES ORIGINAIS RESTAURADOS
-INVERSAO_SCORE_MIN = 0.3       # MÃ­nima variaÃ§Ã£o do score para considerar inversÃ£o
-SCORE_LOCK_PROFIT = 0.5        # Score mÃ­nimo para ativar trava de lucro
-TEMPO_MIN_POSICAO = 30         # Tempo mÃ­nimo em segundos antes de considerar saÃ­da
+# ConfiguraÃÂ§ÃÂµes de Stop Inteligente - VALORES ORIGINAIS RESTAURADOS
+INVERSAO_SCORE_MIN = 0.3       # MÃÂ­nima variaÃÂ§ÃÂ£o do score para considerar inversÃÂ£o
+SCORE_LOCK_PROFIT = 0.5        # Score mÃÂ­nimo para ativar trava de lucro
+TEMPO_MIN_POSICAO = 30         # Tempo mÃÂ­nimo em segundos antes de considerar saÃÂ­da
 INTERVALO_CHECK_SCORE = 5      # Intervalo em segundos para checar score
-JANELA_SUAVIZACAO = 3         # Tamanho da janela para mÃ©dia mÃ³vel do score
-THRESHOLD_INVERSAO_SCORE = -0.2  # Threshold para considerar inversÃ£o negativa
+JANELA_SUAVIZACAO = 3         # Tamanho da janela para mÃÂ©dia mÃÂ³vel do score
+THRESHOLD_INVERSAO_SCORE = -0.2  # Threshold para considerar inversÃÂ£o negativa
 
-# ConfiguraÃ§Ãµes de Trading
+# ConfiguraÃÂ§ÃÂµes de Trading
 MULTIPLICADOR_SL_ATR = 2.0  # SL = 2x ATR
 MULTIPLICADOR_TP_ATR = 3.0  # TP = 3x ATR
-PERIODO_ATR = 14           # PerÃ­odo para cÃ¡lculo do ATR
+PERIODO_ATR = 14           # PerÃÂ­odo para cÃÂ¡lculo do ATR
 
-# Limites mÃ¡ximos de SL/TP em pontos - ADAPTADO PARA WDO
-SL_MAX_POINTS = 5         # MÃ¡ximo SL em pontos WDO
-TP_MAX_POINTS = 0         # SEM TP â€” saÃ­da dinÃ¢mica por Keras+Book
+# Limites mÃÂ¡ximos de SL/TP em pontos - ADAPTADO PARA WDO
+SL_MAX_POINTS = 5         # MÃÂ¡ximo SL em pontos WDO
+TP_MAX_POINTS = 0         # SEM TP Ã¢â¬â saÃÂ­da dinÃÂ¢mica por Keras+Book
 
-# ConfiguraÃ§Ãµes de Modos Situacionais - ADAPTADO PARA WDO
-# ATR mÃ­nimo para operar â€” WDO opera com ATR 2-10 pontos (tick=0.5)
+# ConfiguraÃÂ§ÃÂµes de Modos Situacionais - ADAPTADO PARA WDO
+# ATR mÃÂ­nimo para operar Ã¢â¬â WDO opera com ATR 2-10 pontos (tick=0.5)
 # Abaixo de 1.5 = mercado completamente lateral, sem oportunidade
 THRESHOLD_ATR_BAIXO = 1.5
-# Entropia mÃ­nima para operar â€” escala REAL (entropy log natural) 2.69-2.97
-# FIX (01/08/2026): era 0.6 em escala [0,1], mas entropia real Ã© 2.7-3.0 -> modo lateral nunca ativava
+# Entropia mÃÂ­nima para operar Ã¢â¬â escala REAL (entropy log natural) 2.69-2.97
+# FIX (01/08/2026): era 0.6 em escala [0,1], mas entropia real ÃÂ© 2.7-3.0 -> modo lateral nunca ativava
 THRESHOLD_ENTROPIA_BAIXA = 2.75
-# Entropia alta para modo explosÃ£o - ULTRA SELETIVO (era 0.7, escala [0,1] -> explosÃ£o sempre ativa)
+# Entropia alta para modo explosÃÂ£o - ULTRA SELETIVO (era 0.7, escala [0,1] -> explosÃÂ£o sempre ativa)
 THRESHOLD_ENTROPIA_ALTA = 2.85
-# MÃ­nimo crescimento de volume para modo explosÃ£o - MAIS EXIGENTE
+# MÃÂ­nimo crescimento de volume para modo explosÃÂ£o - MAIS EXIGENTE
 MIN_VOLUME_CRESCIMENTO = 1.5
-# MÃ¡ximo de losses seguidos antes de modo defesa
-MAX_LOSSES_SEGUIDOS = 3   # Era 5 - reduzido para reagir mais rÃ¡pido
-# Minutos em modo defesa apÃ³s atingir max losses
-TEMPO_DEFESA = 10         # Era 15 - reduzido para nÃ£o travar demais
-# RazÃ£o mÃ­nima entre bid/ask (WDO tem menos liquidez)
+# MÃÂ¡ximo de losses seguidos antes de modo defesa
+MAX_LOSSES_SEGUIDOS = 3   # Era 5 - reduzido para reagir mais rÃÂ¡pido
+# Minutos em modo defesa apÃÂ³s atingir max losses
+TEMPO_DEFESA = 10         # Era 15 - reduzido para nÃÂ£o travar demais
+# RazÃÂ£o mÃÂ­nima entre bid/ask (WDO tem menos liquidez)
 MIN_RATIO_BOOK = 0.03
 
-# ConfiguraÃ§Ãµes de Bloqueio de Lado - VALORES ORIGINAIS RESTAURADOS
-MAX_LOSSES_SEQUENCIA = 3     # MÃ¡ximo de losses seguidos no mesmo lado
-CICLOS_BLOQUEIO = 5         # NÃºmero de ciclos que o lado fica bloqueado
-MIN_LUCRO_DESBLOQUEIO = 0.0  # Lucro mÃ­nimo para desbloquear lado antes do tempo
+# ConfiguraÃÂ§ÃÂµes de Bloqueio de Lado - VALORES ORIGINAIS RESTAURADOS
+MAX_LOSSES_SEQUENCIA = 3     # MÃÂ¡ximo de losses seguidos no mesmo lado
+CICLOS_BLOQUEIO = 5         # NÃÂºmero de ciclos que o lado fica bloqueado
+MIN_LUCRO_DESBLOQUEIO = 0.0  # Lucro mÃÂ­nimo para desbloquear lado antes do tempo
 
-# ========== CONFIGURAÃ‡Ã•ES MELHORIA 1: TRAILING STOP INTELIGENTE ==========
+# ========== CONFIGURAÃâ¡Ãâ¢ES MELHORIA 1: TRAILING STOP INTELIGENTE ==========
 TRAILING_ATIVO = True
-# pontos WDO â€” sÃ³ ativa apÃ³s lucro real (AJUSTE FINO: era 80/5, agora 8 para WDO - AÃ§Ã£o 1 07/08)
+# pontos WDO Ã¢â¬â sÃÂ³ ativa apÃÂ³s lucro real (AJUSTE FINO: era 80/5, agora 8 para WDO - AÃÂ§ÃÂ£o 1 07/08)
 TRAILING_GATILHO = 8
-# pontos WDO â€” respira sem violinar (AJUSTE FINO: era 40/2, agora 4 para WDO - AÃ§Ã£o 1 07/08)
+# pontos WDO Ã¢â¬â respira sem violinar (AJUSTE FINO: era 40/2, agora 4 para WDO - AÃÂ§ÃÂ£o 1 07/08)
 TRAILING_DISTANCIA = 4
 TRAILING_PERCENTUAL_TRAVA = 0.7  # Trava 70% do lucro quando > 5 pontos
 
-# AÃ§Ã£o 2 (07/08): piso mÃ­nimo de confianÃ§a para executar ordem
-# EmpÃ­rico (simulaÃ§Ã£o 07/08): conf < 0.50 concentra lixo; 0.50 corta
+# AÃÂ§ÃÂ£o 2 (07/08): piso mÃÂ­nimo de confianÃÂ§a para executar ordem
+# EmpÃÂ­rico (simulaÃÂ§ÃÂ£o 07/08): conf < 0.50 concentra lixo; 0.50 corta
 # parte das perdas sem matar os winners (0.60 anularia todos os trades).
 PISO_CONFIANCA_MINIMA = 0.50
 
-# InstÃ¢ncia global do trailing stop
+# InstÃÂ¢ncia global do trailing stop
 trailing_stop = None
 
-# ========== MELHORIA 2: BALANCEAMENTO BUY/SELL (+2% EFICÃCIA) ==========
+# ========== MELHORIA 2: BALANCEAMENTO BUY/SELL (+2% EFICÃÂCIA) ==========
 
 
 class BalanceadorOperacoes:
-    """Gerencia o balanceamento entre operaÃ§Ãµes BUY e SELL."""
+    """Gerencia o balanceamento entre operaÃÂ§ÃÂµes BUY e SELL."""
 
     def __init__(self):
         self.contador_buy = 0
@@ -1173,18 +1177,18 @@ class BalanceadorOperacoes:
         self.historico_operacoes = []
 
     def registrar_operacao(self, acao: str):
-        """Registra uma operaÃ§Ã£o executada."""
+        """Registra uma operaÃÂ§ÃÂ£o executada."""
         if acao == "BUY":
             self.contador_buy += 1
         elif acao == "SELL":
             self.contador_sell += 1
 
         self.historico_operacoes.append(acao)
-        if len(self.historico_operacoes) > 50:  # MantÃ©m histÃ³rico limitado
+        if len(self.historico_operacoes) > 50:  # MantÃÂ©m histÃÂ³rico limitado
             self.historico_operacoes.pop(0)
 
     def calcular_desbalanceamento(self) -> float:
-        """Calcula o nÃ­vel de desbalanceamento atual."""
+        """Calcula o nÃÂ­vel de desbalanceamento atual."""
         total = self.contador_buy + self.contador_sell
         if total == 0:
             return 0.0
@@ -1195,7 +1199,7 @@ class BalanceadorOperacoes:
         desbalanceamento = self.calcular_desbalanceamento()
         total = self.contador_buy + self.contador_sell
 
-        # NÃ£o ajusta se tiver poucas operaÃ§Ãµes
+        # NÃÂ£o ajusta se tiver poucas operaÃÂ§ÃÂµes
         if total < 5:
             return threshold_original
 
@@ -1204,14 +1208,14 @@ class BalanceadorOperacoes:
         if desbalanceamento > 0.85:
             ajuste = 0.3  # Ajuste muito agressivo
             logging.info(
-                f"ðŸš¨ Desbalanceamento crÃ­tico BUY: {desbalanceamento:.1%} - Ajuste extremo +{ajuste}")
-            # Pode ir atÃ© 1.5 (quase impossÃ­vel BUY)
+                f"Ã°Å¸Å¡Â¨ Desbalanceamento crÃÂ­tico BUY: {desbalanceamento:.1%} - Ajuste extremo +{ajuste}")
+            # Pode ir atÃÂ© 1.5 (quase impossÃÂ­vel BUY)
             return min(1.5, threshold_original + ajuste)
         elif desbalanceamento < 0.15:
             ajuste = -0.3  # Ajuste muito agressivo
             logging.info(
-                f"ðŸš¨ Desbalanceamento crÃ­tico SELL: {desbalanceamento:.1%} - Ajuste extremo {ajuste}")
-            # Pode ir atÃ© -0.5 (quase sempre BUY)
+                f"Ã°Å¸Å¡Â¨ Desbalanceamento crÃÂ­tico SELL: {desbalanceamento:.1%} - Ajuste extremo {ajuste}")
+            # Pode ir atÃÂ© -0.5 (quase sempre BUY)
             return max(-0.5, threshold_original + ajuste)
 
         # Balanceamento agressivo normal
@@ -1225,11 +1229,11 @@ class BalanceadorOperacoes:
         return threshold_original
 
     def deve_forcar_operacao(self) -> tuple[bool, str]:
-        """Verifica se deve forÃ§ar uma operaÃ§Ã£o especÃ­fica devido ao desbalanceamento extremo."""
+        """Verifica se deve forÃÂ§ar uma operaÃÂ§ÃÂ£o especÃÂ­fica devido ao desbalanceamento extremo."""
         desbalanceamento = self.calcular_desbalanceamento()
         total = self.contador_buy + self.contador_sell
 
-        if total < 10:  # Precisa de pelo menos 10 operaÃ§Ãµes para forÃ§ar
+        if total < 10:  # Precisa de pelo menos 10 operaÃÂ§ÃÂµes para forÃÂ§ar
             return False, ""
 
         if desbalanceamento > 0.85:  # Mais de 85% BUY
@@ -1257,15 +1261,15 @@ class BalanceadorOperacoes:
         }
 
 
-# ConfiguraÃ§Ãµes do balanceamento
-BALANCEAMENTO_ATIVO = False  # DESATIVADO: causava deadlock (forÃ§a BUY com threshold=2.0 impossÃ­vel)
+# ConfiguraÃÂ§ÃÂµes do balanceamento
+BALANCEAMENTO_ATIVO = False  # DESATIVADO: causava deadlock (forÃÂ§a BUY com threshold=2.0 impossÃÂ­vel)
 THRESHOLD_DESBALANCEAMENTO = 0.7  # 70% de um lado
 AJUSTE_THRESHOLD_BALANCE = 0.05   # Ajuste no threshold quando desbalanceado
 
-# InstÃ¢ncia global do balanceador
+# InstÃÂ¢ncia global do balanceador
 balanceador = None
 
-# ========== MELHORIA 3: MODOS DE MERCADO SIMPLIFICADOS (+2% EFICÃCIA) ==========
+# ========== MELHORIA 3: MODOS DE MERCADO SIMPLIFICADOS (+2% EFICÃÂCIA) ==========
 
 
 class DetectorModoMercado:
@@ -1277,11 +1281,11 @@ class DetectorModoMercado:
         self.historico_entropia = []
 
     def atualizar_indicadores(self, atr: float, entropia: float):
-        """Atualiza indicadores para detecÃ§Ã£o de modo."""
+        """Atualiza indicadores para detecÃÂ§ÃÂ£o de modo."""
         self.historico_atr.append(atr)
         self.historico_entropia.append(entropia)
 
-        # MantÃ©m histÃ³rico limitado
+        # MantÃÂ©m histÃÂ³rico limitado
         if len(self.historico_atr) > 20:
             self.historico_atr.pop(0)
         if len(self.historico_entropia) > 20:
@@ -1296,7 +1300,7 @@ class DetectorModoMercado:
         entropia_media = sum(self.historico_entropia[-5:]) / 5
 
         # Modo conservador: ATR baixo E entropia baixa
-        # WDO: ATR tÃ­pico 2-10 pontos. Abaixo de 2.0 = conservador.
+        # WDO: ATR tÃÂ­pico 2-10 pontos. Abaixo de 2.0 = conservador.
         # FIX (01/08/2026): entropia em escala real (2.69-2.97), era 0.3 em [0,1] -> nunca ativava
         if atr_medio < 2.0 and entropia_media < 2.75:
             self.modo_atual = "CONSERVADOR"
@@ -1306,7 +1310,7 @@ class DetectorModoMercado:
         return self.modo_atual
 
     def ajustar_parametros_trading(self, volume_base: float, sl_base: float, tp_base: float) -> tuple:
-        """Ajusta parÃ¢metros de trading baseado no modo."""
+        """Ajusta parÃÂ¢metros de trading baseado no modo."""
         if self.modo_atual == "CONSERVADOR":
             volume_ajustado = volume_base * 0.5  # Volume reduzido 50%
             sl_ajustado = sl_base * 0.7         # SL menor 30%
@@ -1316,14 +1320,14 @@ class DetectorModoMercado:
         return volume_base, sl_base, tp_base
 
 
-# InstÃ¢ncia global do detector de modo
+# InstÃÂ¢ncia global do detector de modo
 detector_modo = None
 
-# ========== MELHORIA 4: CIRCUIT BREAKERS ESSENCIAIS (+1.5% EFICÃCIA) ==========
+# ========== MELHORIA 4: CIRCUIT BREAKERS ESSENCIAIS (+1.5% EFICÃÂCIA) ==========
 
 
 class CircuitBreakerEssencial:
-    """Implementa circuit breakers essenciais para proteÃ§Ã£o."""
+    """Implementa circuit breakers essenciais para proteÃÂ§ÃÂ£o."""
 
     def __init__(self):
         self.losses_seguidos = 0
@@ -1333,15 +1337,15 @@ class CircuitBreakerEssencial:
         self.motivo_bloqueio = ""
 
     def registrar_resultado(self, lucro: float):
-        """Registra resultado de uma operaÃ§Ã£o."""
+        """Registra resultado de uma operaÃÂ§ÃÂ£o."""
         hoje = datetime.now().date()
         self.operacoes_hoje.append((hoje, lucro))
 
-        # Remove operaÃ§Ãµes de dias anteriores
+        # Remove operaÃÂ§ÃÂµes de dias anteriores
         self.operacoes_hoje = [(data, valor) for data,
                                valor in self.operacoes_hoje if data == hoje]
 
-        # Atualiza loss diÃ¡rio
+        # Atualiza loss diÃÂ¡rio
         self.loss_diario_atual = sum(valor for _, valor in self.operacoes_hoje)
 
         # Atualiza losses seguidos
@@ -1350,12 +1354,12 @@ class CircuitBreakerEssencial:
         else:
             self.losses_seguidos = 0
 
-        # LIMITE DIÃRIO REAL: Se atingiu -1000, DESLIGA O ROBÃ”
+        # LIMITE DIÃÂRIO REAL: Se atingiu -1000, DESLIGA O ROBÃâ
         if self.loss_diario_atual <= MAX_LOSS_DIARIO:
             self.bloqueado = True
-            self.motivo_bloqueio = f"LIMITE DIÃRIO ATINGIDO: {self.loss_diario_atual:.2f} <= {MAX_LOSS_DIARIO}"
-            logging.error(f"ðŸš¨ {self.motivo_bloqueio}")
-            logging.error("ðŸ›‘ ROBÃ” SERÃ DESLIGADO AUTOMATICAMENTE!")
+            self.motivo_bloqueio = f"LIMITE DIÃÂRIO ATINGIDO: {self.loss_diario_atual:.2f} <= {MAX_LOSS_DIARIO}"
+            logging.error(f"Ã°Å¸Å¡Â¨ {self.motivo_bloqueio}")
+            logging.error("Ã°Å¸âºâ ROBÃâ SERÃÂ DESLIGADO AUTOMATICAMENTE!")
 
             # FIX (01/08/2026): era sys.exit() dentro de thread daemon -> so matava a thread,
             # dashboard e demais threads continuavam vivas (processo parecia ativo). Agora cria
@@ -1364,24 +1368,24 @@ class CircuitBreakerEssencial:
             try:
                 with open(_caminho_dados("parar.txt"), 'w', encoding='utf-8') as f:
                     f.write(f"LIMITE DIARIO ATINGIDO: {self.loss_diario_atual:.2f}")
-                logging.info("âœ… parar.txt criado - encerramento coordenado sera executado pelo loop principal")
+                logging.info("Ã¢Åâ¦ parar.txt criado - encerramento coordenado sera executado pelo loop principal")
             except Exception as e:
-                logging.error(f"âŒ Erro ao criar parar.txt: {e}")
+                logging.error(f"Ã¢ÂÅ Erro ao criar parar.txt: {e}")
 
     def verificar_circuit_breakers(self, spread_atual: float) -> bool:
         """Verifica se algum circuit breaker foi ativado."""
         # CB1: 3 losses seguidos - TEMPORARIAMENTE DESABILITADO (30/07/2025)
-        # MOTIVO: Permitir mais operaÃ§Ãµes para treinamento da IA
-        # REATIVAR EM: 06/08/2025 (apÃ³s 1 semana de dados)
+        # MOTIVO: Permitir mais operaÃÂ§ÃÂµes para treinamento da IA
+        # REATIVAR EM: 06/08/2025 (apÃÂ³s 1 semana de dados)
         # if self.losses_seguidos >= 3:
         #     self.bloqueado = True
         #     self.motivo_bloqueio = f"3 losses seguidos (atual: {self.losses_seguidos})"
         #     return True
 
-        # CB2: Loss diÃ¡rio excessivo (WDO)
-        if self.loss_diario_atual <= -1000.0:
+        # CB2: Loss diÃÂ¡rio excessivo (WDO)
+        if not ignore_max_loss and self.loss_diario_atual <= -1000.0:
             self.bloqueado = True
-            self.motivo_bloqueio = f"Loss diÃ¡rio: R${self.loss_diario_atual:.2f}"
+            self.motivo_bloqueio = f"Loss diÃÂ¡rio: R${self.loss_diario_atual:.2f}"
             return True
 
         # CB3: Spread muito alto (WDO)
@@ -1404,38 +1408,38 @@ class CircuitBreakerEssencial:
         }
 
 
-# ConfiguraÃ§Ãµes dos circuit breakers
+# ConfiguraÃÂ§ÃÂµes dos circuit breakers
 CIRCUIT_BREAKER_ATIVO = True
-# Stop apÃ³s 3 losses seguidos - TEMPORARIAMENTE DESABILITADO
+# Stop apÃÂ³s 3 losses seguidos - TEMPORARIAMENTE DESABILITADO
 MAX_LOSSES_SEGUIDOS_CB = 3
 SPREAD_MAXIMO_CB = 20        # Stop se spread > 20 pontos WDO
-# Stop se perda diÃ¡ria > R$1000 (WDO)
+# Stop se perda diÃÂ¡ria > R$1000 (WDO)
 LOSS_DIARIO_CB = -1000.0
 
-# InstÃ¢ncia global do circuit breaker
+# InstÃÂ¢ncia global do circuit breaker
 circuit_breaker = None
 
-# InstÃ¢ncia global do sistema de confluÃªncia
+# InstÃÂ¢ncia global do sistema de confluÃÂªncia
 sistema_confluencia = None
 confluencia_info_atual = None
 
-# ========== NOVA MELHORIA: SISTEMA DE CONFLUÃŠNCIA (+4% EFICÃCIA) ==========
+# ========== NOVA MELHORIA: SISTEMA DE CONFLUÃÅ NCIA (+4% EFICÃÂCIA) ==========
 
 
 class SistemaConfluencia:
-    """Sistema que sÃ³ opera quando mÃºltiplos sinais concordam - MÃXIMA EFICÃCIA."""
+    """Sistema que sÃÂ³ opera quando mÃÂºltiplos sinais concordam - MÃÂXIMA EFICÃÂCIA."""
 
     def __init__(self):
         self.historico_confluencias = []
         self.stats_por_confluencia = {}
 
     def verificar_confluencia(self, contexto: Dict[str, Any], probabilidade_ia: float, acao_ia: str) -> Dict[str, Any]:
-        """Verifica confluÃªncia de mÃºltiplos sinais tÃ©cnicos."""
+        """Verifica confluÃÂªncia de mÃÂºltiplos sinais tÃÂ©cnicos."""
         sinais_buy = []
         sinais_sell = []
         score_confluencia = 0
 
-        # ===== SINAL 1: INTELIGÃŠNCIA ARTIFICIAL (Peso: 30) ==========
+        # ===== SINAL 1: INTELIGÃÅ NCIA ARTIFICIAL (Peso: 30) ==========
         if probabilidade_ia > 0.75:
             sinais_buy.append("IA_FORTE")
             score_confluencia += 30
@@ -1456,22 +1460,22 @@ class SistemaConfluencia:
         if bid_qty > 0 and ask_qty > 0:
             ratio_book = bid_qty / ask_qty
 
-            # LÃ“GICA CORRIGIDA: SEGUIR BIG PLAYERS NA MESMA DIREÃ‡ÃƒO
+            # LÃâGICA CORRIGIDA: SEGUIR BIG PLAYERS NA MESMA DIREÃâ¡ÃÆO
             if ratio_book > 1.3:  # Muito mais compradores (bid_qty > ask_qty)
-                # BUY (big players comprando â†’ entrar junto na compra)
+                # BUY (big players comprando Ã¢â â entrar junto na compra)
                 sinais_buy.append("BOOK_DESEQUILIBRIO")
                 score_confluencia += 25
             elif ratio_book > 1.15:  # Moderadamente mais compradores
-                # BUY (pressÃ£o de compra moderada)
+                # BUY (pressÃÂ£o de compra moderada)
                 sinais_buy.append("BOOK_LEVE")
                 score_confluencia += 15
             # Muito mais vendedores (ask_qty > bid_qty)
             elif ratio_book < 0.77:
-                # SELL (big players vendendo â†’ entrar junto na venda)
+                # SELL (big players vendendo Ã¢â â entrar junto na venda)
                 sinais_sell.append("BOOK_DESEQUILIBRIO")
                 score_confluencia += 25
             elif ratio_book < 0.87:  # Moderadamente mais vendedores
-                # SELL (pressÃ£o de venda moderada)
+                # SELL (pressÃÂ£o de venda moderada)
                 sinais_sell.append("BOOK_LEVE")
                 score_confluencia += 15
 
@@ -1495,24 +1499,24 @@ class SistemaConfluencia:
             sinais_sell.append("RSI_ENTROPIA_LEVE")
             score_confluencia += 12
 
-        # ========== SINAL 4: PADRÃƒO DE CANDLESTICK (Peso: 15) ==========
+        # ========== SINAL 4: PADRÃÆO DE CANDLESTICK (Peso: 15) ==========
         candle_type = contexto.get('candle_type', '')
 
-        # PadrÃµes de reversÃ£o de baixa (sinal de compra)
+        # PadrÃÂµes de reversÃÂ£o de baixa (sinal de compra)
         padroes_compra = ['hammer_baixa', 'doji_baixa',
                           'spinning_top_baixa', 'lower_shadow_baixa']
         if candle_type in padroes_compra:
             sinais_buy.append("CANDLE_REVERSAO")
             score_confluencia += 15
 
-        # PadrÃµes de reversÃ£o de alta (sinal de venda)
+        # PadrÃÂµes de reversÃÂ£o de alta (sinal de venda)
         padroes_venda = ['shooting_star_alta', 'doji_alta',
                          'spinning_top_alta', 'upper_shadow_alta']
         if candle_type in padroes_venda:
             sinais_sell.append("CANDLE_REVERSAO")
             score_confluencia += 15
 
-        # PadrÃµes de continuaÃ§Ã£o
+        # PadrÃÂµes de continuaÃÂ§ÃÂ£o
         if candle_type in ['marubozu_alta', 'alta'] and acao_ia == "BUY":
             sinais_buy.append("CANDLE_CONTINUACAO")
             score_confluencia += 10
@@ -1538,30 +1542,30 @@ class SistemaConfluencia:
                 sinais_sell.append("VOLUME_VOLATILIDADE_LEVE")
             score_confluencia += 5
 
-        # ========== DECISÃƒO FINAL DE CONFLUÃŠNCIA (REFATORADO) ==========
+        # ========== DECISÃÆO FINAL DE CONFLUÃÅ NCIA (REFATORADO) ==========
         total_sinais_buy = len(sinais_buy)
         total_sinais_sell = len(sinais_sell)
 
-        # ðŸŽ¯ REGRA 1: IA COM ALTA CONFIANÃ‡A (>80%) NÃƒO PODE SER INVERTIDA
-        # NOTA: probabilidade_ia=0.0 (modelo nÃ£o treinado) NÃƒO Ã© confianÃ§a alta
+        # Ã°Å¸Å½Â¯ REGRA 1: IA COM ALTA CONFIANÃâ¡A (>80%) NÃÆO PODE SER INVERTIDA
+        # NOTA: probabilidade_ia=0.0 (modelo nÃÂ£o treinado) NÃÆO ÃÂ© confianÃÂ§a alta
         ia_confianca_alta = (probabilidade_ia > 0.8 or probabilidade_ia < 0.2) and probabilidade_ia != 0.0
 
         if ia_confianca_alta:
-            # IA tem alta confianÃ§a - ConfluÃªncia sÃ³ pode CONFIRMAR, nÃ£o inverter
+            # IA tem alta confianÃÂ§a - ConfluÃÂªncia sÃÂ³ pode CONFIRMAR, nÃÂ£o inverter
             if probabilidade_ia > 0.8:
                 acao_confluencia = "BUY"
                 confianca_confluencia = min(
                     probabilidade_ia + (score_confluencia / 200.0), 1.0)
                 logging.debug(
-                    f"ðŸ”’ IA ALTA CONFIANÃ‡A (BUY): {probabilidade_ia:.2f} - ConfluÃªncia nÃ£o pode inverter")
+                    f"Ã°Å¸ââ IA ALTA CONFIANÃâ¡A (BUY): {probabilidade_ia:.2f} - ConfluÃÂªncia nÃÂ£o pode inverter")
             else:  # probabilidade_ia < 0.2
                 acao_confluencia = "SELL"
                 confianca_confluencia = min(
                     (1 - probabilidade_ia) + (score_confluencia / 200.0), 1.0)
                 logging.debug(
-                    f"ðŸ”’ IA ALTA CONFIANÃ‡A (SELL): {1-probabilidade_ia:.2f} - ConfluÃªncia nÃ£o pode inverter")
+                    f"Ã°Å¸ââ IA ALTA CONFIANÃâ¡A (SELL): {1-probabilidade_ia:.2f} - ConfluÃÂªncia nÃÂ£o pode inverter")
         else:
-            # ðŸŽ¯ REGRA 2: CONFLUÃŠNCIA EXIGE MÃNIMO 2 SINAIS TÃ‰CNICOS PARA VALIDAR ENTRADA
+            # Ã°Å¸Å½Â¯ REGRA 2: CONFLUÃÅ NCIA EXIGE MÃÂNIMO 2 SINAIS TÃâ°CNICOS PARA VALIDAR ENTRADA
             if total_sinais_buy >= 2 and total_sinais_buy > total_sinais_sell:
                 acao_confluencia = "BUY"
                 confianca_confluencia = min(score_confluencia / 100.0, 1.0)
@@ -1569,13 +1573,13 @@ class SistemaConfluencia:
                 acao_confluencia = "SELL"
                 confianca_confluencia = min(score_confluencia / 100.0, 1.0)
             else:
-                # FALLBACK: Menos de 2 sinais tÃ©cnicos - NÃƒO OPERAR
+                # FALLBACK: Menos de 2 sinais tÃÂ©cnicos - NÃÆO OPERAR
                 acao_confluencia = "NADA"
                 confianca_confluencia = 0.0
                 logging.warning(
-                    f"âš ï¸ CONFLUÃŠNCIA INSUFICIENTE: BUY={total_sinais_buy}, SELL={total_sinais_sell} (mÃ­nimo 2 sinais)")
+                    f"Ã¢Å¡Â Ã¯Â¸Â CONFLUÃÅ NCIA INSUFICIENTE: BUY={total_sinais_buy}, SELL={total_sinais_sell} (mÃÂ­nimo 2 sinais)")
 
-        # Registra estatÃ­sticas
+        # Registra estatÃÂ­sticas
         confluencia_key = f"{total_sinais_buy}B_{total_sinais_sell}S"
         if confluencia_key not in self.stats_por_confluencia:
             self.stats_por_confluencia[confluencia_key] = {
@@ -1595,17 +1599,17 @@ class SistemaConfluencia:
         return resultado
 
     def registrar_resultado_confluencia(self, confluencia_info: Dict, lucro: float):
-        """Registra resultado de uma operaÃ§Ã£o baseada em confluÃªncia."""
+        """Registra resultado de uma operaÃÂ§ÃÂ£o baseada em confluÃÂªncia."""
         if confluencia_info["acao"] in ["BUY", "SELL"]:
             key = f"{confluencia_info['total_sinais_buy']}B_{confluencia_info['total_sinais_sell']}S"
 
             if key in self.stats_por_confluencia:
                 self.stats_por_confluencia[key]["total"] += 1
-                if lucro > 0.0:  # CORREÃ‡ÃƒO C9: Conta apenas experiÃªncias lucrativas
+                if lucro > 0.0:  # CORREÃâ¡ÃÆO C9: Conta apenas experiÃÂªncias lucrativas
                     self.stats_por_confluencia[key]["acertos"] += 1
 
     def get_stats_confluencia(self) -> Dict:
-        """Retorna estatÃ­sticas de performance por tipo de confluÃªncia."""
+        """Retorna estatÃÂ­sticas de performance por tipo de confluÃÂªncia."""
         stats = {}
         for key, data in self.stats_por_confluencia.items():
             if data["total"] > 0:
@@ -1618,18 +1622,18 @@ class SistemaConfluencia:
         return stats
 
 
-# ========== MELHORIA 5: SAÃDA INTELIGENTE DE POSIÃ‡ÃƒO (+1.5% EFICÃCIA) ==========
+# ========== MELHORIA 5: SAÃÂDA INTELIGENTE DE POSIÃâ¡ÃÆO (+1.5% EFICÃÂCIA) ==========
 
 
 class SaidaInteligentePositions:
-    """Gerencia saÃ­da inteligente de posiÃ§Ãµes."""
+    """Gerencia saÃÂ­da inteligente de posiÃÂ§ÃÂµes."""
 
     def __init__(self):
         self.posicoes_monitoradas = {}
         self.historico_rsi = []
 
     def iniciar_monitoramento(self, ticket: int, tipo: str, preco_entrada: float):
-        """Inicia monitoramento de uma posiÃ§Ã£o."""
+        """Inicia monitoramento de uma posiÃÂ§ÃÂ£o."""
         self.posicoes_monitoradas[ticket] = {
             "tipo": tipo,
             "preco_entrada": preco_entrada,
@@ -1640,13 +1644,13 @@ class SaidaInteligentePositions:
         }
 
     def atualizar_rsi(self, rsi_atual: float):
-        """Atualiza histÃ³rico de RSI."""
+        """Atualiza histÃÂ³rico de RSI."""
         self.historico_rsi.append(rsi_atual)
         if len(self.historico_rsi) > 10:
             self.historico_rsi.pop(0)
 
     def verificar_saida_inteligente(self, ticket: int, preco_atual: float, rsi_atual: float) -> bool:
-        """Verifica se deve sair da posiÃ§Ã£o inteligentemente."""
+        """Verifica se deve sair da posiÃÂ§ÃÂ£o inteligentemente."""
         if ticket not in self.posicoes_monitoradas:
             return False
 
@@ -1669,62 +1673,62 @@ class SaidaInteligentePositions:
         else:
             posicao["tempo_sem_lucro"] = tempo_atual - posicao["tempo_inicio"]
 
-        # CRITÃ‰RIO 1: 5 minutos sem lucro
+        # CRITÃâ°RIO 1: 5 minutos sem lucro
         if posicao["tempo_sem_lucro"] >= 300:  # 300 segundos = 5 minutos
             logging.info(
-                f"ðŸšª SaÃ­da por tempo sem lucro: {posicao['tempo_sem_lucro']:.0f}s")
+                f"Ã°Å¸Å¡Âª SaÃÂ­da por tempo sem lucro: {posicao['tempo_sem_lucro']:.0f}s")
             return True
 
-        # CRITÃ‰RIO 2: RSI inverteu com lucro mÃ­nimo (5 pontos WDO)
-        if lucro_atual >= 5.0:  # Lucro mÃ­nimo para considerar saÃ­da por RSI
+        # CRITÃâ°RIO 2: RSI inverteu com lucro mÃÂ­nimo (5 pontos WDO)
+        if lucro_atual >= 5.0:  # Lucro mÃÂ­nimo para considerar saÃÂ­da por RSI
             rsi_entrada = posicao["rsi_entrada"]
 
-            # Para posiÃ§Ã£o BUY: sair se RSI estava baixo e agora estÃ¡ alto
+            # Para posiÃÂ§ÃÂ£o BUY: sair se RSI estava baixo e agora estÃÂ¡ alto
             if posicao["tipo"] == "BUY" and rsi_entrada < 30 and rsi_atual > 70:
                 logging.info(
-                    f"ðŸšª SaÃ­da BUY por inversÃ£o RSI: {rsi_entrada:.1f} â†’ {rsi_atual:.1f}")
+                    f"Ã°Å¸Å¡Âª SaÃÂ­da BUY por inversÃÂ£o RSI: {rsi_entrada:.1f} Ã¢â â {rsi_atual:.1f}")
                 return True
 
-            # Para posiÃ§Ã£o SELL: sair se RSI estava alto e agora estÃ¡ baixo
+            # Para posiÃÂ§ÃÂ£o SELL: sair se RSI estava alto e agora estÃÂ¡ baixo
             if posicao["tipo"] == "SELL" and rsi_entrada > 70 and rsi_atual < 30:
                 logging.info(
-                    f"ðŸšª SaÃ­da SELL por inversÃ£o RSI: {rsi_entrada:.1f} â†’ {rsi_atual:.1f}")
+                    f"Ã°Å¸Å¡Âª SaÃÂ­da SELL por inversÃÂ£o RSI: {rsi_entrada:.1f} Ã¢â â {rsi_atual:.1f}")
                 return True
 
         return False
 
     def finalizar_monitoramento(self, ticket: int):
-        """Finaliza monitoramento de uma posiÃ§Ã£o."""
+        """Finaliza monitoramento de uma posiÃÂ§ÃÂ£o."""
         if ticket in self.posicoes_monitoradas:
             del self.posicoes_monitoradas[ticket]
 
 
-# ConfiguraÃ§Ãµes da saÃ­da inteligente
+# ConfiguraÃÂ§ÃÂµes da saÃÂ­da inteligente
 SAIDA_INTELIGENTE_ATIVA = True
 TEMPO_MAX_SEM_LUCRO = 300    # 5 minutos sem lucro = sair
 RSI_INVERSAO_SAIDA = True    # Sair se RSI inverter com lucro
-MIN_LUCRO_SAIDA_RSI = 5.0    # Lucro mÃ­nimo para considerar saÃ­da por RSI
+MIN_LUCRO_SAIDA_RSI = 5.0    # Lucro mÃÂ­nimo para considerar saÃÂ­da por RSI
 
-# InstÃ¢ncia global da saÃ­da inteligente
+# InstÃÂ¢ncia global da saÃÂ­da inteligente
 saida_inteligente = None
 
-# ========== MELHORIA 6: FILTRO DE HORÃRIO PREMIUM (+2% EFICÃCIA) ==========
+# ========== MELHORIA 6: FILTRO DE HORÃÂRIO PREMIUM (+2% EFICÃÂCIA) ==========
 
 
 class FiltroHorarioPremium:
-    """Filtra operaÃ§Ãµes para horÃ¡rios de maior liquidez e volatilidade."""
+    """Filtra operaÃÂ§ÃÂµes para horÃÂ¡rios de maior liquidez e volatilidade."""
 
     def __init__(self):
-        # HorÃ¡rios de maior liquidez WDO (UTC-3)
+        # HorÃÂ¡rios de maior liquidez WDO (UTC-3)
         self.horarios_premium = [
             (dtime(9, 0), dtime(12, 30)),   # Abertura - alta volatilidade
-            # Meio perÃ­odo - movimento institucional
+            # Meio perÃÂ­odo - movimento institucional
             (dtime(14, 0), dtime(15, 30)),
             (dtime(17, 0), dtime(17, 30))   # Fechamento - ajustes finais
         ]
 
     def is_horario_premium(self) -> bool:
-        """Verifica se estÃ¡ em horÃ¡rio premium para trading."""
+        """Verifica se estÃÂ¡ em horÃÂ¡rio premium para trading."""
         agora = datetime.now().time()
 
         for inicio, fim in self.horarios_premium:
@@ -1733,7 +1737,7 @@ class FiltroHorarioPremium:
         return False
 
     def get_status(self) -> dict:
-        """Retorna status do filtro de horÃ¡rio."""
+        """Retorna status do filtro de horÃÂ¡rio."""
         return {
             "horario_premium": self.is_horario_premium(),
             "horario_atual": datetime.now().strftime("%H:%M:%S"),
@@ -1741,29 +1745,29 @@ class FiltroHorarioPremium:
         }
 
 
-# ConfiguraÃ§Ãµes do filtro de horÃ¡rio
-# Desativado temporariamente para operar em todos os horÃ¡rios
+# ConfiguraÃÂ§ÃÂµes do filtro de horÃÂ¡rio
+# Desativado temporariamente para operar em todos os horÃÂ¡rios
 FILTRO_HORARIO_ATIVO = False
 
-# InstÃ¢ncia global do filtro de horÃ¡rio
+# InstÃÂ¢ncia global do filtro de horÃÂ¡rio
 filtro_horario = None
 
-# ========== SCALER GLOBAL PARA NORMALIZAÃ‡ÃƒO CONSISTENTE ==========
+# ========== SCALER GLOBAL PARA NORMALIZAÃâ¡ÃÆO CONSISTENTE ==========
 scaler_global = None
 
-# ForÃ§a recriaÃ§Ã£o do scaler para compatibilidade com 22 features
+# ForÃÂ§a recriaÃÂ§ÃÂ£o do scaler para compatibilidade com 22 features
 
 
 def resetar_scaler_global():
-    """ForÃ§a recriaÃ§Ã£o do scaler global para evitar problemas de compatibilidade."""
+    """ForÃÂ§a recriaÃÂ§ÃÂ£o do scaler global para evitar problemas de compatibilidade."""
     global scaler_global
     scaler_global = None
     logging.info(
-        f"ðŸ”„ Scaler global resetado para compatibilidade com {N_FEATURES} features")
+        f"Ã°Å¸ââ Scaler global resetado para compatibilidade com {N_FEATURES} features")
 
 
 def forcar_recreacao_scaler():
-    """Tenta carregar scaler salvo pelo treinamento offline; se nÃ£o existir, cria com dummy."""
+    """Tenta carregar scaler salvo pelo treinamento offline; se nÃÂ£o existir, cria com dummy."""
     global scaler_global
     import json as json_mod
 
@@ -1785,23 +1789,23 @@ def forcar_recreacao_scaler():
             maxs_ext = maxs + ranges * 0.2
             scaler_global.fit(np.vstack([mins_ext, maxs_ext]))
             logging.info(
-                f"âœ… Scaler carregado do treinamento offline: {scaler_path}")
+                f"Ã¢Åâ¦ Scaler carregado do treinamento offline: {scaler_path}")
             return
         except Exception as e:
             logging.warning(
-                f"âš ï¸ Erro ao carregar scaler salvo ({e}), criando com dummy")
+                f"Ã¢Å¡Â Ã¯Â¸Â Erro ao carregar scaler salvo ({e}), criando com dummy")
 
     dados_dummy = np.random.random((5, N_FEATURES))
     scaler_global = MinMaxScaler()
     scaler_global.fit(dados_dummy)
     logging.info(
-        f"ðŸ”§ Scaler global recriado com {N_FEATURES} features usando dados dummy")
+        f"Ã°Å¸âÂ§ Scaler global recriado com {N_FEATURES} features usando dados dummy")
 
-# ========== MELHORIA 7: DETECTOR DE TENDÃŠNCIA SIMPLES (+3% EFICÃCIA) ==========
+# ========== MELHORIA 7: DETECTOR DE TENDÃÅ NCIA SIMPLES (+3% EFICÃÂCIA) ==========
 
 
 class DetectorTendencia:
-    """Detecta tendÃªncia usando EMAs para viÃ©s direcional."""
+    """Detecta tendÃÂªncia usando EMAs para viÃÂ©s direcional."""
 
     def __init__(self):
         self.ema9_values = []
@@ -1824,11 +1828,11 @@ class DetectorTendencia:
         return ema_anterior
 
     def atualizar_tendencia(self, preco_fechamento: float):
-        """Atualiza cÃ¡lculo de tendÃªncia com novo preÃ§o."""
+        """Atualiza cÃÂ¡lculo de tendÃÂªncia com novo preÃÂ§o."""
         self.ema9_values.append(preco_fechamento)
         self.ema21_values.append(preco_fechamento)
 
-        # MantÃ©m histÃ³rico limitado
+        # MantÃÂ©m histÃÂ³rico limitado
         if len(self.ema9_values) > 50:
             self.ema9_values.pop(0)
         if len(self.ema21_values) > 50:
@@ -1839,7 +1843,7 @@ class DetectorTendencia:
             ema9 = self.calcular_ema(self.ema9_values, 9)
             ema21 = self.calcular_ema(self.ema21_values, 21)
 
-            # Define tendÃªncia
+            # Define tendÃÂªncia
             if ema9 > ema21:
                 self.tendencia_atual = "ALTA"
             elif ema9 < ema21:
@@ -1848,18 +1852,18 @@ class DetectorTendencia:
                 self.tendencia_atual = "NEUTRO"
 
     def pode_operar(self, acao: str) -> bool:
-        """Verifica se pode operar na direÃ§Ã£o baseado na tendÃªncia."""
+        """Verifica se pode operar na direÃÂ§ÃÂ£o baseado na tendÃÂªncia."""
         if self.tendencia_atual == "NEUTRO":
-            return True  # Permite ambas direÃ§Ãµes
+            return True  # Permite ambas direÃÂ§ÃÂµes
         elif self.tendencia_atual == "ALTA" and acao == "BUY":
-            return True  # BUY a favor da tendÃªncia
+            return True  # BUY a favor da tendÃÂªncia
         elif self.tendencia_atual == "BAIXA" and acao == "SELL":
-            return True  # SELL a favor da tendÃªncia
+            return True  # SELL a favor da tendÃÂªncia
         else:
-            return False  # Contra a tendÃªncia
+            return False  # Contra a tendÃÂªncia
 
     def get_status(self) -> dict:
-        """Retorna status da tendÃªncia."""
+        """Retorna status da tendÃÂªncia."""
         return {
             "tendencia": self.tendencia_atual,
             "ema9": self.ema9_values[-1] if self.ema9_values else 0,
@@ -1867,10 +1871,10 @@ class DetectorTendencia:
         }
 
 
-# ConfiguraÃ§Ãµes do detector de tendÃªncia
+# ConfiguraÃÂ§ÃÂµes do detector de tendÃÂªncia
 DETECTOR_TENDENCIA_ATIVO = True
 
-# InstÃ¢ncia global do detector de tendÃªncia
+# InstÃÂ¢ncia global do detector de tendÃÂªncia
 detector_tendencia = None
 
 # ========== SISTEMA DE VOLUME INTELIGENTE BASEADO NO BOOK ==========
@@ -1878,19 +1882,19 @@ detector_tendencia = None
 
 def calcular_volume_inteligente(volume_book_total: float) -> float:
     """Calcula volume adaptativo baseado na liquidez do book (ajustado para WDO).
-    WDO: 1 contrato padrÃ£o. SÃ³ aumenta se liquidez MUITO alta."""
+    WDO: 1 contrato padrÃÂ£o. SÃÂ³ aumenta se liquidez MUITO alta."""
     if volume_book_total >= 5000:   # LIQUIDEZ EXTREMA
-        return 2.0   # No mÃ¡ximo 2 contratos
+        return 2.0   # No mÃÂ¡ximo 2 contratos
     elif volume_book_total >= 3000: # ALTA LIQUIDEZ WDO
         return 1.5
     else:  # NORMAL
-        return 1.0   # PadrÃ£o: 1 contrato
+        return 1.0   # PadrÃÂ£o: 1 contrato
 
-# ========== MELHORIA 8: SISTEMA DE COOLDOWN INTELIGENTE (+1.5% EFICÃCIA) ==========
+# ========== MELHORIA 8: SISTEMA DE COOLDOWN INTELIGENTE (+1.5% EFICÃÂCIA) ==========
 
 
 class CooldownInteligente:
-    """Gerencia cooldown entre operaÃ§Ãµes para evitar overtrading."""
+    """Gerencia cooldown entre operaÃÂ§ÃÂµes para evitar overtrading."""
 
     def __init__(self):
         self.ultima_operacao = 0
@@ -1899,48 +1903,48 @@ class CooldownInteligente:
         self.fim_cooldown = 0
 
     def registrar_resultado(self, lucro: float):
-        """Registra resultado e define cooldown necessÃ¡rio."""
+        """Registra resultado e define cooldown necessÃÂ¡rio."""
         self.ultima_operacao = time.time()
 
         if lucro <= -25.0:  # Loss significativo (<= R$25)
             self.losses_seguidos += 1
 
-            # âœ… TRAVA PÃ“S-LOSS: mÃ­nimo 180s independente de qualquer sinal "premium"
+            # Ã¢Åâ¦ TRAVA PÃâS-LOSS: mÃÂ­nimo 180s independente de qualquer sinal "premium"
             if self.losses_seguidos == 1:
-                # 5 min apÃ³s 1 loss (>= 180s obrigatÃ³rio)
+                # 5 min apÃÂ³s 1 loss (>= 180s obrigatÃÂ³rio)
                 cooldown_segundos = 300
             elif self.losses_seguidos == 2:
-                cooldown_segundos = 600   # 10 min apÃ³s 2 losses
+                cooldown_segundos = 600   # 10 min apÃÂ³s 2 losses
             else:
-                cooldown_segundos = 900   # 15 min apÃ³s 3+ losses
+                cooldown_segundos = 900   # 15 min apÃÂ³s 3+ losses
 
-            # Garantia: nunca menos de 180s apÃ³s qualquer loss
+            # Garantia: nunca menos de 180s apÃÂ³s qualquer loss
             cooldown_segundos = max(cooldown_segundos, 180)
 
             self.cooldown_ativo = True
             self.fim_cooldown = time.time() + cooldown_segundos
 
             logging.warning(
-                f"ðŸ”’ TRAVA PÃ“S-LOSS: {cooldown_segundos}s bloqueado apÃ³s {self.losses_seguidos} loss(es) | "
+                f"Ã°Å¸ââ TRAVA PÃâS-LOSS: {cooldown_segundos}s bloqueado apÃÂ³s {self.losses_seguidos} loss(es) | "
                 f"Nenhum sinal pode ultrapassar esta trava!")
 
         else:  # Win ou break-even
             self.losses_seguidos = 0
-            # COOLDOWN GERAL: 4 minutos entre TODAS as operaÃ§Ãµes (mesmo apÃ³s win)
+            # COOLDOWN GERAL: 4 minutos entre TODAS as operaÃÂ§ÃÂµes (mesmo apÃÂ³s win)
             cooldown_segundos = 240  # 4 minutos para reduzir overtrading
             self.cooldown_ativo = True
             self.fim_cooldown = time.time() + cooldown_segundos
             logging.info(
-                f"â³ Cooldown geral ativado: {cooldown_segundos}s para reduzir overtrading")
+                f"Ã¢ÂÂ³ Cooldown geral ativado: {cooldown_segundos}s para reduzir overtrading")
 
     def pode_operar(self) -> bool:
-        """Verifica se pode operar (nÃ£o estÃ¡ em cooldown)."""
+        """Verifica se pode operar (nÃÂ£o estÃÂ¡ em cooldown)."""
         if not self.cooldown_ativo:
             return True
 
         if time.time() >= self.fim_cooldown:
             self.cooldown_ativo = False
-            logging.info("âœ… Cooldown finalizado - Pode operar novamente")
+            logging.info("Ã¢Åâ¦ Cooldown finalizado - Pode operar novamente")
             return True
 
         return False
@@ -1960,48 +1964,48 @@ class CooldownInteligente:
         }
 
 
-# ConfiguraÃ§Ãµes do cooldown
-# âœ… REATIVADO (23/07/2026): trade entrou 2s apÃ³s prejuÃ­zo â€” precisa de trava.
-# Cooldown: 5min apÃ³s 1 loss, 10min apÃ³s 2 losses, 15min apÃ³s 3+ losses.
-# MÃ­nimo 180s apÃ³s qualquer loss.
-COOLDOWN_ATIVO = False  # DESATIVADO por solicitaÃ§Ã£o do operador â€” cooldown sÃ³ atrasava reentrada
-COOLDOWN_LOSS_1 = 300   # 5 minutos apÃ³s 1 loss
-COOLDOWN_LOSS_2 = 600   # 10 minutos apÃ³s 2 losses
-COOLDOWN_LOSS_3 = 900   # 15 minutos apÃ³s 3+ losses
+# ConfiguraÃÂ§ÃÂµes do cooldown
+# Ã¢Åâ¦ REATIVADO (23/07/2026): trade entrou 2s apÃÂ³s prejuÃÂ­zo Ã¢â¬â precisa de trava.
+# Cooldown: 5min apÃÂ³s 1 loss, 10min apÃÂ³s 2 losses, 15min apÃÂ³s 3+ losses.
+# MÃÂ­nimo 180s apÃÂ³s qualquer loss.
+COOLDOWN_ATIVO = False  # DESATIVADO por solicitaÃÂ§ÃÂ£o do operador Ã¢â¬â cooldown sÃÂ³ atrasava reentrada
+COOLDOWN_LOSS_1 = 300   # 5 minutos apÃÂ³s 1 loss
+COOLDOWN_LOSS_2 = 600   # 10 minutos apÃÂ³s 2 losses
+COOLDOWN_LOSS_3 = 900   # 15 minutos apÃÂ³s 3+ losses
 
-# InstÃ¢ncia global do cooldown
+# InstÃÂ¢ncia global do cooldown
 cooldown_sistema = None
 
-# ========== MELHORIA 9: FILTRO DE SPREAD DINÃ‚MICO (+1% EFICÃCIA) ==========
+# ========== MELHORIA 9: FILTRO DE SPREAD DINÃâMICO (+1% EFICÃÂCIA) ==========
 
 
 class FiltroSpreadDinamico:
-    """Ajusta spread mÃ¡ximo baseado na volatilidade do mercado."""
+    """Ajusta spread mÃÂ¡ximo baseado na volatilidade do mercado."""
 
     def __init__(self):
         self.historico_atr = []
         self.spread_maximo_atual = MAX_SPREAD
 
     def atualizar_atr(self, atr_atual: float):
-        """Atualiza histÃ³rico de ATR para cÃ¡lculo dinÃ¢mico."""
+        """Atualiza histÃÂ³rico de ATR para cÃÂ¡lculo dinÃÂ¢mico."""
         self.historico_atr.append(atr_atual)
         if len(self.historico_atr) > 20:
             self.historico_atr.pop(0)
 
-        # Calcula spread dinÃ¢mico baseado na volatilidade
+        # Calcula spread dinÃÂ¢mico baseado na volatilidade
         if len(self.historico_atr) >= 5:
             atr_medio = sum(self.historico_atr[-5:]) / 5
 
-            # Spread dinÃ¢mico baseado no ATR
+            # Spread dinÃÂ¢mico baseado no ATR
             if atr_medio < 200:  # ATR baixo - mercado calmo
                 self.spread_maximo_atual = 5
-            elif atr_medio < 400:  # ATR mÃ©dio
+            elif atr_medio < 400:  # ATR mÃÂ©dio
                 self.spread_maximo_atual = 10
-            else:  # ATR alto - mercado volÃ¡til
+            else:  # ATR alto - mercado volÃÂ¡til
                 self.spread_maximo_atual = 20
 
     def spread_aceitavel(self, spread_atual: float) -> bool:
-        """Verifica se spread estÃ¡ dentro do limite dinÃ¢mico."""
+        """Verifica se spread estÃÂ¡ dentro do limite dinÃÂ¢mico."""
         return spread_atual <= self.spread_maximo_atual
 
     def get_status(self) -> dict:
@@ -2010,27 +2014,27 @@ class FiltroSpreadDinamico:
         return {
             "spread_maximo": self.spread_maximo_atual,
             "atr_atual": atr_atual,
-            "volatilidade": "BAIXA" if atr_atual < 200 else "MÃ‰DIA" if atr_atual < 400 else "ALTA"
+            "volatilidade": "BAIXA" if atr_atual < 200 else "MÃâ°DIA" if atr_atual < 400 else "ALTA"
         }
 
 
-# ConfiguraÃ§Ãµes do spread dinÃ¢mico
+# ConfiguraÃÂ§ÃÂµes do spread dinÃÂ¢mico
 SPREAD_DINAMICO_ATIVO = True
-SPREAD_ATR_BAIXO = 5    # Spread mÃ¡x quando ATR < 200
-SPREAD_ATR_MEDIO = 10   # Spread mÃ¡x quando ATR 200-400
-SPREAD_ATR_ALTO = 20    # Spread mÃ¡x quando ATR > 400
+SPREAD_ATR_BAIXO = 5    # Spread mÃÂ¡x quando ATR < 200
+SPREAD_ATR_MEDIO = 10   # Spread mÃÂ¡x quando ATR 200-400
+SPREAD_ATR_ALTO = 20    # Spread mÃÂ¡x quando ATR > 400
 
-# InstÃ¢ncia global do filtro de spread
+# InstÃÂ¢ncia global do filtro de spread
 filtro_spread = None
 
-# ========== MELHORIA 10: MONITORAMENTO DE PERFORMANCE EM TEMPO REAL (+2% EFICÃCIA) ==========
+# ========== MELHORIA 10: MONITORAMENTO DE PERFORMANCE EM TEMPO REAL (+2% EFICÃÂCIA) ==========
 
 
 class MonitorPerformance:
     """Monitora performance em tempo real com alertas inteligentes."""
 
     def __init__(self):
-        self.operacoes_recentes = []  # Ãšltimas 10 operaÃ§Ãµes
+        self.operacoes_recentes = []  # ÃÅ¡ltimas 10 operaÃÂ§ÃÂµes
         self.drawdown_atual = 0.0
         self.drawdown_maximo = 0.0
         self.pico_capital = 0.0
@@ -2041,7 +2045,7 @@ class MonitorPerformance:
         }
 
     def registrar_operacao(self, lucro: float, modo: str):
-        """Registra operaÃ§Ã£o e atualiza mÃ©tricas."""
+        """Registra operaÃÂ§ÃÂ£o e atualiza mÃÂ©tricas."""
         self.operacoes_recentes.append(lucro)
         if len(self.operacoes_recentes) > 10:
             self.operacoes_recentes.pop(0)
@@ -2065,20 +2069,20 @@ class MonitorPerformance:
                 self.drawdown_maximo = self.drawdown_atual
 
     def taxa_acerto_recente(self) -> float:
-        """Calcula taxa de acerto das Ãºltimas operaÃ§Ãµes."""
+        """Calcula taxa de acerto das ÃÂºltimas operaÃÂ§ÃÂµes."""
         if not self.operacoes_recentes:
             return 0.0
         wins = sum(1 for op in self.operacoes_recentes if op > 0)
         return (wins / len(self.operacoes_recentes)) * 100
 
     def verificar_alertas(self) -> list:
-        """VerdiÃ§Ãµes de alerta."""
+        """VerdiÃÂ§ÃÂµes de alerta."""
         alertas = []
 
         # Alerta: Taxa de acerto baixa
         taxa_acerto = self.taxa_acerto_recente()
         if len(self.operacoes_recentes) >= 5 and taxa_acerto < 30:
-            alertas.append(f"ðŸš¨ Taxa de acerto baixa: {taxa_acerto:.1f}%")
+            alertas.append(f"Ã°Å¸Å¡Â¨ Taxa de acerto baixa: {taxa_acerto:.1f}%")
 
         return alertas
 
@@ -2088,12 +2092,12 @@ class MonitorPerformance:
 
 class GerenciadorDeSaida:
     """
-    Unifica e gerencia todas as lÃ³gicas de saÃ­da de uma posiÃ§Ã£o:
+    Unifica e gerencia todas as lÃÂ³gicas de saÃÂ­da de uma posiÃÂ§ÃÂ£o:
     - Trailing Stop Inteligente
-    - Timeout sem evoluÃ§Ã£o
-    - ProteÃ§Ã£o de lucro (Drawdown do Pico)
-    - SaÃ­da por estagnaÃ§Ã£o
-    - SaÃ­da por inversÃ£o de RSI
+    - Timeout sem evoluÃÂ§ÃÂ£o
+    - ProteÃÂ§ÃÂ£o de lucro (Drawdown do Pico)
+    - SaÃÂ­da por estagnaÃÂ§ÃÂ£o
+    - SaÃÂ­da por inversÃÂ£o de RSI
     """
 
     def __init__(self, config_saida: dict):
@@ -2106,7 +2110,7 @@ class GerenciadorDeSaida:
         self.tipo_posicao = ""  # "BUY" ou "SELL"
 
     def iniciar_monitoramento(self, posicao_mt5):
-        """Inicia o monitoramento de uma nova posiÃ§Ã£o."""
+        """Inicia o monitoramento de uma nova posiÃÂ§ÃÂ£o."""
         self.posicao_monitorada = posicao_mt5.ticket
         self.preco_entrada = posicao_mt5.price_open
         self.melhor_preco = self.preco_entrada
@@ -2114,30 +2118,30 @@ class GerenciadorDeSaida:
         self.tempo_inicio = time.time()
         self.tipo_posicao = "BUY" if posicao_mt5.type == mt5.POSITION_TYPE_BUY else "SELL"
         logging.info(
-            f"ðŸ›¡ï¸ Gerenciador de SaÃ­da ATIVADO para posiÃ§Ã£o #{self.posicao_monitorada}")
+            f"Ã°Å¸âºÂ¡Ã¯Â¸Â Gerenciador de SaÃÂ­da ATIVADO para posiÃÂ§ÃÂ£o #{self.posicao_monitorada}")
 
     def finalizar_monitoramento(self):
         """Reseta o estado do gerenciador."""
         self.posicao_monitorada = None
-        logging.info("ðŸ›¡ï¸ Gerenciador de SaÃ­da DESATIVADO.")
+        logging.info("Ã°Å¸âºÂ¡Ã¯Â¸Â Gerenciador de SaÃÂ­da DESATIVADO.")
 
     def verificar_condicoes_saida(self, preco_atual: float, rsi_atual: float) -> Tuple[bool, str, Optional[float]]:
         """
-        Verifica todas as regras de saÃ­da e retorna uma decisÃ£o.
+        Verifica todas as regras de saÃÂ­da e retorna uma decisÃÂ£o.
         Retorna: (deve_sair, motivo, novo_sl_se_aplicavel)
         """
         if not self.posicao_monitorada:
             return False, "", None
 
-        # --- CÃ¡lculos Iniciais ---
+        # --- CÃÂ¡lculos Iniciais ---
         tempo_em_posicao = time.time() - self.tempo_inicio
         lucro_em_pontos = 0.0
-        # CORREÃ‡ÃƒO: lucro em PONTOS REAIS (nÃ£o ticks)
-        # 1 ponto WDO = 10 ticks (preÃ§o muda de 0.5 em 0.5)
-        # DiferenÃ§a de preÃ§o / 1.0 = pontos reais
+        # CORREÃâ¡ÃÆO: lucro em PONTOS REAIS (nÃÂ£o ticks)
+        # 1 ponto WDO = 10 ticks (preÃÂ§o muda de 0.5 em 0.5)
+        # DiferenÃÂ§a de preÃÂ§o / 1.0 = pontos reais
 
         if self.tipo_posicao == "BUY":
-            # PONTOS REAIS (nÃ£o divide por tick)
+            # PONTOS REAIS (nÃÂ£o divide por tick)
             lucro_em_pontos = (preco_atual - self.preco_entrada)
             if preco_atual > self.melhor_preco:
                 self.melhor_preco = preco_atual
@@ -2150,45 +2154,45 @@ class GerenciadorDeSaida:
         self.lucro_maximo_pontos = max(
             self.lucro_maximo_pontos, lucro_em_pontos)
 
-        # --- VerificaÃ§Ã£o das Regras de SAÃDA (Ordem de Prioridade) ---
+        # --- VerificaÃÂ§ÃÂ£o das Regras de SAÃÂDA (Ordem de Prioridade) ---
 
-        # âŒ REGRA 1 (Timeout) e REGRA 3 (EstagnaÃ§Ã£o) DESATIVADAS (17/07/2026,
-        # decisÃ£o do mestre super): com entrada Sniper (ratio 2.0) + veto "seguir os
-        # bigs", a posiÃ§Ã£o deve respirar atÃ© o alvo natural. Quem tira do trade agora Ã©:
-        #   â€¢ SL fixo de 5pts (proteÃ§Ã£o WDO)
-        #   â€¢ TP dinÃ¢mico (Keras decide saÃ­da)
-        #   â€¢ Trailing Stop (REGRA 4, abaixo)
-        #   â€¢ InversÃ£o de fluxo (big players viram contra â†’ sai no loop principal)
-        # Timers arbitrÃ¡rios de tempo NÃƒO fecham mais a posiÃ§Ã£o.
+        # Ã¢ÂÅ REGRA 1 (Timeout) e REGRA 3 (EstagnaÃÂ§ÃÂ£o) DESATIVADAS (17/07/2026,
+        # decisÃÂ£o do mestre super): com entrada Sniper (ratio 2.0) + veto "seguir os
+        # bigs", a posiÃÂ§ÃÂ£o deve respirar atÃÂ© o alvo natural. Quem tira do trade agora ÃÂ©:
+        #   Ã¢â¬Â¢ SL fixo de 5pts (proteÃÂ§ÃÂ£o WDO)
+        #   Ã¢â¬Â¢ TP dinÃÂ¢mico (Keras decide saÃÂ­da)
+        #   Ã¢â¬Â¢ Trailing Stop (REGRA 4, abaixo)
+        #   Ã¢â¬Â¢ InversÃÂ£o de fluxo (big players viram contra Ã¢â â sai no loop principal)
+        # Timers arbitrÃÂ¡rios de tempo NÃÆO fecham mais a posiÃÂ§ÃÂ£o.
 
-        # REGRA 2: ProteÃ§Ã£o de lucro â€” sÃ³ ativa apÃ³s 10pts (WDO sem TP)
-        # Com TP=0, precisa de mais espaÃ§o: trailing gatilho Ã© 80pts, entÃ£o
-        # proteÃ§Ã£o sÃ³ corta se pico > 10pts E caiu > 50% do pico.
-        # AlÃ©m disso, sÃ³ ativa apÃ³s 30s para evitar falsos positivos no inÃ­cio.
+        # REGRA 2: ProteÃÂ§ÃÂ£o de lucro Ã¢â¬â sÃÂ³ ativa apÃÂ³s 10pts (WDO sem TP)
+        # Com TP=0, precisa de mais espaÃÂ§o: trailing gatilho ÃÂ© 80pts, entÃÂ£o
+        # proteÃÂ§ÃÂ£o sÃÂ³ corta se pico > 10pts E caiu > 50% do pico.
+        # AlÃÂ©m disso, sÃÂ³ ativa apÃÂ³s 30s para evitar falsos positivos no inÃÂ­cio.
         if tempo_em_posicao > 30 and self.lucro_maximo_pontos > 10 and \
            lucro_em_pontos < self.lucro_maximo_pontos * 0.50:
-            return True, f"C12: ProteÃ§Ã£o de Lucro (caiu de {self.lucro_maximo_pontos:.1f}pts - 50% do pico, TP=0)", None
+            return True, f"C12: ProteÃÂ§ÃÂ£o de Lucro (caiu de {self.lucro_maximo_pontos:.1f}pts - 50% do pico, TP=0)", None
 
-        # --- VerificaÃ§Ã£o das Regras de AJUSTE (Trailing Stop) ---
+        # --- VerificaÃÂ§ÃÂ£o das Regras de AJUSTE (Trailing Stop) ---
 
         # REGRA 4: Trailing Stop (C12 - Mais agressivo)
-        # Ativa Trailing mais cedo (15pts) e mantÃ©m distÃ¢ncia de 5pts (era 10pts)
-        # REGRA 4: Trailing Stop â€” usa config calibrado para TP=250pts
-        # Gatilho: 80pts | DistÃ¢ncia: 40pts (em PONTOS REAIS de preÃ§o)
-        # REGRA 4: Trailing Stop â€” usa preÃ§o ATUAL para garantir SL vÃ¡lido
-        # (melhor_preco pode estar acima do preÃ§o atual, gerando SL acima do bid â†’ MT5 rejeita)
+        # Ativa Trailing mais cedo (15pts) e mantÃÂ©m distÃÂ¢ncia de 5pts (era 10pts)
+        # REGRA 4: Trailing Stop Ã¢â¬â usa config calibrado para TP=250pts
+        # Gatilho: 80pts | DistÃÂ¢ncia: 40pts (em PONTOS REAIS de preÃÂ§o)
+        # REGRA 4: Trailing Stop Ã¢â¬â usa preÃÂ§o ATUAL para garantir SL vÃÂ¡lido
+        # (melhor_preco pode estar acima do preÃÂ§o atual, gerando SL acima do bid Ã¢â â MT5 rejeita)
         if lucro_em_pontos >= self.config['trailing_gatilho_pts']:
             novo_sl = 0.0
             distancia_trailing_preco = self.config['trailing_distancia_pts']
 
             if self.tipo_posicao == "BUY":
-                # SL fica ABAIXO do preÃ§o atual (nunca acima do bid)
+                # SL fica ABAIXO do preÃÂ§o atual (nunca acima do bid)
                 novo_sl = preco_atual - distancia_trailing_preco
             else:  # SELL
-                # SL fica ACIMA do preÃ§o atual (nunca abaixo do ask)
+                # SL fica ACIMA do preÃÂ§o atual (nunca abaixo do ask)
                 novo_sl = preco_atual + distancia_trailing_preco
 
-            # VALIDAÃ‡ÃƒO CRÃTICA: Garantir que o novo SL Ã© uma melhoria real
+            # VALIDAÃâ¡ÃÆO CRÃÂTICA: Garantir que o novo SL ÃÂ© uma melhoria real
             posicao_mt5_info = mt5.positions_get(
                 ticket=self.posicao_monitorada)
 
@@ -2198,37 +2202,37 @@ class GerenciadorDeSaida:
                 # Para BUY, SL deve ser maior que o atual (subindo)
                 if self.tipo_posicao == "BUY" and novo_sl > sl_atual:
                     logging.info(
-                        f"ðŸ”§ DecisÃ£o de Ajuste BUY: Novo SL {novo_sl:.2f} (Melhoria de {sl_atual:.2f})")
+                        f"Ã°Å¸âÂ§ DecisÃÂ£o de Ajuste BUY: Novo SL {novo_sl:.2f} (Melhoria de {sl_atual:.2f})")
                     return False, "Ajuste de Trailing Stop", novo_sl
 
                 # Para SELL, SL deve ser menor que o atual (descendo)
                 elif self.tipo_posicao == "SELL" and novo_sl < sl_atual:
                     logging.info(
-                        f"ðŸ”§ DecisÃ£o de Ajuste SELL: Novo SL {novo_sl:.2f} (Melhoria de {sl_atual:.2f})")
+                        f"Ã°Å¸âÂ§ DecisÃÂ£o de Ajuste SELL: Novo SL {novo_sl:.2f} (Melhoria de {sl_atual:.2f})")
                     return False, "Ajuste de Trailing Stop", novo_sl
 
                 else:
                     logging.debug(
-                        f"ðŸ”§ Trailing Stop nÃ£o aplicado: {novo_sl:.2f} nÃ£o Ã© melhoria do atual {sl_atual:.2f}")
+                        f"Ã°Å¸âÂ§ Trailing Stop nÃÂ£o aplicado: {novo_sl:.2f} nÃÂ£o ÃÂ© melhoria do atual {sl_atual:.2f}")
 
-            # Se nÃ£o conseguiu validar ou nÃ£o Ã© melhoria, nÃ£o ajusta
-            return False, "Manter PosiÃ§Ã£o", None
+            # Se nÃÂ£o conseguiu validar ou nÃÂ£o ÃÂ© melhoria, nÃÂ£o ajusta
+            return False, "Manter PosiÃÂ§ÃÂ£o", None
 
-        return False, "Manter PosiÃ§Ã£o", None
+        return False, "Manter PosiÃÂ§ÃÂ£o", None
 
 
 class VolumeAdaptativo:
-    """Calcula um volume mÃ­nimo para operar de forma adaptativa."""
+    """Calcula um volume mÃÂ­nimo para operar de forma adaptativa."""
 
     def __init__(self, janela_minutos=15, percentual_da_media=0.8):
         self.janela_segundos = janela_minutos * 60
         self.percentual_da_media = percentual_da_media
         # Deque armazena (timestamp, volume)
         self.historico_volumes = collections.deque()
-        self.volume_minimo_adaptativo = 500  # Valor inicial padrÃ£o (WDO)
+        self.volume_minimo_adaptativo = 500  # Valor inicial padrÃÂ£o (WDO)
 
     def adicionar_volume_atual(self, volume_total: float):
-        """Adiciona o volume total do book ao histÃ³rico."""
+        """Adiciona o volume total do book ao histÃÂ³rico."""
         agora = time.time()
         self.historico_volumes.append((agora, volume_total))
         self._limpar_historico_antigo(agora)
@@ -2243,28 +2247,28 @@ class VolumeAdaptativo:
                 break
 
     def _calcular_novo_minimo(self):
-        """Calcula o novo volume mÃ­nimo com base na mÃ©dia do histÃ³rico."""
+        """Calcula o novo volume mÃÂ­nimo com base na mÃÂ©dia do histÃÂ³rico."""
         if not self.historico_volumes:
             return
 
         volumes_na_janela = [vol for ts, vol in self.historico_volumes]
         media_volume = sum(volumes_na_janela) / len(volumes_na_janela)
 
-        # O novo mÃ­nimo Ã© um percentual da mÃ©dia
+        # O novo mÃÂ­nimo ÃÂ© um percentual da mÃÂ©dia
         self.volume_minimo_adaptativo = media_volume * self.percentual_da_media
 
-        # Garante um piso mÃ­nimo para nÃ£o operar com volume muito baixo
+        # Garante um piso mÃÂ­nimo para nÃÂ£o operar com volume muito baixo
         piso_absoluto = 500
         self.volume_minimo_adaptativo = max(
             self.volume_minimo_adaptativo, piso_absoluto)
 
     def pode_operar(self, volume_atual: float) -> bool:
-        """Verifica se o volume atual ae ao mÃ­nimo adaptativo."""
+        """Verifica se o volume atual ae ao mÃÂ­nimo adaptativo."""
         return volume_atual >= self.volume_minimo_adaptativo
 
         # Alerta: Drawdown alto
         if self.drawdown_atual > 300:  # R$ 300
-            alertas.append(f"ðŸš¨ Drawdown alto: R$ {self.drawdown_atual:.2f}")
+            alertas.append(f"Ã°Å¸Å¡Â¨ Drawdown alto: R$ {self.drawdown_atual:.2f}")
 
         # Alerta: Muitos losses seguidos
         losses_seguidos = 0
@@ -2274,7 +2278,7 @@ class VolumeAdaptativo:
             else:
                 break
         if losses_seguidos >= 3:
-            alertas.append(f"ðŸš¨ {losses_seguidos} losses seguidos")
+            alertas.append(f"Ã°Å¸Å¡Â¨ {losses_seguidos} losses seguidos")
 
         return alertas
 
@@ -2290,13 +2294,13 @@ class VolumeAdaptativo:
         }
 
 
-# ConfiguraÃ§Ãµes do monitor de performance
+# ConfiguraÃÂ§ÃÂµes do monitor de performance
 MONITOR_PERFORMANCE_ATIVO = True
 ALERTA_TAXA_ACERTO_MIN = 30    # Alerta se taxa < 30%
 ALERTA_DRAWDOWN_MAX = 300      # Alerta se drawdown > R$ 300
 ALERTA_LOSSES_SEGUIDOS = 3     # Alerta se 3+ losses seguidos
 
-# InstÃ¢ncia global do monitor
+# InstÃÂ¢ncia global do monitor
 monitor_performance = None
 
 # endregion
@@ -2306,12 +2310,12 @@ monitor_performance = None
 def setup_logging():
     """Configura o sistema de logging.
 
-    LÃ³gica de rotaÃ§Ã£o:
-    - Se o log NÃƒO existe ou foi modificado em outro dia â†’ SOBRESCREVE (nova sessÃ£o)
-    - Se o log existe e foi modificado HOJE â†’ APPEND (reiniciando durante o mercado)
+    LÃÂ³gica de rotaÃÂ§ÃÂ£o:
+    - Se o log NÃÆO existe ou foi modificado em outro dia Ã¢â â SOBRESCREVE (nova sessÃÂ£o)
+    - Se o log existe e foi modificado HOJE Ã¢â â APPEND (reiniciando durante o mercado)
 
-    NÃ­vel INFO: mostra o que importa (mercado ao vivo, Sniper, decisÃµes, heartbeat
-    da posiÃ§Ã£o, trailing, erros) e elimina o spam de DEBUG (ex.: 'Nenhuma posiÃ§Ã£o
+    NÃÂ­vel INFO: mostra o que importa (mercado ao vivo, Sniper, decisÃÂµes, heartbeat
+    da posiÃÂ§ÃÂ£o, trailing, erros) e elimina o spam de DEBUG (ex.: 'Nenhuma posiÃÂ§ÃÂ£o
     ativa', 'EA Data', logs internos de bibliotecas). Para depurar, trocar para DEBUG.
     """
     hoje = datetime.now().date()
@@ -2332,10 +2336,10 @@ def setup_logging():
         try:
             os.replace(LOG_FILE, log_rotacionado)
         except Exception as e:
-            logging.warning(f"⚠️ Falha ao rotacionar log anterior ({log_rotacionado}): {e}")
+            logging.warning(f"â ï¸ Falha ao rotacionar log anterior ({log_rotacionado}): {e}")
 
-    # Se o log é de hoje (reiniciando durante o mercado) → append
-    # Se o log não existe ou foi rotacionado → nova sessão
+    # Se o log Ã© de hoje (reiniciando durante o mercado) â append
+    # Se o log nÃ£o existe ou foi rotacionado â nova sessÃ£o
     filemode = 'a' if log_existe_hoje else 'w'
     logging.basicConfig(
         filename=LOG_FILE,
@@ -2354,21 +2358,21 @@ def setup_logging():
     logging.getLogger().addFilter(KerasWarningFilter())
 
     if log_existe_hoje:
-        logging.info("ðŸŽ¯ Monstro WDO v2 REINICIADO (log de hoje preservado)")
+        logging.info("Ã°Å¸Å½Â¯ Monstro WDO v2 REINICIADO (log de hoje preservado)")
     else:
-        logging.info("ðŸŽ¯ Monstro WDO v2 iniciado! Nova sessÃ£o (log anterior sobrescrito)")
+        logging.info("Ã°Å¸Å½Â¯ Monstro WDO v2 iniciado! Nova sessÃÂ£o (log anterior sobrescrito)")
     logging.info(
-        f"ðŸ“Š ConfiguraÃ§Ã£o: SL={SL_POINTS}pts, TP={TP_POINTS}pts, Vol={VOLUME_PADRAO}cc")
+        f"Ã°Å¸âÅ  ConfiguraÃÂ§ÃÂ£o: SL={SL_POINTS}pts, TP={TP_POINTS}pts, Vol={VOLUME_PADRAO}cc")
 
 
-# ========== PA1: TRAVA DE HORÃRIO - IMPLEMENTAÃ‡ÃƒO DO PLANO DE AÃ‡ÃƒO ==========
+# ========== PA1: TRAVA DE HORÃÂRIO - IMPLEMENTAÃâ¡ÃÆO DO PLANO DE AÃâ¡ÃÆO ==========
 
 def horario_permitido() -> bool:
     """
-    âœ… PA1: Janelas de operaÃ§Ã£o baseadas em liquidez e volatilidade do WDO:
-    - 09:15-12:30  Abertura dos futuros (pÃ³s-volatilidade inicial)
+    Ã¢Åâ¦ PA1: Janelas de operaÃÂ§ÃÂ£o baseadas em liquidez e volatilidade do WDO:
+    - 09:15-12:30  Abertura dos futuros (pÃÂ³s-volatilidade inicial)
     - 14:30-17:15  Retomada institucional (ajustes finais)
-    NOTA: SniperSupermo ignora esta verificaÃ§Ã£o (pode operar 09:00-17:30).
+    NOTA: SniperSupermo ignora esta verificaÃÂ§ÃÂ£o (pode operar 09:00-17:30).
     """
     agora = datetime.now().time()
     if dtime(9, 15) <= agora <= dtime(12, 30):
@@ -2379,7 +2383,7 @@ def horario_permitido() -> bool:
 
 
 def segundos_ate_proxima_janela() -> int:
-    """Calcula quantos segundos faltam para a prÃ³xima janela de operaÃ§Ã£o."""
+    """Calcula quantos segundos faltam para a prÃÂ³xima janela de operaÃÂ§ÃÂ£o."""
     agora = datetime.now()
     hoje = agora.date()
 
@@ -2390,7 +2394,7 @@ def segundos_ate_proxima_janela() -> int:
         if proximo > agora:
             return int((proximo - agora).total_seconds())
 
-    # Todas as janelas de hoje passaram â€” prÃ³xima Ã© 09:15 do prÃ³ximo dia Ãºtil
+    # Todas as janelas de hoje passaram Ã¢â¬â prÃÂ³xima ÃÂ© 09:15 do prÃÂ³ximo dia ÃÂºtil
     amanha = hoje + timedelta(days=1)
     while amanha.weekday() > 4:  # pula fim de semana
         amanha += timedelta(days=1)
@@ -2452,11 +2456,11 @@ def atualizar_ptax():
         _ptax_cache["valor"] = valor
         _ptax_cache["data"] = hoje
         _ptax_cache["hora_coleta"] = time.time()
-        logging.info(f"ðŸ“ˆ PTAX atualizada: R$ {valor:.4f}")
+        logging.info(f"Ã°Å¸âË PTAX atualizada: R$ {valor:.4f}")
     return valor
 
 def ultimo_dia_util_mes(data: datetime = None) -> bool:
-    """Retorna True se 'data' Ã© o Ãºltimo dia Ãºtil do mÃªs."""
+    """Retorna True se 'data' ÃÂ© o ÃÂºltimo dia ÃÂºtil do mÃÂªs."""
     if data is None:
         data = datetime.now()
     prox = data + timedelta(days=1)
@@ -2474,11 +2478,11 @@ def em_janela_ptax() -> Tuple[bool, int]:
     for inicio, fim in janelas:
         if inicio <= minutos <= fim:
             return True, 0
-    # Minutos atÃ© prÃ³xima janela
+    # Minutos atÃÂ© prÃÂ³xima janela
     for inicio, _ in janelas:
         if minutos < inicio:
             return False, inicio - minutos
-    return False, 60  # Se passou das 13:10, prÃ³ximo dia
+    return False, 60  # Se passou das 13:10, prÃÂ³ximo dia
 
 def eh_horario_payroll() -> bool:
     """Retorna True se estamos dentro da janela de fuga do payroll (9:25-9:35 BRT)."""
@@ -2486,7 +2490,7 @@ def eh_horario_payroll() -> bool:
     if agora.weekday() != 4:  # Sexta
         return False
     h, m = agora.hour, agora.minute
-    # Payroll: primeira sexta do mÃªs, 9:30 BRT. Fugir 9:25-9:35
+    # Payroll: primeira sexta do mÃÂªs, 9:30 BRT. Fugir 9:25-9:35
     if h == 9 and 25 <= m <= 35:
         return True
     return False
@@ -2500,12 +2504,12 @@ def verificar_sniper_bloqueado() -> Tuple[bool, str]:
     return False, ""
 
 
-# ========== PA3: RESET DE MEMÃ“RIA DA IA - IMPLEMENTAÃ‡ÃƒO DO PLANO DE AÃ‡ÃƒO ==========
+# ========== PA3: RESET DE MEMÃâRIA DA IA - IMPLEMENTAÃâ¡ÃÆO DO PLANO DE AÃâ¡ÃÆO ==========
 
 def resetar_memoria_ia():
     """
-    âœ… PA3: RESET DE IA: Limpa memÃ³ria de experiÃªncias para comeÃ§ar aprendizado do zero
-    com as novas correÃ§Ãµes conforme plano de aÃ§Ã£o.
+    Ã¢Åâ¦ PA3: RESET DE IA: Limpa memÃÂ³ria de experiÃÂªncias para comeÃÂ§ar aprendizado do zero
+    com as novas correÃÂ§ÃÂµes conforme plano de aÃÂ§ÃÂ£o.
     """
     arquivos_para_limpar = [
         "experiencias_wdo.json",
@@ -2528,29 +2532,29 @@ def resetar_memoria_ia():
                     with open(arquivo, 'w') as f:
                         json.dump([], f)
                 elif arquivo.endswith('.csv'):
-                    # MantÃ©m apenas o cabeÃ§alho se existir
+                    # MantÃÂ©m apenas o cabeÃÂ§alho se existir
                     if os.path.getsize(arquivo) > 0:
-                        df = pd.read_csv(arquivo, nrows=0)  # SÃ³ cabeÃ§alho
+                        df = pd.read_csv(arquivo, nrows=0)  # SÃÂ³ cabeÃÂ§alho
                         df.to_csv(arquivo, index=False)
                 elif arquivo.endswith('.pkl'):
                     os.remove(arquivo)
 
                 arquivos_limpos += 1
                 logging.info(
-                    f"âœ… RESET: {arquivo} limpo (backup: {backup_name})")
+                    f"Ã¢Åâ¦ RESET: {arquivo} limpo (backup: {backup_name})")
             else:
-                logging.info(f"âš ï¸ RESET: {arquivo} nÃ£o existe")
+                logging.info(f"Ã¢Å¡Â Ã¯Â¸Â RESET: {arquivo} nÃÂ£o existe")
 
         except Exception as e:
-            logging.error(f"âŒ RESET: Erro ao limpar {arquivo}: {e}")
+            logging.error(f"Ã¢ÂÅ RESET: Erro ao limpar {arquivo}: {e}")
 
     logging.info(
-        f"ðŸ”„ RESET DE MEMÃ“RIA COMPLETO: {arquivos_limpos} arquivos processados")
-    logging.info("ðŸŽ¯ IA comeÃ§arÃ¡ aprendizado do zero com novas correÃ§Ãµes!")
+        f"Ã°Å¸ââ RESET DE MEMÃâRIA COMPLETO: {arquivos_limpos} arquivos processados")
+    logging.info("Ã°Å¸Å½Â¯ IA comeÃÂ§arÃÂ¡ aprendizado do zero com novas correÃÂ§ÃÂµes!")
 
 # endregion
 
-# region [FunÃ§Ãµes Auxiliares]
+# region [FunÃÂ§ÃÂµes Auxiliares]
 
 
 def analisar_profundidade_book(book_data: Dict, preco_referencia: float) -> Dict:
@@ -2559,7 +2563,7 @@ def analisar_profundidade_book(book_data: Dict, preco_referencia: float) -> Dict
 
     Args:
         book_data: Dados book no formato JSON {"bids": [...], "asks": [...]}
-        preco_referencia: PreÃ§o atual de referÃªncia para calcular distÃ¢ncias
+        preco_referencia: PreÃÂ§o atual de referÃÂªncia para calcular distÃÂ¢ncias
 
     Returns:
         Dict com 8 novas features de profundidade do book
@@ -2592,12 +2596,12 @@ def analisar_profundidade_book(book_data: Dict, preco_referencia: float) -> Dict
                 features['volume_maior_escora_bid'] = float(
                     maior_escora_bid.get('volume', 0.0))
 
-                # Calcula distÃ¢ncia apenas se temos preÃ§o vÃ¡lido
+                # Calcula distÃÂ¢ncia apenas se temos preÃÂ§o vÃÂ¡lido
                 if features['preco_maior_escora_bid'] > 0 and preco_referencia > 0:
                     features['distancia_maior_escora_bid'] = abs(
                         preco_referencia - features['preco_maior_escora_bid'])
 
-                # Liquidez dos top 5 nÃ­veis
+                # Liquidez dos top 5 nÃÂ­veis
                 features['liquidez_top5_bid'] = float(
                     df_bids.head(5)['volume'].sum())
 
@@ -2614,24 +2618,24 @@ def analisar_profundidade_book(book_data: Dict, preco_referencia: float) -> Dict
                 features['volume_maior_escora_ask'] = float(
                     maior_escora_ask.get('volume', 0.0))
 
-                # Calcula distÃ¢ncia apenas se temos preÃ§o vÃ¡lido
+                # Calcula distÃÂ¢ncia apenas se temos preÃÂ§o vÃÂ¡lido
                 if features['preco_maior_escora_ask'] > 0 and preco_referencia > 0:
                     features['distancia_maior_escora_ask'] = abs(
                         features['preco_maior_escora_ask'] - preco_referencia)
 
-                # Liquidez dos top 5 nÃ­veis
+                # Liquidez dos top 5 nÃÂ­veis
                 features['liquidez_top5_ask'] = float(
                     df_asks.head(5)['volume'].sum())
 
     except Exception as e:
-        logging.warning(f"âš ï¸ Erro ao analisar profundidade do book: {e}")
+        logging.warning(f"Ã¢Å¡Â Ã¯Â¸Â Erro ao analisar profundidade do book: {e}")
         # Retorna features zeradas em caso de erro
 
     return features
 
 
 def obter_nome_vela(open_price: float, close_price: float, high: float, low: float, previous_open: float = None, previous_close: float = None) -> str:
-    """Determina o tipo da vela baseado nos preÃ§os e padrÃµes.
+    """Determina o tipo da vela baseado nos preÃÂ§os e padrÃÂµes.
 
     Tipos de velas identificadas:
     - Marubozu (alta/baixa): corpo grande sem sombras
@@ -2640,8 +2644,8 @@ def obter_nome_vela(open_price: float, close_price: float, high: float, low: flo
     - Shooting Star: sombra superior longa
     - Engolfo (alta/baixa): quando uma vela engole a anterior
     - Inside Bar: vela contida na anterior
-    - Outside Bar: vela que contÃ©m a anterior
-    - Estrela da ManhÃ£/Noite: padrÃ£o de 3 velas
+    - Outside Bar: vela que contÃÂ©m a anterior
+    - Estrela da ManhÃÂ£/Noite: padrÃÂ£o de 3 velas
     - Pin Bar: vela com sombra longa
     """
     body_size = abs(close_price - open_price)
@@ -2649,7 +2653,7 @@ def obter_nome_vela(open_price: float, close_price: float, high: float, low: flo
     upper_shadow = high - max(open_price, close_price)
     lower_shadow = min(open_price, close_price) - low
 
-    # Calcula proporÃ§Ãµes
+    # Calcula proporÃÂ§ÃÂµes
     body_ratio = body_size / total_size if total_size > 0 else 0
     upper_ratio = upper_shadow / total_size if total_size > 0 else 0
     lower_ratio = lower_shadow / total_size if total_size > 0 else 0
@@ -2657,12 +2661,12 @@ def obter_nome_vela(open_price: float, close_price: float, high: float, low: flo
     # Doji
     if body_ratio < 0.1:
         if upper_ratio > 0.6:
-            return "doji_gravestone"  # Doji LÃ¡pide
+            return "doji_gravestone"  # Doji LÃÂ¡pide
         elif lower_ratio > 0.6:
-            return "doji_dragonfly"   # Doji LibÃ©lula
+            return "doji_dragonfly"   # Doji LibÃÂ©lula
         return "doji"
 
-    # DireÃ§Ã£o bÃ¡sica
+    # DireÃÂ§ÃÂ£o bÃÂ¡sica
     direction = "alta" if close_price > open_price else "baixa"
 
     # Marubozu (vela sem sombras)
@@ -2676,7 +2680,7 @@ def obter_nome_vela(open_price: float, close_price: float, high: float, low: flo
         if upper_ratio > 0.6:
             return f"shooting_star_{direction}"  # Shooting Star
 
-    # PadrÃµes com vela anterior
+    # PadrÃÂµes com vela anterior
     if previous_open is not None and previous_close is not None:
         prev_high = max(previous_open, previous_close)
         prev_low = min(previous_open, previous_close)
@@ -2705,7 +2709,7 @@ def obter_nome_vela(open_price: float, close_price: float, high: float, low: flo
     if lower_ratio > 0.3:
         return f"lower_shadow_{direction}"
 
-    # Vela padrÃ£o
+    # Vela padrÃÂ£o
     return direction
 
 
@@ -2716,7 +2720,7 @@ def calcular_entropia(volumes: List[int]) -> float:
             "[Entropia] Lista de volumes vazia, retornando entropia 0.0")
         return 0.0
 
-    # Converte para inteiros e remove zeros para evitar problemas no cÃ¡lculo
+    # Converte para inteiros e remove zeros para evitar problemas no cÃÂ¡lculo
     try:
         volumes_validos = [int(v) for v in volumes if int(v) > 0]
     except (ValueError, TypeError) as e:
@@ -2726,7 +2730,7 @@ def calcular_entropia(volumes: List[int]) -> float:
 
     if not volumes_validos:
         logging.debug(
-            "[Entropia] NÃ£o hÃ¡ volumes vÃ¡lidos (>0), retornando entropia 0.0")
+            "[Entropia] NÃÂ£o hÃÂ¡ volumes vÃÂ¡lidos (>0), retornando entropia 0.0")
         return 0.0
 
     resultado_entropia = entropy(volumes_validos)
@@ -2759,7 +2763,7 @@ def calcular_williams_r(highs: List[float], lows: List[float], closes: List[floa
 
 
 def detectar_divergencia_wr(precos: List[float], wr_values: List[float], janela: int = 200) -> str:
-    """Detecta divergÃªncia bull/bear entre preÃ§o e Williams %R usando thresholds em ticks (WDO TICK_SIZE=0.5)."""
+    """Detecta divergÃÂªncia bull/bear entre preÃÂ§o e Williams %R usando thresholds em ticks (WDO TICK_SIZE=0.5)."""
     if len(precos) < janela or len(wr_values) < janela:
         return "NEUTRO"
     TICK_SIZE = 0.5
@@ -2781,7 +2785,7 @@ def detectar_divergencia_wr(precos: List[float], wr_values: List[float], janela:
 
 
 class MonitorWilliamsR:
-    """Monitora Williams %R em tempo real, detecta zonas e divergÃªncias, salva histÃ³rico CSV."""
+    """Monitora Williams %R em tempo real, detecta zonas e divergÃÂªncias, salva histÃÂ³rico CSV."""
 
     def __init__(self, arquivo_csv: str = None, period: int = 14, janela_div: int = 200):
         self.arquivo_csv = arquivo_csv or _caminho_dados("williams_r_historico.csv")
@@ -2824,12 +2828,12 @@ class MonitorWilliamsR:
 
         # Log zona only when it changes
         if zona != self.ultimo_log_zona and zona != "NEUTRO":
-            logging.info(f"ðŸ“Š WILLIAMS %R: {wr:.1f} ({zona})")
+            logging.info(f"Ã°Å¸âÅ  WILLIAMS %R: {wr:.1f} ({zona})")
             self.ultimo_log_zona = zona
 
         # Log divergencia only when detected
         if divergencia != "NEUTRO" and divergencia != self.ultima_divergencia:
-            logging.info(f"ðŸ” WILLIAMS %R DIVERGENCIA: {divergencia} (WR={wr:.1f}, Preco={preco:.1f})")
+            logging.info(f"Ã°Å¸âÂ WILLIAMS %R DIVERGENCIA: {divergencia} (WR={wr:.1f}, Preco={preco:.1f})")
             self.ultima_divergencia = divergencia
 
         self._salvar_csv(preco, high, low, wr, zona, divergencia)
@@ -2851,29 +2855,29 @@ class MonitorWilliamsR:
 williams_r_monitor = MonitorWilliamsR()
 
 
-# ========== SNIPER %R (reversão de extremo — Larry Williams) ==========
+# ========== SNIPER %R (reversÃ£o de extremo â Larry Williams) ==========
 SNIPER_SUPERMO_ATIVO = True
 SNIPER_SUPERMO_VOLUME = 1.0
-# Modo "sniper apenas": quando o sniper %R não ativa, o robô NÃO opera pela IA
-# principal (que sangrou -455 na semana). Só o sniper executa ordens.
+# Modo "sniper apenas": quando o sniper %R nÃ£o ativa, o robÃ´ NÃO opera pela IA
+# principal (que sangrou -455 na semana). SÃ³ o sniper executa ordens.
 SNIPER_APENAS = bool(config.get('sniper_apenas', True))
 SNIPER_SUPERMO_CSV = _caminho_dados("sniper_supermo_historico.csv")
 
 
 class SniperSupermo:
-    """SNIPER %R (Larry Williams) — reversão de extremo, validado em backtest.
+    """SNIPER %R (Larry Williams) â reversÃ£o de extremo, validado em backtest.
 
-    Estratégia escolhida: variante A (ampla) do backtest de 07/08/2026 sobre
-    8918 ticks reais (7 pregões), com custo real de R$1,20/operação (0,60 ida
+    EstratÃ©gia escolhida: variante A (ampla) do backtest de 07/08/2026 sobre
+    8918 ticks reais (7 pregÃµes), com custo real de R$1,20/operaÃ§Ã£o (0,60 ida
     + 0,60 volta por contrato, RLP ativo):
-      - 130 trades, Win 53,1%, Payoff 1,81, +167 R$/semana LÍQUIDO, MaxDD -7R.
-      - Entrada no %R extremo (<= -80 BUY / >= -20 SELL), sem filtro horário,
+      - 130 trades, Win 53,1%, Payoff 1,81, +167 R$/semana LÃQUIDO, MaxDD -7R.
+      - Entrada no %R extremo (<= -80 BUY / >= -20 SELL), sem filtro horÃ¡rio,
         sem limite de trades/dia.
-      - Gestão no MT5: SL = 1.5xATR(14) M1, TP = 3xATR (alvo 2R), trailing 50%
-        do ganho pós-1R no loop de monitoramento (fiel ao backtest).
+      - GestÃ£o no MT5: SL = 1.5xATR(14) M1, TP = 3xATR (alvo 2R), trailing 50%
+        do ganho pÃ³s-1R no loop de monitoramento (fiel ao backtest).
 
     Diferente do sniper antigo (que exigia DOL conf>0.7 = score 7/7 e nunca
-    disparava porque o DOL real ficava em 0.34-0.43), este sniper SÓ usa %R.
+    disparava porque o DOL real ficava em 0.34-0.43), este sniper SÃ usa %R.
     """
 
     def __init__(self):
@@ -2881,9 +2885,9 @@ class SniperSupermo:
         self.ultimo_log = 0
         self.cooldown_ate: float = 0
         # FIX 15/08 (gargalo de spam): cooldown entre disparos vem do config.
-        # A semana teve 373 disparos/dia no CSV com apenas ~5% de execução
-        # (spam de sinal). Cooldown de 2min força o sniper a esperar entre
-        # sinais consecutivos, filtrando ruído e processamento desperdiçado.
+        # A semana teve 373 disparos/dia no CSV com apenas ~5% de execuÃ§Ã£o
+        # (spam de sinal). Cooldown de 2min forÃ§a o sniper a esperar entre
+        # sinais consecutivos, filtrando ruÃ­do e processamento desperdiÃ§ado.
         self.cooldown_segundos = float(config.get('sniper_cooldown_s', 120))
         self.em_zona = 0  # 1=SOBREVENDIDO(BUY), -1=SOBRECOMPRADO(SELL), 0=fora
         self.wr_anterior = -50.0
@@ -2902,7 +2906,7 @@ class SniperSupermo:
         if contexto.get('sniper_bloqueado', 0):
             return {'ativo': False, 'direcao': 'NADA', 'score': 0, 'detalhes': ['BLOQ_PTAX/PAYROLL']}
 
-        # Já em posição: não re-entra (gestão de saída cuida do trade vigente)
+        # JÃ¡ em posiÃ§Ã£o: nÃ£o re-entra (gestÃ£o de saÃ­da cuida do trade vigente)
         if contexto.get('is_in_trade', 0):
             return {'ativo': False, 'direcao': 'NADA', 'score': 0, 'detalhes': ['ja_em_posicao']}
 
@@ -2912,8 +2916,8 @@ class SniperSupermo:
         detalhes = []
         direcao = "NADA"
 
-        # Sinal %R extremo com trava de zona: só entra na ENTRADA da zona
-        # (debounce), evitando múltiplos sinais dentro do mesmo extremo.
+        # Sinal %R extremo com trava de zona: sÃ³ entra na ENTRADA da zona
+        # (debounce), evitando mÃºltiplos sinais dentro do mesmo extremo.
         if wr <= -80:
             score += 2
             detalhes.append(f"%R={wr:.0f}(SEV)")
@@ -2932,24 +2936,24 @@ class SniperSupermo:
             self.em_zona = 0
             detalhes.append(f"%R={wr:.0f}(neutro)")
 
-        # FIX 11/08: filtro contra-tendência — o dia 11/08 sangrou 8 SELL
-        # seguidos numa tendência de alta forte. O sniper só opera NA direção
-        # da tendência (ou em NEUTRO). Mantém a trava de zona para não
-        # re-disparar no mesmo extremo enquanto a tendência não mudar.
-        # FIX 12/08: usa os vetos do FiltroTendencia (SMA-50 + momentum) —
-        # que detectou a tendência corretamente no dia 12/08 — além do EMA9/21.
-        # FIX 13/08: veto Multi-TF — o dia 13/08 vendeu 3x contra alta forte
+        # FIX 11/08: filtro contra-tendÃªncia â o dia 11/08 sangrou 8 SELL
+        # seguidos numa tendÃªncia de alta forte. O sniper sÃ³ opera NA direÃ§Ã£o
+        # da tendÃªncia (ou em NEUTRO). MantÃ©m a trava de zona para nÃ£o
+        # re-disparar no mesmo extremo enquanto a tendÃªncia nÃ£o mudar.
+        # FIX 12/08: usa os vetos do FiltroTendencia (SMA-50 + momentum) â
+        # que detectou a tendÃªncia corretamente no dia 12/08 â alÃ©m do EMA9/21.
+        # FIX 13/08: veto Multi-TF â o dia 13/08 vendeu 3x contra alta forte
         # com M15/M30 sobrecomprados (WR >= -20 em ambos). O %R M1 em SEC
-        # num contexto de M15/M30 sobrecomprados NÃO é reversão, é tendência.
+        # num contexto de M15/M30 sobrecomprados NÃO Ã© reversÃ£o, Ã© tendÃªncia.
         # Regra: SELL bloqueado se M15 E M30 sobrecomprados; BUY se ambos
-        # sobrevendidos (<= -80). Só bloqueia em consenso, preservando
-        # reversões legítimas em mercado lateral.
+        # sobrevendidos (<= -80). SÃ³ bloqueia em consenso, preservando
+        # reversÃµes legÃ­timas em mercado lateral.
         if direcao != "NADA":
             tendencia_m1 = contexto.get('tendencia_m1', 'NEUTRO')
             _veto_buy = contexto.get('tendencia_veto_buy', False)
             _veto_sell = contexto.get('tendencia_veto_sell', False)
             _motivo = contexto.get('tendencia_motivo', '')
-            # Multi-TF: M15/M30 WR disponíveis no contexto (L6979-6981)
+            # Multi-TF: M15/M30 WR disponÃ­veis no contexto (L6979-6981)
             _m15_wr = contexto.get('m15_wr', None)
             _m30_wr = contexto.get('m30_wr', None)
             _veto_mt_buy = False
@@ -2965,15 +2969,15 @@ class SniperSupermo:
                     detalhes.append(
                         f"multiTF M15={_m15_wr:.0f} M30={_m30_wr:.0f} bloqueia {direcao}")
                 else:
-                    detalhes.append(f"tendência={tendencia_m1} bloqueia {direcao} ({_motivo or 'EMA'})")
+                    detalhes.append(f"tendÃªncia={tendencia_m1} bloqueia {direcao} ({_motivo or 'EMA'})")
                 direcao = "NADA"
 
         ativo = direcao != "NADA"
 
-        # SL/TP por ATR do contexto (mesma gestão do backtest: 1.5x/3x)
-        # FIX 17/08: piso mínimo de SL respeita o config (8.0 pts). Sem esse
+        # SL/TP por ATR do contexto (mesma gestÃ£o do backtest: 1.5x/3x)
+        # FIX 17/08: piso mÃ­nimo de SL respeita o config (8.0 pts). Sem esse
         # floor, o ATR baixo em dias de baixa volatilidade gerava stops de
-        # 3.5-4.0pts que eram atingidos por ruído natural do book (stop hunt).
+        # 3.5-4.0pts que eram atingidos por ruÃ­do natural do book (stop hunt).
         atr = float(contexto.get('volatility', 0)) or 2.0
         _sl_min = float(config.get('sl_max_pontos', 8.0))
         sl_points = max(1.5 * atr, _sl_min)
@@ -2989,7 +2993,7 @@ class SniperSupermo:
         }
 
         # Observabilidade: loga standby/score a cada 60s (o agente via texto de
-        # sprint de treino antes, não o robô real)
+        # sprint de treino antes, nÃ£o o robÃ´ real)
         if agora - self.ultimo_log > 60:
             self.ultimo_log = agora
             logging.info(
@@ -3000,9 +3004,9 @@ class SniperSupermo:
         if ativo:
             banner = (
                 f"\n{'='*60}\n"
-                f"⚡ SNIPER %R ATIVADO ⚡\n"
-                f"DIREÇÃO: {direcao} | %R={wr:.0f}\n"
-                f"CONDIÇÕES: {' | '.join(detalhes)}\n"
+                f"â¡ SNIPER %R ATIVADO â¡\n"
+                f"DIREÃÃO: {direcao} | %R={wr:.0f}\n"
+                f"CONDIÃÃES: {' | '.join(detalhes)}\n"
                 f"SL={sl_points:.1f}pt (max({1.5}xATR,{_sl_min:.0f})) | TP={tp_points:.1f}pt (2R)\n"
                 f"{'='*60}"
             )
@@ -3010,7 +3014,7 @@ class SniperSupermo:
             self._salvar_csv(contexto, direcao, score, detalhes)
             # FIX 15/08 (spam): disparou 1 sinal -> cooldown entre disparos.
             # Mesmo que a ordem falhe nos filtros posteriores, o sniper espera
-            # o cooldown antes de gerar o próximo sinal (filtra ~373 disparos/dia).
+            # o cooldown antes de gerar o prÃ³ximo sinal (filtra ~373 disparos/dia).
             self.cooldown_ate = time.time() + self.cooldown_segundos
 
         return resultado
@@ -3039,14 +3043,14 @@ class SniperSupermo:
 
     def ativar_cooldown(self):
         self.cooldown_ate = time.time() + self.cooldown_segundos
-        logging.info(f"â³ SNIPER SUPERMO cooldown: {self.cooldown_segundos}s")
+        logging.info(f"Ã¢ÂÂ³ SNIPER SUPERMO cooldown: {self.cooldown_segundos}s")
 
 
 sniper_supermo = SniperSupermo()
 
 
 def normalizar_dados(df: pd.DataFrame, colunas_numericas: List[str], colunas_categoricas: List[str], treino: bool = True) -> pd.DataFrame:
-    """Normaliza dados numÃ©ricos e codifica dados categÃ³ricos."""
+    """Normaliza dados numÃÂ©ricos e codifica dados categÃÂ³ricos."""
     global scaler_global
     from sklearn.utils.validation import check_is_fitted
 
@@ -3058,7 +3062,7 @@ def normalizar_dados(df: pd.DataFrame, colunas_numericas: List[str], colunas_cat
         logging.debug(
             f"[normalizar_dados] Scaler ajustado para treino com {len(df)} amostras")
     else:
-        # Durante prediÃ§Ã£o â€” verifica se scaler estÃ¡ fitted
+        # Durante prediÃÂ§ÃÂ£o Ã¢â¬â verifica se scaler estÃÂ¡ fitted
         scaler_precisa_fit = False
         if scaler_global is None:
             scaler_precisa_fit = True
@@ -3069,9 +3073,9 @@ def normalizar_dados(df: pd.DataFrame, colunas_numericas: List[str], colunas_cat
                 scaler_precisa_fit = True
 
         if scaler_precisa_fit:
-            # Scaler nÃ£o fitted â€” faz fit com os dados atuais como fallback
+            # Scaler nÃÂ£o fitted Ã¢â¬â faz fit com os dados atuais como fallback
             logging.warning(
-                "[normalizar_dados] âš ï¸ Scaler nÃ£o fitted â€” fazendo fit com dados atuais como fallback")
+                "[normalizar_dados] Ã¢Å¡Â Ã¯Â¸Â Scaler nÃÂ£o fitted Ã¢â¬â fazendo fit com dados atuais como fallback")
             scaler_global = MinMaxScaler()
             df[colunas_numericas] = scaler_global.fit_transform(
                 df[colunas_numericas])
@@ -3082,8 +3086,8 @@ def normalizar_dados(df: pd.DataFrame, colunas_numericas: List[str], colunas_cat
             df[colunas_numericas] = df[colunas_numericas].clip(0.0, 1.0)
             n_clip = int((df[colunas_numericas].values != antes).sum())
             if n_clip > 0:
-                logging.warning(f"[normalizar_dados] ⚠️ {n_clip} valores fora de [0,1] foram clipped")
-            logging.debug(f"[normalizar_dados] Scaler aplicado para prediÃ§Ã£o")
+                logging.warning(f"[normalizar_dados] â ï¸ {n_clip} valores fora de [0,1] foram clipped")
+            logging.debug(f"[normalizar_dados] Scaler aplicado para prediÃÂ§ÃÂ£o")
 
     for col in colunas_categoricas:
         le = LabelEncoder()
@@ -3093,18 +3097,18 @@ def normalizar_dados(df: pd.DataFrame, colunas_numericas: List[str], colunas_cat
 
 def converter_candle_type(candle_type: str) -> str:
     """Converte o tipo de candle para um formato padronizado."""
-    return candle_type.lower()  # MantÃ©m o tipo detalhado
+    return candle_type.lower()  # MantÃÂ©m o tipo detalhado
 
 
 def monitorar_recursos() -> None:
-    """Monitora recursos do sistema e salva experiÃªncias."""
+    """Monitora recursos do sistema e salva experiÃÂªncias."""
     try:
         if os.path.exists(HISTORICO_CSV):
             # Verifica tamanho do arquivo
             tamanho_arquivo = os.path.getsize(
                 HISTORICO_CSV) / (1024 * 1024)  # Tamanho em MB
 
-            # Se arquivo maior que 50MB, faz rotaÃ§Ã£o
+            # Se arquivo maior que 50MB, faz rotaÃÂ§ÃÂ£o
             if tamanho_arquivo > 50:
                 # Cria nome do backup com timestamp
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -3113,43 +3117,43 @@ def monitorar_recursos() -> None:
                 # Move arquivo atual para backup
                 os.rename(HISTORICO_CSV, backup_name)
 
-                # MantÃ©m apenas os Ãºltimos 5 backups
+                # MantÃÂ©m apenas os ÃÂºltimos 5 backups
                 backups = sorted([f for f in os.listdir('.') if f.startswith(
                     HISTORICO_CSV) and f.endswith('.bak')])
                 while len(backups) > 5:
                     os.remove(backups.pop(0))
 
                 logging.info(
-                    f"ðŸ“¦ RotaÃ§Ã£o do histÃ³rico realizada. Backup: {backup_name}")
+                    f"Ã°Å¸âÂ¦ RotaÃÂ§ÃÂ£o do histÃÂ³rico realizada. Backup: {backup_name}")
 
-            # LÃª e limita nÃºmero de linhas com tratamento de erro
+            # LÃÂª e limita nÃÂºmero de linhas com tratamento de erro
             try:
                 df = pd.read_csv(HISTORICO_CSV)
                 if len(df) > 5000:  # Reduzido de 10000 para 5000
                     df = df.tail(5000)
                     df.to_csv(HISTORICO_CSV, index=False)
                     logging.debug(
-                        "âœ‚ï¸ HistÃ³rico truncado para Ãºltimas 5000 linhas")
+                        "Ã¢ÅâÃ¯Â¸Â HistÃÂ³rico truncado para ÃÂºltimas 5000 linhas")
             except pd.errors.ParserError as e:
-                logging.warning(f"âš ï¸ CSV histÃ³rico corrompido: {e}")
-                logging.info("ðŸ”§ Recriando arquivo CSV histÃ³rico...")
-                # Cria cabeÃ§alho com o esquema oficial (timestamp + features)
+                logging.warning(f"Ã¢Å¡Â Ã¯Â¸Â CSV histÃÂ³rico corrompido: {e}")
+                logging.info("Ã°Å¸âÂ§ Recriando arquivo CSV histÃÂ³rico...")
+                # Cria cabeÃÂ§alho com o esquema oficial (timestamp + features)
                 colunas_padrao = COLUNAS_CONTEXTO_OFICIAL
                 df_novo = pd.DataFrame(columns=colunas_padrao)
                 df_novo.to_csv(HISTORICO_CSV, index=False)
-                logging.info("âœ… CSV histÃ³rico recriado com sucesso")
+                logging.info("Ã¢Åâ¦ CSV histÃÂ³rico recriado com sucesso")
 
     except Exception as e:
-        logging.error(f"âŒ Erro ao monitorar recursos: {e}")
+        logging.error(f"Ã¢ÂÅ Erro ao monitorar recursos: {e}")
         logging.debug(f"Stack trace: {traceback.format_exc()}")
 
 
 def corrigir_csv_historico() -> None:
-    """Corrige o formato do arquivo CSV histÃ³rico se necessÃ¡rio."""
+    """Corrige o formato do arquivo CSV histÃÂ³rico se necessÃÂ¡rio."""
     try:
         if not os.path.exists(HISTORICO_CSV):
             logging.info(
-                "ðŸ“ Arquivo histÃ³rico nÃ£o existe. SerÃ¡ criado na primeira operaÃ§Ã£o.")
+                "Ã°Å¸âÂ Arquivo histÃÂ³rico nÃÂ£o existe. SerÃÂ¡ criado na primeira operaÃÂ§ÃÂ£o.")
             return
 
         # Verifica tamanho do arquivo
@@ -3158,7 +3162,7 @@ def corrigir_csv_historico() -> None:
             backup_name = f"{HISTORICO_CSV}.grande.{int(time.time())}"
             os.rename(HISTORICO_CSV, backup_name)
             logging.warning(
-                f"âš ï¸ Arquivo muito grande ({tamanho_arquivo:.1f}MB). Movido para: {backup_name}")
+                f"Ã¢Å¡Â Ã¯Â¸Â Arquivo muito grande ({tamanho_arquivo:.1f}MB). Movido para: {backup_name}")
             return
 
         # Tenta ler o CSV com error_bad_lines=False para pular linhas corrompidas
@@ -3180,14 +3184,14 @@ def corrigir_csv_historico() -> None:
         if colunas_extras:
             df = df.drop(columns=colunas_extras)
             logging.warning(
-                f"ðŸ”„ Removendo colunas extras do CSV: {colunas_extras}")
+                f"Ã°Å¸ââ Removendo colunas extras do CSV: {colunas_extras}")
 
-        # Adiciona colunas faltantes com valores padrÃ£o apropriados
+        # Adiciona colunas faltantes com valores padrÃÂ£o apropriados
         colunas_faltando = [
             col for col in colunas_esperadas if col not in df.columns]
         if colunas_faltando:
             logging.warning(
-                f"âž• Adicionando colunas faltantes no CSV: {colunas_faltando}")
+                f"Ã¢Å¾â¢ Adicionando colunas faltantes no CSV: {colunas_faltando}")
             for col in colunas_faltando:
                 if col in ['reward', 'floating_profit', 'spread']:
                     df[col] = 0.0
@@ -3205,7 +3209,7 @@ def corrigir_csv_historico() -> None:
         # Garante a ordem das colunas
         df = df[colunas_esperadas]
 
-        # Corrige tipos de dados e valores invÃ¡lidos
+        # Corrige tipos de dados e valores invÃÂ¡lidos
         df['bid_qty'] = pd.to_numeric(
             df['bid_qty'], errors='coerce').fillna(0).clip(lower=0)
         df['ask_qty'] = pd.to_numeric(
@@ -3229,9 +3233,9 @@ def corrigir_csv_historico() -> None:
         df['reward'] = pd.to_numeric(df['reward'], errors='coerce').fillna(0)
 
         # Limpa valores extremos (outliers) APENAS de features de volume.
-        # âš ï¸ NÃƒO clipar 'reward'! Como a maioria das linhas Ã© NAO_AGIU (reward=0),
-        # os quartis ficam [0,0] e o clip zeraria TODAS as recompensas reais â€”
-        # apagando o aprendizado da IA a cada reinÃ­cio. Reward Ã© sinal, nÃ£o feature.
+        # Ã¢Å¡Â Ã¯Â¸Â NÃÆO clipar 'reward'! Como a maioria das linhas ÃÂ© NAO_AGIU (reward=0),
+        # os quartis ficam [0,0] e o clip zeraria TODAS as recompensas reais Ã¢â¬â
+        # apagando o aprendizado da IA a cada reinÃÂ­cio. Reward ÃÂ© sinal, nÃÂ£o feature.
         for col in ['bid_qty', 'ask_qty', 'volume_tick']:
             q1 = df[col].quantile(0.25)
             q3 = df[col].quantile(0.75)
@@ -3240,13 +3244,13 @@ def corrigir_csv_historico() -> None:
             upper_bound = q3 + 3 * iqr
             df[col] = df[col].clip(lower=lower_bound, upper=upper_bound)
 
-        # Remove linhas com valores invÃ¡lidos
+        # Remove linhas com valores invÃÂ¡lidos
         df = df.dropna()
 
-        # Limita nÃºmero de linhas
+        # Limita nÃÂºmero de linhas
         if len(df) > 5000:
             df = df.tail(5000)
-            logging.debug("âœ‚ï¸ HistÃ³rico truncado para Ãºltimas 5000 linhas")
+            logging.debug("Ã¢ÅâÃ¯Â¸Â HistÃÂ³rico truncado para ÃÂºltimas 5000 linhas")
 
         # Salva o arquivo corrigido
         df.to_csv(HISTORICO_CSV, index=False)
@@ -3255,50 +3259,50 @@ def corrigir_csv_historico() -> None:
         linhas_removidas = linhas_originais - linhas_final
         if linhas_removidas > 0:
             logging.warning(
-                f"ðŸ§¹ {linhas_removidas} linhas invÃ¡lidas removidas do histÃ³rico")
+                f"Ã°Å¸Â§Â¹ {linhas_removidas} linhas invÃÂ¡lidas removidas do histÃÂ³rico")
 
-        logging.info("âœ… Arquivo histÃ³rico corrigido com sucesso")
+        logging.info("Ã¢Åâ¦ Arquivo histÃÂ³rico corrigido com sucesso")
 
     except Exception as e:
-        logging.error(f"âŒ Erro ao corrigir CSV histÃ³rico: {e}")
+        logging.error(f"Ã¢ÂÅ Erro ao corrigir CSV histÃÂ³rico: {e}")
         logging.debug(f"Stack trace: {traceback.format_exc()}")
         # Se houver erro, renomeia o arquivo corrompido e cria um novo
         if os.path.exists(HISTORICO_CSV):
             backup_name = f"{HISTORICO_CSV}.corrompido.{int(time.time())}"
             os.rename(HISTORICO_CSV, backup_name)
-            logging.info(f"ðŸ“¦ Arquivo corrompido movido para: {backup_name}")
+            logging.info(f"Ã°Å¸âÂ¦ Arquivo corrompido movido para: {backup_name}")
 
 
 def salvar_experiencia_csv(contexto: Dict[str, Any], acao: str, lucro: float, score_dist: float) -> None:
-    """Salva uma experiÃªncia no arquivo CSV com validaÃ§Ãµes."""
+    """Salva uma experiÃÂªncia no arquivo CSV com validaÃÂ§ÃÂµes."""
     try:
-        # RESET MODO APRENDIZADO FORÃ‡ADO apÃ³s operaÃ§Ã£o real
+        # RESET MODO APRENDIZADO FORÃâ¡ADO apÃÂ³s operaÃÂ§ÃÂ£o real
         global MODO_APRENDIZADO_FORCADO
         if acao in ["BUY", "SELL"] and MODO_APRENDIZADO_FORCADO:
             MODO_APRENDIZADO_FORCADO = False
             logging.info(
-                "ðŸŽ“ MODO APRENDIZADO FORÃ‡ADO DESATIVADO - OperaÃ§Ã£o real executada")
+                "Ã°Å¸Å½â MODO APRENDIZADO FORÃâ¡ADO DESATIVADO - OperaÃÂ§ÃÂ£o real executada")
 
-        # ========== INTEGRAÃ‡ÃƒO MELHORIA 4: CIRCUIT BREAKER REGISTRA RESULTADO ==========
+        # ========== INTEGRAÃâ¡ÃÆO MELHORIA 4: CIRCUIT BREAKER REGISTRA RESULTADO ==========
         if circuit_breaker and acao in ["BUY", "SELL"]:
             circuit_breaker.registrar_resultado(lucro)
 
-        # ValidaÃ§Ã£o dos tipos de dados
+        # ValidaÃÂ§ÃÂ£o dos tipos de dados
         if not isinstance(contexto, dict):
-            raise ValueError("Contexto deve ser um dicionÃ¡rio")
+            raise ValueError("Contexto deve ser um dicionÃÂ¡rio")
         if not isinstance(acao, str):
-            raise ValueError("AÃ§Ã£o deve ser uma string")
+            raise ValueError("AÃÂ§ÃÂ£o deve ser uma string")
         if not isinstance(lucro, (int, float)):
-            raise ValueError("Lucro deve ser numÃ©rico")
+            raise ValueError("Lucro deve ser numÃÂ©rico")
         if not isinstance(score_dist, (int, float)):
-            raise ValueError("Score_dist deve ser numÃ©rico")
+            raise ValueError("Score_dist deve ser numÃÂ©rico")
 
-        # ValidaÃ§Ã£o dos valores
+        # ValidaÃÂ§ÃÂ£o dos valores
         acoes_validas = {"BUY", "SELL", "NAO_AGIU", "NADA"}
         if acao not in acoes_validas:
-            raise ValueError(f"AÃ§Ã£o invÃ¡lida: {acao}")
+            raise ValueError(f"AÃÂ§ÃÂ£o invÃÂ¡lida: {acao}")
 
-        # Garante que o contexto tem todas as colunas necessÃ¡rias e valores vÃ¡lidos
+        # Garante que o contexto tem todas as colunas necessÃÂ¡rias e valores vÃÂ¡lidos
         dados = {
             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             'bid_qty': max(0, float(contexto.get('bid_qty', 0))),
@@ -3312,7 +3316,7 @@ def salvar_experiencia_csv(contexto: Dict[str, Any], acao: str, lucro: float, sc
             # Entre 0 e 100
             'rsi_14': max(0, min(100, float(contexto.get('rsi_14', 50)))),
             'volume_tick': max(0, float(contexto.get('volume_tick', 0))),
-            # ForÃ§a 0 ou 1
+            # ForÃÂ§a 0 ou 1
             'is_in_trade': int(bool(contexto.get('is_in_trade', 0))),
             'floating_profit': float(contexto.get('floating_profit', 0.0)),
             'tempo_em_trade': max(0, int(contexto.get('tempo_em_trade', 0))),
@@ -3337,15 +3341,15 @@ def salvar_experiencia_csv(contexto: Dict[str, Any], acao: str, lucro: float, sc
                 HISTORICO_CSV) / (1024 * 1024)  # MB
             if tamanho_arquivo > 50:  # Se maior que 50MB
                 logging.warning(
-                    "âš ï¸ Arquivo de histÃ³rico muito grande, aguardando rotaÃ§Ã£o...")
+                    "Ã¢Å¡Â Ã¯Â¸Â Arquivo de histÃÂ³rico muito grande, aguardando rotaÃÂ§ÃÂ£o...")
                 return
             df.to_csv(HISTORICO_CSV, mode='a', header=False, index=False)
         else:
             df.to_csv(HISTORICO_CSV, index=False)
 
-        # CORREÃ‡ÃƒO C9: FASE 3 - TREINA COM TODAS AS EXPERIÃŠNCIAS (wins E losses)
+        # CORREÃâ¡ÃÆO C9: FASE 3 - TREINA COM TODAS AS EXPERIÃÅ NCIAS (wins E losses)
         global contador_experiencias_novas
-        if acao in ["BUY", "SELL"]:  # Conta TODAS as operaÃ§Ãµes reais, nÃ£o sÃ³ lucrativas
+        if acao in ["BUY", "SELL"]:  # Conta TODAS as operaÃÂ§ÃÂµes reais, nÃÂ£o sÃÂ³ lucrativas
             contador_experiencias_novas += 1
 
             # FASE 1: Registra resultado no bloqueador de contexto
@@ -3355,19 +3359,19 @@ def salvar_experiencia_csv(contexto: Dict[str, Any], acao: str, lucro: float, sc
                 bloqueador_contexto.registrar_win(contexto)
 
             logging.info(
-                f"âœ… ExperiÃªncia REAL salva: AÃ§Ã£o={acao}, Lucro={lucro:.2f}, Score={score_dist:.2f} | Contador: {contador_experiencias_novas}/{LIMITE_EXPERIENCIAS_PARA_TREINO}")
+                f"Ã¢Åâ¦ ExperiÃÂªncia REAL salva: AÃÂ§ÃÂ£o={acao}, Lucro={lucro:.2f}, Score={score_dist:.2f} | Contador: {contador_experiencias_novas}/{LIMITE_EXPERIENCIAS_PARA_TREINO}")
         else:
             logging.debug(
-                f"âœ… ExperiÃªncia salva: AÃ§Ã£o={acao}, Lucro={lucro:.2f}, Score={score_dist:.2f}")
+                f"Ã¢Åâ¦ ExperiÃÂªncia salva: AÃÂ§ÃÂ£o={acao}, Lucro={lucro:.2f}, Score={score_dist:.2f}")
 
     except Exception as e:
-        logging.error(f"âŒ Erro ao salvar experiÃªncia: {e}")
+        logging.error(f"Ã¢ÂÅ Erro ao salvar experiÃÂªncia: {e}")
         logging.debug(f"Dados tentando salvar: {dados}")
         logging.debug(f"Stack trace: {traceback.format_exc()}")
 
 
 def preparar_dados(df: pd.DataFrame, treino: bool = False) -> Tuple[pd.DataFrame, Optional[pd.Series]]:
-    """Prepara dados para treino ou prediÃ§Ã£o."""
+    """Prepara dados para treino ou prediÃÂ§ÃÂ£o."""
     colunas_categoricas = [
     ]  # Removido candle_type para compatibilidade com modelo (10 features)
     colunas_numericas = ['bid_qty', 'ask_qty', 'spread', 'volatility', 'entropia_book',
@@ -3377,10 +3381,10 @@ def preparar_dados(df: pd.DataFrame, treino: bool = False) -> Tuple[pd.DataFrame
                          'liquidez_top5_bid', 'liquidez_top5_ask',
                          'dolar_casado', 'em_janela_ptax', 'minutos_para_ptax', 'dia_ptax']
 
-    # Cria uma cÃ³pia para evitar modificar o original
+    # Cria uma cÃÂ³pia para evitar modificar o original
     df_work = df.copy()
 
-    # Adiciona colunas faltantes com valor 0 (compatibilidade com experiÃªncias antigas)
+    # Adiciona colunas faltantes com valor 0 (compatibilidade com experiÃÂªncias antigas)
     colunas_book_novas = ['preco_maior_escora_bid', 'volume_maior_escora_bid', 'distancia_maior_escora_bid',
                           'preco_maior_escora_ask', 'volume_maior_escora_ask', 'distancia_maior_escora_ask',
                           'liquidez_top5_bid', 'liquidez_top5_ask',
@@ -3389,19 +3393,19 @@ def preparar_dados(df: pd.DataFrame, treino: bool = False) -> Tuple[pd.DataFrame
         if col not in df_work.columns:
             df_work[col] = 0.0
 
-    # Normaliza dados numÃ©ricos e codifica categÃ³ricos
+    # Normaliza dados numÃÂ©ricos e codifica categÃÂ³ricos
     try:
         df_work = normalizar_dados(
             df_work, colunas_numericas, colunas_categoricas, treino=treino)
     except Exception as e:
-        logging.error(f"Erro na normalizaÃ§Ã£o de dados: {e}")
-        # Fallback: codifica manualmente as colunas categÃ³ricas
+        logging.error(f"Erro na normalizaÃÂ§ÃÂ£o de dados: {e}")
+        # Fallback: codifica manualmente as colunas categÃÂ³ricas
         for col in colunas_categoricas:
             if col in df_work.columns and df_work[col].dtype == 'object':
                 le = LabelEncoder()
                 df_work[col] = le.fit_transform(df_work[col].astype(str))
 
-        # Normaliza apenas as numÃ©ricas usando scaler global
+        # Normaliza apenas as numÃÂ©ricas usando scaler global
         global scaler_global
         if treino or scaler_global is None:
             scaler_global = MinMaxScaler()
@@ -3411,7 +3415,7 @@ def preparar_dados(df: pd.DataFrame, treino: bool = False) -> Tuple[pd.DataFrame
             df_work[colunas_numericas] = scaler_global.transform(
                 df_work[colunas_numericas])
 
-    # Seleciona apenas as colunas necessÃ¡rias
+    # Seleciona apenas as colunas necessÃÂ¡rias
     todas_colunas = colunas_numericas + colunas_categoricas
     colunas_disponiveis = [
         col for col in todas_colunas if col in df_work.columns]
@@ -3421,7 +3425,7 @@ def preparar_dados(df: pd.DataFrame, treino: bool = False) -> Tuple[pd.DataFrame
         f"[preparar_dados] Colunas no DataFrame: {list(df_work.columns)}")
     logging.debug(f"[preparar_dados] Colunas esperadas: {todas_colunas}")
     logging.debug(
-        f"[preparar_dados] Colunas disponÃ­veis: {colunas_disponiveis}")
+        f"[preparar_dados] Colunas disponÃÂ­veis: {colunas_disponiveis}")
 
     X = df_work[colunas_disponiveis]
     logging.debug(f"[preparar_dados] Shape final X: {X.shape}")
@@ -3436,15 +3440,15 @@ def preparar_dados(df: pd.DataFrame, treino: bool = False) -> Tuple[pd.DataFrame
 def calcular_estocastico_lento(high_prices: List[float], low_prices: List[float], close_prices: List[float],
                                k_period: int = 14, d_period: int = 3, smooth_k: int = 3) -> Tuple[float, float]:
     """
-    Calcula o EstocÃ¡stico Lento (%K e %D).
-    k_period: PerÃ­odo para %K (padrÃ£o 14)
-    d_period: PerÃ­odo para %D (padrÃ£o 3)
-    smooth_k: PerÃ­odo de suavizaÃ§Ã£o do %K (padrÃ£o 3)
+    Calcula o EstocÃÂ¡stico Lento (%K e %D).
+    k_period: PerÃÂ­odo para %K (padrÃÂ£o 14)
+    d_period: PerÃÂ­odo para %D (padrÃÂ£o 3)
+    smooth_k: PerÃÂ­odo de suavizaÃÂ§ÃÂ£o do %K (padrÃÂ£o 3)
     """
     if len(high_prices) < k_period or len(low_prices) < k_period or len(close_prices) < k_period:
-        return 50.0, 50.0  # Valores neutros se nÃ£o houver dados suficientes
+        return 50.0, 50.0  # Valores neutros se nÃÂ£o houver dados suficientes
 
-    # Calcula %K rÃ¡pido primeiro
+    # Calcula %K rÃÂ¡pido primeiro
     k_fast = []
     for i in range(k_period - 1, len(close_prices)):
         high_window = high_prices[i-k_period+1:i+1]
@@ -3460,12 +3464,12 @@ def calcular_estocastico_lento(high_prices: List[float], low_prices: List[float]
             k_fast.append(100 * (close - lowest_low) /
                           (highest_high - lowest_low))
 
-    # Suaviza %K rÃ¡pido para obter %K lento
+    # Suaviza %K rÃÂ¡pido para obter %K lento
     k_slow = []
     for i in range(len(k_fast) - smooth_k + 1):
         k_slow.append(sum(k_fast[i:i+smooth_k]) / smooth_k)
 
-    # Calcula %D (mÃ©dia mÃ³vel do %K lento)
+    # Calcula %D (mÃÂ©dia mÃÂ³vel do %K lento)
     if len(k_slow) < d_period:
         return 50.0, 50.0
 
@@ -3510,9 +3514,9 @@ def criar_modelo_neural(n_features: int) -> Sequential:
 
 
 def salvar_modelo(modelo: Sequential, caminho: str = MODELO_PATH) -> None:
-    """Salva o modelo em disco (h5 + keras) com backup diÃ¡rio Ãºnico (sobrescreve).
+    """Salva o modelo em disco (h5 + keras) com backup diÃÂ¡rio ÃÂºnico (sobrescreve).
 
-    ATOMICIDADE: grava primeiro em arquivo temporÃ¡rio e usa os.replace()
+    ATOMICIDADE: grava primeiro em arquivo temporÃÂ¡rio e usa os.replace()
     para a troca final. Assim o modelo principal nunca fica corrompido se
     o processo for morto no meio do save.
     """
@@ -3520,14 +3524,14 @@ def salvar_modelo(modelo: Sequential, caminho: str = MODELO_PATH) -> None:
         caminho_h5_abs = os.path.abspath(caminho)
         print(f"[SALVAR_MODELO] Iniciando save: {caminho_h5_abs}")
 
-        # === BACKUP DIÃRIO: MÃX 1 POR DIA, SOBRESCREVENDO ===
+        # === BACKUP DIÃÂRIO: MÃÂX 1 POR DIA, SOBRESCREVENDO ===
         hoje = datetime.now().strftime("%Y%m%d")
         backup_diario = f"{caminho}.backup_{hoje}"
         if os.path.exists(caminho):
             shutil.copy2(caminho, backup_diario)
-            logging.info(f"ðŸ“¦ Backup diÃ¡rio sobrescrito: {backup_diario}")
+            logging.info(f"Ã°Å¸âÂ¦ Backup diÃÂ¡rio sobrescrito: {backup_diario}")
 
-        # Remove backups antigos (timestamps) se existirem de versÃµes anteriores
+        # Remove backups antigos (timestamps) se existirem de versÃÂµes anteriores
         backup_pattern = f"{caminho}.backup_*"
         for antigo in glob.glob(backup_pattern):
             if antigo != backup_diario:
@@ -3536,10 +3540,10 @@ def salvar_modelo(modelo: Sequential, caminho: str = MODELO_PATH) -> None:
                 except Exception:
                     pass
 
-        # === SAVE ATÃ”MICO: temp + os.replace (evita corrupÃ§Ã£o em crash) ===
+        # === SAVE ATÃâMICO: temp + os.replace (evita corrupÃÂ§ÃÂ£o em crash) ===
         caminho_keras = caminho.replace('.h5', '.keras')
-        # ⚠️ FIX (01/08/2026): TF só aceita extensões .h5 ou .keras — .tmp_atomic causava
-        # "Invalid filepath extension" silencioso. Usar _tmp.h5 / _tmp.keras (extensão válida).
+        # â ï¸ FIX (01/08/2026): TF sÃ³ aceita extensÃµes .h5 ou .keras â .tmp_atomic causava
+        # "Invalid filepath extension" silencioso. Usar _tmp.h5 / _tmp.keras (extensÃ£o vÃ¡lida).
         tmp_h5 = caminho.replace('.h5', '_tmp.h5')
         tmp_keras = caminho_keras.replace('.keras', '_tmp.keras')
 
@@ -3564,26 +3568,26 @@ def salvar_modelo(modelo: Sequential, caminho: str = MODELO_PATH) -> None:
 
 
 def carregar_modelo(caminho: str = MODELO_PATH) -> Optional[Sequential]:
-    """Carrega o modelo Keras ou cria um novo se nÃ£o existir ou estiver corrompido."""
+    """Carrega o modelo Keras ou cria um novo se nÃÂ£o existir ou estiver corrompido."""
     try:
         if os.path.exists(caminho):
             # Tenta carregar o modelo existente
             modelo = load_model(caminho)
 
-            # Verifica compatibilidade bÃ¡sica
+            # Verifica compatibilidade bÃÂ¡sica
             expected_features = N_FEATURES
             test_input = np.zeros((1, expected_features), dtype=np.float32)
             modelo.predict(test_input, verbose=0)
 
-            logging.info(f"âœ… Modelo de IA carregado com sucesso de {caminho}")
+            logging.info(f"Ã¢Åâ¦ Modelo de IA carregado com sucesso de {caminho}")
             return modelo
         else:
             logging.info(
-                "ðŸ“‚ Modelo nÃ£o encontrado. Criando um novo cÃ©rebro do zero...")
+                "Ã°Å¸ââ Modelo nÃÂ£o encontrado. Criando um novo cÃÂ©rebro do zero...")
             return criar_modelo_neural(N_FEATURES)
     except Exception as e:
         logging.error(
-            f"âš ï¸ Erro ao carregar modelo ({e}). Resetando para evitar travamento...")
+            f"Ã¢Å¡Â Ã¯Â¸Â Erro ao carregar modelo ({e}). Resetando para evitar travamento...")
         # Se o arquivo estiver corrompido, removemos para criar um novo
         if os.path.exists(caminho):
             try:
@@ -3598,11 +3602,11 @@ def carregar_modelo(caminho: str = MODELO_PATH) -> Optional[Sequential]:
 
 
 def verificar_e_proteger_modelo() -> bool:
-    """PROTEÃ‡ÃƒO TOTAL DO MODELO - Verifica e recupera automaticamente se necessÃ¡rio."""
+    """PROTEÃâ¡ÃÆO TOTAL DO MODELO - Verifica e recupera automaticamente se necessÃÂ¡rio."""
     try:
         modelo_principal = MODELO_PATH
         logging.info(
-            f"ðŸ” Verificando integridade do modelo: {modelo_principal}")
+            f"Ã°Å¸âÂ Verificando integridade do modelo: {modelo_principal}")
 
         # Verifica se modelo principal existe
         if os.path.exists(modelo_principal):
@@ -3612,31 +3616,31 @@ def verificar_e_proteger_modelo() -> bool:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
                     test_model = load_model(modelo_principal)
-                logging.debug("âœ… Modelo principal Ã­ntegro e carregÃ¡vel")
+                logging.debug("Ã¢Åâ¦ Modelo principal ÃÂ­ntegro e carregÃÂ¡vel")
                 return True
             except Exception as e:
-                logging.warning(f"âš ï¸ Modelo principal corrompido: {e}")
-                # Modelo existe mas estÃ¡ corrompido - tenta recuperar
+                logging.warning(f"Ã¢Å¡Â Ã¯Â¸Â Modelo principal corrompido: {e}")
+                # Modelo existe mas estÃÂ¡ corrompido - tenta recuperar
                 return recuperar_modelo_automaticamente()
         else:
             logging.warning(
-                "âš ï¸ Modelo principal nÃ£o encontrado - tentando recuperar")
+                "Ã¢Å¡Â Ã¯Â¸Â Modelo principal nÃÂ£o encontrado - tentando recuperar")
             return recuperar_modelo_automaticamente()
 
     except Exception as e:
-        logging.error(f"âŒ Erro na verificaÃ§Ã£o do modelo: {e}")
+        logging.error(f"Ã¢ÂÅ Erro na verificaÃÂ§ÃÂ£o do modelo: {e}")
         return False
 
 
 def recuperar_modelo_automaticamente() -> bool:
-    """ðŸš‘ RECUPERAÃ‡ÃƒO AUTOMÃTICA - Encontra e restaura backup do modelo."""
+    """Ã°Å¸Å¡â RECUPERAÃâ¡ÃÆO AUTOMÃÂTICA - Encontra e restaura backup do modelo."""
     try:
         modelo_principal = MODELO_PATH
 
         # Lista todas as possibilidades de backup
         opcoes_backup = []
 
-        # 1. Backup diÃ¡rio mais recente
+        # 1. Backup diÃÂ¡rio mais recente
         import glob
         backups_diarios = sorted(
             glob.glob(f"{modelo_principal}.backup_diario_*"), reverse=True)
@@ -3652,7 +3656,7 @@ def recuperar_modelo_automaticamente() -> bool:
         if os.path.exists(modelo_keras):
             opcoes_backup.append(modelo_keras)
 
-        # 4. Backups antigos do prÃ³prio sistema
+        # 4. Backups antigos do prÃÂ³prio sistema
         backups_antigos = sorted(
             glob.glob(f"{modelo_principal}.backup_*"), reverse=True)
         opcoes_backup.extend(backups_antigos)
@@ -3660,37 +3664,37 @@ def recuperar_modelo_automaticamente() -> bool:
         # Remove duplicatas mantendo ordem
         opcoes_backup = list(dict.fromkeys(opcoes_backup))
 
-        logging.info(f"ðŸ” Encontrados {len(opcoes_backup)} backups possÃ­veis")
+        logging.info(f"Ã°Å¸âÂ Encontrados {len(opcoes_backup)} backups possÃÂ­veis")
 
         # Tenta recuperar do backup mais recente
         for backup_path in opcoes_backup:
             try:
-                logging.info(f"ðŸš‘ Tentando recuperar de: {backup_path}")
+                logging.info(f"Ã°Å¸Å¡â Tentando recuperar de: {backup_path}")
 
-                # Testa se o backup Ã© vÃ¡lido
+                # Testa se o backup ÃÂ© vÃÂ¡lido
                 test_model = load_model(backup_path)
 
-                # Se chegou aqui, o backup Ã© vÃ¡lido - restaura
+                # Se chegou aqui, o backup ÃÂ© vÃÂ¡lido - restaura
                 shutil.copy2(backup_path, modelo_principal)
                 logging.info(
-                    f"âœ… MODELO RECUPERADO com sucesso de: {backup_path}")
+                    f"Ã¢Åâ¦ MODELO RECUPERADO com sucesso de: {backup_path}")
 
-                # Verifica se a recuperaÃ§Ã£o funcionou
+                # Verifica se a recuperaÃÂ§ÃÂ£o funcionou
                 final_test = load_model(modelo_principal)
-                logging.info("ðŸŽ‰ RECUPERAÃ‡ÃƒO CONFIRMADA - Modelo funcionando!")
+                logging.info("Ã°Å¸Å½â° RECUPERAÃâ¡ÃÆO CONFIRMADA - Modelo funcionando!")
                 return True
 
             except Exception as e:
-                logging.warning(f"âŒ Backup {backup_path} invÃ¡lido: {e}")
+                logging.warning(f"Ã¢ÂÅ Backup {backup_path} invÃÂ¡lido: {e}")
                 continue
 
         # Se chegou aqui, nenhum backup funcionou
-        logging.error("ðŸ’€ NENHUM BACKUP VÃLIDO ENCONTRADO!")
-        logging.info("ðŸ”§ Criando novo modelo do zero (Ãºltima opÃ§Ã£o)")
+        logging.error("Ã°Å¸ââ¬ NENHUM BACKUP VÃÂLIDO ENCONTRADO!")
+        logging.info("Ã°Å¸âÂ§ Criando novo modelo do zero (ÃÂºltima opÃÂ§ÃÂ£o)")
         return False
 
     except Exception as e:
-        logging.error(f"âŒ Erro na recuperaÃ§Ã£o automÃ¡tica: {e}")
+        logging.error(f"Ã¢ÂÅ Erro na recuperaÃÂ§ÃÂ£o automÃÂ¡tica: {e}")
         return False
 # endregion
 
@@ -3698,27 +3702,27 @@ def recuperar_modelo_automaticamente() -> bool:
 
 
 def calcular_score_distancia(preco_entrada: float, preco_saida: float, sl: float, tp: float) -> float:
-    """Calcula um score adicional baseado na distÃ¢ncia que o preÃ§o chegou do TP/SL.
+    """Calcula um score adicional baseado na distÃÂ¢ncia que o preÃÂ§o chegou do TP/SL.
 
     Returns:
         float: Score entre -1 e 1, onde:
             1.0 = Atingiu TP
             -1.0 = Atingiu SL
-            Valores intermediÃ¡rios baseados na proximidade
-            Com TP=0: score baseado apenas na distÃ¢ncia do SL (saÃ­da dinÃ¢mica)
+            Valores intermediÃÂ¡rios baseados na proximidade
+            Com TP=0: score baseado apenas na distÃÂ¢ncia do SL (saÃÂ­da dinÃÂ¢mica)
     """
-    # Calcula distÃ¢ncias totais
+    # Calcula distÃÂ¢ncias totais
     dist_total_sl = abs(sl - preco_entrada)
     if dist_total_sl == 0:
-        dist_total_sl = 1.0  # Evita divisÃ£o por zero
+        dist_total_sl = 1.0  # Evita divisÃÂ£o por zero
 
-    # Calcula distÃ¢ncia percorrida
+    # Calcula distÃÂ¢ncia percorrida
     dist_percorrida = preco_saida - preco_entrada
 
-    # Com TP=0 (saÃ­da dinÃ¢mica): score baseado na direÃ§Ã£o e magnitude
+    # Com TP=0 (saÃÂ­da dinÃÂ¢mica): score baseado na direÃÂ§ÃÂ£o e magnitude
     if tp == 0 or abs(tp - preco_entrada) < 0.01:
-        # Sem TP definido: score proporcional ao lucro/prejuÃ­zo em relaÃ§Ã£o ao SL
-        # Lucro positivo â†’ score positivo; PrejuÃ­zo â†’ score negativo
+        # Sem TP definido: score proporcional ao lucro/prejuÃÂ­zo em relaÃÂ§ÃÂ£o ao SL
+        # Lucro positivo Ã¢â â score positivo; PrejuÃÂ­zo Ã¢â â score negativo
         score = dist_percorrida / dist_total_sl
         return max(min(score, 1.0), -1.0)
 
@@ -3726,7 +3730,7 @@ def calcular_score_distancia(preco_entrada: float, preco_saida: float, sl: float
     if dist_total_tp == 0:
         dist_total_tp = 1.0
 
-    # Com TP definido: lÃ³gica original
+    # Com TP definido: lÃÂ³gica original
     if ((tp > preco_entrada and preco_saida > preco_entrada) or
             (tp < preco_entrada and preco_saida < preco_entrada)):
         score = dist_percorrida / dist_total_tp
@@ -3742,7 +3746,7 @@ def aguardar_abertura():
         segundos = (datetime.combine(datetime.today(),
                                      dtime(9, 0)) - datetime.now()).seconds
         logging.info(
-            f"â³ Aguardando abertura do pregÃ£o em {segundos//60}m{segundos % 60}sâ€¦")
+            f"Ã¢ÂÂ³ Aguardando abertura do pregÃÂ£o em {segundos//60}m{segundos % 60}sÃ¢â¬Â¦")
         while segundos > 0 and not verificar_parada_gracil():
             time.sleep(min(60, segundos))
             segundos -= 60
@@ -3750,22 +3754,22 @@ def aguardar_abertura():
 
 def aguardar_fechamento():
     agora = datetime.now().time()
-    if agora >= dtime(17, 35):  # ApÃ³s encerramento automÃ¡tico
+    if agora >= dtime(17, 35):  # ApÃÂ³s encerramento automÃÂ¡tico
         segundos = ((datetime.combine(datetime.today(), dtime(
             23, 59)) - datetime.now()).seconds + 60)
-        logging.info(f"ðŸŒ™ PregÃ£o encerrado. Dormindo atÃ© o prÃ³ximo dia Ãºtilâ€¦")
+        logging.info(f"Ã°Å¸Åâ¢ PregÃÂ£o encerrado. Dormindo atÃÂ© o prÃÂ³ximo dia ÃÂºtilÃ¢â¬Â¦")
         while segundos > 0 and not verificar_parada_gracil():
             time.sleep(min(60, segundos))
             segundos -= 60
 
 
-# region [Detector de CodificaÃ§Ã£o Robusto]
+# region [Detector de CodificaÃÂ§ÃÂ£o Robusto]
 class CSVEncodingDetector:
-    """Detector robusto de codificaÃ§Ã£o para arquivos CSV do EA."""
+    """Detector robusto de codificaÃÂ§ÃÂ£o para arquivos CSV do EA."""
 
     def __init__(self):
-        """Inicializa o detector com configuraÃ§Ãµes otimizadas."""
-        # Lista ordenada de codificaÃ§Ãµes por prioridade (mais comuns primeiro)
+        """Inicializa o detector com configuraÃÂ§ÃÂµes otimizadas."""
+        # Lista ordenada de codificaÃÂ§ÃÂµes por prioridade (mais comuns primeiro)
         self.encoding_priority = [
             'utf-8',           # Mais comum atualmente
             'utf-16-le',       # Windows UTF-16 Little Endian
@@ -3778,11 +3782,11 @@ class CSVEncodingDetector:
             'utf-32-be'        # UTF-32 Big Endian
         ]
 
-        # Cache de codificaÃ§Ã£o bem-sucedida por arquivo
+        # Cache de codificaÃÂ§ÃÂ£o bem-sucedida por arquivo
         self.encoding_cache = {}
         self.cache_ttl = 300  # 5 minutos de TTL para cache
 
-        # PadrÃµes BOM (Byte Order Mark)
+        # PadrÃÂµes BOM (Byte Order Mark)
         self.bom_patterns = {
             b'\xff\xfe\x00\x00': 'utf-32-le',
             b'\x00\x00\xfe\xff': 'utf-32-be',
@@ -3792,20 +3796,20 @@ class CSVEncodingDetector:
         }
 
     def detect_bom(self, file_path: str) -> Optional[str]:
-        """Detecta codificaÃ§Ã£o atravÃ©s do BOM (Byte Order Mark).
+        """Detecta codificaÃÂ§ÃÂ£o atravÃÂ©s do BOM (Byte Order Mark).
 
         Args:
             file_path: Caminho para o arquivo
 
         Returns:
-            CodificaÃ§Ã£o detectada ou None se nÃ£o houver BOM
+            CodificaÃÂ§ÃÂ£o detectada ou None se nÃÂ£o houver BOM
         """
         try:
             with open(file_path, 'rb') as f:
-                # LÃª os primeiros 4 bytes para detectar BOM
+                # LÃÂª os primeiros 4 bytes para detectar BOM
                 bom_bytes = f.read(4)
 
-            # Verifica padrÃµes BOM em ordem de tamanho (maior primeiro)
+            # Verifica padrÃÂµes BOM em ordem de tamanho (maior primeiro)
             for bom_pattern, encoding in self.bom_patterns.items():
                 if bom_bytes.startswith(bom_pattern):
                     logging.debug(
@@ -3819,30 +3823,30 @@ class CSVEncodingDetector:
             return None
 
     def detect_by_content(self, file_path: str) -> Optional[str]:
-        """Detecta codificaÃ§Ã£o analisando o conteÃºdo do arquivo.
+        """Detecta codificaÃÂ§ÃÂ£o analisando o conteÃÂºdo do arquivo.
 
         Args:
             file_path: Caminho para o arquivo
 
         Returns:
-            CodificaÃ§Ã£o mais provÃ¡vel ou None
+            CodificaÃÂ§ÃÂ£o mais provÃÂ¡vel ou None
         """
         try:
-            # LÃª uma amostra do arquivo para anÃ¡lise
+            # LÃÂª uma amostra do arquivo para anÃÂ¡lise
             with open(file_path, 'rb') as f:
                 sample = f.read(1024)  # Primeiros 1KB
 
             if not sample:
                 return None
 
-            # Tenta decodificar com cada codificaÃ§Ã£o
+            # Tenta decodificar com cada codificaÃÂ§ÃÂ£o
             encoding_scores = {}
 
             for encoding in self.encoding_priority:
                 try:
                     decoded = sample.decode(encoding)
 
-                    # Calcula score baseado em caracterÃ­sticas do conteÃºdo
+                    # Calcula score baseado em caracterÃÂ­sticas do conteÃÂºdo
                     score = self._calculate_content_score(decoded, encoding)
                     encoding_scores[encoding] = score
 
@@ -3852,27 +3856,27 @@ class CSVEncodingDetector:
             if not encoding_scores:
                 return None
 
-            # Retorna codificaÃ§Ã£o com maior score
+            # Retorna codificaÃÂ§ÃÂ£o com maior score
             best_encoding = max(encoding_scores, key=encoding_scores.get)
             best_score = encoding_scores[best_encoding]
 
             logging.debug(
-                f"[CSVEncodingDetector] Melhor codificaÃ§Ã£o por conteÃºdo: {best_encoding} (score: {best_score:.2f})")
+                f"[CSVEncodingDetector] Melhor codificaÃÂ§ÃÂ£o por conteÃÂºdo: {best_encoding} (score: {best_score:.2f})")
 
-            # SÃ³ retorna se o score for razoÃ¡vel
+            # SÃÂ³ retorna se o score for razoÃÂ¡vel
             return best_encoding if best_score > 0.5 else None
 
         except Exception as e:
             logging.debug(
-                f"[CSVEncodingDetector] Erro na detecÃ§Ã£o por conteÃºdo: {e}")
+                f"[CSVEncodingDetector] Erro na detecÃÂ§ÃÂ£o por conteÃÂºdo: {e}")
             return None
 
     def _calculate_content_score(self, content: str, encoding: str) -> float:
-        """Calcula score de qualidade para uma decodificaÃ§Ã£o.
+        """Calcula score de qualidade para uma decodificaÃÂ§ÃÂ£o.
 
         Args:
-            content: ConteÃºdo decodificado
-            encoding: CodificaÃ§Ã£o utilizada
+            content: ConteÃÂºdo decodificado
+            encoding: CodificaÃÂ§ÃÂ£o utilizada
 
         Returns:
             Score de 0.0 a 1.0 (maior = melhor)
@@ -3882,12 +3886,12 @@ class CSVEncodingDetector:
 
         score = 0.0
 
-        # Bonus para caracteres ASCII vÃ¡lidos (nÃºmeros, vÃ­rgulas, quebras de linha)
+        # Bonus para caracteres ASCII vÃÂ¡lidos (nÃÂºmeros, vÃÂ­rgulas, quebras de linha)
         ascii_chars = sum(1 for c in content if ord(c) < 128)
         ascii_ratio = ascii_chars / len(content)
         score += ascii_ratio * 0.4
 
-        # Bonus para padrÃµes esperados no CSV do book (nÃºmeros e vÃ­rgulas)
+        # Bonus para padrÃÂµes esperados no CSV do book (nÃÂºmeros e vÃÂ­rgulas)
         digit_comma_chars = sum(
             1 for c in content if c.isdigit() or c in ',\r\n ')
         pattern_ratio = digit_comma_chars / len(content)
@@ -3900,7 +3904,7 @@ class CSVEncodingDetector:
             control_ratio = control_chars / len(content)
             score -= control_ratio * 0.3
 
-        # Bonus para codificaÃ§Ãµes mais comuns
+        # Bonus para codificaÃÂ§ÃÂµes mais comuns
         encoding_bonus = {
             'utf-8': 0.2,
             'utf-16-le': 0.1,
@@ -3912,13 +3916,13 @@ class CSVEncodingDetector:
         return max(0.0, min(1.0, score))
 
     def get_cached_encoding(self, file_path: str) -> Optional[str]:
-        """ObtÃ©m codificaÃ§Ã£o do cache se ainda vÃ¡lida.
+        """ObtÃÂ©m codificaÃÂ§ÃÂ£o do cache se ainda vÃÂ¡lida.
 
         Args:
             file_path: Caminho para o arquivo
 
         Returns:
-            CodificaÃ§Ã£o em cache ou None se expirada/inexistente
+            CodificaÃÂ§ÃÂ£o em cache ou None se expirada/inexistente
         """
         if file_path not in self.encoding_cache:
             return None
@@ -3926,38 +3930,38 @@ class CSVEncodingDetector:
         cached_data = self.encoding_cache[file_path]
         cache_time = cached_data.get('timestamp', 0)
 
-        # Verifica se cache ainda Ã© vÃ¡lido
+        # Verifica se cache ainda ÃÂ© vÃÂ¡lido
         if time.time() - cache_time > self.cache_ttl:
             del self.encoding_cache[file_path]
             return None
 
         encoding = cached_data.get('encoding')
         logging.debug(
-            f"[CSVEncodingDetector] Usando codificaÃ§Ã£o em cache: {encoding}")
+            f"[CSVEncodingDetector] Usando codificaÃÂ§ÃÂ£o em cache: {encoding}")
         return encoding
 
     def cache_encoding(self, file_path: str, encoding: str):
-        """Armazena codificaÃ§Ã£o bem-sucedida no cache.
+        """Armazena codificaÃÂ§ÃÂ£o bem-sucedida no cache.
 
         Args:
             file_path: Caminho para o arquivo
-            encoding: CodificaÃ§Ã£o que funcionou
+            encoding: CodificaÃÂ§ÃÂ£o que funcionou
         """
         self.encoding_cache[file_path] = {
             'encoding': encoding,
             'timestamp': time.time()
         }
         logging.debug(
-            f"[CSVEncodingDetector] CodificaÃ§Ã£o {encoding} armazenada em cache")
+            f"[CSVEncodingDetector] CodificaÃÂ§ÃÂ£o {encoding} armazenada em cache")
 
     def detect_encoding(self, file_path: str) -> List[str]:
-        """Detecta a melhor codificaÃ§Ã£o para um arquivo CSV.
+        """Detecta a melhor codificaÃÂ§ÃÂ£o para um arquivo CSV.
 
         Args:
             file_path: Caminho para o arquivo
 
         Returns:
-            Lista ordenada de codificaÃ§Ãµes para tentar (mais provÃ¡vel primeiro)
+            Lista ordenada de codificaÃÂ§ÃÂµes para tentar (mais provÃÂ¡vel primeiro)
         """
         if not os.path.exists(file_path):
             return self.encoding_priority.copy()
@@ -3965,7 +3969,7 @@ class CSVEncodingDetector:
         # 1. Verifica cache primeiro
         cached_encoding = self.get_cached_encoding(file_path)
         if cached_encoding:
-            # Move codificaÃ§Ã£o em cache para o inÃ­cio da lista
+            # Move codificaÃÂ§ÃÂ£o em cache para o inÃÂ­cio da lista
             encodings = [cached_encoding] + \
                 [e for e in self.encoding_priority if e != cached_encoding]
             return encodings
@@ -3973,24 +3977,24 @@ class CSVEncodingDetector:
         # 2. Tenta detectar por BOM
         bom_encoding = self.detect_bom(file_path)
         if bom_encoding:
-            # Move codificaÃ§Ã£o detectada por BOM para o inÃ­cio
+            # Move codificaÃÂ§ÃÂ£o detectada por BOM para o inÃÂ­cio
             encodings = [bom_encoding] + \
                 [e for e in self.encoding_priority if e != bom_encoding]
             return encodings
 
-        # 3. Tenta detectar por conteÃºdo
+        # 3. Tenta detectar por conteÃÂºdo
         content_encoding = self.detect_by_content(file_path)
         if content_encoding:
-            # Move codificaÃ§Ã£o detectada por conteÃºdo para o inÃ­cio
+            # Move codificaÃÂ§ÃÂ£o detectada por conteÃÂºdo para o inÃÂ­cio
             encodings = [content_encoding] + \
                 [e for e in self.encoding_priority if e != content_encoding]
             return encodings
 
-        # 4. Retorna lista padrÃ£o se nenhuma detecÃ§Ã£o funcionou
+        # 4. Retorna lista padrÃÂ£o se nenhuma detecÃÂ§ÃÂ£o funcionou
         return self.encoding_priority.copy()
 
 
-# InstÃ¢ncia global do detector
+# InstÃÂ¢ncia global do detector
 _csv_encoding_detector = CSVEncodingDetector()
 
 # region [Validador de Dados do Book]
@@ -4000,20 +4004,20 @@ class CSVDataValidator:
     """Validador robusto de dados do book de ofertas."""
 
     def __init__(self):
-        """Inicializa o validador com configuraÃ§Ãµes de validaÃ§Ã£o."""
-        # Limites de validaÃ§Ã£o
+        """Inicializa o validador com configuraÃÂ§ÃÂµes de validaÃÂ§ÃÂ£o."""
+        # Limites de validaÃÂ§ÃÂ£o
         self.min_volume = 1
-        self.max_volume = 100000  # Volume mÃ¡ximo razoÃ¡vel por nÃ­vel
-        self.min_levels = 1       # MÃ­nimo de nÃ­veis por lado
-        self.max_levels = 50      # MÃ¡ximo de nÃ­veis por lado
-        self.min_total_volume = 10  # Volume total mÃ­nimo por lado
-        self.max_total_volume = 1000000  # Volume total mÃ¡ximo por lado
+        self.max_volume = 100000  # Volume mÃÂ¡ximo razoÃÂ¡vel por nÃÂ­vel
+        self.min_levels = 1       # MÃÂ­nimo de nÃÂ­veis por lado
+        self.max_levels = 50      # MÃÂ¡ximo de nÃÂ­veis por lado
+        self.min_total_volume = 10  # Volume total mÃÂ­nimo por lado
+        self.max_total_volume = 1000000  # Volume total mÃÂ¡ximo por lado
 
-        # ConfiguraÃ§Ãµes de sanitizaÃ§Ã£o
+        # ConfiguraÃÂ§ÃÂµes de sanitizaÃÂ§ÃÂ£o
         self.enable_sanitization = True
         self.strict_mode = False  # Se True, rejeita dados com qualquer problema
 
-        # EstatÃ­sticas de validaÃ§Ã£o
+        # EstatÃÂ­sticas de validaÃÂ§ÃÂ£o
         self.validation_stats = {
             'total_validations': 0,
             'successful_validations': 0,
@@ -4027,10 +4031,10 @@ class CSVDataValidator:
 
         Args:
             volumes: Lista de volumes para validar
-            side: "bids" ou "asks" para identificaÃ§Ã£o
+            side: "bids" ou "asks" para identificaÃÂ§ÃÂ£o
 
         Returns:
-            DicionÃ¡rio com resultado da validaÃ§Ã£o
+            DicionÃÂ¡rio com resultado da validaÃÂ§ÃÂ£o
         """
         result = {
             'valid': True,
@@ -4046,18 +4050,18 @@ class CSVDataValidator:
             result['issues'].append(f"Lista de {side} vazia")
             return result
 
-        # ValidaÃ§Ã£o bÃ¡sica de tipos
+        # ValidaÃÂ§ÃÂ£o bÃÂ¡sica de tipos
         if not all(isinstance(v, (int, float)) for v in volumes):
-            result['issues'].append(f"Tipos invÃ¡lidos em {side}")
+            result['issues'].append(f"Tipos invÃÂ¡lidos em {side}")
             if not self.enable_sanitization:
                 result['valid'] = False
                 return result
 
-        # SanitizaÃ§Ã£o e validaÃ§Ã£o de volumes individuais
+        # SanitizaÃÂ§ÃÂ£o e validaÃÂ§ÃÂ£o de volumes individuais
         sanitized = []
         for i, volume in enumerate(volumes):
             try:
-                # Converte para int se necessÃ¡rio
+                # Converte para int se necessÃÂ¡rio
                 vol_int = int(volume) if isinstance(volume, float) else volume
 
                 # Valida limites
@@ -4065,7 +4069,7 @@ class CSVDataValidator:
                     result['issues'].append(
                         f"Volume muito baixo em {side}[{i}]: {vol_int}")
                     if self.enable_sanitization:
-                        continue  # Remove volume invÃ¡lido
+                        continue  # Remove volume invÃÂ¡lido
                     else:
                         result['valid'] = False
                         return result
@@ -4074,7 +4078,7 @@ class CSVDataValidator:
                     result['issues'].append(
                         f"Volume muito alto em {side}[{i}]: {vol_int}")
                     if self.enable_sanitization:
-                        vol_int = self.max_volume  # Limita ao mÃ¡ximo
+                        vol_int = self.max_volume  # Limita ao mÃÂ¡ximo
                     else:
                         result['valid'] = False
                         return result
@@ -4091,17 +4095,17 @@ class CSVDataValidator:
         result['sanitized_count'] = len(sanitized)
         result['total_volume'] = sum(sanitized)
 
-        # ValidaÃ§Ã£o de contagem de nÃ­veis
+        # ValidaÃÂ§ÃÂ£o de contagem de nÃÂ­veis
         if len(sanitized) < self.min_levels:
             result['issues'].append(
-                f"Poucos nÃ­veis em {side}: {len(sanitized)} < {self.min_levels}")
+                f"Poucos nÃÂ­veis em {side}: {len(sanitized)} < {self.min_levels}")
             if self.strict_mode:
                 result['valid'] = False
                 return result
 
         if len(sanitized) > self.max_levels:
             result['issues'].append(
-                f"Muitos nÃ­veis em {side}: {len(sanitized)} > {self.max_levels}")
+                f"Muitos nÃÂ­veis em {side}: {len(sanitized)} > {self.max_levels}")
             if self.enable_sanitization:
                 result['sanitized_volumes'] = sanitized[:self.max_levels]
                 result['sanitized_count'] = self.max_levels
@@ -4110,7 +4114,7 @@ class CSVDataValidator:
                 result['valid'] = False
                 return result
 
-        # ValidaÃ§Ã£o de volume total
+        # ValidaÃÂ§ÃÂ£o de volume total
         if result['total_volume'] < self.min_total_volume:
             result['issues'].append(
                 f"Volume total muito baixo em {side}: {result['total_volume']}")
@@ -4128,46 +4132,46 @@ class CSVDataValidator:
         return result
 
     def detect_suspicious_patterns(self, bids: List[int], asks: List[int]) -> List[str]:
-        """Detecta padrÃµes suspeitos nos dados do book.
+        """Detecta padrÃÂµes suspeitos nos dados do book.
 
         Args:
             bids: Lista de volumes de compra
             asks: Lista de volumes de venda
 
         Returns:
-            Lista de alertas sobre padrÃµes suspeitos
+            Lista de alertas sobre padrÃÂµes suspeitos
         """
         alerts = []
 
         if not bids or not asks:
             return alerts
 
-        # PadrÃ£o 1: Todos os volumes iguais (suspeito)
+        # PadrÃÂ£o 1: Todos os volumes iguais (suspeito)
         if len(set(bids)) == 1 and len(bids) > 3:
-            alerts.append(f"Todos os volumes BID sÃ£o iguais: {bids[0]}")
+            alerts.append(f"Todos os volumes BID sÃÂ£o iguais: {bids[0]}")
 
         if len(set(asks)) == 1 and len(asks) > 3:
-            alerts.append(f"Todos os volumes ASK sÃ£o iguais: {asks[0]}")
+            alerts.append(f"Todos os volumes ASK sÃÂ£o iguais: {asks[0]}")
 
-        # PadrÃ£o 2: DesequilÃ­brio extremo
+        # PadrÃÂ£o 2: DesequilÃÂ­brio extremo
         total_bids = sum(bids)
         total_asks = sum(asks)
 
         if total_bids > 0 and total_asks > 0:
             ratio = max(total_bids, total_asks) / min(total_bids, total_asks)
-            if ratio > 10:  # DesequilÃ­brio de 10:1
+            if ratio > 10:  # DesequilÃÂ­brio de 10:1
                 alerts.append(
-                    f"DesequilÃ­brio extremo BID/ASK: {total_bids}/{total_asks} (ratio: {ratio:.1f})")
+                    f"DesequilÃÂ­brio extremo BID/ASK: {total_bids}/{total_asks} (ratio: {ratio:.1f})")
 
-        # PadrÃ£o 3: Volumes muito baixos generalizados
+        # PadrÃÂ£o 3: Volumes muito baixos generalizados
         avg_bid = sum(bids) / len(bids) if bids else 0
         avg_ask = sum(asks) / len(asks) if asks else 0
 
         if avg_bid < 5 and avg_ask < 5:
             alerts.append(
-                f"Volumes mÃ©dios muito baixos: BID={avg_bid:.1f}, ASK={avg_ask:.1f}")
+                f"Volumes mÃÂ©dios muito baixos: BID={avg_bid:.1f}, ASK={avg_ask:.1f}")
 
-        # PadrÃ£o 4: SequÃªncia suspeita (nÃºmeros consecutivos)
+        # PadrÃÂ£o 4: SequÃÂªncia suspeita (nÃÂºmeros consecutivos)
         if len(bids) >= 5:
             consecutive_count = 0
             for i in range(1, len(bids)):
@@ -4175,8 +4179,8 @@ class CSVDataValidator:
                     consecutive_count += 1
                 else:
                     consecutive_count = 0
-                if consecutive_count >= 4:  # 5 nÃºmeros quase consecutivos
-                    alerts.append("SequÃªncia suspeita detectada em BIDs")
+                if consecutive_count >= 4:  # 5 nÃÂºmeros quase consecutivos
+                    alerts.append("SequÃÂªncia suspeita detectada em BIDs")
                     break
 
         return alerts
@@ -4185,10 +4189,10 @@ class CSVDataValidator:
         """Valida dados completos do book de ofertas.
 
         Args:
-            book_data: DicionÃ¡rio com 'bids' e 'asks'
+            book_data: DicionÃÂ¡rio com 'bids' e 'asks'
 
         Returns:
-            Resultado completo da validaÃ§Ã£o com dados sanitizados
+            Resultado completo da validaÃÂ§ÃÂ£o com dados sanitizados
         """
         self.validation_stats['total_validations'] += 1
 
@@ -4203,7 +4207,7 @@ class CSVDataValidator:
 
         if not book_data or not isinstance(book_data, dict):
             result['valid'] = False
-            result['issues'].append("Dados do book invÃ¡lidos ou nulos")
+            result['issues'].append("Dados do book invÃÂ¡lidos ou nulos")
             result['recommendation'] = 'reject'
             self.validation_stats['rejected_data'] += 1
             return result
@@ -4232,13 +4236,13 @@ class CSVDataValidator:
             'asks': ask_validation['sanitized_volumes']
         }
 
-        # Detecta padrÃµes suspeitos
+        # Detecta padrÃÂµes suspeitos
         result['suspicious_patterns'] = self.detect_suspicious_patterns(
             bid_validation['sanitized_volumes'],
             ask_validation['sanitized_volumes']
         )
 
-        # EstatÃ­sticas
+        # EstatÃÂ­sticas
         result['statistics'] = {
             'bid_levels': bid_validation['sanitized_count'],
             'ask_levels': ask_validation['sanitized_count'],
@@ -4249,7 +4253,7 @@ class CSVDataValidator:
             if ask_validation['total_volume'] > 0 else float('inf')
         }
 
-        # Determina recomendaÃ§Ã£o final
+        # Determina recomendaÃÂ§ÃÂ£o final
         if result['issues'] or result['suspicious_patterns']:
             if self.enable_sanitization and not self.strict_mode:
                 result['recommendation'] = 'sanitize'
@@ -4260,7 +4264,7 @@ class CSVDataValidator:
                 self.validation_stats['rejected_data'] += 1
                 return result
 
-        # Atualiza estatÃ­sticas de issues comuns
+        # Atualiza estatÃÂ­sticas de issues comuns
         for issue in result['issues']:
             issue_type = issue.split(':')[0] if ':' in issue else issue
             self.validation_stats['common_issues'][issue_type] = self.validation_stats['common_issues'].get(
@@ -4270,7 +4274,7 @@ class CSVDataValidator:
         return result
 
     def get_validation_statistics(self) -> Dict[str, Any]:
-        """Retorna estatÃ­sticas de validaÃ§Ã£o acumuladas."""
+        """Retorna estatÃÂ­sticas de validaÃÂ§ÃÂ£o acumuladas."""
         stats = self.validation_stats.copy()
 
         if stats['total_validations'] > 0:
@@ -4288,7 +4292,7 @@ class CSVDataValidator:
         return stats
 
     def reset_statistics(self):
-        """Reseta as estatÃ­sticas de validaÃ§Ã£o."""
+        """Reseta as estatÃÂ­sticas de validaÃÂ§ÃÂ£o."""
         self.validation_stats = {
             'total_validations': 0,
             'successful_validations': 0,
@@ -4298,28 +4302,28 @@ class CSVDataValidator:
         }
 
 
-# InstÃ¢ncia global do validador
+# InstÃÂ¢ncia global do validador
 _csv_data_validator = CSVDataValidator()
 
 # region [Sistema de Retry com Backoff Exponencial]
 
 
 class RetryManager:
-    """Gerenciador de tentativas com backoff exponencial para operaÃ§Ãµes de I/O."""
+    """Gerenciador de tentativas com backoff exponencial para operaÃÂ§ÃÂµes de I/O."""
 
     def __init__(self, max_retries: int = 5, base_delay: float = 0.1, max_delay: float = 2.0):
         """Inicializa o gerenciador de retry.
 
         Args:
-            max_retries: NÃºmero mÃ¡ximo de tentativas
+            max_retries: NÃÂºmero mÃÂ¡ximo de tentativas
             base_delay: Delay inicial em segundos
-            max_delay: Delay mÃ¡ximo em segundos
+            max_delay: Delay mÃÂ¡ximo em segundos
         """
         self.max_retries = max_retries
         self.base_delay = base_delay
         self.max_delay = max_delay
 
-        # EstatÃ­sticas de retry
+        # EstatÃÂ­sticas de retry
         self.retry_stats = {
             'total_operations': 0,
             'successful_operations': 0,
@@ -4330,10 +4334,10 @@ class RetryManager:
         }
 
     def calculate_delay(self, attempt: int) -> float:
-        """Calcula o delay para uma tentativa especÃ­fica usando backoff exponencial.
+        """Calcula o delay para uma tentativa especÃÂ­fica usando backoff exponencial.
 
         Args:
-            attempt: NÃºmero da tentativa (0-based)
+            attempt: NÃÂºmero da tentativa (0-based)
 
         Returns:
             Delay em segundos
@@ -4341,19 +4345,19 @@ class RetryManager:
         # Backoff exponencial: base_delay * (2 ^ attempt)
         delay = self.base_delay * (2 ** attempt)
 
-        # Adiciona jitter (variaÃ§Ã£o aleatÃ³ria) para evitar thundering herd
+        # Adiciona jitter (variaÃÂ§ÃÂ£o aleatÃÂ³ria) para evitar thundering herd
         jitter = random.uniform(0.8, 1.2)
         delay *= jitter
 
-        # Limita ao delay mÃ¡ximo
+        # Limita ao delay mÃÂ¡ximo
         return min(delay, self.max_delay)
 
     def should_retry(self, exception: Exception, attempt: int) -> bool:
         """Determina se deve tentar novamente baseado no tipo de erro e tentativa.
 
         Args:
-            exception: ExceÃ§Ã£o que ocorreu
-            attempt: NÃºmero da tentativa atual
+            exception: ExceÃÂ§ÃÂ£o que ocorreu
+            attempt: NÃÂºmero da tentativa atual
 
         Returns:
             True se deve tentar novamente
@@ -4366,41 +4370,41 @@ class RetryManager:
             PermissionError,      # Arquivo em uso
             FileNotFoundError,    # Arquivo temporariamente inexistente
             OSError,              # Problemas de I/O gerais
-            # Problemas de codificaÃ§Ã£o (pode ser temporÃ¡rio)
+            # Problemas de codificaÃÂ§ÃÂ£o (pode ser temporÃÂ¡rio)
             UnicodeDecodeError,
-            IOError               # Problemas de entrada/saÃ­da
+            IOError               # Problemas de entrada/saÃÂ­da
         )
 
         return isinstance(exception, retryable_errors)
 
     def get_error_strategy(self, exception: Exception) -> Dict[str, Any]:
-        """Retorna estratÃ©gia especÃ­fica para cada tipo de erro.
+        """Retorna estratÃÂ©gia especÃÂ­fica para cada tipo de erro.
 
         Args:
-            exception: ExceÃ§Ã£o que ocorreu
+            exception: ExceÃÂ§ÃÂ£o que ocorreu
 
         Returns:
-            DicionÃ¡rio com estratÃ©gia de tratamento
+            DicionÃÂ¡rio com estratÃÂ©gia de tratamento
         """
         if isinstance(exception, PermissionError):
             return {
                 'delay_multiplier': 1.5,  # Aguarda mais tempo para arquivo em uso
-                'max_retries': 3,         # Menos tentativas para nÃ£o sobrecarregar
+                'max_retries': 3,         # Menos tentativas para nÃÂ£o sobrecarregar
                 'description': 'Arquivo em uso pelo EA'
             }
 
         elif isinstance(exception, FileNotFoundError):
             return {
                 'delay_multiplier': 1.0,  # Delay normal
-                'max_retries': 4,         # Mais tentativas para aguardar criaÃ§Ã£o
-                'description': 'Arquivo nÃ£o encontrado'
+                'max_retries': 4,         # Mais tentativas para aguardar criaÃÂ§ÃÂ£o
+                'description': 'Arquivo nÃÂ£o encontrado'
             }
 
         elif isinstance(exception, UnicodeDecodeError):
             return {
-                'delay_multiplier': 0.5,  # Delay menor, problema pode ser rÃ¡pido
-                'max_retries': 2,         # Poucas tentativas, detector jÃ¡ tenta outras codificaÃ§Ãµes
-                'description': 'Erro de codificaÃ§Ã£o'
+                'delay_multiplier': 0.5,  # Delay menor, problema pode ser rÃÂ¡pido
+                'max_retries': 2,         # Poucas tentativas, detector jÃÂ¡ tenta outras codificaÃÂ§ÃÂµes
+                'description': 'Erro de codificaÃÂ§ÃÂ£o'
             }
 
         elif isinstance(exception, (OSError, IOError)):
@@ -4418,15 +4422,15 @@ class RetryManager:
             }
 
     def execute_with_retry(self, operation_func, *args, **kwargs):
-        """Executa uma operaÃ§Ã£o com retry automÃ¡tico.
+        """Executa uma operaÃÂ§ÃÂ£o com retry automÃÂ¡tico.
 
         Args:
-            operation_func: FunÃ§Ã£o a ser executada
-            *args: Argumentos posicionais para a funÃ§Ã£o
-            **kwargs: Argumentos nomeados para a funÃ§Ã£o
+            operation_func: FunÃÂ§ÃÂ£o a ser executada
+            *args: Argumentos posicionais para a funÃÂ§ÃÂ£o
+            **kwargs: Argumentos nomeados para a funÃÂ§ÃÂ£o
 
         Returns:
-            Resultado da operaÃ§Ã£o ou None se todas as tentativas falharam
+            Resultado da operaÃÂ§ÃÂ£o ou None se todas as tentativas falharam
         """
         self.retry_stats['total_operations'] += 1
         last_exception = None
@@ -4434,14 +4438,14 @@ class RetryManager:
         # +1 para incluir tentativa inicial
         for attempt in range(self.max_retries + 1):
             try:
-                # Tenta executar a operaÃ§Ã£o
+                # Tenta executar a operaÃÂ§ÃÂ£o
                 result = operation_func(*args, **kwargs)
 
                 # Sucesso!
                 if attempt > 0:  # Se houve retry
                     self.retry_stats['total_retries'] += attempt
                     logging.info(
-                        f"[RetryManager] OperaÃ§Ã£o bem-sucedida apÃ³s {attempt} tentativas")
+                        f"[RetryManager] OperaÃÂ§ÃÂ£o bem-sucedida apÃÂ³s {attempt} tentativas")
 
                 self.retry_stats['successful_operations'] += 1
                 self._update_avg_retries()
@@ -4451,27 +4455,27 @@ class RetryManager:
                 last_exception = e
                 error_type = type(e).__name__
 
-                # Atualiza estatÃ­sticas de erro
+                # Atualiza estatÃÂ­sticas de erro
                 self.retry_stats['error_types'][error_type] = self.retry_stats['error_types'].get(
                     error_type, 0) + 1
 
                 # Verifica se deve tentar novamente
                 if not self.should_retry(e, attempt):
                     logging.debug(
-                        f"[RetryManager] NÃ£o tentando novamente: {error_type} (tentativa {attempt + 1})")
+                        f"[RetryManager] NÃÂ£o tentando novamente: {error_type} (tentativa {attempt + 1})")
                     break
 
-                # ObtÃ©m estratÃ©gia especÃ­fica para o erro
+                # ObtÃÂ©m estratÃÂ©gia especÃÂ­fica para o erro
                 strategy = self.get_error_strategy(e)
 
-                # Calcula delay ajustado pela estratÃ©gia
+                # Calcula delay ajustado pela estratÃÂ©gia
                 base_delay = self.calculate_delay(attempt)
                 adjusted_delay = base_delay * strategy['delay_multiplier']
 
                 logging.debug(f"[RetryManager] {strategy['description']} - Tentativa {attempt + 1}/{self.max_retries + 1}, "
                               f"aguardando {adjusted_delay:.2f}s")
 
-                # Aguarda antes da prÃ³xima tentativa
+                # Aguarda antes da prÃÂ³xima tentativa
                 time.sleep(adjusted_delay)
 
         # Todas as tentativas falharam
@@ -4479,19 +4483,19 @@ class RetryManager:
         self.retry_stats['total_retries'] += self.max_retries
         self._update_avg_retries()
 
-        logging.warning(f"[RetryManager] OperaÃ§Ã£o falhou apÃ³s {self.max_retries + 1} tentativas. "
-                        f"Ãšltimo erro: {last_exception}")
+        logging.warning(f"[RetryManager] OperaÃÂ§ÃÂ£o falhou apÃÂ³s {self.max_retries + 1} tentativas. "
+                        f"ÃÅ¡ltimo erro: {last_exception}")
 
         return None
 
     def _update_avg_retries(self):
-        """Atualiza a mÃ©dia de retries por operaÃ§Ã£o."""
+        """Atualiza a mÃÂ©dia de retries por operaÃÂ§ÃÂ£o."""
         if self.retry_stats['total_operations'] > 0:
             self.retry_stats['avg_retries_per_operation'] = self.retry_stats['total_retries'] / \
                 self.retry_stats['total_operations']
 
     def get_statistics(self) -> Dict[str, Any]:
-        """Retorna estatÃ­sticas do gerenciador de retry."""
+        """Retorna estatÃÂ­sticas do gerenciador de retry."""
         stats = self.retry_stats.copy()
 
         if stats['total_operations'] > 0:
@@ -4506,7 +4510,7 @@ class RetryManager:
         return stats
 
     def reset_statistics(self):
-        """Reseta as estatÃ­sticas do retry manager."""
+        """Reseta as estatÃÂ­sticas do retry manager."""
         self.retry_stats = {
             'total_operations': 0,
             'successful_operations': 0,
@@ -4517,7 +4521,7 @@ class RetryManager:
         }
 
 
-# InstÃ¢ncia global do retry manager
+# InstÃÂ¢ncia global do retry manager
 _retry_manager = RetryManager(max_retries=5, base_delay=0.1, max_delay=2.0)
 # endregion
 
@@ -4525,21 +4529,21 @@ _retry_manager = RetryManager(max_retries=5, base_delay=0.1, max_delay=2.0)
 def ler_book_nativo() -> Optional[Dict[str, Any]]:
     """
     ========================================================================
-    ðŸ“¡ LEITURA NATIVA DO BOOK (Depth of Market) DIRETO DO METATRADER 5
+    Ã°Å¸âÂ¡ LEITURA NATIVA DO BOOK (Depth of Market) DIRETO DO METATRADER 5
     ------------------------------------------------------------------------
     Substitui a antiga leitura do arquivo book_data_wdo.csv gerado pelo EA.
-    Os dados vÃªm da memÃ³ria do terminal via mt5.market_book_get(SYMBOL),
-    eliminando latÃªncia de escrita/leitura em disco e "dados congelados".
+    Os dados vÃÂªm da memÃÂ³ria do terminal via mt5.market_book_get(SYMBOL),
+    eliminando latÃÂªncia de escrita/leitura em disco e "dados congelados".
 
-    A subscriÃ§Ã£o Ã© feita uma Ãºnica vez com mt5.market_book_add(SYMBOL) na
-    inicializaÃ§Ã£o (funÃ§Ã£o inicializar_mt5) e cancelada com
+    A subscriÃÂ§ÃÂ£o ÃÂ© feita uma ÃÂºnica vez com mt5.market_book_add(SYMBOL) na
+    inicializaÃÂ§ÃÂ£o (funÃÂ§ÃÂ£o inicializar_mt5) e cancelada com
     mt5.market_book_release(SYMBOL) no encerramento.
 
-    Estrutura BookInfo retornada pelo MT5 (ver documentaÃ§Ã£o oficial):
-        type=1 -> ordem de VENDA  (ASK, preÃ§os acima do mercado)
-        type=2 -> ordem de COMPRA (BID, preÃ§os abaixo do mercado)
+    Estrutura BookInfo retornada pelo MT5 (ver documentaÃÂ§ÃÂ£o oficial):
+        type=1 -> ordem de VENDA  (ASK, preÃÂ§os acima do mercado)
+        type=2 -> ordem de COMPRA (BID, preÃÂ§os abaixo do mercado)
         type=3 -> venda a mercado / type=4 -> compra a mercado
-    Convertemos para o MESMO formato dict que o resto do cÃ³digo jÃ¡ usa:
+    Convertemos para o MESMO formato dict que o resto do cÃÂ³digo jÃÂ¡ usa:
         {
           'bids': [{'price': p, 'volume': v}, ...],  # ordenado do melhor p/ pior
           'asks': [{'price': p, 'volume': v}, ...],
@@ -4570,10 +4574,10 @@ def ler_book_nativo() -> Optional[Dict[str, Any]]:
     asks: List[Dict[str, float]] = []
 
     for it in items:
-        # it pode ser BookInfo (namedtuple) â€” acessa por atributo
+        # it pode ser BookInfo (namedtuple) Ã¢â¬â acessa por atributo
         tipo = getattr(it, 'type', None)
         preco = getattr(it, 'price', 0.0)
-        # volume_dbl Ã© mais preciso; cai para volume se nÃ£o existir
+        # volume_dbl ÃÂ© mais preciso; cai para volume se nÃÂ£o existir
         vol = getattr(it, 'volume_dbl', None)
         if vol is None or vol == 0:
             vol = getattr(it, 'volume', 0)
@@ -4592,19 +4596,19 @@ def ler_book_nativo() -> Optional[Dict[str, Any]]:
     if not bids or not asks:
         return None
 
-    # Ordena: melhor BID = maior preÃ§o primeiro | melhor ASK = menor preÃ§o primeiro
+    # Ordena: melhor BID = maior preÃÂ§o primeiro | melhor ASK = menor preÃÂ§o primeiro
     bids.sort(key=lambda x: x['price'], reverse=True)
     asks.sort(key=lambda x: x['price'])
 
     total_bid_volume = sum(b['volume'] for b in bids)
     total_ask_volume = sum(a['volume'] for a in asks)
 
-    # Timestamp = relÃ³gio LOCAL (mesma base de timestamp_inicializacao = time.time()).
-    # âš ï¸ NÃƒO usar tick.time do MT5 aqui: ele vem no fuso do servidor da corretora
-    # (nÃ£o Ã© POSIX/UTC local) e a TRAVA o interpretaria como "dado antigo", bloqueando
-    # TODAS as operaÃ§Ãµes. O book nativo Ã© sempre AO VIVO (se o mercado fecha, o
-    # market_book_get retorna vazio e jÃ¡ saÃ­mos com None acima), entÃ£o o problema de
-    # "dado velho de sessÃ£o anterior" â€” que era exclusivo do CSV/EA â€” nÃ£o existe aqui.
+    # Timestamp = relÃÂ³gio LOCAL (mesma base de timestamp_inicializacao = time.time()).
+    # Ã¢Å¡Â Ã¯Â¸Â NÃÆO usar tick.time do MT5 aqui: ele vem no fuso do servidor da corretora
+    # (nÃÂ£o ÃÂ© POSIX/UTC local) e a TRAVA o interpretaria como "dado antigo", bloqueando
+    # TODAS as operaÃÂ§ÃÂµes. O book nativo ÃÂ© sempre AO VIVO (se o mercado fecha, o
+    # market_book_get retorna vazio e jÃÂ¡ saÃÂ­mos com None acima), entÃÂ£o o problema de
+    # "dado velho de sessÃÂ£o anterior" Ã¢â¬â que era exclusivo do CSV/EA Ã¢â¬â nÃÂ£o existe aqui.
     ts_now = time.time()
 
     return {
@@ -4619,15 +4623,15 @@ def ler_book_nativo() -> Optional[Dict[str, Any]]:
 
 
 # ========================================================================
-# ðŸ“¡ LEITURA DO BOOK DO DÃ“LAR CHEIO (DOL) â€” REFERÃŠNCIA INSTITUCIONAL
+# Ã°Å¸âÂ¡ LEITURA DO BOOK DO DÃâLAR CHEIO (DOL) Ã¢â¬â REFERÃÅ NCIA INSTITUCIONAL
 # ------------------------------------------------------------------------
-# O DOL Ã© onde os grandes players (bancos, fundos) operam de verdade.
-# O WDO Ã© replicado por HFTs que espelham o DOL com milissegundos de
+# O DOL ÃÂ© onde os grandes players (bancos, fundos) operam de verdade.
+# O WDO ÃÂ© replicado por HFTs que espelham o DOL com milissegundos de
 # atraso. Ler o DOL permite antecipar movimentos do WDO.
 # ========================================================================
 
 def ler_book_dol() -> Optional[Dict[str, Any]]:
-    """LÃª o book do DÃ³lar Cheio (DOL) â€” mesmo formato de ler_book_nativo."""
+    """LÃÂª o book do DÃÂ³lar Cheio (DOL) Ã¢â¬â mesmo formato de ler_book_nativo."""
     global SYMBOL_DOL
     if not SYMBOL_DOL:
         return None
@@ -4679,11 +4683,11 @@ def analisar_sinal_dol(book_dol: Optional[Dict]) -> Dict[str, Any]:
     """
     Analisa o book do DOL e retorna sinais de fluxo institucional.
     Retorna dict com:
-      - ratio: desequilÃ­brio bid/ask (>1 = mais compras, <1 = mais vendas)
+      - ratio: desequilÃÂ­brio bid/ask (>1 = mais compras, <1 = mais vendas)
       - lado: "BUY", "SELL" ou "NEUTRO"
-      - confianca: 0.0 a 1.0 (baseado no desequilÃ­brio)
+      - confianca: 0.0 a 1.0 (baseado no desequilÃÂ­brio)
       - volume_total: volume total do book DOL
-      - presente: True se DOL estÃ¡ disponÃ­vel
+      - presente: True se DOL estÃÂ¡ disponÃÂ­vel
     """
     resultado = {
         'presente': False,
@@ -4715,10 +4719,10 @@ def analisar_sinal_dol(book_dol: Optional[Dict]) -> Dict[str, Any]:
     resultado['maior_escora_bid'] = max((b['volume'] for b in bids), default=0)
     resultado['maior_escora_ask'] = max((a['volume'] for a in asks), default=0)
 
-    # Determina lado e confianÃ§a
+    # Determina lado e confianÃÂ§a
     if total_bid > total_ask:
         resultado['lado'] = 'BUY'
-        # ConfianÃ§a: quanto maior o ratio, mais confianÃ§a (mÃ¡x 1.0 em ratio 3.0+)
+        # ConfianÃÂ§a: quanto maior o ratio, mais confianÃÂ§a (mÃÂ¡x 1.0 em ratio 3.0+)
         resultado['confianca'] = min(ratio / 3.0, 1.0)
     elif total_ask > total_bid:
         resultado['lado'] = 'SELL'
@@ -4727,10 +4731,10 @@ def analisar_sinal_dol(book_dol: Optional[Dict]) -> Dict[str, Any]:
         resultado['lado'] = 'NEUTRO'
 
     return resultado# ========================================================================
-# ðŸ—‘ï¸ LEITURA VIA CSV/EA REMOVIDA (MUDANÃ‡A 1 â€” ARQUITETURA NATIVA)
-# As antigas funÃ§Ãµes _ler_book_csv_core / ler_book_csv_with_retry / ler_book_csv
-# foram eliminadas. Toda a leitura do book agora Ã© nativa via ler_book_nativo()
-# (mt5.market_book_get). NÃ£o hÃ¡ mais dependÃªncia do EA MQL5 nem de arquivos CSV.
+# Ã°Å¸ââÃ¯Â¸Â LEITURA VIA CSV/EA REMOVIDA (MUDANÃâ¡A 1 Ã¢â¬â ARQUITETURA NATIVA)
+# As antigas funÃÂ§ÃÂµes _ler_book_csv_core / ler_book_csv_with_retry / ler_book_csv
+# foram eliminadas. Toda a leitura do book agora ÃÂ© nativa via ler_book_nativo()
+# (mt5.market_book_get). NÃÂ£o hÃÂ¡ mais dependÃÂªncia do EA MQL5 nem de arquivos CSV.
 # ========================================================================
 
 
@@ -4738,13 +4742,13 @@ def inicializar_mt5() -> bool:
     global trailing_stop, balanceador, detector_modo, balanceador, detector_modo, circuit_breaker, saida_inteligente, sistema_confluencia
 
     aguardar_abertura()
-    logging.info("ðŸ”„ Tentando inicializar o MetaTrader 5...")
+    logging.info("Ã°Å¸ââ Tentando inicializar o MetaTrader 5...")
     if not mt5.initialize(path=MT5_PATH):
-        logging.error(f"âŒ Erro ao inicializar MT5: {mt5.last_error()}")
+        logging.error(f"Ã¢ÂÅ Erro ao inicializar MT5: {mt5.last_error()}")
         return False
-    logging.info("âœ… MetaTrader 5 inicializado com sucesso")
+    logging.info("Ã¢Åâ¦ MetaTrader 5 inicializado com sucesso")
 
-    # ===== INICIALIZAÃ‡ÃƒO DOS SUBSISTEMAS (silenciosa â€” sem propaganda) =====
+    # ===== INICIALIZAÃâ¡ÃÆO DOS SUBSISTEMAS (silenciosa Ã¢â¬â sem propaganda) =====
     global filtro_horario, detector_tendencia, cooldown_sistema, filtro_spread, monitor_performance
 
     trailing_stop = TrailingStopInteligente()
@@ -4759,77 +4763,77 @@ def inicializar_mt5() -> bool:
     filtro_spread = FiltroSpreadDinamico()
     monitor_performance = MonitorPerformance()
     logging.info(
-        "ðŸ§© Subsistemas ativos: Trailing | Balanceamento | Modos | CircuitBreaker | "
-        "SaÃ­daInteligente | ConfluÃªncia | HorÃ¡rio | TendÃªncia | Cooldown | Spread | Performance")
+        "Ã°Å¸Â§Â© Subsistemas ativos: Trailing | Balanceamento | Modos | CircuitBreaker | "
+        "SaÃÂ­daInteligente | ConfluÃÂªncia | HorÃÂ¡rio | TendÃÂªncia | Cooldown | Spread | Performance")
 
     # ===== ARQUITETURA NATIVA: BOOK DIRETO DO MT5 (SEM EA / SEM CSV) =====
     global SYMBOL
     terminal_info = mt5.terminal_info()
     if not terminal_info:
-        logging.error("âŒ NÃ£o foi possÃ­vel obter informaÃ§Ãµes do terminal MT5")
+        logging.error("Ã¢ÂÅ NÃÂ£o foi possÃÂ­vel obter informaÃÂ§ÃÂµes do terminal MT5")
         return False
     logging.info(
-        "ðŸ“¡ Fonte de dados: BOOK NATIVO (mt5.market_book_get) â€” EA/CSV eliminados")
+        "Ã°Å¸âÂ¡ Fonte de dados: BOOK NATIVO (mt5.market_book_get) Ã¢â¬â EA/CSV eliminados")
 
-    # SeleÃ§Ã£o dinÃ¢mica do contrato WDO
+    # SeleÃÂ§ÃÂ£o dinÃÂ¢mica do contrato WDO
     SYMBOL = get_front_month_symbol_dynamic("WDO")
     mt5.symbol_select(SYMBOL, True)
 
-    # Subscreve o book (Depth of Market) do contrato na memÃ³ria do terminal.
-    # A partir daqui ler_book_nativo() recebe atualizaÃ§Ãµes em tempo real.
+    # Subscreve o book (Depth of Market) do contrato na memÃÂ³ria do terminal.
+    # A partir daqui ler_book_nativo() recebe atualizaÃÂ§ÃÂµes em tempo real.
     if mt5.market_book_add(SYMBOL):
         logging.info(f"[BOOK] Book nativo ATIVADO para {SYMBOL} (Depth of Market)")
     else:
         logging.warning(
-            f"âš ï¸ market_book_add falhou para {SYMBOL}: {mt5.last_error()} "
-            f"(o book pode ainda assim responder â€” seguindo)")
+            f"Ã¢Å¡Â Ã¯Â¸Â market_book_add falhou para {SYMBOL}: {mt5.last_error()} "
+            f"(o book pode ainda assim responder Ã¢â¬â seguindo)")
 
-    # Extrai a validade do sÃ­mbolo (ex: WDOQ26 -> Q26)
+    # Extrai a validade do sÃÂ­mbolo (ex: WDOQ26 -> Q26)
     validade = SYMBOL[-3:] if len(SYMBOL) >= 3 else SYMBOL
     logging.info(
-        f"âœ… Contrato WDO dinÃ¢mico selecionado: {SYMBOL} (venc.: {validade})")
+        f"Ã¢Åâ¦ Contrato WDO dinÃÂ¢mico selecionado: {SYMBOL} (venc.: {validade})")
 
-    # ===== DÃ“LAR CHEIO (DOL) â€” REFERÃŠNCIA DE FLUXO INSTITUCIONAL =====
+    # ===== DÃâLAR CHEIO (DOL) Ã¢â¬â REFERÃÅ NCIA DE FLUXO INSTITUCIONAL =====
     global SYMBOL_DOL
     SYMBOL_DOL = get_front_month_symbol_dynamic("DOL")
     if SYMBOL_DOL:
         mt5.symbol_select(SYMBOL_DOL, True)
         if mt5.market_book_add(SYMBOL_DOL):
             logging.info(
-                f"[BOOK DOL] Book nativo ATIVADO para {SYMBOL_DOL} (referÃªncia institucional)")
+                f"[BOOK DOL] Book nativo ATIVADO para {SYMBOL_DOL} (referÃÂªncia institucional)")
         else:
             logging.warning(
-                f"âš ï¸ market_book_add falhou para DOL {SYMBOL_DOL}: {mt5.last_error()}")
+                f"Ã¢Å¡Â Ã¯Â¸Â market_book_add falhou para DOL {SYMBOL_DOL}: {mt5.last_error()}")
     else:
         logging.warning(
-            "âš ï¸ DOL nÃ£o encontrado â€” operando sem referÃªncia institucional")
+            "Ã¢Å¡Â Ã¯Â¸Â DOL nÃÂ£o encontrado Ã¢â¬â operando sem referÃÂªncia institucional")
 
     logging.info(
-        f"ðŸŽ¯ ConfiguraÃ§Ã£o WDO: SL={SL_POINTS}pts, TP={TP_POINTS}pts, Vol={VOLUME_PADRAO}cc")
+        f"Ã°Å¸Å½Â¯ ConfiguraÃÂ§ÃÂ£o WDO: SL={SL_POINTS}pts, TP={TP_POINTS}pts, Vol={VOLUME_PADRAO}cc")
     logging.info(
-        f"ðŸ“Š WDO Specs: Tick={TICK_SIZE}, TicksPorPonto={TICKS_POR_PONTO}, Magic={MAGIC_NUMBER}")
+        f"Ã°Å¸âÅ  WDO Specs: Tick={TICK_SIZE}, TicksPorPonto={TICKS_POR_PONTO}, Magic={MAGIC_NUMBER}")
     logging.info(
-        f"ðŸ’° Risk: MaxLoss={MAX_LOSS_DIARIO}, MaxSpread={MAX_SPREAD}pts, MinVol={MIN_VOLUME_BOOK}cc")
+        f"Ã°Å¸âÂ° Risk: MaxLoss={MAX_LOSS_DIARIO}, MaxSpread={MAX_SPREAD}pts, MinVol={MIN_VOLUME_BOOK}cc")
 
     return True
 
 
 def obter_dados_mercado(symbol: str = None, timeframe: int = TIMEFRAME) -> Tuple[Optional[float], Optional[float], Optional[float], Optional[float], Optional[str], Optional[Dict], Optional[float], Optional[int], Optional[float], Optional[float]]:
-    """ObtÃ©m dados atuais do mercado USANDO O BOOK NATIVO DO MT5."""
+    """ObtÃÂ©m dados atuais do mercado USANDO O BOOK NATIVO DO MT5."""
     global SYMBOL
     if not hasattr(obter_dados_mercado, '_log_counter'):
         obter_dados_mercado._log_counter = 0
     if symbol is None:
         symbol = SYMBOL
     if symbol is None:
-        logging.error("âŒ SYMBOL ainda nÃ£o foi definido!")
+        logging.error("Ã¢ÂÅ SYMBOL ainda nÃÂ£o foi definido!")
         return (None,) * 10
 
-    # Pulso de standby: loga no mÃ¡ximo 1x a cada 60s (sÃ³ "sinal de vida" + mercado).
-    # NÃƒO afeta o robÃ´ â€” ele continua lendo o book e decidindo a cada ciclo.
+    # Pulso de standby: loga no mÃÂ¡ximo 1x a cada 60s (sÃÂ³ "sinal de vida" + mercado).
+    # NÃÆO afeta o robÃÂ´ Ã¢â¬â ele continua lendo o book e decidindo a cada ciclo.
     log_time = _log_periodico('pulso_mercado', PULSO_LOG_INTERVALO_S)
 
-    # Inicializa todas as variÃ¡veis com valores padrÃ£o para evitar erros
+    # Inicializa todas as variÃÂ¡veis com valores padrÃÂ£o para evitar erros
     close_price = 0.0
     total_bid_volume = 0.0
     total_ask_volume = 0.0
@@ -4841,10 +4845,10 @@ def obter_dados_mercado(symbol: str = None, timeframe: int = TIMEFRAME) -> Tuple
     volume_tick = 0
 
     try:
-        # Verifica se Ã© fim de semana
-        if datetime.now().weekday() > 4:  # 5 = SÃ¡bado, 6 = Domingo
+        # Verifica se ÃÂ© fim de semana
+        if datetime.now().weekday() > 4:  # 5 = SÃÂ¡bado, 6 = Domingo
             if log_time:
-                logging.info("ðŸ“… Fim de semana: aguardando prÃ³ximo dia Ãºtil...")
+                logging.info("Ã°Å¸ââ¦ Fim de semana: aguardando prÃÂ³ximo dia ÃÂºtil...")
             time.sleep(30)  # Dorme por 30 segundos durante fim de semana
             return (None,) * 10
 
@@ -4852,15 +4856,15 @@ def obter_dados_mercado(symbol: str = None, timeframe: int = TIMEFRAME) -> Tuple
         book_data = ler_book_nativo()
         if not book_data or not book_data.get('bids') or not book_data.get('asks'):
             if log_time:
-                # âœ… MODO SNIPER: log reduzido â€” standby silencioso aguardando sinal institucional
+                # Ã¢Åâ¦ MODO SNIPER: log reduzido Ã¢â¬â standby silencioso aguardando sinal institucional
                 logging.debug(
-                    "ðŸ˜´ Standby: Aguardando book nativo com liquidez do MT5...")
-            # Dorme 1s sem sinal (book nativo Ã© rÃ¡pido, nÃ£o precisa 2s)
+                    "Ã°Å¸ËÂ´ Standby: Aguardando book nativo com liquidez do MT5...")
+            # Dorme 1s sem sinal (book nativo ÃÂ© rÃÂ¡pido, nÃÂ£o precisa 2s)
             time.sleep(1)
             return (None,) * 10
 
         # Calcula volumes totais do book do EA
-        # CORREÃ‡ÃƒO: book_data agora contÃ©m dicionÃ¡rios com price/volume
+        # CORREÃâ¡ÃÆO: book_data agora contÃÂ©m dicionÃÂ¡rios com price/volume
         if isinstance(book_data['bids'][0], dict):
             # Formato JSON: [{"price": X, "volume": Y}, ...]
             total_bid_volume = sum(item['volume']
@@ -4874,8 +4878,8 @@ def obter_dados_mercado(symbol: str = None, timeframe: int = TIMEFRAME) -> Tuple
 
         total_volume = total_bid_volume + total_ask_volume
 
-        # Log de mercado â€” informaÃ§Ã£o REAL e Ãºtil: preÃ§o ao vivo, spread,
-        # volumes BID/ASK, desequilÃ­brio e lado dominante do fluxo.
+        # Log de mercado Ã¢â¬â informaÃÂ§ÃÂ£o REAL e ÃÂºtil: preÃÂ§o ao vivo, spread,
+        # volumes BID/ASK, desequilÃÂ­brio e lado dominante do fluxo.
         if log_time:
             tick = mt5.symbol_info_tick(symbol)
             spread_atual = round(tick.ask - tick.bid, 1) if tick else 0
@@ -4886,59 +4890,59 @@ def obter_dados_mercado(symbol: str = None, timeframe: int = TIMEFRAME) -> Tuple
                     min(total_bid_volume, total_ask_volume)
             else:
                 ratio_book = 0.0
-            lado = "ðŸŸ¢COMPRA" if total_bid_volume > total_ask_volume else "ðŸ”´VENDA"
+            lado = "Ã°Å¸Å¸Â¢COMPRA" if total_bid_volume > total_ask_volume else "Ã°Å¸âÂ´VENDA"
             obter_dados_mercado._log_counter += 1
             if obter_dados_mercado._log_counter % 5 == 1:
                 logging.info(
-                    f"ðŸ“Š {symbol} | PreÃ§o: {preco_vivo:.0f} | Spread: {spread_atual}pts | "
+                    f"Ã°Å¸âÅ  {symbol} | PreÃÂ§o: {preco_vivo:.0f} | Spread: {spread_atual}pts | "
                     f"BID: {total_bid_volume:.0f} / ASK: {total_ask_volume:.0f} | "
-                    f"DesequilÃ­brio: {ratio_book:.2f}x {lado}")
+                    f"DesequilÃÂ­brio: {ratio_book:.2f}x {lado}")
 
-        # Verifica liquidez mÃ­nima
+        # Verifica liquidez mÃÂ­nima
         if total_volume < MIN_VOLUME_BOOK:
             if log_time:
                 logging.warning(
-                    f"âŒ Liquidez insuficiente: {total_volume} < {MIN_VOLUME_BOOK}")
+                    f"Ã¢ÂÅ Liquidez insuficiente: {total_volume} < {MIN_VOLUME_BOOK}")
             return (None,) * 10
 
-        # ObtÃ©m dados complementares do MT5
+        # ObtÃÂ©m dados complementares do MT5
         tick_info = mt5.symbol_info_tick(symbol)
         symbol_info = get_cached_symbol_info(symbol)
         if tick_info is None:
             if log_time:
-                logging.warning(f"âŒ Tick NULO para sÃ­mbolo {symbol}")
+                logging.warning(f"Ã¢ÂÅ Tick NULO para sÃÂ­mbolo {symbol}")
             return (None,) * 10
         if symbol_info is None:
             if log_time:
-                logging.warning(f"âŒ Symbol_info NULO para sÃ­mbolo {symbol}")
-            # Tenta reselecionar o sÃ­mbolo
+                logging.warning(f"Ã¢ÂÅ Symbol_info NULO para sÃÂ­mbolo {symbol}")
+            # Tenta reselecionar o sÃÂ­mbolo
             mt5.symbol_select(symbol, True)
             symbol_info = mt5.symbol_info(symbol)
             if symbol_info is None:
                 logging.error(
-                    f"âŒ NÃ£o foi possÃ­vel obter info do sÃ­mbolo {symbol} mesmo apÃ³s reselecionar")
+                    f"Ã¢ÂÅ NÃÂ£o foi possÃÂ­vel obter info do sÃÂ­mbolo {symbol} mesmo apÃÂ³s reselecionar")
             return (None,) * 10
 
         # Calcula spread em pontos
         spread = ((tick_info.ask - tick_info.bid) /
                   symbol_info.point) / TICKS_POR_PONTO
 
-        # Verifica spread mÃ¡ximo
+        # Verifica spread mÃÂ¡ximo
         if spread > MAX_SPREAD:
             if log_time:
-                logging.warning(f"âŒ Spread muito alto: {spread:.1f} pts")
+                logging.warning(f"Ã¢ÂÅ Spread muito alto: {spread:.1f} pts")
             return (None,) * 10
 
-        # ObtÃ©m dados de velas
+        # ObtÃÂ©m dados de velas
         rates = mt5.copy_rates_from_pos(symbol, timeframe, 0, 100)
         if rates is None or len(rates) < 2:
             if log_time:
-                logging.warning("âŒ Rates insuficientes")
+                logging.warning("Ã¢ÂÅ Rates insuficientes")
             return (None,) * 10
 
-        # ObtÃ©m dados bÃ¡sicos primeiro (antes de cÃ¡lculos que podem falhar)
+        # ObtÃÂ©m dados bÃÂ¡sicos primeiro (antes de cÃÂ¡lculos que podem falhar)
         last_candle = rates[-1]
-        close_price = float(last_candle[4])  # close price da Ãºltima vela
+        close_price = float(last_candle[4])  # close price da ÃÂºltima vela
         volume_tick = int(tick_info.volume)
 
         # Calcula indicadores
@@ -4950,46 +4954,46 @@ def obter_dados_mercado(symbol: str = None, timeframe: int = TIMEFRAME) -> Tuple
             atr = calcular_atr(df_rates['high'].tolist(
             ), df_rates['low'].tolist(), df_rates['close'].tolist(), 14)
         except Exception as e:
-            logging.warning(f"âš ï¸ Erro no cÃ¡lculo ATR: {e}")
-            atr = 50.0  # Valor padrÃ£o
+            logging.warning(f"Ã¢Å¡Â Ã¯Â¸Â Erro no cÃÂ¡lculo ATR: {e}")
+            atr = 50.0  # Valor padrÃÂ£o
 
         # Calcula tipo de vela com tratamento de
         try:
             candle_type = obter_nome_vela(
                 last_candle[1], last_candle[4], last_candle[2], last_candle[3])
         except Exception as e:
-            logging.warning(f"âš ï¸ Erro no tipo de vela: {e}")
+            logging.warning(f"Ã¢Å¡Â Ã¯Â¸Â Erro no tipo de vela: {e}")
             candle_type = "doji"
 
         # Calcula RSI com tratamento de erro
         try:
             rsi_14 = calcular_rsi(df_rates['close'].tolist(), 14)
         except Exception as e:
-            logging.warning(f"âš ï¸ Erro no cÃ¡lculo RSI: {e}")
-            rsi_14 = 50.0  # Valor padrÃ£o
+            logging.warning(f"Ã¢Å¡Â Ã¯Â¸Â Erro no cÃÂ¡lculo RSI: {e}")
+            rsi_14 = 50.0  # Valor padrÃÂ£o
 
         # Calcula Williams %R (Larry Williams) com tratamento de erro
         try:
             williams_r = calcular_williams_r(
                 df_rates['high'].tolist(), df_rates['low'].tolist(), df_rates['close'].tolist(), 14)
         except Exception as e:
-            logging.warning(f"âš ï¸ Erro no cÃ¡lculo Williams %R: {e}")
-            williams_r = -50.0  # Valor padrÃ£o
+            logging.warning(f"Ã¢Å¡Â Ã¯Â¸Â Erro no cÃÂ¡lculo Williams %R: {e}")
+            williams_r = -50.0  # Valor padrÃÂ£o
 
         # Log detalhado dos dados do EA
         if log_time:
             logging.debug(
-                f"ðŸ“Š EA Data - Bid Vol: {total_bid_volume}, Ask Vol: {total_ask_volume}")
+                f"Ã°Å¸âÅ  EA Data - Bid Vol: {total_bid_volume}, Ask Vol: {total_ask_volume}")
 
         return total_bid_volume, total_ask_volume, spread, atr, candle_type, book_data, rsi_14, volume_tick, close_price, williams_r
 
     except Exception as e:
-        logging.error(f"âŒ Erro ao obter dados do mercado (EA): {e}")
+        logging.error(f"Ã¢ÂÅ Erro ao obter dados do mercado (EA): {e}")
         return (None,) * 10
 
 
 def volume_crescente(n: int = 2, symbol: str = None, timeframe: int = TIMEFRAME) -> bool:
-    """Verifica se o volume estÃ¡ crescente nos Ãºltimos n candles."""
+    """Verifica se o volume estÃÂ¡ crescente nos ÃÂºltimos n candles."""
     global SYMBOL
     if symbol is None:
         symbol = SYMBOL
@@ -4997,7 +5001,7 @@ def volume_crescente(n: int = 2, symbol: str = None, timeframe: int = TIMEFRAME)
     if rates is None or len(rates) < n + 1:
         return False
 
-    volumes = [rate[5] for rate in rates]  # rate[5] Ã© o volume
+    volumes = [rate[5] for rate in rates]  # rate[5] ÃÂ© o volume
     for i in range(1, len(volumes)):
         if volumes[i] <= volumes[i-1]:
             return False
@@ -5071,36 +5075,36 @@ def salvar_dados_multitf_csv(dados: Dict[str, Any], arquivo: str = None) -> None
 
 
 def verificar_book_equilibrado(bid_qty: float, ask_qty: float) -> Tuple[bool, str]:
-    """Verifica se o book estÃ¡ equilibrado o suficiente para operar."""
+    """Verifica se o book estÃÂ¡ equilibrado o suficiente para operar."""
     if bid_qty == 0 or ask_qty == 0:
         return False, "Book zerado em um dos lados"
 
-    # Calcula razÃ£o entre volumes (sempre menor/maior para ter ratio <= 1)
+    # Calcula razÃÂ£o entre volumes (sempre menor/maior para ter ratio <= 1)
     ratio = min(bid_qty, ask_qty) / max(bid_qty, ask_qty)
 
-    # Identifica qual lado estÃ¡ mais forte
+    # Identifica qual lado estÃÂ¡ mais forte
     lado_forte = "compra" if bid_qty > ask_qty else "venda"
-    logging.debug(f"ðŸ“Š Book - Ratio: {ratio:.3f} | Lado forte: {lado_forte}")
+    logging.debug(f"Ã°Å¸âÅ  Book - Ratio: {ratio:.3f} | Lado forte: {lado_forte}")
 
     if ratio < MIN_RATIO_BOOK:
         lado_menor = "compra" if bid_qty < ask_qty else "venda"
         return False, f"Book muito desequilibrado (ratio={ratio:.3f}). Lado fraco: {lado_menor}"
 
-    # CORREÃ‡ÃƒO: PressÃ£o forte indica BIG PLAYERS - SEGUIR, nÃ£o bloquear!
-    max_ratio_pressao = 10.0  # Permite atÃ© 10:1 (big players massivos)
+    # CORREÃâ¡ÃÆO: PressÃÂ£o forte indica BIG PLAYERS - SEGUIR, nÃÂ£o bloquear!
+    max_ratio_pressao = 10.0  # Permite atÃÂ© 10:1 (big players massivos)
     if max(bid_qty, ask_qty) / min(bid_qty, ask_qty) > max_ratio_pressao:
         logging.warning(
-            f"âš ï¸ PressÃ£o EXTREMA no lado de {lado_forte} - PossÃ­vel manipulaÃ§Ã£o")
-        return False, f"PressÃ£o EXTREMA no lado de {lado_forte}"
+            f"Ã¢Å¡Â Ã¯Â¸Â PressÃÂ£o EXTREMA no lado de {lado_forte} - PossÃÂ­vel manipulaÃÂ§ÃÂ£o")
+        return False, f"PressÃÂ£o EXTREMA no lado de {lado_forte}"
     elif max(bid_qty, ask_qty) / min(bid_qty, ask_qty) > 3.0:
         logging.info(
-            f"ðŸ‹ BIG PLAYERS detectados no lado de {lado_forte} - OPORTUNIDADE!")
+            f"Ã°Å¸Ââ¹ BIG PLAYERS detectados no lado de {lado_forte} - OPORTUNIDADE!")
 
     return True, ""
 
 
 class ModoOperacional:
-    """Gerencia os modos operacionais do robÃ´."""
+    """Gerencia os modos operacionais do robÃÂ´."""
 
     def __init__(self):
         self.modo_atual = "NORMAL"
@@ -5111,60 +5115,60 @@ class ModoOperacional:
 
     def atualizar_modo(self, atr: float, entropia: float, volume_atual: float,
                        bid_qty: float, ask_qty: float) -> str:
-        """Atualiza o modo operacional baseado nas condiÃ§Ãµes do mercado."""
+        """Atualiza o modo operacional baseado nas condiÃÂ§ÃÂµes do mercado."""
         # Verifica se pode sair do modo defesa
         if self.modo_atual == "DEFESA":
             if self.inicio_defesa and (datetime.now() - self.inicio_defesa).total_seconds() > TEMPO_DEFESA * 60:
                 self.modo_atual = "NORMAL"
                 self.losses_seguidos = 0
                 logging.info(
-                    "ðŸ›¡ï¸ Saindo do modo defesa apÃ³s perÃ­odo de observaÃ§Ã£o")
+                    "Ã°Å¸âºÂ¡Ã¯Â¸Â Saindo do modo defesa apÃÂ³s perÃÂ­odo de observaÃÂ§ÃÂ£o")
             else:
                 return "DEFESA"
 
-        # Verifica equilÃ­brio do book
+        # Verifica equilÃÂ­brio do book
         book_equilibrado, msg = verificar_book_equilibrado(bid_qty, ask_qty)
         if not book_equilibrado:
             if self.modo_atual != "AGUARDANDO":
-                logging.info(f"â³ Entrando em modo aguardando - {msg}")
+                logging.info(f"Ã¢ÂÂ³ Entrando em modo aguardando - {msg}")
             return "AGUARDANDO"
 
-        # Verifica condiÃ§Ãµes para modo lateralidade
+        # Verifica condiÃÂ§ÃÂµes para modo lateralidade
         if atr < THRESHOLD_ATR_BAIXO and entropia < THRESHOLD_ENTROPIA_BAIXA:
             if self.modo_atual != "LATERAL":
                 logging.info(
-                    "â†”ï¸ Entrando em modo lateralidade - Baixa volatilidade e entropia")
+                    "Ã¢â âÃ¯Â¸Â Entrando em modo lateralidade - Baixa volatilidade e entropia")
             return "LATERAL"
 
-        # Verifica condiÃ§Ãµes para modo explosÃ£o - VOLUME MÃNIMO 1000cc
+        # Verifica condiÃÂ§ÃÂµes para modo explosÃÂ£o - VOLUME MÃÂNIMO 1000cc
         crescimento_volume = volume_atual / \
             self.volume_anterior if self.volume_anterior > 0 else 1
         if (entropia > THRESHOLD_ENTROPIA_ALTA and
                 crescimento_volume > MIN_VOLUME_CRESCIMENTO and
-                volume_atual >= 1000):  # FILTRO: SÃ³ explosÃ£o com 1000cc+
+                volume_atual >= 1000):  # FILTRO: SÃÂ³ explosÃÂ£o com 1000cc+
             if self.modo_atual != "EXPLOSAO":
                 logging.info(
-                    f"ðŸ’¥ Entrando em modo explosÃ£o - Alta entropia ({entropia:.2f}), volume crescente ({crescimento_volume:.1f}x) e liquidez alta ({volume_atual}cc)")
+                    f"Ã°Å¸âÂ¥ Entrando em modo explosÃÂ£o - Alta entropia ({entropia:.2f}), volume crescente ({crescimento_volume:.1f}x) e liquidez alta ({volume_atual}cc)")
             return "EXPLOSAO"
 
         # Modo normal como fallback
         return "NORMAL"
 
     def registrar_resultado(self, lucro: float) -> None:
-        """Registra resultado da operaÃ§Ã£o e atualiza contadores."""
+        """Registra resultado da operaÃÂ§ÃÂ£o e atualiza contadores."""
         if lucro < 0:
             self.losses_seguidos += 1
             if self.losses_seguidos >= MAX_LOSSES_SEGUIDOS:
                 self.modo_atual = "DEFESA"
                 self.inicio_defesa = datetime.now()
                 logging.warning(
-                    f"âš ï¸ {MAX_LOSSES_SEGUIDOS} losses seguidos - Entrando em modo defesa")
+                    f"Ã¢Å¡Â Ã¯Â¸Â {MAX_LOSSES_SEGUIDOS} losses seguidos - Entrando em modo defesa")
         else:
             self.losses_seguidos = 0
         self.ultimo_lucro = lucro
 
     def ajustar_parametros_operacionais(self, volume_book_total: float = 1000) -> Dict[str, float]:
-        """Ajusta parÃ¢metros baseado no modo atual com volume inteligente."""
+        """Ajusta parÃÂ¢metros baseado no modo atual com volume inteligente."""
         # Volume inteligente baseado no book para melhor assertividade
         volume_inteligente = calcular_volume_inteligente(volume_book_total)
 
@@ -5177,14 +5181,14 @@ class ModoOperacional:
         if self.modo_atual == "LATERAL":
             # Modo mais conservador - Volume ainda mais reduzido
             params.update({
-                # Reduz volume mas mÃ­nimo 1cc
+                # Reduz volume mas mÃÂ­nimo 1cc
                 'volume': max(1.0, volume_inteligente * 0.5),
                 'sl_mult': MULTIPLICADOR_SL_ATR * 0.7,  # Reduz SL
                 'tp_mult': MULTIPLICADOR_TP_ATR * 0.7,  # Reduz TP
             })
 
         elif self.modo_atual == "EXPLOSAO":
-            # Modo mais agressivo - mas WDO: mÃ¡ximo 2 contratos
+            # Modo mais agressivo - mas WDO: mÃÂ¡ximo 2 contratos
             volume_book_total = getattr(self, 'ultimo_volume_book', 1000)
 
             # Volume adaptativo para WDO (conservador)
@@ -5202,124 +5206,133 @@ class ModoOperacional:
             })
 
         elif self.modo_atual == "DEFESA":
-            # Modo apenas observaÃ§Ã£o
+            # Modo apenas observaÃÂ§ÃÂ£o
             params.update({
-                'volume': 0,  # NÃ£o opera
+                'volume': 0,  # NÃÂ£o opera
             })
 
         return params
 
 
-def executar_ordem(action: str, lots: float = VOLUME_PADRAO, symbol: str = None,
-                   sl: Optional[float] = None, tp: Optional[float] = None,
-                   modo_operacional: Optional[ModoOperacional] = None,
-                   sniper: bool = False,
-                   sl_points_override: Optional[float] = None,
-                   tp_points_override: Optional[float] = None) -> Optional[int]:
-    """Executa uma ordem de compra ou venda com SL fixo de 5 pontos e sem TP (robÃ´ decide saÃ­da)."""
+def executar_ordem(acao, par, preco_atual, stop_loss_pts, take_profit_pts, lote=None, magic_override=None, comment=None, shadow=True):
+    """Executa uma ordem de compra ou venda com SL fixo de 5 pontos e sem TP (robÃÂ´ decide saÃÂ­da)."""""""""
 
-    # ========== âœ… PA1: VERIFICAÃ‡ÃƒO DE HORÃRIO OBRIGATÃ“RIA ==========
-    # SniperSupermo pula esta verificaÃ§Ã£o (opera 09:00-17:30)
+    # Gate exclusivo Faixa 1: apenas magic=7007 passa durante SETE_VELAS_EXCLUSIVO
+    if ESTADO_SISTEMA == "SETE_VELAS_EXCLUSIVO" and magic_override != MAGIC_SETE_VELAS:
+        logger.info(f"🚫 [GATE 7 VELAS] Ordem bloqueada para {par} (apenas Magic 7007 na Faixa 1)")
+        return None
+
+
+
+    # Gate exclusivo Faixa 1: apenas magic=7007 passa durante SETE_VELAS_EXCLUSIVO
+    if ESTADO_SISTEMA == "SETE_VELAS_EXCLUSIVO" and magic_override != MAGIC_SETE_VELAS:
+        logger.info(f"🚫 [GATE 7 VELAS] Ordem bloqueada para {par} (apenas Magic 7007 na Faixa 1)")
+        return None
+
+
+
+    # ========== Ã¢Åâ¦ PA1: VERIFICAÃâ¡ÃÆO DE HORÃÂRIO OBRIGATÃâRIA ==========
+    # SniperSupermo pula esta verificaÃÂ§ÃÂ£o (opera 09:00-17:30)
     if not sniper and not horario_permitido():
         horario_atual = datetime.now().strftime("%H:%M")
         logging.warning(
-            f"ðŸš« PA1 ORDEM BLOQUEADA POR HORÃRIO: {horario_atual} - SÃ³ executa 09:15-12:30 e 14:30-17:15")
+            f"Ã°Å¸Å¡Â« PA1 ORDEM BLOQUEADA POR HORÃÂRIO: {horario_atual} - SÃÂ³ executa 09:15-12:30 e 14:30-17:15")
         return None
 
-    # Usa SYMBOL global se nÃ£o especificado
+    # Usa SYMBOL global se nÃÂ£o especificado
     if symbol is None:
         symbol = SYMBOL
 
-    # Verifica se o sÃ­mbolo estÃ¡ definido
+    # Verifica se o sÃÂ­mbolo estÃÂ¡ definido
     if symbol is None:
         logging.error(
-            "âŒ SYMBOL nÃ£o estÃ¡ definido! NÃ£o Ã© possÃ­vel executar ordem.")
+            "Ã¢ÂÅ SYMBOL nÃÂ£o estÃÂ¡ definido! NÃÂ£o ÃÂ© possÃÂ­vel executar ordem.")
         return None
 
-        logging.info(f"ðŸ”§ Executando ordem {action} para sÃ­mbolo: {symbol}")
+        logging.info(f"Ã°Å¸âÂ§ Executando ordem {action} para sÃÂ­mbolo: {symbol}")
 
-    # Verifica conexÃ£o MT5
+    # Verifica conexÃÂ£o MT5
     if not mt5.initialize():
-        logging.error("âŒ MT5 nÃ£o estÃ¡ inicializado! Tentando reconectar...")
+        logging.error("Ã¢ÂÅ MT5 nÃÂ£o estÃÂ¡ inicializado! Tentando reconectar...")
         if not reconectar_mt5():
-            logging.error("âŒ Falha ao reconectar MT5")
+            logging.error("Ã¢ÂÅ Falha ao reconectar MT5")
             return None
 
     if modo_operacional and modo_operacional.modo_atual == "DEFESA":
-        logging.info("ðŸ›¡ï¸ Ordem bloqueada - Modo defesa ativo")
+        logging.info("Ã°Å¸âºÂ¡Ã¯Â¸Â Ordem bloqueada - Modo defesa ativo")
         return None
 
-    # ObtÃ©m parÃ¢metros ajustados para o modo atual
+    # ObtÃÂ©m parÃÂ¢metros ajustados para o modo atual
     params = modo_operacional.ajustar_parametros_operacionais() if modo_operacional else {
         'volume': lots,
         'sl_mult': MULTIPLICADOR_SL_ATR,
         'tp_mult': MULTIPLICADOR_TP_ATR
     }
-    # Override de volume para SniperSupermo (lots diferente do padrÃ£o)
+    # Override de volume para SniperSupermo (lots diferente do padrÃÂ£o)
     if abs(lots - VOLUME_PADRAO) > 0.001:
         params['volume'] = lots
 
     # Verifica estado do mercado
     mercado_aberto, msg = verificar_mercado_aberto()
     if not mercado_aberto:
-        logging.warning(f"âŒ Ordem nÃ£o enviada: {msg}")
+        logging.warning(f"Ã¢ÂÅ Ordem nÃÂ£o enviada: {msg}")
         return None
 
     tipo = mt5.ORDER_TYPE_BUY if action == 'BUY' else mt5.ORDER_TYPE_SELL
 
-    # DiagnÃ³stico detalhado dos dados de mercado
+    # DiagnÃÂ³stico detalhado dos dados de mercado
     tick = mt5.symbol_info_tick(symbol)
     symbol_info = get_cached_symbol_info(symbol)
 
     if tick is None:
-        logging.error(f"âŒ Tick Ã© None para sÃ­mbolo {symbol}")
-        # Tenta reselecionar o sÃ­mbolo e obter tick novamente
+        logging.error(f"Ã¢ÂÅ Tick ÃÂ© None para sÃÂ­mbolo {symbol}")
+        # Tenta reselecionar o sÃÂ­mbolo e obter tick novamente
         mt5.symbol_select(symbol, True)
         time.sleep(0.1)
         tick = mt5.symbol_info_tick(symbol)
         if tick is None:
-            logging.error(f"âŒ Tick ainda Ã© None apÃ³s reselecionar {symbol}")
+            logging.error(f"Ã¢ÂÅ Tick ainda ÃÂ© None apÃÂ³s reselecionar {symbol}")
             return None
 
     if symbol_info is None:
-        logging.error(f"âŒ Symbol_info Ã© None para sÃ­mbolo {symbol}")
+        logging.error(f"Ã¢ÂÅ Symbol_info ÃÂ© None para sÃÂ­mbolo {symbol}")
         # Limpa cache e tenta novamente
         get_cached_symbol_info.cache_clear()
         symbol_info = get_cached_symbol_info(symbol)
         if symbol_info is None:
             logging.error(
-                f"âŒ Symbol_info ainda Ã© None apÃ³s limpar cache para {symbol}")
+                f"Ã¢ÂÅ Symbol_info ainda ÃÂ© None apÃÂ³s limpar cache para {symbol}")
             return None
 
     logging.info(
-        f"âœ… Dados obtidos - Tick: Ask={tick.ask}, Bid={tick.bid}, Symbol: {symbol_info.name}")
+        f"Ã¢Åâ¦ Dados obtidos - Tick: Ask={tick.ask}, Bid={tick.bid}, Symbol: {symbol_info.name}")
 
     if tick is None or symbol_info is None:
         logging.warning(
-            "Dados de mercado indisponÃ­veis apÃ³s tentativas de correÃ§Ã£o")
+            "Dados de mercado indisponÃÂ­veis apÃÂ³s tentativas de correÃÂ§ÃÂ£o")
         return None
 
     # Verifica spread
     if not verificar_spread_maximo(symbol_info, tick):
         logging.warning(
-            f"âŒ Spread muito alto: {(tick.ask - tick.bid) / symbol_info.point:.1f}")
+            f"Ã¢ÂÅ Spread muito alto: {(tick.ask - tick.bid) / symbol_info.point:.1f}")
         return None
 
     preco = tick.ask if action == 'BUY' else tick.bid
     preco = arredondar_preco(preco)
 
-    # Garante que o volume seja float e no mÃ­nimo 1.0
+    # Garante que o volume seja float e no mÃÂ­nimo 1.0
     lote_corrigido = float(max(1, round(params['volume'])))
-    logging.info(f"ðŸ“Š Volume ajustado: {lote_corrigido:.1f} contratos")
+    logging.info(f"Ã°Å¸âÅ  Volume ajustado: {lote_corrigido:.1f} contratos")
 
-    # ========== WDO: SL=5 (seguranÃ§a), TP=0 (saÃ­da dinÃ¢mica por Keras+Book) ==========
+    # ========== WDO: SL=5 (seguranÃÂ§a), TP=0 (saÃÂ­da dinÃÂ¢mica por Keras+Book) ==========
     # Sniper %R passa SL/TP por ATR (sl_points_override / tp_points_override)
-    sl_points_dinamico = sl_points_override if sl_points_override else SL_POINTS  # 5 pontos WDO (mÃ¡ximo)
-    tp_points_dinamico = tp_points_override if tp_points_override is not None else TP_POINTS  # 0 = SEM TP â€” GerenciadorDeSaida decide
+    sl_points_dinamico = sl_points_override if sl_points_override else SL_POINTS  # 5 pontos WDO (mÃÂ¡ximo)
+    tp_points_dinamico = tp_points_override if tp_points_override is not None else TP_POINTS  # 0 = SEM TP Ã¢â¬â GerenciadorDeSaida decide
     logging.info(
-        f"ðŸ›¡ï¸ WDO CONFIG: SL={sl_points_dinamico}pts, TP={tp_points_dinamico} (saÃ­da dinÃ¢mica)")
+        f"Ã°Å¸âºÂ¡Ã¯Â¸Â WDO CONFIG: SL={sl_points_dinamico}pts, TP={tp_points_dinamico} (saÃÂ­da dinÃÂ¢mica)")
 
-    # Calcula SL e TP com valores dinÃ¢micos
+    # Calcula SL e TP com valores dinÃÂ¢micos
     sl_calculado, tp_calculado = calcular_preco_sl_tp(
         preco, action, sl_points_dinamico, tp_points_dinamico)
     # Prepara request
@@ -5341,20 +5354,20 @@ def executar_ordem(action: str, lots: float = VOLUME_PADRAO, symbol: str = None,
     # Envia ordem
     resultado = mt5.order_send(request)
 
-    # ðŸ”§ CORREÃ‡ÃƒO CRÃTICA 3: Verificar se resultado nÃ£o Ã© None
+    # Ã°Å¸âÂ§ CORREÃâ¡ÃÆO CRÃÂTICA 3: Verificar se resultado nÃÂ£o ÃÂ© None
     if resultado is None:
         logging.error(
-            "âŒ Erro crÃ­tico: mt5.order_send retornou None (falha de conexÃ£o)")
+            "Ã¢ÂÅ Erro crÃÂ­tico: mt5.order_send retornou None (falha de conexÃÂ£o)")
         return None
 
     if resultado.retcode != mt5.TRADE_RETCODE_DONE:
         logging.error(
-            f"âŒ Falha ao executar ordem {action}: {resultado.retcode} - {resultado.comment}")
+            f"Ã¢ÂÅ Falha ao executar ordem {action}: {resultado.retcode} - {resultado.comment}")
         return None
 
-    logging.info(f"âœ… Ordem {action} executada. Ticket: {resultado.order}")
+    logging.info(f"Ã¢Åâ¦ Ordem {action} executada. Ticket: {resultado.order}")
     logging.info(
-        f"   PreÃ§o: {preco:.3f} | SL: {sl_calculado:.3f} | TP: {'SEM TP (saÃ­da dinÃ¢mica)' if tp_calculado == 0 else f'{tp_calculado:.3f}'}")
+        f"   PreÃÂ§o: {preco:.3f} | SL: {sl_calculado:.3f} | TP: {'SEM TP (saÃÂ­da dinÃÂ¢mica)' if tp_calculado == 0 else f'{tp_calculado:.3f}'}")
 
     # SHADOW MODE: registra prob do Modelo A sem interferir na execucao
     shadow_registrar_entrada(resultado.order, action, symbol)
@@ -5362,44 +5375,44 @@ def executar_ordem(action: str, lots: float = VOLUME_PADRAO, symbol: str = None,
     # Aguarda um momento para o MT5 processar
     time.sleep(0.5)
 
-    # Verifica se a ordem virou posiÃ§Ã£o
-    for _ in range(3):  # Tenta atÃ© 3 vezes
+    # Verifica se a ordem virou posiÃÂ§ÃÂ£o
+    for _ in range(3):  # Tenta atÃÂ© 3 vezes
         positions = mt5.positions_get(ticket=resultado.order)
         if positions and len(positions) > 0:
             pos = positions[0]
-            logging.info(f"âœ… Ordem {resultado.order} virou posiÃ§Ã£o.")
+            logging.info(f"Ã¢Åâ¦ Ordem {resultado.order} virou posiÃÂ§ÃÂ£o.")
 
-            # ========== INTEGRAÃ‡ÃƒO MELHORIA 1: TRAILING STOP INTELIGENTE ==========
+            # ========== INTEGRAÃâ¡ÃÆO MELHORIA 1: TRAILING STOP INTELIGENTE ==========
             if trailing_stop and TRAILING_ATIVO:
                 trailing_stop.iniciar_trailing(
                     resultado.order, action, preco, sl_calculado)
                 logging.info(
-                    f"ðŸŽ¯ Trailing stop iniciado para posiÃ§Ã£o {resultado.order}")
+                    f"Ã°Å¸Å½Â¯ Trailing stop iniciado para posiÃÂ§ÃÂ£o {resultado.order}")
 
-            # ========== INTEGRAÃ‡ÃƒO MELHORIA 2: BALANCEAMENTO BUY/SELL ==========
+            # ========== INTEGRAÃâ¡ÃÆO MELHORIA 2: BALANCEAMENTO BUY/SELL ==========
             if balanceador and BALANCEAMENTO_ATIVO:
                 balanceador.registrar_operacao(action)
                 status = balanceador.get_status()
                 logging.info(
-                    f"âš–ï¸ OperaÃ§Ã£o {action} registrada. BUY: {status['buy_count']}, SELL: {status['sell_count']} (BUY: {status['buy_percentage']:.1f}%)")
+                    f"Ã¢Å¡âÃ¯Â¸Â OperaÃÂ§ÃÂ£o {action} registrada. BUY: {status['buy_count']}, SELL: {status['sell_count']} (BUY: {status['buy_percentage']:.1f}%)")
 
-            # SAÃDA INTELIGENTE ANTIGA DESATIVADA â€” usa GerenciadorDeSaida no loop principal
-            # (evita conflito entre dois sistemas de saÃ­da simultÃ¢neos)
+            # SAÃÂDA INTELIGENTE ANTIGA DESATIVADA Ã¢â¬â usa GerenciadorDeSaida no loop principal
+            # (evita conflito entre dois sistemas de saÃÂ­da simultÃÂ¢neos)
 
-            # ========== INTEGRAÃ‡ÃƒO PASSO 2: GERENCIADOR DE SAÃDA UNIFICADO ==========
-            # ATIVA O GERENCIADOR DE SAÃDA (precisa ser passado como parÃ¢metro global)
+            # ========== INTEGRAÃâ¡ÃÆO PASSO 2: GERENCIADOR DE SAÃÂDA UNIFICADO ==========
+            # ATIVA O GERENCIADOR DE SAÃÂDA (precisa ser passado como parÃÂ¢metro global)
             # gerenciador_saida.iniciar_monitoramento(pos)
 
             return resultado.order
         time.sleep(0.2)
 
     logging.warning(
-        f"âš ï¸ NÃ£o foi possÃ­vel confirmar se ordem {resultado.order} virou posiÃ§Ã£o")
+        f"Ã¢Å¡Â Ã¯Â¸Â NÃÂ£o foi possÃÂ­vel confirmar se ordem {resultado.order} virou posiÃÂ§ÃÂ£o")
     return resultado.order
 
 
 def verificar_se_ordem_virou_posicao(ticket: Optional[int], symbol: str = SYMBOL) -> bool:
-    """Verifica se uma ordem se transformou em posiÃ§Ã£o."""
+    """Verifica se uma ordem se transformou em posiÃÂ§ÃÂ£o."""
     if ticket is None:
         return False
 
@@ -5520,51 +5533,51 @@ def reconciliar_pendentes() -> None:
 
 
 def obter_lucro_ultima_ordem(ticket_ordem_abertura: Optional[int] = None) -> Tuple[float, float]:
-    """ObtÃ©m o lucro e score da Ãºltima ordem fechada, com base no ticket da ordem de abertura."""
+    """ObtÃÂ©m o lucro e score da ÃÂºltima ordem fechada, com base no ticket da ordem de abertura."""
     logging.info(
-        f"ðŸ” Tentando obter lucro para ticket de ordem de abertura: {ticket_ordem_abertura}")
+        f"Ã°Å¸âÂ Tentando obter lucro para ticket de ordem de abertura: {ticket_ordem_abertura}")
     if ticket_ordem_abertura is None:
         logging.warning(
-            "âš ï¸ obter_lucro_ultima_ordem chamada sem ticket_ordem_abertura. Retornando 0.0, 0.0")
+            "Ã¢Å¡Â Ã¯Â¸Â obter_lucro_ultima_ordem chamada sem ticket_ordem_abertura. Retornando 0.0, 0.0")
         return 0.0, 0.0
 
-    # Buscar deals dos Ãºltimos X dias para garantir que cobrimos a vida da ordem.
-    # Aumentar o timedelta se as posiÃ§Ãµes puderem ficar abertas por mais tempo.
+    # Buscar deals dos ÃÂºltimos X dias para garantir que cobrimos a vida da ordem.
+    # Aumentar o timedelta se as posiÃÂ§ÃÂµes puderem ficar abertas por mais tempo.
     data_inicio_busca = datetime.now() - timedelta(days=7)
     deals = mt5.history_deals_get(data_inicio_busca, datetime.now())
 
     if not deals:
         logging.warning(
-            f"ðŸ’° Nenhum deal encontrado nos Ãºltimos 7 dias. NÃ£o foi possÃ­vel obter lucro para ticket {ticket_ordem_abertura}.")
+            f"Ã°Å¸âÂ° Nenhum deal encontrado nos ÃÂºltimos 7 dias. NÃÂ£o foi possÃÂ­vel obter lucro para ticket {ticket_ordem_abertura}.")
         return 0.0, 0.0
 
         logging.debug(
-            f"ðŸ” Encontrados {len(deals)} deals nos Ãºltimos 7 dias para anÃ¡lise do ticket {ticket_ordem_abertura}.")
+            f"Ã°Å¸âÂ Encontrados {len(deals)} deals nos ÃÂºltimos 7 dias para anÃÂ¡lise do ticket {ticket_ordem_abertura}.")
 
-    # Filtra deals de SAÃDA (mt5.DEAL_ENTRY_OUT) cuja position_id corresponde ao ticket da ORDEM de abertura.
+    # Filtra deals de SAÃÂDA (mt5.DEAL_ENTRY_OUT) cuja position_id corresponde ao ticket da ORDEM de abertura.
     deals_de_saida_relevantes = [
         d for d in deals if d.position_id == ticket_ordem_abertura and d.entry == mt5.DEAL_ENTRY_OUT
     ]
 
     if not deals_de_saida_relevantes:
         logging.warning(
-            f"ðŸ’° Nenhum DEAL DE SAÃDA encontrado para a ordem com ticket (position_id) {ticket_ordem_abertura}.")
-        # Isso pode significar que a posiÃ§Ã£o ainda estÃ¡ aberta, foi fechada manualmente de forma nÃ£o rastreÃ¡vel aqui,
-        # ou o deal de saÃ­da ainda nÃ£o foi registrado no histÃ³rico.
+            f"Ã°Å¸âÂ° Nenhum DEAL DE SAÃÂDA encontrado para a ordem com ticket (position_id) {ticket_ordem_abertura}.")
+        # Isso pode significar que a posiÃÂ§ÃÂ£o ainda estÃÂ¡ aberta, foi fechada manualmente de forma nÃÂ£o rastreÃÂ¡vel aqui,
+        # ou o deal de saÃÂ­da ainda nÃÂ£o foi registrado no histÃÂ³rico.
         return 0.0, 0.0
 
-    # Se houver mÃºltiplos deals de saÃ­da (ex: TPs parciais), Ã© importante decidir como agregar.
-    # Para este caso, vamos pegar o deal de saÃ­da MAIS RECENTE para calcular o lucro final da posiÃ§Ã£o.
-    # Ou, se for uma Ãºnica saÃ­da, este serÃ¡ o deal.
-    # Se for necessÃ¡rio somar lucros de saÃ­das parciais, a lÃ³gica aqui precisaria ser mais elaborada.
-    # Usar time_msc para maior precisÃ£o
+    # Se houver mÃÂºltiplos deals de saÃÂ­da (ex: TPs parciais), ÃÂ© importante decidir como agregar.
+    # Para este caso, vamos pegar o deal de saÃÂ­da MAIS RECENTE para calcular o lucro final da posiÃÂ§ÃÂ£o.
+    # Ou, se for uma ÃÂºnica saÃÂ­da, este serÃÂ¡ o deal.
+    # Se for necessÃÂ¡rio somar lucros de saÃÂ­das parciais, a lÃÂ³gica aqui precisaria ser mais elaborada.
+    # Usar time_msc para maior precisÃÂ£o
     deal_final_de_saida = max(
         deals_de_saida_relevantes, key=lambda d: d.time_msc)
 
     lucro_total_operacao = deal_final_de_saida.profit
-    # O atributo 'profit' de um deal no MT5 geralmente jÃ¡ inclui comissÃµes e swaps.
+    # O atributo 'profit' de um deal no MT5 geralmente jÃÂ¡ inclui comissÃÂµes e swaps.
 
-    logging.info(f"ðŸ’° Deal de saÃ­da encontrado para ticket {ticket_ordem_abertura}: DealTicket={deal_final_de_saida.ticket}, PositionID={deal_final_de_saida.position_id}, Lucro={lucro_total_operacao:.2f}, PreÃ§o SaÃ­da={deal_final_de_saida.price}, Volume={deal_final_de_saida.volume}, Hora={datetime.fromtimestamp(deal_final_de_saida.time)})")
+    logging.info(f"Ã°Å¸âÂ° Deal de saÃÂ­da encontrado para ticket {ticket_ordem_abertura}: DealTicket={deal_final_de_saida.ticket}, PositionID={deal_final_de_saida.position_id}, Lucro={lucro_total_operacao:.2f}, PreÃÂ§o SaÃÂ­da={deal_final_de_saida.price}, Volume={deal_final_de_saida.volume}, Hora={datetime.fromtimestamp(deal_final_de_saida.time)})")
 
     # SHADOW MODE: fecha o ciclo do registro passivo do Modelo A
     shadow_registrar_resultado(ticket_ordem_abertura, lucro_total_operacao)
@@ -5575,24 +5588,24 @@ def obter_lucro_ultima_ordem(ticket_ordem_abertura: Optional[int] = None) -> Tup
 
     if not ordens_historico:
         logging.warning(
-            f"âš ï¸ NÃ£o foi possÃ­vel obter detalhes da ordem de abertura {ticket_ordem_abertura} do histÃ³rico para calcular score_dist.")
+            f"Ã¢Å¡Â Ã¯Â¸Â NÃÂ£o foi possÃÂ­vel obter detalhes da ordem de abertura {ticket_ordem_abertura} do histÃÂ³rico para calcular score_dist.")
         # Mesmo sem a ordem, retornamos o lucro encontrado.
     elif len(ordens_historico) == 0:
         logging.warning(
-            f"âš ï¸ Lista de ordens do histÃ³rico vazia para ticket {ticket_ordem_abertura} ao calcular score_dist.")
+            f"Ã¢Å¡Â Ã¯Â¸Â Lista de ordens do histÃÂ³rico vazia para ticket {ticket_ordem_abertura} ao calcular score_dist.")
     else:
-        # Pega a primeira (e deve ser a Ãºnica) ordem com esse ticket
+        # Pega a primeira (e deve ser a ÃÂºnica) ordem com esse ticket
         ordem_obj = ordens_historico[0]
         logging.debug(
-            f"ðŸ“Š Detalhes da ordem de abertura para score_dist - Ticket: {ordem_obj.ticket}, PreÃ§oAbertura: {ordem_obj.price_open}, SL: {ordem_obj.sl}, TP: {ordem_obj.tp}, Tipo: {ordem_obj.type}, Estado: {ordem_obj.state}, RazÃ£o: {ordem_obj.reason}, PreÃ§o Atual MT5: {ordem_obj.price_current}")
+            f"Ã°Å¸âÅ  Detalhes da ordem de abertura para score_dist - Ticket: {ordem_obj.ticket}, PreÃÂ§oAbertura: {ordem_obj.price_open}, SL: {ordem_obj.sl}, TP: {ordem_obj.tp}, Tipo: {ordem_obj.type}, Estado: {ordem_obj.state}, RazÃÂ£o: {ordem_obj.reason}, PreÃÂ§o Atual MT5: {ordem_obj.price_current}")
 
         preco_entrada_para_score = ordem_obj.price_open  # Fallback
-        # Buscar o deal de entrada correspondente ao ticket_ordem_abertura (que Ã© o position_id do deal de saÃ­da)
+        # Buscar o deal de entrada correspondente ao ticket_ordem_abertura (que ÃÂ© o position_id do deal de saÃÂ­da)
         deals_relacionados_posicao = [
             d for d in deals if d.position_id == ticket_ordem_abertura]
         deal_de_entrada_para_score = None
         for deal_historico in deals_relacionados_posicao:
-            # Garante que Ã© o deal da ordem de abertura
+            # Garante que ÃÂ© o deal da ordem de abertura
             if deal_historico.entry == mt5.DEAL_ENTRY_IN and deal_historico.order == ticket_ordem_abertura:
                 deal_de_entrada_para_score = deal_historico
                 break
@@ -5612,24 +5625,24 @@ def obter_lucro_ultima_ordem(ticket_ordem_abertura: Optional[int] = None) -> Tup
         tp=ordem_obj.tp
     )
     logging.debug(
-        f"ðŸŽ¯ Score distÃ¢ncia calculado para ticket {ticket_ordem_abertura}: {score_dist:.4f}")
+        f"Ã°Å¸Å½Â¯ Score distÃÂ¢ncia calculado para ticket {ticket_ordem_abertura}: {score_dist:.4f}")
 
-    # ========== AJUSTE FINO: PENALIDADE POR "MORTE SÃšBITA" ==========
+    # ========== AJUSTE FINO: PENALIDADE POR "MORTE SÃÅ¡BITA" ==========
     # Se o trade foi Loss e durou menos de 15 segundos, penalizamos severamente a IA
-    # Isso ensina o modelo a evitar entradas em falsos rompimentos e ruÃ­dos de mercado
+    # Isso ensina o modelo a evitar entradas em falsos rompimentos e ruÃÂ­dos de mercado
     if deal_de_entrada_para_score:
         tempo_trade_segundos = (
             deal_final_de_saida.time_msc - deal_de_entrada_para_score.time_msc) / 1000.0
 
         if lucro_total_operacao < 0 and tempo_trade_segundos < 15:
-            score_dist = -1.5  # Penalidade severa para "Morte SÃºbita"
+            score_dist = -1.5  # Penalidade severa para "Morte SÃÂºbita"
             logging.warning(
-                f"âš ï¸ MORTE SÃšBITA DETECTADA: Trade durou {tempo_trade_segundos:.1f}s com prejuÃ­zo de R${lucro_total_operacao:.2f} | Penalizando IA com score -1.5")
+                f"Ã¢Å¡Â Ã¯Â¸Â MORTE SÃÅ¡BITA DETECTADA: Trade durou {tempo_trade_segundos:.1f}s com prejuÃÂ­zo de R${lucro_total_operacao:.2f} | Penalizando IA com score -1.5")
         elif lucro_total_operacao < 0 and tempo_trade_segundos < 30:
-            # Penalidade mÃ©dia para stops muito rÃ¡pidos
+            # Penalidade mÃÂ©dia para stops muito rÃÂ¡pidos
             score_dist = min(score_dist * 1.5, -1.0)
             logging.warning(
-                f"âš ï¸ STOP RÃPIDO: Trade durou {tempo_trade_segundos:.1f}s com prejuÃ­zo | Score penalizado: {score_dist:.2f}")
+                f"Ã¢Å¡Â Ã¯Â¸Â STOP RÃÂPIDO: Trade durou {tempo_trade_segundos:.1f}s com prejuÃÂ­zo | Score penalizado: {score_dist:.2f}")
 
     return lucro_total_operacao, score_dist
 
@@ -5639,12 +5652,12 @@ def obter_lucro_ultima_ordem(ticket_ordem_abertura: Optional[int] = None) -> Tup
 
 
 def atualizar_trailing_stop() -> None:
-    """Atualiza o trailing stop das posiÃ§Ãµes abertas."""
+    """Atualiza o trailing stop das posiÃÂ§ÃÂµes abertas."""
     if not TRAILING_ATIVO:
         return
 
-    # Verifica se Ã© fim de semana
-    if datetime.now().weekday() > 4:  # 5 = SÃ¡bado, 6 = Domingo
+    # Verifica se ÃÂ© fim de semana
+    if datetime.now().weekday() > 4:  # 5 = SÃÂ¡bado, 6 = Domingo
         # Verifica a cada minuto durante fim de semana
         threading.Timer(60, atualizar_trailing_stop).start()
         return
@@ -5660,11 +5673,11 @@ def atualizar_trailing_stop() -> None:
         threading.Timer(TRAILING_INTERVALO, atualizar_trailing_stop).start()
         return
 
-    # Verifica horÃ¡rio do ajuste
+    # Verifica horÃÂ¡rio do ajuste
     agora = datetime.now().time()
     horario_ajuste = datetime.strptime(HORARIO_AJUSTE, "%H:%M").time()
     if agora >= horario_ajuste:
-        logging.info("â° ApÃ³s horÃ¡rio de ajuste, trailing stop desativado")
+        logging.info("Ã¢ÂÂ° ApÃÂ³s horÃÂ¡rio de ajuste, trailing stop desativado")
         return
 
     posicoes = retry_positions_get(SYMBOL)
@@ -5675,7 +5688,7 @@ def atualizar_trailing_stop() -> None:
     symbol_info = get_cached_symbol_info(SYMBOL)
     if symbol_info is None:
         logging.warning(
-            "âš ï¸ InformaÃ§Ãµes do sÃ­mbolo indisponÃ­veis para trailing")
+            "Ã¢Å¡Â Ã¯Â¸Â InformaÃÂ§ÃÂµes do sÃÂ­mbolo indisponÃÂ­veis para trailing")
         threading.Timer(TRAILING_INTERVALO, atualizar_trailing_stop).start()
         return
 
@@ -5691,11 +5704,11 @@ def atualizar_trailing_stop() -> None:
         preco_atual = tick.bid if pos.type == mt5.POSITION_TYPE_SELL else tick.ask
         preco_atual = arredondar_preco(preco_atual)
 
-        # Converte diferenÃ§a para pontos (1 ponto = 1000 ticks)
+        # Converte diferenÃÂ§a para pontos (1 ponto = 1000 ticks)
         lucro_ticks = abs(preco_atual - preco_entrada) / symbol_info.point
         lucro_pontos = lucro_ticks / TICKS_POR_PONTO
 
-        # SÃ³ move o stop se atingiu o gatilho em pontos
+        # SÃÂ³ move o stop se atingiu o gatilho em pontos
         if lucro_pontos < TRAILING_GATILHO:
             continue
 
@@ -5709,7 +5722,7 @@ def atualizar_trailing_stop() -> None:
 
         novo_sl = arredondar_preco(novo_sl)
 
-        # SÃ³ atualiza se o novo SL Ã© mais favorÃ¡vel
+        # SÃÂ³ atualiza se o novo SL ÃÂ© mais favorÃÂ¡vel
         if pos.type == mt5.POSITION_TYPE_BUY and (pos.sl is None or novo_sl > pos.sl):
             atualizar_sl(pos.ticket, novo_sl)
         elif pos.type == mt5.POSITION_TYPE_SELL and (pos.sl is None or novo_sl < pos.sl):
@@ -5719,89 +5732,89 @@ def atualizar_trailing_stop() -> None:
 
 
 def atualizar_sl(ticket: int, novo_sl: float, eh_breakeen_forcado: bool = False) -> bool:
-    """Atualiza o stop loss de uma posiÃ§Ã£o com validaÃ§Ã£o de distÃ¢ncia mÃ­nima.
-    eh_breakeen_forcado=True: pula TODAS as validaÃ§Ãµes (usado por INVERSÃƒO DE FLUXO)."""
-    # Recupera a posiÃ§Ã£o atual para pegar o TP original
+    """Atualiza o stop loss de uma posiÃÂ§ÃÂ£o com validaÃÂ§ÃÂ£o de distÃÂ¢ncia mÃÂ­nima.
+    eh_breakeen_forcado=True: pula TODAS as validaÃÂ§ÃÂµes (usado por INVERSÃÆO DE FLUXO)."""
+    # Recupera a posiÃÂ§ÃÂ£o atual para pegar o TP original
     posicoes = mt5.positions_get(ticket=ticket)
     if not posicoes:
         logging.error(
-            f"âŒ NÃ£o foi possÃ­vel obter a posiÃ§Ã£o com ticket {ticket} para atualizar SL.")
+            f"Ã¢ÂÅ NÃÂ£o foi possÃÂ­vel obter a posiÃÂ§ÃÂ£o com ticket {ticket} para atualizar SL.")
         return False
 
     posicao = posicoes[0]
     tp_original = posicao.tp
 
-    # CORREÃ‡ÃƒO CRÃTICA: ValidaÃ§Ã£o de distÃ¢ncia mÃ­nima obrigatÃ³ria
+    # CORREÃâ¡ÃÆO CRÃÂTICA: ValidaÃÂ§ÃÂ£o de distÃÂ¢ncia mÃÂ­nima obrigatÃÂ³ria
     symbol_info = mt5.symbol_info(SYMBOL)
     if not symbol_info:
-        logging.error(f"âŒ Erro ao obter informaÃ§Ãµes do sÃ­mbolo {SYMBOL}")
+        logging.error(f"Ã¢ÂÅ Erro ao obter informaÃÂ§ÃÂµes do sÃÂ­mbolo {SYMBOL}")
         return False
 
-    # Obter preÃ§o atual e freeze level
+    # Obter preÃÂ§o atual e freeze level
     tick = mt5.symbol_info_tick(SYMBOL)
     if not tick:
-        logging.error(f"âŒ Erro ao obter tick atual do {SYMBOL}")
+        logging.error(f"Ã¢ÂÅ Erro ao obter tick atual do {SYMBOL}")
         return False
 
-    # Inicializa freeze_level com valor padrÃ£o ANTES de qualquer uso
+    # Inicializa freeze_level com valor padrÃÂ£o ANTES de qualquer uso
     freeze_level = symbol_info.trade_freeze_level if symbol_info else 0
     if freeze_level == 0:
-        freeze_level = 1  # WDO: 1pt mÃ­nimo (freeze_level real do MT5)
-    distancia_minima = freeze_level  # Sem multiplicador â€” precisa ser mÃ­nimo real, nÃ£o conservador
+        freeze_level = 1  # WDO: 1pt mÃÂ­nimo (freeze_level real do MT5)
+    distancia_minima = freeze_level  # Sem multiplicador Ã¢â¬â precisa ser mÃÂ­nimo real, nÃÂ£o conservador
 
-    # FIX 11/08 (retcode 10016 "Invalid stops"): a validaÃ§Ã£o de distÃ¢ncia mÃ­nima
-    # Ã© SEMPRE aplicada â€” antes, o breakeen (auto-detectado ou forÃ§ado) pulava a
-    # validaÃ§Ã£o e enviava SL dentro da zona de freeze da corretora (ex.: trailing
-    # 50% do sniper SL=5130.75 a 0.25pt do ask). Agora o SL Ã© corrigido para
-    # respeitar a distÃ¢ncia mÃ­nima ou rejeitado (aguarda prÃ³ximo tick).
-    eh_breakeen = abs(novo_sl - posicao.price_open) < 2.0  # tolerÃ¢ncia de 2 ticks (sÃ³ p/ log)
+    # FIX 11/08 (retcode 10016 "Invalid stops"): a validaÃÂ§ÃÂ£o de distÃÂ¢ncia mÃÂ­nima
+    # ÃÂ© SEMPRE aplicada Ã¢â¬â antes, o breakeen (auto-detectado ou forÃÂ§ado) pulava a
+    # validaÃÂ§ÃÂ£o e enviava SL dentro da zona de freeze da corretora (ex.: trailing
+    # 50% do sniper SL=5130.75 a 0.25pt do ask). Agora o SL ÃÂ© corrigido para
+    # respeitar a distÃÂ¢ncia mÃÂ­nima ou rejeitado (aguarda prÃÂ³ximo tick).
+    eh_breakeen = abs(novo_sl - posicao.price_open) < 2.0  # tolerÃÂ¢ncia de 2 ticks (sÃÂ³ p/ log)
     if eh_breakeen_forcado:
         logging.info(
-            f"\U0001f510 Breakeen FORCADO (SL={novo_sl:.2f} ~ entrada={posicao.price_open:.2f}) \u2014 validando distÃ¢ncia mesmo assim")
+            f"\U0001f510 Breakeen FORCADO (SL={novo_sl:.2f} ~ entrada={posicao.price_open:.2f}) \u2014 validando distÃÂ¢ncia mesmo assim")
 
-    # Validar distÃ¢ncia mÃ­nima baseada no tipo de posiÃ§Ã£o
+    # Validar distÃÂ¢ncia mÃÂ­nima baseada no tipo de posiÃÂ§ÃÂ£o
     if posicao.type == mt5.POSITION_TYPE_BUY:
         preco_referencia = tick.bid
         distancia_atual = preco_referencia - novo_sl  # BUY: SL fica abaixo do bid
         if distancia_atual < distancia_minima:
             novo_sl_corrigido = preco_referencia - distancia_minima
-            # SAFETY: Se correÃ§Ã£o piora SL, nÃ£o mover â€” esperar prÃ³ximo tick
+            # SAFETY: Se correÃÂ§ÃÂ£o piora SL, nÃÂ£o mover Ã¢â¬â esperar prÃÂ³ximo tick
             if posicao.sl != 0 and novo_sl_corrigido <= posicao.sl:
                 logging.debug(
-                    f"ðŸ”„ Trailing BUY: correÃ§Ã£o ({novo_sl_corrigido:.2f}) pior que atual ({posicao.sl:.2f}). Aguardando preÃ§o.")
+                    f"Ã°Å¸ââ Trailing BUY: correÃÂ§ÃÂ£o ({novo_sl_corrigido:.2f}) pior que atual ({posicao.sl:.2f}). Aguardando preÃÂ§o.")
                 return False
             logging.warning(
-                f"âš ï¸ SL BUY muito prÃ³ximo! Corrigido: {novo_sl:.2f} â†’ {novo_sl_corrigido:.2f}")
+                f"Ã¢Å¡Â Ã¯Â¸Â SL BUY muito prÃÂ³ximo! Corrigido: {novo_sl:.2f} Ã¢â â {novo_sl_corrigido:.2f}")
             novo_sl = novo_sl_corrigido
     else:  # SELL
         preco_referencia = tick.ask
         distancia_atual = novo_sl - preco_referencia  # SELL: SL fica acima do ask
         if distancia_atual < distancia_minima:
             novo_sl_corrigido = preco_referencia + distancia_minima
-            # SAFETY: Se correÃ§Ã£o piora SL, nÃ£o mover â€” esperar prÃ³ximo tick
+            # SAFETY: Se correÃÂ§ÃÂ£o piora SL, nÃÂ£o mover Ã¢â¬â esperar prÃÂ³ximo tick
             if posicao.sl != 0 and novo_sl_corrigido >= posicao.sl:
                 logging.debug(
-                    f"ðŸ”„ Trailing SELL: correÃ§Ã£o ({novo_sl_corrigido:.2f}) pior que atual ({posicao.sl:.2f}). Aguardando preÃ§o.")
+                    f"Ã°Å¸ââ Trailing SELL: correÃÂ§ÃÂ£o ({novo_sl_corrigido:.2f}) pior que atual ({posicao.sl:.2f}). Aguardando preÃÂ§o.")
                 return False
             logging.warning(
-                f"âš ï¸ SL SELL muito prÃ³ximo! Corrigido: {novo_sl:.2f} â†’ {novo_sl_corrigido:.2f}")
+                f"Ã¢Å¡Â Ã¯Â¸Â SL SELL muito prÃÂ³ximo! Corrigido: {novo_sl:.2f} Ã¢â â {novo_sl_corrigido:.2f}")
             novo_sl = novo_sl_corrigido
 
-    # Verificar se o novo SL Ã© realmente uma melhoria
-    if posicao.sl != 0:  # Se jÃ¡ tem SL definido
+    # Verificar se o novo SL ÃÂ© realmente uma melhoria
+    if posicao.sl != 0:  # Se jÃÂ¡ tem SL definido
         if posicao.type == mt5.POSITION_TYPE_BUY and novo_sl <= posicao.sl:
             logging.debug(
-                f"ðŸ”„ SL BUY nÃ£o Ã© melhoria: {novo_sl:.2f} <= {posicao.sl:.2f}")
+                f"Ã°Å¸ââ SL BUY nÃÂ£o ÃÂ© melhoria: {novo_sl:.2f} <= {posicao.sl:.2f}")
             return False
         elif posicao.type == mt5.POSITION_TYPE_SELL and novo_sl >= posicao.sl:
             logging.debug(
-                f"ðŸ”„ SL SELL nÃ£o Ã© melhoria: {novo_sl:.2f} >= {posicao.sl:.2f}")
+                f"Ã°Å¸ââ SL SELL nÃÂ£o ÃÂ© melhoria: {novo_sl:.2f} >= {posicao.sl:.2f}")
             return False
 
-    # FIX 13/08 (10016 "Invalid stops"): o tick consultado no inÃ­cio da funÃ§Ã£o
-    # pode estar defasado — entre a validaÃ§Ã£o e o order_send o mercado andou,
-    # deixando o SL dentro da zona de freeze real. Re-obtÃ©m o tick FRESCO e
-    # revalida a distÃ¢ncia mÃ­nima IMEDIATAMENTE antes de enviar.
+    # FIX 13/08 (10016 "Invalid stops"): o tick consultado no inÃÂ­cio da funÃÂ§ÃÂ£o
+    # pode estar defasado â entre a validaÃÂ§ÃÂ£o e o order_send o mercado andou,
+    # deixando o SL dentro da zona de freeze real. Re-obtÃÂ©m o tick FRESCO e
+    # revalida a distÃÂ¢ncia mÃÂ­nima IMEDIATAMENTE antes de enviar.
     try:
         tick_fresco = mt5.symbol_info_tick(SYMBOL)
         if tick_fresco:
@@ -5815,22 +5828,22 @@ def atualizar_sl(ticket: int, novo_sl: float, eh_breakeen_forcado: bool = False)
                     # proximo tick em vez de enviar um SL PIOR.
                     if posicao.sl != 0 and novo_sl <= posicao.sl:
                         logging.debug(
-                            f"⚠️ Revalidacao BUY piora SL ({novo_sl:.2f} <= {posicao.sl:.2f}) - aguardando proximo tick")
+                            f"â ï¸ Revalidacao BUY piora SL ({novo_sl:.2f} <= {posicao.sl:.2f}) - aguardando proximo tick")
                         return False
                     logging.warning(
-                        f"⚠️ SL BUY revalidado (tick fresco bid={tick_fresco.bid:.2f}): novo_sl → {novo_sl:.2f}")
+                        f"â ï¸ SL BUY revalidado (tick fresco bid={tick_fresco.bid:.2f}): novo_sl â {novo_sl:.2f}")
             else:  # SELL
                 _dist_fresca = novo_sl - tick_fresco.ask
                 if _dist_fresca < distancia_minima:
                     novo_sl = tick_fresco.ask + distancia_minima
                     if posicao.sl != 0 and novo_sl >= posicao.sl:
                         logging.debug(
-                            f"⚠️ Revalidacao SELL piora SL ({novo_sl:.2f} >= {posicao.sl:.2f}) - aguardando proximo tick")
+                            f"â ï¸ Revalidacao SELL piora SL ({novo_sl:.2f} >= {posicao.sl:.2f}) - aguardando proximo tick")
                         return False
                     logging.warning(
-                        f"⚠️ SL SELL revalidado (tick fresco ask={tick_fresco.ask:.2f}): novo_sl → {novo_sl:.2f}")
+                        f"â ï¸ SL SELL revalidado (tick fresco ask={tick_fresco.ask:.2f}): novo_sl â {novo_sl:.2f}")
     except Exception as e:
-        logging.warning(f"⚠️ Erro ao revalidar SL com tick fresco: {e}")
+        logging.warning(f"â ï¸ Erro ao revalidar SL com tick fresco: {e}")
 
     logging.debug(
         f"[atualizar_sl] Ticket: {ticket}, Novo SL: {novo_sl:.2f}, TP: {tp_original:.2f}, Freeze: {freeze_level}")
@@ -5840,25 +5853,25 @@ def atualizar_sl(ticket: int, novo_sl: float, eh_breakeen_forcado: bool = False)
         "position": ticket,
         "symbol": SYMBOL,
         "sl": round(novo_sl, symbol_info.digits),
-        "tp": tp_original,  # MantÃ©m o TP original da posiÃ§Ã£o
+        "tp": tp_original,  # MantÃÂ©m o TP original da posiÃÂ§ÃÂ£o
         "magic": MAGIC_NUMBER,
         "comment": "Trailing SL Monstro"
     }
 
     resultado = mt5.order_send(ordem_mod)
     if resultado is None:
-        logging.error(f"âŒ Erro ao mover SL via trailing. Ticket={ticket}")
-        logging.error(f"âŒ Erro MT5: {mt5.last_error()}")
+        logging.error(f"Ã¢ÂÅ Erro ao mover SL via trailing. Ticket={ticket}")
+        logging.error(f"Ã¢ÂÅ Erro MT5: {mt5.last_error()}")
         return False
     elif resultado.retcode == mt5.TRADE_RETCODE_DONE:
         logging.info(
-            f"ðŸ” SL atualizado com sucesso! {posicao.sl:.2f} â†’ {ordem_mod['sl']:.2f} (Ticket: {ticket})")
+            f"Ã°Å¸âÂ SL atualizado com sucesso! {posicao.sl:.2f} Ã¢â â {ordem_mod['sl']:.2f} (Ticket: {ticket})")
         return True
     else:
         logging.error(
-            f"âŒ FALHA ao mover SL! CÃ³digo: {resultado.retcode} | Msg: {resultado.comment} | SL: {novo_sl:.2f}")
+            f"Ã¢ÂÅ FALHA ao mover SL! CÃÂ³digo: {resultado.retcode} | Msg: {resultado.comment} | SL: {novo_sl:.2f}")
         logging.error(
-            f"âŒ Detalhes: Freeze={freeze_level}, DistÃ¢ncia mÃ­n={distancia_minima:.5f}")
+            f"Ã¢ÂÅ Detalhes: Freeze={freeze_level}, DistÃÂ¢ncia mÃÂ­n={distancia_minima:.5f}")
         return False
 # endregion
 
@@ -5888,7 +5901,7 @@ def _static(nome):
 # Rota antiga redireciona para o novo dashboard
 @app.route("/old")
 def index_old():
-    """PÃ¡gina antiga com dashboard."""
+    """PÃÂ¡gina antiga com dashboard."""
     return """
     <!DOCTYPE html>
     <html>
@@ -5951,40 +5964,40 @@ def index_old():
         </style>
     </head>
     <body>
-        <h1>ðŸ¤– Monstro Dashboard</h1>
+        <h1>Ã°Å¸Â¤â Monstro Dashboard</h1>
         <div class="grid">
             <div class="card">
-                <h2>ðŸ“Š Performance</h2>
+                <h2>Ã°Å¸âÅ  Performance</h2>
                 <div id="performance_chart"></div>
             </div>
             <div class="card">
-                <h2>ðŸŽ¯ DistribuiÃ§Ã£o de Scores</h2>
+                <h2>Ã°Å¸Å½Â¯ DistribuiÃÂ§ÃÂ£o de Scores</h2>
                 <div id="score_dist_chart"></div>
             </div>
             <div class="card">
-                <h2>ðŸ“ˆ Aprendizado</h2>
+                <h2>Ã°Å¸âË Aprendizado</h2>
                 <div id="learning_chart"></div>
             </div>
             <div class="card">
-                <h2>âš–ï¸ ExperiÃªncias</h2>
+                <h2>Ã¢Å¡âÃ¯Â¸Â ExperiÃÂªncias</h2>
                 <div id="exp_chart"></div>
             </div>
             <div class="card full-width">
-                <h2>ðŸ“ Status Atual</h2>
+                <h2>Ã°Å¸âÂ Status Atual</h2>
                 <div id="status_info"></div>
                 <div class="bloqueio-info">
                     <div>
-                        <h3>ðŸ”’ Status Bloqueios</h3>
+                        <h3>Ã°Å¸ââ Status Bloqueios</h3>
                         <div id="bloqueio_info"></div>
                     </div>
                     <div>
-                        <h3>âš ï¸ SequÃªncia de Losses</h3>
+                        <h3>Ã¢Å¡Â Ã¯Â¸Â SequÃÂªncia de Losses</h3>
                         <div id="losses_info"></div>
                     </div>
                 </div>
                 <div class="balanceamento-info">
                     <div>
-                        <h3>âš–ï¸ Balanceamento de OperaÃ§Ãµes</h3>
+                        <h3>Ã¢Å¡âÃ¯Â¸Â Balanceamento de OperaÃÂ§ÃÂµes</h3>
                         <div id="balanceamento_info"></div>
                         <div class="progress-bar">
                             <div id="balanceamento_bar" class="progress-fill"></div>
@@ -6040,14 +6053,14 @@ def index_old():
                 $.getJSON('/api/status', function(data) {
                     $('#status_info').html(`
                         <p><strong>Score Atual:</strong> ${data.score.toFixed(2)}</p>
-                        <p><strong>Ãšltima DecisÃ£o:</strong> ${data.ultima_decisao}</p>
+                        <p><strong>ÃÅ¡ltima DecisÃÂ£o:</strong> ${data.ultima_decisao}</p>
                         <p><strong>Status Book:</strong> ${data.status_book}</p>
-                        <p><strong>PosiÃ§Ã£o:</strong> ${data.posicao_atual}</p>
-                        <p><strong>Idade MÃ©dia Exp.:</strong> ${data.idade_media_exp.toFixed(1)}h</p>
-                        <p><strong>Decay MÃ©dio:</strong> ${data.decay_medio.toFixed(2)}</p>
+                        <p><strong>PosiÃÂ§ÃÂ£o:</strong> ${data.posicao_atual}</p>
+                        <p><strong>Idade MÃÂ©dia Exp.:</strong> ${data.idade_media_exp.toFixed(1)}h</p>
+                        <p><strong>Decay MÃÂ©dio:</strong> ${data.decay_medio.toFixed(2)}</p>
                     `);
 
-                    // Atualiza informaÃ§Ãµes de bloqueio
+                    // Atualiza informaÃÂ§ÃÂµes de bloqueio
                     $('#bloqueio_info').html(`
                         <div class="bloqueio-lado ${data.bloqueios.BUY > 0 ? 'bloqueado' : 'liberado'}">
                             COMPRA: ${data.bloqueios.BUY > 0 ? `Bloqueado (${data.bloqueios.BUY} ciclos)` : 'Liberado'}
@@ -6057,13 +6070,13 @@ def index_old():
                         </div>
                     `);
 
-                    // Atualiza informaÃ§Ãµes de losses em sequÃªncia
+                    // Atualiza informaÃÂ§ÃÂµes de losses em sequÃÂªncia
                     $('#losses_info').html(`
                         <div>COMPRA: ${data.losses_sequencia.BUY} losses seguidos</div>
                         <div>VENDA: ${data.losses_sequencia.SELL} losses seguidos</div>
                     `);
 
-                    // Atualiza informaÃ§Ãµes de balanceamento
+                    // Atualiza informaÃÂ§ÃÂµes de balanceamento
                     if (data.balanceamento) {
                         $('#balanceamento_info').html(`
                             <div class="balanceamento-metrica">
@@ -6094,7 +6107,7 @@ def index_old():
 
 @app.route("/api/performance")
 def api_performance():
-    """Retorna dados de performance para o grÃ¡fico."""
+    """Retorna dados de performance para o grÃÂ¡fico."""
     return jsonify({
         "lucros": historico_lucro
     })
@@ -6102,7 +6115,7 @@ def api_performance():
 
 @app.route("/api/score_distribution")
 def api_score_distribution():
-    """Retorna distribuiÃ§Ã£o dos scores."""
+    """Retorna distribuiÃÂ§ÃÂ£o dos scores."""
     scores = []
     if memoria_experiencias and memoria_experiencias.experiencias:
         scores = [exp[3]
@@ -6123,7 +6136,7 @@ def api_learning_progress():
 
 @app.route("/api/experience_stats")
 def api_experience_stats():
-    """Retorna estatÃ­sticas das experiÃªncias."""
+    """Retorna estatÃÂ­sticas das experiÃÂªncias."""
     positivas = len(
         memoria_experiencias.indices_positivos) if memoria_experiencias else 0
     negativas = len(
@@ -6151,7 +6164,7 @@ def status():
             for ts in mem_exp.timestamps
         ) / len(mem_exp.timestamps)
 
-    # ObtÃ©m status do gerenciador de bloqueio - usando globals() para verificar
+    # ObtÃÂ©m status do gerenciador de bloqueio - usando globals() para verificar
     try:
         if 'gerenciador_bloqueio' in globals() and gerenciador_bloqueio is not None:
             status_bloqueio = gerenciador_bloqueio.get_status()
@@ -6168,11 +6181,11 @@ def status():
             "ultima_acao": None
         }
 
-    # ObtÃ©m status de balanceamento
+    # ObtÃÂ©m status de balanceamento
     balanceamento = mem_exp.get_balanceamento_status(
     ) if mem_exp else None
 
-    # ObtÃ©m modo operacional
+    # ObtÃÂ©m modo operacional
     try:
         if 'modo_operacional' in globals() and modo_operacional is not None:
             modo_atual = modo_operacional.modo_atual
@@ -6217,11 +6230,11 @@ def api_novos_sistemas():
     """Retorna status dos novos sistemas implementados."""
     status_sistemas = {}
 
-    # Status do filtro de horÃ¡rio
+    # Status do filtro de horÃÂ¡rio
     if filtro_horario:
         status_sistemas['horario'] = filtro_horario.get_status()
 
-    # Status do detector de tendÃªncia
+    # Status do detector de tendÃÂªncia
     if detector_tendencia:
         status_sistemas['tendencia'] = detector_tendencia.get_status()
 
@@ -6255,7 +6268,7 @@ def api_novos_sistemas():
 
 @app.route("/lucro")
 def lucro():
-    """Retorna o histÃ³rico de lucros."""
+    """Retorna o histÃÂ³rico de lucros."""
     return jsonify({
         "lucros": historico_lucro,
         "total": sum(historico_lucro) if historico_lucro else 0,
@@ -6266,7 +6279,7 @@ def lucro():
 
 @app.route("/api/data_files")
 def api_data_files():
-    """Retorna status dos arquivos de dados e modelos do robÃ´."""
+    """Retorna status dos arquivos de dados e modelos do robÃÂ´."""
     import csv
     diretorio = _caminho_base()
     arquivos = [
@@ -6292,7 +6305,7 @@ def api_data_files():
             if nome.endswith(".csv"):
                 try:
                     with open(caminho, encoding="utf-8", errors="ignore") as f:
-                        info["linhas"] = sum(1 for _ in f) - 1  # menos cabeÃ§alho
+                        info["linhas"] = sum(1 for _ in f) - 1  # menos cabeÃÂ§alho
                 except Exception:
                     info["linhas"] = 0
             elif nome.endswith(".json"):
@@ -6325,7 +6338,7 @@ def iniciar_flask():
 
 
 def atualizar_sentinela():
-    """Mantém o Sentinela de Fluxo aquecido em background (cache de 60s)."""
+    """MantÃ©m o Sentinela de Fluxo aquecido em background (cache de 60s)."""
     global sentinela_cenario, sentinela_detalhe, sentinela_score, sentinela_ultima_atualizacao
     while True:
         try:
@@ -6335,21 +6348,21 @@ def atualizar_sentinela():
             sentinela_score = _sf['score']
             sentinela_ultima_atualizacao = _sf['atualizado']
             if _sf['cenario'] != 'NEUTRO':
-                logging.info(f"ðŸ›¡ SENTINELA: {_sf['cenario']} | {_sf['detalhe']}")
+                logging.info(f"Ã°Å¸âºÂ¡ SENTINELA: {_sf['cenario']} | {_sf['detalhe']}")
         except Exception:
             pass
         time.sleep(60)
 
 
-# VariÃ¡veis globais para mÃ©tricas
-historico_loss = []  # HistÃ³rico de loss do modelo
+# VariÃÂ¡veis globais para mÃÂ©tricas
+historico_loss = []  # HistÃÂ³rico de loss do modelo
 
 # Controle de treinamento inteligente
 contador_experiencias_novas = 0
-# ðŸš¨ CORREÃ‡ÃƒO C3: Treina a cada 3 experiÃªncias novas (era 10) - APRENDIZADO ACELERADO
+# Ã°Å¸Å¡Â¨ CORREÃâ¡ÃÆO C3: Treina a cada 3 experiÃÂªncias novas (era 10) - APRENDIZADO ACELERADO
 LIMITE_EXPERIENCIAS_PARA_TREINO = 3
 
-# Dashboard V2 â€” VariÃ¡veis de estado para o dashboard
+# Dashboard V2 Ã¢â¬â VariÃÂ¡veis de estado para o dashboard
 spread_atual = 0.0
 atr_atual = 0.0
 rsi_atual = 50.0
@@ -6361,7 +6374,7 @@ sniper_bloqueado = False
 sniper_bloqueio_motivo = ""
 payroll_ativado = False
 
-# SENTINELA DE FLUXO globals (camada macroeconômica de veto)
+# SENTINELA DE FLUXO globals (camada macroeconÃ´mica de veto)
 SENTINELA_ATIVO = True  # False desativa o veto macro totalmente
 sentinela_cenario = "NEUTRO"
 sentinela_detalhe = "Inicializando..."
@@ -6372,13 +6385,13 @@ sentinela_ultima_atualizacao = ""
 _ultimo_bid_qty = None
 _ultimo_ask_qty = None
 _timestamp_ultimo_dado_novo = None
-TEMPO_MAX_DADOS_CONGELADOS = 300  # 5 minutos sem mudanÃ§a = alerta
+TEMPO_MAX_DADOS_CONGELADOS = 300  # 5 minutos sem mudanÃÂ§a = alerta
 
 
 def verificar_dados_congelados(bid_qty: float, ask_qty: float) -> bool:
     """
-    Verifica se os dados do book estÃ£o congelados.
-    Retorna True se os dados estÃ£o congelados (problema no EA MQL5).
+    Verifica se os dados do book estÃÂ£o congelados.
+    Retorna True se os dados estÃÂ£o congelados (problema no EA MQL5).
     """
     global _ultimo_bid_qty, _ultimo_ask_qty, _timestamp_ultimo_dado_novo
 
@@ -6398,19 +6411,19 @@ def verificar_dados_congelados(bid_qty: float, ask_qty: float) -> bool:
         _timestamp_ultimo_dado_novo = agora
         return False
 
-    # Dados nÃ£o mudaram â€” verifica hÃ¡ quanto tempo
+    # Dados nÃÂ£o mudaram Ã¢â¬â verifica hÃÂ¡ quanto tempo
     tempo_congelado = agora - _timestamp_ultimo_dado_novo
     if tempo_congelado > TEMPO_MAX_DADOS_CONGELADOS:
         logging.warning(
-            f"ðŸ§Š DADOS CONGELADOS: bid_qty={bid_qty}, ask_qty={ask_qty} "
-            f"sem mudanÃ§a hÃ¡ {tempo_congelado/60:.1f} minutos! "
-            f"Verifique o EA MQL5 â€” OnBookEvent pode nÃ£o estar disparando.")
+            f"Ã°Å¸Â§Å  DADOS CONGELADOS: bid_qty={bid_qty}, ask_qty={ask_qty} "
+            f"sem mudanÃÂ§a hÃÂ¡ {tempo_congelado/60:.1f} minutos! "
+            f"Verifique o EA MQL5 Ã¢â¬â OnBookEvent pode nÃÂ£o estar disparando.")
         return True
 
     return False
 
 
-# VariÃ¡veis globais para encerramento seguro
+# VariÃÂ¡veis globais para encerramento seguro
 sistema_encerrando = False
 modelo_ia_global = None
 memoria_experiencias_global = None
@@ -6424,7 +6437,7 @@ def verificar_arquivo_parada():
         arquivo_parada = _caminho_dados("parar.txt")
         return os.path.exists(arquivo_parada)
     except Exception as e:
-        logging.error(f"âŒ Erro ao verificar arquivo de parada: {e}")
+        logging.error(f"Ã¢ÂÅ Erro ao verificar arquivo de parada: {e}")
         return False
 
 
@@ -6434,11 +6447,11 @@ def signal_handler(signum, frame):
 
     if sistema_encerrando:
         logging.info(
-            "ðŸ”´ Sinal recebido novamente - forÃ§ando encerramento imediato")
+            "Ã°Å¸âÂ´ Sinal recebido novamente - forÃÂ§ando encerramento imediato")
         os._exit(1)
 
     sistema_encerrando = True
-    logging.info(f"ðŸ”´ Sinal {signum} recebido - iniciando encerramento seguro")
+    logging.info(f"Ã°Å¸âÂ´ Sinal {signum} recebido - iniciando encerramento seguro")
 
     try:
         if modelo_ia_global and memoria_experiencias_global:
@@ -6446,10 +6459,10 @@ def signal_handler(signum, frame):
                 modelo_ia_global, memoria_experiencias_global)
         else:
             logging.info(
-                "ðŸ”´ Dados globais nÃ£o disponÃ­veis - encerramento direto")
+                "Ã°Å¸âÂ´ Dados globais nÃÂ£o disponÃÂ­veis - encerramento direto")
             os._exit(0)
     except Exception as e:
-        logging.error(f"âŒ Erro no encerramento por sinal: {e}")
+        logging.error(f"Ã¢ÂÅ Erro no encerramento por sinal: {e}")
         os._exit(1)
 
 
@@ -6463,17 +6476,17 @@ def signal_handler(signum, frame):
 
 
 def verificar_parada_gracil():
-    """Verifica se foi solicitada parada gracil atravÃ©s do arquivo parar.txt"""
+    """Verifica se foi solicitada parada gracil atravÃÂ©s do arquivo parar.txt"""
     if os.path.exists(_caminho_dados("parar.txt")):
         # Se mercado fechado, encerra imediatamente
         try:
             mercado_ativo, motivo = verificar_mercado_aberto()
             if not mercado_ativo:
                 logging.info(
-                    f"ðŸš« {motivo} - Encerramento imediato por mercado fechado")
+                    f"Ã°Å¸Å¡Â« {motivo} - Encerramento imediato por mercado fechado")
                 return True
         except:
-            pass  # Se erro na verificaÃ§Ã£o, continua normalmente
+            pass  # Se erro na verificaÃÂ§ÃÂ£o, continua normalmente
         return True
     return False
 
@@ -6489,16 +6502,16 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
     global SNIPER_SUPERMO_ATIVO
 
     try:
-        # InicializaÃ§Ã£o
+        # InicializaÃÂ§ÃÂ£o
         mt5_ativo_local = inicializar_mt5() if mt5_ativo_param is None else mt5_ativo_param
 
-        # === PROTEÃ‡ÃƒO TOTAL DO MODELO ===
-        logging.info("ðŸ›¡ï¸ Iniciando verificaÃ§Ã£o de proteÃ§Ã£o do modelo...")
+        # === PROTEÃâ¡ÃÆO TOTAL DO MODELO ===
+        logging.info("Ã°Å¸âºÂ¡Ã¯Â¸Â Iniciando verificaÃÂ§ÃÂ£o de proteÃÂ§ÃÂ£o do modelo...")
         if not verificar_e_proteger_modelo():
             logging.warning(
-                "âš ï¸ ProteÃ§Ã£o do modelo identificou problemas - continuando com novo modelo")
+                "Ã¢Å¡Â Ã¯Â¸Â ProteÃÂ§ÃÂ£o do modelo identificou problemas - continuando com novo modelo")
 
-        # Verifica se o mercado estÃ¡ aberto antes de carregar o modelo
+        # Verifica se o mercado estÃÂ¡ aberto antes de carregar o modelo
         mercado_aberto, msg = verificar_mercado_aberto()
         if mercado_aberto:
             logging.info("Mercado aberto: carregando modelo de IA...")
@@ -6512,10 +6525,10 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
             salvar_modelo(modelo_ia_local)
             print(f"[STARTUP] salvar_modelo concluido")
         else:
-            logging.info("ðŸš« Mercado fechado: carregamento de modelo suspenso.")
+            logging.info("Ã°Å¸Å¡Â« Mercado fechado: carregamento de modelo suspenso.")
             modelo_ia_local = None
 
-        # Atualiza variÃ¡veis globais para tratamento de sinais
+        # Atualiza variÃÂ¡veis globais para tratamento de sinais
         modelo_ia_global = modelo_ia_local
         memoria_experiencias_global = memoria_experiencias
 
@@ -6523,104 +6536,104 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
         ultimo_heartbeat = time.time()
         ultimo_diagnostico = time.time()
 
-        # ========== TRAVA DE TIMESTAMP: SÃ³ opera com dados POSTERIORES Ã  inicializaÃ§Ã£o ==========
-        # Guarda o momento exato da inicializaÃ§Ã£o. O robÃ´ sÃ³ vai operar quando o EA
+        # ========== TRAVA DE TIMESTAMP: SÃÂ³ opera com dados POSTERIORES ÃÂ  inicializaÃÂ§ÃÂ£o ==========
+        # Guarda o momento exato da inicializaÃÂ§ÃÂ£o. O robÃÂ´ sÃÂ³ vai operar quando o EA
         # enviar um timestamp POSTERIOR a este momento. Evita operar com dados velhos
-        # que ficaram no arquivo book_data_wdo.csv de sessÃµes anteriores.
+        # que ficaram no arquivo book_data_wdo.csv de sessÃÂµes anteriores.
         timestamp_inicializacao = time.time()
         ultimo_timestamp_ea_processado = None  # Nenhum dado processado ainda
         logging.info(
-            f"ðŸ”’ TRAVA TIMESTAMP: SÃ³ operarÃ¡ com dados posteriores a {datetime.now().strftime('%H:%M:%S')}")
+            f"Ã°Å¸ââ TRAVA TIMESTAMP: SÃÂ³ operarÃÂ¡ com dados posteriores a {datetime.now().strftime('%H:%M:%S')}")
         posicao_atual = None
         modo_operacional = ModoOperacional()  # Inicializa gerenciador de modos
 
-        # --- INICIALIZAÃ‡ÃƒO DAS NOVAS MELHORIAS (PASSO 2 COMPLETO) ---
+        # --- INICIALIZAÃâ¡ÃÆO DAS NOVAS MELHORIAS (PASSO 2 COMPLETO) ---
 
-        # 1. Gerenciador de SaÃ­da Unificado â€” recalibrado para R/R 1:2
+        # 1. Gerenciador de SaÃÂ­da Unificado Ã¢â¬â recalibrado para R/R 1:2
         config_saida = {
-            'timeout_sem_evolucao_s': 180,       # 3 minutos â€” mais paciÃªncia
-            'lucro_minimo_evolucao_pts': 5,      # 5 pontos mÃ­nimo de evoluÃ§Ã£o
-            # SÃ³ protege apÃ³s 40pts de lucro (>50% do TP)
+            'timeout_sem_evolucao_s': 180,       # 3 minutos Ã¢â¬â mais paciÃÂªncia
+            'lucro_minimo_evolucao_pts': 5,      # 5 pontos mÃÂ­nimo de evoluÃÂ§ÃÂ£o
+            # SÃÂ³ protege apÃÂ³s 40pts de lucro (>50% do TP)
             'pico_minimo_protecao_pts': 40,
             'percentual_perda_pico': 0.35,       # Sai se perder 35% do pico
-            'tempo_max_estagnacao_s': 240,       # 4 minutos de estagnaÃ§Ã£o
+            'tempo_max_estagnacao_s': 240,       # 4 minutos de estagnaÃÂ§ÃÂ£o
             'lucro_max_estagnacao_pts': 20,      # Lucro "pequeno" = menos de 20pts
-            # Trailing sÃ³ ativa apÃ³s 8pts de lucro (AÃ§Ã£o 1 07/08: era 3 â€” deixar o winner respirar)
+            # Trailing sÃÂ³ ativa apÃÂ³s 8pts de lucro (AÃÂ§ÃÂ£o 1 07/08: era 3 Ã¢â¬â deixar o winner respirar)
             'trailing_gatilho_pts': 8,
-            # 4pts de distÃ¢ncia (AÃ§Ã£o 1 07/08: era 2 â€” nÃ£o cortar winner em +1pt)
+            # 4pts de distÃÂ¢ncia (AÃÂ§ÃÂ£o 1 07/08: era 2 Ã¢â¬â nÃÂ£o cortar winner em +1pt)
             'trailing_distancia_pts': 4
         }
         gerenciador_saida = GerenciadorDeSaida(config_saida)
-        logging.info("âœ… Gerenciador de SaÃ­da Unificado INICIALIZADO.")
+        logging.info("Ã¢Åâ¦ Gerenciador de SaÃÂ­da Unificado INICIALIZADO.")
 
-        # 2. Volume MÃ­nimo Adaptativo (REDUZIDO PARA APRENDIZADO)
+        # 2. Volume MÃÂ­nimo Adaptativo (REDUZIDO PARA APRENDIZADO)
         volume_adaptativo = VolumeAdaptativo(
             janela_minutos=15, percentual_da_media=0.5)  # Reduzido de 0.8 para 0.5
-        logging.info("âœ… Gerenciador de Volume Adaptativo INICIALIZADO.")
+        logging.info("Ã¢Åâ¦ Gerenciador de Volume Adaptativo INICIALIZADO.")
 
         # Inicializa gerenciador de bloqueio
         gerenciador_bloqueio = GerenciadorBloqueio()
 
-        # CONTADOR DE REJEIÃ‡Ã•ES PARA MODO EMERGÃŠNCIA
+        # CONTADOR DE REJEIÃâ¡Ãâ¢ES PARA MODO EMERGÃÅ NCIA
         contador_rejeicoes_consecutivas = 0
         LIMITE_REJEICOES_EMERGENCIA = 30
 
-        # Garante contexto inicializado antes do loop (evita NameError na sincronizaÃ§Ã£o)
+        # Garante contexto inicializado antes do loop (evita NameError na sincronizaÃÂ§ÃÂ£o)
         contexto: dict = {}
 
         while thread_ativo:
             try:
-                # ===== VERIFICAÃ‡ÃƒO DE SEGURANÃ‡A DA VARIÃVEL POSICAO_ATUAL =====
-                # Garante que posicao_atual sempre exista (inicializada como None se necessÃ¡rio)
+                # ===== VERIFICAÃâ¡ÃÆO DE SEGURANÃâ¡A DA VARIÃÂVEL POSICAO_ATUAL =====
+                # Garante que posicao_atual sempre exista (inicializada como None se necessÃÂ¡rio)
                 if 'posicao_atual' not in locals() and 'posicao_atual' not in globals():
                     posicao_atual = None
                     logging.debug(
-                        "ðŸ”§ posicao_atual inicializada como None por seguranÃ§a")
+                        "Ã°Å¸âÂ§ posicao_atual inicializada como None por seguranÃÂ§a")
 
-                # ===== VERIFICAÃ‡ÃƒO DE PARADA GRACIL =====
+                # ===== VERIFICAÃâ¡ÃÆO DE PARADA GRACIL =====
                 if verificar_parada_gracil():
                     logging.info(
-                        "ðŸ›‘ PARADA GRACIL SOLICITADA - Encerrando sistema com seguranÃ§a...")
+                        "Ã°Å¸âºâ PARADA GRACIL SOLICITADA - Encerrando sistema com seguranÃÂ§a...")
                     # Consome o sinal: remove parar.txt para nao bloquear a proxima inicializacao
                     try:
                         os.remove(_caminho_dados("parar.txt"))
-                        logging.info("ðŸ§¹ parar.txt consumido e removido.")
+                        logging.info("Ã°Å¸Â§Â¹ parar.txt consumido e removido.")
                     except Exception:
                         pass
 
-                    # Fecha posiÃ§Ãµes ativas se houver
+                    # Fecha posiÃÂ§ÃÂµes ativas se houver
                     if posicao_aberta and ticket_ordem_atual:
                         logging.info(
-                            "ðŸ’° Fechando posiÃ§Ã£o ativa antes de encerrar...")
+                            "Ã°Å¸âÂ° Fechando posiÃÂ§ÃÂ£o ativa antes de encerrar...")
                         try:
                             fechar_posicao_atual()
                         except Exception as e:
-                            logging.error(f"âŒ Erro ao fechar posiÃ§Ã£o: {e}")
+                            logging.error(f"Ã¢ÂÅ Erro ao fechar posiÃÂ§ÃÂ£o: {e}")
 
                     # Salva modelo e dados importantes
                     if modelo_ia_local:
-                        logging.info("ðŸ’¾ Salvando modelo IA...")
+                        logging.info("Ã°Å¸âÂ¾ Salvando modelo IA...")
                         try:
                             salvar_modelo(modelo_ia_local)
                         except Exception as e:
-                            logging.error(f"âŒ Erro ao salvar modelo: {e}")
+                            logging.error(f"Ã¢ÂÅ Erro ao salvar modelo: {e}")
 
-                    # Salva experiÃªncias
+                    # Salva experiÃÂªncias
                     if memoria_experiencias:
-                        logging.info("ðŸ“š Salvando experiÃªncias...")
+                        logging.info("Ã°Å¸âÅ¡ Salvando experiÃÂªncias...")
                         try:
                             salvar_experiencias_json(
                                 memoria_experiencias.experiencias)
                         except Exception as e:
                             logging.error(
-                                f"âŒ Erro ao salvar experiÃªncias: {e}")
+                                f"Ã¢ÂÅ Erro ao salvar experiÃÂªncias: {e}")
 
                     logging.info(
-                        "âœ… ENCERRAMENTO GRACIL CONCLUÃDO - Sistema finalizado com seguranÃ§a")
+                        "Ã¢Åâ¦ ENCERRAMENTO GRACIL CONCLUÃÂDO - Sistema finalizado com seguranÃÂ§a")
                     thread_ativo = False
                     break
 
-                # Dorme atÃ© o pregÃ£o abrir
+                # Dorme atÃÂ© o pregÃÂ£o abrir
                 agora = datetime.now().time()
                 inicio = datetime.strptime(HORARIO_PREGAO, "%H:%M").time()
                 fim = datetime.strptime(HORARIO_AFTER, "%H:%M").time()
@@ -6631,113 +6644,113 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                 if agora >= fim:
                     aguardar_fechamento()
                     continue
-                # Verifica se Ã© fim de semana
-                if datetime.now().weekday() > 4:  # 5 = SÃ¡bado, 6 = Domingo
+                # Verifica se ÃÂ© fim de semana
+                if datetime.now().weekday() > 4:  # 5 = SÃÂ¡bado, 6 = Domingo
                     logging.info(
-                        "ðŸ“… Fim de semana: sistema em modo de espera...")
+                        "Ã°Å¸ââ¦ Fim de semana: sistema em modo de espera...")
                     time.sleep(60)  # Dorme por 1 minuto durante fim de semana
                     continue
 
-                # === VERIFICAÃ‡ÃƒO DE SINAL DE ENCERRAMENTO EXTERNO ===
+                # === VERIFICAÃâ¡ÃÆO DE SINAL DE ENCERRAMENTO EXTERNO ===
                 # TEMPORARIAMENTE DESABILITADO PARA DEBUG
                 if False and os.path.exists("shutdown_signal.txt"):
                     logging.info(
-                        "ðŸš¦ SINAL DE ENCERRAMENTO EXTERNO DETECTADO - INICIANDO SHUTDOWN GRACIOSO")
+                        "Ã°Å¸Å¡Â¦ SINAL DE ENCERRAMENTO EXTERNO DETECTADO - INICIANDO SHUTDOWN GRACIOSO")
 
-                    # Fecha todas as posiÃ§Ãµes abertas
+                    # Fecha todas as posiÃÂ§ÃÂµes abertas
                     posicoes_fechadas = fechar_todas_posicoes(
                         "Encerramento por sinal externo")
 
-                    # Atualiza variÃ¡veis globais antes do encerramento
+                    # Atualiza variÃÂ¡veis globais antes do encerramento
                     modelo_ia_global = modelo_ia_local
                     memoria_experiencias_global = memoria_experiencias
 
                     # Executa encerramento seguro completo
                     encerramento_seguro_completo(
                         modelo_ia_local, memoria_experiencias)
-                    # NÃ£o chegarÃ¡ aqui pois encerramento_seguro_completo chama os._exit()
+                    # NÃÂ£o chegarÃÂ¡ aqui pois encerramento_seguro_completo chama os._exit()
 
-                # === ENCERRAMENTO AUTOMÃTICO Ã€S 17:35 ===
+                # === ENCERRAMENTO AUTOMÃÂTICO Ãâ¬S 17:35 ===
                 horario_atual = datetime.now().time()
                 horario_encerramento = datetime.strptime(
                     HORARIO_ENCERRAMENTO, "%H:%M").time()
                 if horario_atual >= horario_encerramento:
                     logging.info(
-                        f"ðŸ”´ ENCERRAMENTO AUTOMÃTICO Ã€S {HORARIO_ENCERRAMENTO} - FECHANDO TODAS AS POSIÃ‡Ã•ES")
+                        f"Ã°Å¸âÂ´ ENCERRAMENTO AUTOMÃÂTICO Ãâ¬S {HORARIO_ENCERRAMENTO} - FECHANDO TODAS AS POSIÃâ¡Ãâ¢ES")
 
-                    # Fecha todas as posiÃ§Ãµes abertas
+                    # Fecha todas as posiÃÂ§ÃÂµes abertas
                     posicoes_fechadas = fechar_todas_posicoes(
-                        "Encerramento automÃ¡tico 17:35")
+                        "Encerramento automÃÂ¡tico 17:35")
 
-                    # Salva estatÃ­sticas finais
+                    # Salva estatÃÂ­sticas finais
                     if posicoes_fechadas > 0:
                         logging.info(
-                            f"ðŸ“Š EstatÃ­sticas finais: {posicoes_fechadas} posiÃ§Ãµes fechadas")
+                            f"Ã°Å¸âÅ  EstatÃÂ­sticas finais: {posicoes_fechadas} posiÃÂ§ÃÂµes fechadas")
 
                     # Salva estado do modelo
                     try:
                         salvar_modelo(modelo_ia_local)
-                        logging.info("ðŸ’¾ Modelo salvo com sucesso")
+                        logging.info("Ã°Å¸âÂ¾ Modelo salvo com sucesso")
                     except Exception as e:
-                        logging.error(f"âŒ Erro ao salvar modelo: {e}")
+                        logging.error(f"Ã¢ÂÅ Erro ao salvar modelo: {e}")
 
-                    # Atualiza variÃ¡veis globais
+                    # Atualiza variÃÂ¡veis globais
                     modelo_ia_global = modelo_ia_local
                     memoria_experiencias_global = memoria_experiencias
 
                     logging.info(
-                        f"ðŸ POSIÃ‡Ã•ES FECHADAS Ã€S {HORARIO_ENCERRAMENTO} - AGUARDANDO AFTER MARKET")
+                        f"Ã°Å¸ÂÂ POSIÃâ¡Ãâ¢ES FECHADAS Ãâ¬S {HORARIO_ENCERRAMENTO} - AGUARDANDO AFTER MARKET")
 
-                # === ENCERRAMENTO COMPLETO APÃ“S AFTER MARKET (17:40) ===
+                # === ENCERRAMENTO COMPLETO APÃâS AFTER MARKET (17:40) ===
                 horario_atual_after = datetime.now().time()
                 horario_after_market = datetime.strptime(
                     HORARIO_AFTER, "%H:%M").time()
                 if horario_atual_after >= horario_after_market:
                     logging.info(
-                        "ðŸ”´ AFTER MARKET ENCERRADO - DESLIGANDO SISTEMA AUTOMATICAMENTE")
+                        "Ã°Å¸âÂ´ AFTER MARKET ENCERRADO - DESLIGANDO SISTEMA AUTOMATICAMENTE")
 
-                    # Atualiza variÃ¡veis globais antes do encerramento
+                    # Atualiza variÃÂ¡veis globais antes do encerramento
                     modelo_ia_global = modelo_ia_local
                     memoria_experiencias_global = memoria_experiencias
 
                     # Executa encerramento seguro completo
                     encerramento_seguro_completo(
                         modelo_ia_local, memoria_experiencias)
-                    # NÃ£o chegarÃ¡ aqui pois encerramento_seguro_completo chama os._exit()
+                    # NÃÂ£o chegarÃÂ¡ aqui pois encerramento_seguro_completo chama os._exit()
 
-                # Heartbeat e diagnÃ³stico - sÃ³ loga se estiver em horÃ¡rio de operaÃ§Ã£o
+                # Heartbeat e diagnÃÂ³stico - sÃÂ³ loga se estiver em horÃÂ¡rio de operaÃÂ§ÃÂ£o
                 timestamp_atual = time.time()
-                if timestamp_atual - ultimo_heartbeat >= 300:  # 5min (o pulso de 60s jÃ¡ mostra vida)
+                if timestamp_atual - ultimo_heartbeat >= 300:  # 5min (o pulso de 60s jÃÂ¡ mostra vida)
                     if horario_permitido():
-                        # Dentro do horÃ¡rio: 1 linha a cada 5min
+                        # Dentro do horÃÂ¡rio: 1 linha a cada 5min
                         status_bloqueio = gerenciador_bloqueio.get_status()
                         logging.info(
-                            f"ðŸ‘ï¸ Monstro ativo | Modo: {modo_operacional.modo_atual}")
-                        # Status de bloqueios sÃ³ interessa quando hÃ¡ algum bloqueio ativo
+                            f"Ã°Å¸âÂÃ¯Â¸Â Monstro ativo | Modo: {modo_operacional.modo_atual}")
+                        # Status de bloqueios sÃÂ³ interessa quando hÃÂ¡ algum bloqueio ativo
                         _bloq_buy = status_bloqueio['bloqueios']['BUY']
                         _bloq_sell = status_bloqueio['bloqueios']['SELL']
                         if _bloq_buy or _bloq_sell:
                             logging.info(
-                                f"ðŸ”’ Status bloqueios - BUY: {_bloq_buy}, SELL: {_bloq_sell}")
+                                f"Ã°Å¸ââ Status bloqueios - BUY: {_bloq_buy}, SELL: {_bloq_sell}")
                     else:
-                        # Fora do horÃ¡rio: log silencioso a cada 10 minutos
+                        # Fora do horÃÂ¡rio: log silencioso a cada 10 minutos
                         if timestamp_atual - ultimo_heartbeat >= 600:
                             agora_str = datetime.now().strftime("%H:%M")
                             logging.info(
-                                f"ðŸ˜´ Fora do horÃ¡rio ({agora_str}) - aguardando prÃ³xima janela")
+                                f"Ã°Å¸ËÂ´ Fora do horÃÂ¡rio ({agora_str}) - aguardando prÃÂ³xima janela")
                     ultimo_heartbeat = timestamp_atual
 
                 if timestamp_atual - ultimo_diagnostico >= 300:
                     checar_arquivos_essenciais()
-                    # === VERIFICAÃ‡ÃƒO PERIÃ“DICA DO MODELO (roda igual; log em debug) ===
-                    logging.debug("ðŸ›¡ï¸ VerificaÃ§Ã£o periÃ³dica do modelo...")
+                    # === VERIFICAÃâ¡ÃÆO PERIÃâDICA DO MODELO (roda igual; log em debug) ===
+                    logging.debug("Ã°Å¸âºÂ¡Ã¯Â¸Â VerificaÃÂ§ÃÂ£o periÃÂ³dica do modelo...")
                     if not verificar_e_proteger_modelo():
                         logging.warning(
-                            "âš ï¸ Modelo teve problemas - mas foi protegido automaticamente")
+                            "Ã¢Å¡Â Ã¯Â¸Â Modelo teve problemas - mas foi protegido automaticamente")
                     ultimo_diagnostico = timestamp_atual
 
                 if esperando_confirmacao:
-                    logging.info("â³ Aguardando confirmaÃ§Ã£o da Ãºltima ordem...")
+                    logging.info("Ã¢ÂÂ³ Aguardando confirmaÃÂ§ÃÂ£o da ÃÂºltima ordem...")
                     time.sleep(1)
                     continue
 
@@ -6746,15 +6759,15 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     p.volume > 0 for p in current_positions or []
                 )
 
-                # ===== SINCRONIZAÃ‡ÃƒO AUTOMÃTICA DA POSIÃ‡ÃƒO ATUAL =====
-                # Se existe uma posiÃ§Ã£o no MT5, mas nossa variÃ¡vel estÃ¡ vazia, sincronize!
+                # ===== SINCRONIZAÃâ¡ÃÆO AUTOMÃÂTICA DA POSIÃâ¡ÃÆO ATUAL =====
+                # Se existe uma posiÃÂ§ÃÂ£o no MT5, mas nossa variÃÂ¡vel estÃÂ¡ vazia, sincronize!
                 posicao_ativa_no_mt5 = next(
                     (p for p in current_positions if p.magic == MAGIC_NUMBER), None) if current_positions else None
 
                 if posicao_ativa_no_mt5 and posicao_atual is None:
                     try:
                         logging.info(
-                            f"ðŸ”„ Sincronizando com posiÃ§Ã£o ativa encontrada no MT5: #{posicao_ativa_no_mt5.ticket}")
+                            f"Ã°Å¸ââ Sincronizando com posiÃÂ§ÃÂ£o ativa encontrada no MT5: #{posicao_ativa_no_mt5.ticket}")
                         _ctx_recover = contexto.copy() if 'contexto' in dir() and contexto else {}
                         posicao_atual = PosicaoAtiva(
                             ticket=posicao_ativa_no_mt5.ticket,
@@ -6762,34 +6775,34 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                             preco_entrada=posicao_ativa_no_mt5.price_open,
                             sl=posicao_ativa_no_mt5.sl,
                             tp=posicao_ativa_no_mt5.tp,
-                            score_inicial=0.0,  # NÃ£o temos o contexto original, entÃ£o usamos um valor neutro
-                            entry_context=_ctx_recover  # Salva contexto atual para nÃ£o perder o registro no CSV
+                            score_inicial=0.0,  # NÃÂ£o temos o contexto original, entÃÂ£o usamos um valor neutro
+                            entry_context=_ctx_recover  # Salva contexto atual para nÃÂ£o perder o registro no CSV
                         )
-                        # Se a posiÃ§Ã£o sincronizada tem TP > 0, Ã© do SNIPER %R
-                        # (o robÃ´ principal sempre usa TP=0)
+                        # Se a posiÃÂ§ÃÂ£o sincronizada tem TP > 0, ÃÂ© do SNIPER %R
+                        # (o robÃÂ´ principal sempre usa TP=0)
                         if posicao_ativa_no_mt5.tp and posicao_ativa_no_mt5.tp > 0:
                             if not isinstance(posicao_atual.entry_context, dict):
                                 posicao_atual.entry_context = {}
                             posicao_atual.entry_context['sniper_wr'] = 1
-                        # Inicia o monitoramento do gerenciador de saÃ­da para esta posiÃ§Ã£o
+                        # Inicia o monitoramento do gerenciador de saÃÂ­da para esta posiÃÂ§ÃÂ£o
                         gerenciador_saida.iniciar_monitoramento(
                             posicao_ativa_no_mt5)
                         posicao_aberta = True
                         logging.info(
-                            f"âœ… SincronizaÃ§Ã£o concluÃ­da - PosiÃ§Ã£o {posicao_atual.tipo} de {posicao_atual.preco_entrada:.2f}")
+                            f"Ã¢Åâ¦ SincronizaÃÂ§ÃÂ£o concluÃÂ­da - PosiÃÂ§ÃÂ£o {posicao_atual.tipo} de {posicao_atual.preco_entrada:.2f}")
                     except Exception as e:
                         logging.error(
-                            f"âŒ Erro na sincronizaÃ§Ã£o de posiÃ§Ã£o: {e}")
+                            f"Ã¢ÂÅ Erro na sincronizaÃÂ§ÃÂ£o de posiÃÂ§ÃÂ£o: {e}")
                         posicao_atual = None
                 # ==========================================
 
                 if monstro_position_active:
                     posicao_aberta = True
 
-                    # VERIFICAÃ‡ÃƒO ADICIONAL DE SEGURANÃ‡A
+                    # VERIFICAÃâ¡ÃÆO ADICIONAL DE SEGURANÃâ¡A
                     if posicao_atual is None:
                         logging.warning(
-                            "âš ï¸ PosiÃ§Ã£o ativa no MT5 mas posicao_atual Ã© None. Tentando ressincronizar...")
+                            "Ã¢Å¡Â Ã¯Â¸Â PosiÃÂ§ÃÂ£o ativa no MT5 mas posicao_atual ÃÂ© None. Tentando ressincronizar...")
                         # Tenta ressincronizar uma vez mais
                         if posicao_ativa_no_mt5:
                             try:
@@ -6803,7 +6816,7 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                                     score_inicial=0.0,
                                     entry_context=_ctx_recover2
                                 )
-                                # PosiÃ§Ã£o com TP > 0 = SNIPER %R (robÃ´ principal usa TP=0)
+                                # PosiÃÂ§ÃÂ£o com TP > 0 = SNIPER %R (robÃÂ´ principal usa TP=0)
                                 if posicao_ativa_no_mt5.tp and posicao_ativa_no_mt5.tp > 0:
                                     if not isinstance(posicao_atual.entry_context, dict):
                                         posicao_atual.entry_context = {}
@@ -6811,22 +6824,22 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                                 gerenciador_saida.iniciar_monitoramento(
                                     posicao_ativa_no_mt5)
                                 logging.info(
-                                    "âœ… RessincronizaÃ§Ã£o de emergÃªncia concluÃ­da")
+                                    "Ã¢Åâ¦ RessincronizaÃÂ§ÃÂ£o de emergÃÂªncia concluÃÂ­da")
                             except Exception as e:
                                 logging.error(
-                                    f"âŒ Falha na ressincronizaÃ§Ã£o: {e}")
+                                    f"Ã¢ÂÅ Falha na ressincronizaÃÂ§ÃÂ£o: {e}")
 
-                    # SUBSTITUI A LÃ“GICA ANTIGA PELA NOVA (PASSO 2)
-                    # OBTÃ‰M DADOS ATUAIS
+                    # SUBSTITUI A LÃâGICA ANTIGA PELA NOVA (PASSO 2)
+                    # OBTÃâ°M DADOS ATUAIS
                     tick = mt5.symbol_info_tick(SYMBOL)
-                    # Obtenha o RSI atual aqui tambÃ©m, se a regra for usada
+                    # Obtenha o RSI atual aqui tambÃÂ©m, se a regra for usada
 
                     if tick and posicao_atual is not None:
                         preco_atual = tick.bid if gerenciador_saida.tipo_posicao == "SELL" else tick.ask
 
-                        # ========== ï¿½ HEARTBEAT DA POSIÃ‡ÃƒO (monitor ao vivo a cada ~5s) ==========
-                        # Loga a cada iteraÃ§Ã£o â€” o loop jÃ¡ Ã© pausado em
-                        # INTERVALO_CHECK_SCORE (5s), entÃ£o o heartbeat sai confiÃ¡vel.
+                        # ========== Ã¯Â¿Â½ HEARTBEAT DA POSIÃâ¡ÃÆO (monitor ao vivo a cada ~5s) ==========
+                        # Loga a cada iteraÃÂ§ÃÂ£o Ã¢â¬â o loop jÃÂ¡ ÃÂ© pausado em
+                        # INTERVALO_CHECK_SCORE (5s), entÃÂ£o o heartbeat sai confiÃÂ¡vel.
                         # (Antes usava 'segundo % 5 == 0', que ficava fora de fase com o
                         #  sleep de 5s e fazia o lucro flutuante sumir por minutos.)
                         if True:
@@ -6839,23 +6852,23 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                                     _pts = posicao_atual.preco_entrada - preco_atual
                                 else:
                                     _pts = preco_atual - posicao_atual.preco_entrada
-                                _emoji = "ðŸŸ¢" if _lucro_rs >= 0 else "ðŸ”´"
+                                _emoji = "Ã°Å¸Å¸Â¢" if _lucro_rs >= 0 else "Ã°Å¸âÂ´"
                                 logging.info(
-                                    f"ðŸ’“ {_emoji} {gerenciador_saida.tipo_posicao} {SYMBOL} | "
-                                    f"Entrada: {posicao_atual.preco_entrada:.0f} â†’ Atual: {preco_atual:.0f} | "
+                                    f"Ã°Å¸ââ {_emoji} {gerenciador_saida.tipo_posicao} {SYMBOL} | "
+                                    f"Entrada: {posicao_atual.preco_entrada:.0f} Ã¢â â Atual: {preco_atual:.0f} | "
                                     f"{_pts:+.0f} pts | Flutuante: R$ {_lucro_rs:+.2f} | "
                                     f"SL: {_pos[0].sl:.0f} TP: {_pos[0].tp:.0f}" if (_pos and len(_pos) > 0) else "")
                             except Exception:
                                 pass
 
-                        # ========== ï¿½ðŸ”„ SAÃDA POR INVERSÃƒO DE FLUXO (BIG PLAYERS INVERTERAM) ==========
-                        # Book nativo (tempo real). Se o fluxo vira contra a posiÃ§Ã£o
-                        # (ratio >= SNIPER_RATIO_MIN), reage em 2 NÃVEIS (FIX 07/08:
-                        # gate config=2.0, breakeven substituÃ­do por trava de lucro):
-                        #   â€¢ Em PREJUÃZO  -> SAI IMEDIATO (corta a perda, big players viraram)
-                        #   â€¢ Em LUCRO      -> TRAVA 50% do lucro (protege e deixa correr)
-                        # (PULADO para posiÃ§Ã£o SNIPER %R â€” SL/TP por ATR no MT5 + trailing
-                        # 50% abaixo gerenciam a saÃ­da, fiel ao backtest variante A)
+                        # ========== Ã¯Â¿Â½Ã°Å¸ââ SAÃÂDA POR INVERSÃÆO DE FLUXO (BIG PLAYERS INVERTERAM) ==========
+                        # Book nativo (tempo real). Se o fluxo vira contra a posiÃÂ§ÃÂ£o
+                        # (ratio >= SNIPER_RATIO_MIN), reage em 2 NÃÂVEIS (FIX 07/08:
+                        # gate config=2.0, breakeven substituÃÂ­do por trava de lucro):
+                        #   Ã¢â¬Â¢ Em PREJUÃÂZO  -> SAI IMEDIATO (corta a perda, big players viraram)
+                        #   Ã¢â¬Â¢ Em LUCRO      -> TRAVA 50% do lucro (protege e deixa correr)
+                        # (PULADO para posiÃÂ§ÃÂ£o SNIPER %R Ã¢â¬â SL/TP por ATR no MT5 + trailing
+                        # 50% abaixo gerenciam a saÃÂ­da, fiel ao backtest variante A)
                         try:
                             book_fluxo = ler_book_nativo()
                             _pos_eh_sniper_wr = bool(
@@ -6868,8 +6881,8 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                                     'total_ask_volume', 0)
 
                                 if bid_total > 0 and ask_total > 0:
-                                    # Para SELL: inversÃ£o = BID domina (compradores fortes)
-                                    # Para BUY: inversÃ£o = ASK domina (vendedores fortes)
+                                    # Para SELL: inversÃÂ£o = BID domina (compradores fortes)
+                                    # Para BUY: inversÃÂ£o = ASK domina (vendedores fortes)
                                     fluxo_inverteu = False
                                     ratio_inversao = 0.0
 
@@ -6883,7 +6896,7 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                                             fluxo_inverteu = True
 
                                     if fluxo_inverteu:
-                                        # LÃª o lucro flutuante REAL da posiÃ§Ã£o direto do MT5
+                                        # LÃÂª o lucro flutuante REAL da posiÃÂ§ÃÂ£o direto do MT5
                                         posicoes_check = mt5.positions_get(
                                             ticket=posicao_atual.ticket)
                                         lucro_flutuante = posicoes_check[0].profit if (
@@ -6893,20 +6906,20 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                                         lucro_pontos_inv = lucro_flutuante / 10.0
 
                                         if lucro_pontos_inv < -2.0:
-                                            # NÃVEL 1 â€” PREJUÃZO GRAVE + fluxo contra: SAI IMEDIATO
+                                            # NÃÂVEL 1 Ã¢â¬â PREJUÃÂZO GRAVE + fluxo contra: SAI IMEDIATO
                                             logging.warning(
-                                                f"ðŸ”„ðŸš¨ INVERSÃƒO DE FLUXO CONTRA POSIÃ‡ÃƒO EM PREJUÃZO! "
-                                                f"Ratio contrÃ¡rio: {ratio_inversao:.2f} | Lucro: {lucro_pontos_inv:+.1f}pts (R${lucro_flutuante:.2f}) | "
-                                                f"Big Players viraram â€” SAINDO IMEDIATAMENTE para cortar a perda!")
+                                                f"Ã°Å¸ââÃ°Å¸Å¡Â¨ INVERSÃÆO DE FLUXO CONTRA POSIÃâ¡ÃÆO EM PREJUÃÂZO! "
+                                                f"Ratio contrÃÂ¡rio: {ratio_inversao:.2f} | Lucro: {lucro_pontos_inv:+.1f}pts (R${lucro_flutuante:.2f}) | "
+                                                f"Big Players viraram Ã¢â¬â SAINDO IMEDIATAMENTE para cortar a perda!")
                                             fechar_posicao_atual(
-                                                motivo=f"InversÃ£o de fluxo em prejuÃ­zo (ratio {ratio_inversao:.2f})")
+                                                motivo=f"InversÃÂ£o de fluxo em prejuÃÂ­zo (ratio {ratio_inversao:.2f})")
                                             posicao_atual = None
                                             posicao_aberta = False
                                         elif lucro_pontos_inv >= -2.0 and posicoes_check and len(posicoes_check) > 0:
-                                            # NÃVEL 2 â€” fluxo contra (FIX 07/08: breakeven era ineficaz):
-                                            #   * Em LUCRO real -> TRAVA 50% do lucro (SL deixa a entrada p/ trÃ¡s)
-                                            #   * Em zero/prejuÃ­zo leve -> SAI (breakeven inviÃ¡vel: MT5 retcode
-                                            #     10016 "Invalid stops" quando o preÃ§o estÃ¡ colado na entrada)
+                                            # NÃÂVEL 2 Ã¢â¬â fluxo contra (FIX 07/08: breakeven era ineficaz):
+                                            #   * Em LUCRO real -> TRAVA 50% do lucro (SL deixa a entrada p/ trÃÂ¡s)
+                                            #   * Em zero/prejuÃÂ­zo leve -> SAI (breakeven inviÃÂ¡vel: MT5 retcode
+                                            #     10016 "Invalid stops" quando o preÃÂ§o estÃÂ¡ colado na entrada)
                                             entrada_fluxo = posicao_atual.preco_entrada
                                             sl_atual = posicoes_check[0].sl
                                             preco_atual_pos = posicoes_check[0].price_current
@@ -6916,7 +6929,7 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                                                     sl_alvo = entrada_fluxo - lucro_pontos_inv * FLUXO_TRAVA_LUCRO_PCT
                                                 else:
                                                     sl_alvo = entrada_fluxo + lucro_pontos_inv * FLUXO_TRAVA_LUCRO_PCT
-                                                # Respeita distÃ¢ncia mÃ­nima de stop (evita retcode 10016)
+                                                # Respeita distÃÂ¢ncia mÃÂ­nima de stop (evita retcode 10016)
                                                 dist_sl = (preco_atual_pos - sl_alvo) if gerenciador_saida.tipo_posicao == "BUY" \
                                                     else (sl_alvo - preco_atual_pos)
                                                 melhoria = (gerenciador_saida.tipo_posicao == "SELL" and sl_alvo < sl_atual) or \
@@ -6925,28 +6938,28 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                                                 if melhoria and cooldown_ok and dist_sl >= FLUXO_DIST_MINIMA_PTS:
                                                     _fluxo_estado['ultimo_ajuste'] = time.time()
                                                     logging.warning(
-                                                        f"ðŸ”„ INVERSÃƒO DE FLUXO (lucro {lucro_pontos_inv:+.1f}pts)! Ratio contrÃ¡rio: {ratio_inversao:.2f} | "
-                                                        f"SL travado em {sl_alvo:.2f} (trava {FLUXO_TRAVA_LUCRO_PCT*100:.0f}% do lucro) â€” protegendo!")
+                                                        f"Ã°Å¸ââ INVERSÃÆO DE FLUXO (lucro {lucro_pontos_inv:+.1f}pts)! Ratio contrÃÂ¡rio: {ratio_inversao:.2f} | "
+                                                        f"SL travado em {sl_alvo:.2f} (trava {FLUXO_TRAVA_LUCRO_PCT*100:.0f}% do lucro) Ã¢â¬â protegendo!")
                                                     atualizar_sl(
                                                         posicao_atual.ticket, sl_alvo)
                                             else:
-                                                # zero/prejuÃ­zo leve + fluxo MUITO contra: corta em vez de breakeven
+                                                # zero/prejuÃÂ­zo leve + fluxo MUITO contra: corta em vez de breakeven
                                                 logging.warning(
-                                                    f"ðŸ”„ INVERSÃƒO DE FLUXO (lucro {lucro_pontos_inv:+.1f}pts)! Ratio contrÃ¡rio: {ratio_inversao:.2f} | "
-                                                    f"SAINDO para cortar a perda (breakeven nÃ£o protege e nÃ£o Ã© executÃ¡vel)")
+                                                    f"Ã°Å¸ââ INVERSÃÆO DE FLUXO (lucro {lucro_pontos_inv:+.1f}pts)! Ratio contrÃÂ¡rio: {ratio_inversao:.2f} | "
+                                                    f"SAINDO para cortar a perda (breakeven nÃÂ£o protege e nÃÂ£o ÃÂ© executÃÂ¡vel)")
                                                 fechar_posicao_atual(
-                                                    motivo=f"InversÃ£o de fluxo (ratio {ratio_inversao:.2f})")
+                                                    motivo=f"InversÃÂ£o de fluxo (ratio {ratio_inversao:.2f})")
                                                 posicao_atual = None
                                                 posicao_aberta = False
                         except Exception as e:
                             logging.debug(
-                                f"[InversÃ£o Fluxo] Erro na verificaÃ§Ã£o: {e}")
+                                f"[InversÃÂ£o Fluxo] Erro na verificaÃÂ§ÃÂ£o: {e}")
 
-                        # ========== âš¡ SNIPER %R: TRAILING (fiel ao backtest variante A) ==========
-                        # R = SL = 1.5xATR. Após lucro >= R, move SL para a entrada +
+                        # ========== Ã¢Å¡Â¡ SNIPER %R: TRAILING (fiel ao backtest variante A) ==========
+                        # R = SL = 1.5xATR. ApÃ³s lucro >= R, move SL para a entrada +
                         # 50% do ganho (trailing 50%), apenas melhorando o SL.
-                        # O TP (2R) já está no MT5; o GerenciadorDeSaida é pulado
-                        # para posições sniper (regras dele cortariam o trade %R cedo).
+                        # O TP (2R) jÃ¡ estÃ¡ no MT5; o GerenciadorDeSaida Ã© pulado
+                        # para posiÃ§Ãµes sniper (regras dele cortariam o trade %R cedo).
                         if posicao_atual is not None and bool((posicao_atual.entry_context or {}).get('sniper_wr', 0)):
                             try:
                                 _pos_mt5 = mt5.positions_get(ticket=posicao_atual.ticket)
@@ -6971,17 +6984,17 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                                             else _sl_alvo_trail < _sl_atual
                                         )
                                         if _melhoria:
-                                            # FIX 11/08: SEM eh_breakeen_forcado — a validação de
-                                            # distância mínima no atualizar_sl evita o retcode 10016
+                                            # FIX 11/08: SEM eh_breakeen_forcado â a validaÃ§Ã£o de
+                                            # distÃ¢ncia mÃ­nima no atualizar_sl evita o retcode 10016
                                             # "Invalid stops" (SL dentro da zona de freeze).
                                             if atualizar_sl(posicao_atual.ticket, _sl_alvo_trail):
                                                 logging.info(
-                                                    f"⚡ SNIPER %R: trailing 50% → SL {_sl_alvo_trail:.2f} (lucro {_lucro_pts:.1f}pts, R={_r_sniper:.1f})")
+                                                    f"â¡ SNIPER %R: trailing 50% â SL {_sl_alvo_trail:.2f} (lucro {_lucro_pts:.1f}pts, R={_r_sniper:.1f})")
                             except Exception:
                                 pass
 
-                        # CHAMA O GERENCIADOR UNIFICADO (PULADO para SNIPER %R — SL/TP
-                        # por ATR no MT5 + trailing acima já gerenciam a saída)
+                        # CHAMA O GERENCIADOR UNIFICADO (PULADO para SNIPER %R â SL/TP
+                        # por ATR no MT5 + trailing acima jÃ¡ gerenciam a saÃ­da)
                         _pos_eh_sniper_wr = bool(
                             (posicao_atual.entry_context or {}).get('sniper_wr', 0)
                         ) if posicao_atual else False
@@ -6992,8 +7005,8 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                                 preco_atual, rsi_atual=50)  # Passe o RSI real
 
                         if deve_sair:
-                            logging.info(f"ðŸšª DecisÃ£o de SaÃ­da: {motivo}")
-                            # Verificar se posiÃ§Ã£o ainda existe antes de tentar fechar
+                            logging.info(f"Ã°Å¸Å¡Âª DecisÃÂ£o de SaÃÂ­da: {motivo}")
+                            # Verificar se posiÃÂ§ÃÂ£o ainda existe antes de tentar fechar
                             # (pode ter sido fechada pelo TP/SL do MT5 entre o check e o fechamento)
                             ticket_para_verificar = posicao_atual.ticket if posicao_atual else None
                             posicoes_mt5 = mt5.positions_get(
@@ -7005,10 +7018,10 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
 
                             if not posicao_ainda_aberta:
                                 logging.info(
-                                    f"âœ… PosiÃ§Ã£o {ticket_para_verificar} jÃ¡ foi fechada pelo MT5 (TP/SL). Sem aÃ§Ã£o necessÃ¡ria.")
+                                    f"Ã¢Åâ¦ PosiÃÂ§ÃÂ£o {ticket_para_verificar} jÃÂ¡ foi fechada pelo MT5 (TP/SL). Sem aÃÂ§ÃÂ£o necessÃÂ¡ria.")
                                 gerenciador_saida.finalizar_monitoramento()
                             else:
-                                # PosiÃ§Ã£o ainda aberta â€” tenta fechar com atÃ© 3 tentativas
+                                # PosiÃÂ§ÃÂ£o ainda aberta Ã¢â¬â tenta fechar com atÃÂ© 3 tentativas
                                 fechou = False
                                 for tentativa in range(3):
                                     if posicao_atual is not None:
@@ -7023,18 +7036,18 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                                         break
                                     else:
                                         logging.warning(
-                                            f"âš ï¸ Tentativa {tentativa+1}/3 de fechar falhou. Aguardando 1s...")
+                                            f"Ã¢Å¡Â Ã¯Â¸Â Tentativa {tentativa+1}/3 de fechar falhou. Aguardando 1s...")
                                         time.sleep(1)
                                         if not mt5.initialize():
                                             reconectar_mt5()
 
                                 if not fechou:
                                     logging.error(
-                                        f"âŒ FALHA AO FECHAR POSIÃ‡ÃƒO apÃ³s 3 tentativas! PosiÃ§Ã£o pode estar aberta.")
+                                        f"Ã¢ÂÅ FALHA AO FECHAR POSIÃâ¡ÃÆO apÃÂ³s 3 tentativas! PosiÃÂ§ÃÂ£o pode estar aberta.")
 
                                 gerenciador_saida.finalizar_monitoramento()
                         elif novo_sl:
-                            # FIX: Se SL jÃ¡ estÃ¡ em breakeen, sÃ³ ignora se o novo SL NÃƒO Ã© uma melhoria
+                            # FIX: Se SL jÃÂ¡ estÃÂ¡ em breakeen, sÃÂ³ ignora se o novo SL NÃÆO ÃÂ© uma melhoria
                             sl_ja_em_breakeen = False
                             novo_e_melhoria = False
                             if posicao_atual is not None:
@@ -7051,19 +7064,19 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                                         novo_e_melhoria = novo_sl < sl_atual_pos
                             if sl_ja_em_breakeen and not novo_e_melhoria:
                                 logging.debug(
-                                    f"ðŸ”’ SL jÃ¡ em breakeen e novo SL nÃ£o Ã© melhoria - ignorado (novo={novo_sl:.2f} vs atual={sl_atual_pos:.2f})")
+                                    f"Ã°Å¸ââ SL jÃÂ¡ em breakeen e novo SL nÃÂ£o ÃÂ© melhoria - ignorado (novo={novo_sl:.2f} vs atual={sl_atual_pos:.2f})")
                             else:
                                 logging.info(
-                                    f"ðŸ”§ DecisÃ£o de Ajuste: Novo SL {novo_sl:.2f}")
+                                    f"Ã°Å¸âÂ§ DecisÃÂ£o de Ajuste: Novo SL {novo_sl:.2f}")
                                 if posicao_atual is not None:
                                     atualizar_sl(posicao_atual.ticket, novo_sl)
                     elif not tick:
                         logging.warning(
-                            "âš ï¸ Tick indisponÃ­vel para monitoramento de posiÃ§Ã£o")
+                            "Ã¢Å¡Â Ã¯Â¸Â Tick indisponÃÂ­vel para monitoramento de posiÃÂ§ÃÂ£o")
                     elif posicao_atual is None:
                         logging.warning(
-                            "âš ï¸ posicao_atual ainda Ã© None apÃ³s tentativas de sincronizaÃ§Ã£o. Usando fallback.")
-                        # Como Ãºltimo recurso, fecha todas as posiÃ§Ãµes
+                            "Ã¢Å¡Â Ã¯Â¸Â posicao_atual ainda ÃÂ© None apÃÂ³s tentativas de sincronizaÃÂ§ÃÂ£o. Usando fallback.")
+                        # Como ÃÂºltimo recurso, fecha todas as posiÃÂ§ÃÂµes
                         fechar_todas_posicoes("Fallback - posicao_atual None")
                         gerenciador_saida.finalizar_monitoramento()
 
@@ -7071,7 +7084,7 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     continue
 
                 if posicao_atual is not None:
-                    # Processa a posiÃ§Ã£o fechada uma Ãºnica vez
+                    # Processa a posiÃÂ§ÃÂ£o fechada uma ÃÂºnica vez
                     ticket_processado = posicao_atual.ticket
                     lucro_real, score_dist = obter_lucro_ultima_ordem(
                         ticket_processado)
@@ -7096,25 +7109,25 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                         salvar_experiencia_csv(posicao_atual.entry_context.copy(
                         ), posicao_atual.tipo, lucro_real, score_dist)
 
-                        # ========== REGISTRO RESULTADO CONFLUÃŠNCIA ==========
+                        # ========== REGISTRO RESULTADO CONFLUÃÅ NCIA ==========
                         if sistema_confluencia and confluencia_info_atual:
                             sistema_confluencia.registrar_resultado_confluencia(
                                 confluencia_info_atual, lucro_real)
                             logging.info(
-                                f"ðŸŽ¯ Resultado confluÃªncia registrado: Lucro={lucro_real:.2f}")
+                                f"Ã°Å¸Å½Â¯ Resultado confluÃÂªncia registrado: Lucro={lucro_real:.2f}")
 
-                        # Treina modelo com proteÃ§Ã£o contra erros (apenas quando necessÃ¡rio)
+                        # Treina modelo com proteÃÂ§ÃÂ£o contra erros (apenas quando necessÃÂ¡rio)
                         try:
                             modelo_ia_local = treinar_modelo_inteligente(
                                 modelo_ia_local, memoria_experiencias)
                         except Exception as e:
                             logging.error(
-                                f"âŒ Erro no treinamento do modelo: {e}")
+                                f"Ã¢ÂÅ Erro no treinamento do modelo: {e}")
                             logging.debug(
                                 f"Stack trace: {traceback.format_exc()}")
                     else:
                         logging.warning(
-                            "âš ï¸ Contexto de entrada nÃ£o encontrado em posicao_atual ao fechar.")
+                            "Ã¢Å¡Â Ã¯Â¸Â Contexto de entrada nÃÂ£o encontrado em posicao_atual ao fechar.")
                     modo_operacional.registrar_resultado(lucro_real)
                     historico_lucro.append(lucro_real)
 
@@ -7134,15 +7147,15 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                         for alerta in alertas:
                             logging.warning(alerta)
 
-                    # IMPORTANTE: Reset da posiÃ§Ã£o ANTES de continuar
-                    # DESATIVA O GERENCIADOR DE SAÃDA (PASSO 2)
+                    # IMPORTANTE: Reset da posiÃÂ§ÃÂ£o ANTES de continuar
+                    # DESATIVA O GERENCIADOR DE SAÃÂDA (PASSO 2)
                     gerenciador_saida.finalizar_monitoramento()
 
                     posicao_atual = None
                     logging.info(
-                        f"âœ… PosiÃ§Ã£o {ticket_processado} processada e resetada.")
-                    # FIX 11/08: trava de zona reseta apenas quando a posição
-                    # FECHA (fiel ao backtest L178) — permite re-entrada na mesma
+                        f"Ã¢Åâ¦ PosiÃÂ§ÃÂ£o {ticket_processado} processada e resetada.")
+                    # FIX 11/08: trava de zona reseta apenas quando a posiÃ§Ã£o
+                    # FECHA (fiel ao backtest L178) â permite re-entrada na mesma
                     # zona, mas SEM o spam de sinal a cada 2s do loop.
                     sniper_supermo.em_zona = 0
 
@@ -7150,53 +7163,53 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     time.sleep(1)
 
                 posicao_aberta = False
-                SNIPER_SUPERMO_ATIVO = False  # Reset apÃ³s fechamento
+                SNIPER_SUPERMO_ATIVO = False  # Reset apÃÂ³s fechamento
                 # Rebaixado para debug: o log de mercado (a cada 5s) e o standby Sniper
-                # (a cada 10s) jÃ¡ mostram que o robÃ´ estÃ¡ vivo e analisando â€” evita spam.
+                # (a cada 10s) jÃÂ¡ mostram que o robÃÂ´ estÃÂ¡ vivo e analisando Ã¢â¬â evita spam.
                 logging.debug(
-                    "Nenhuma posiÃ§Ã£o ativa. Analisando nova entrada...")
+                    "Nenhuma posiÃÂ§ÃÂ£o ativa. Analisando nova entrada...")
 
-                # Verifica se o mercado estÃ¡ aberto (DESABILITADO para mercado fechado)
+                # Verifica se o mercado estÃÂ¡ aberto (DESABILITADO para mercado fechado)
                 # if not verificar_estado_book(SYMBOL):
                 #     logging.warning(
-                #         "âš ï¸ Book em estado invÃ¡lido. Tentando reiniciar...")
+                #         "Ã¢Å¡Â Ã¯Â¸Â Book em estado invÃÂ¡lido. Tentando reiniciar...")
                 #     if reiniciar_book(SYMBOL):
-                #         logging.info("âœ… Book reiniciado com sucesso")
+                #         logging.info("Ã¢Åâ¦ Book reiniciado com sucesso")
                 #     else:
-                #         logging.error("âŒ Falha ao reiniciar book. Aguardandoâ€¦")
+                #         logging.error("Ã¢ÂÅ Falha ao reiniciar book. AguardandoÃ¢â¬Â¦")
 
-                # VerificaÃ§Ã£o simplificada para mercado fechado
+                # VerificaÃÂ§ÃÂ£o simplificada para mercado fechado
                 agora = datetime.now().time()
                 inicio_pregao = datetime.strptime("09:00", "%H:%M").time()
                 fim_pregao = datetime.strptime("17:40", "%H:%M").time()
 
                 if agora < inicio_pregao or agora > fim_pregao:
                     logging.info(
-                        f"ðŸ• Mercado fechado ({agora.strftime('%H:%M')}): modo simulaÃ§Ã£o ativo")
+                        f"Ã°Å¸â¢Â Mercado fechado ({agora.strftime('%H:%M')}): modo simulaÃÂ§ÃÂ£o ativo")
                     time.sleep(30)
                     continue
 
-                # ========== HIBERNAÃ‡ÃƒO 12:30-14:30 (REDUZIDA - SNIPER CONTINUA ATIVO) ==========
+                # ========== HIBERNAÃâ¡ÃÆO 12:30-14:30 (REDUZIDA - SNIPER CONTINUA ATIVO) ==========
                 inicio_hibernacao = dtime(12, 30)
                 fim_hibernacao = dtime(14, 30)
 
                 if inicio_hibernacao <= agora < fim_hibernacao:
-                    # Treina uma vez ao entrar na hibernaÃ§Ã£o (exatamente Ã s 12h)
+                    # Treina uma vez ao entrar na hibernaÃÂ§ÃÂ£o (exatamente ÃÂ s 12h)
                     if agora.hour == 12 and agora.minute == 30:
                         logging.info(
-                            "ðŸ§  TREINO DO MEIO-DIA: Iniciando treino antes da hibernaÃ§Ã£o...")
+                            "Ã°Å¸Â§Â  TREINO DO MEIO-DIA: Iniciando treino antes da hibernaÃÂ§ÃÂ£o...")
                         try:
                             modelo_ia_local = treinar_modelo_inteligente(
                                 modelo_ia_local, memoria_experiencias)
                             logging.info(
-                                "âœ… TREINO DO MEIO-DIA CONCLUÃDO. HibernaÃ§Ã£o reduzida â€” sniper ativo.")
+                                "Ã¢Åâ¦ TREINO DO MEIO-DIA CONCLUÃÂDO. HibernaÃÂ§ÃÂ£o reduzida Ã¢â¬â sniper ativo.")
                         except Exception as e:
-                            logging.error(f"âŒ Erro no treino do meio-dia: {e}")
+                            logging.error(f"Ã¢ÂÅ Erro no treino do meio-dia: {e}")
 
-                    # HibernaÃ§Ã£o reduzida: loop normal mas modo normal bloqueado
-                    # SniperSupermo pode operar mesmo em hibernaÃ§Ã£o
+                    # HibernaÃÂ§ÃÂ£o reduzida: loop normal mas modo normal bloqueado
+                    # SniperSupermo pode operar mesmo em hibernaÃÂ§ÃÂ£o
                     logging.debug(
-                        "ðŸ˜´ HibernaÃ§Ã£o 12:30-14:30 (sniper ativo, modo normal bloqueado por horÃ¡rio)")
+                        "Ã°Å¸ËÂ´ HibernaÃÂ§ÃÂ£o 12:30-14:30 (sniper ativo, modo normal bloqueado por horÃÂ¡rio)")
                     time.sleep(5)
                     continue
 
@@ -7206,43 +7219,43 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
 
                 if inicio_treino_tarde <= agora < fim_treino_tarde:
                     logging.info(
-                        "ðŸ§  TREINO DA TARDE: Iniciando treino antes do encerramento...")
+                        "Ã°Å¸Â§Â  TREINO DA TARDE: Iniciando treino antes do encerramento...")
                     try:
                         modelo_ia_local = treinar_modelo_inteligente(
                             modelo_ia_local, memoria_experiencias)
                         logging.info(
-                            "âœ… TREINO DA TARDE CONCLUÃDO. Aguardando encerramento Ã s 17:35...")
+                            "Ã¢Åâ¦ TREINO DA TARDE CONCLUÃÂDO. Aguardando encerramento ÃÂ s 17:35...")
                     except Exception as e:
-                        logging.error(f"âŒ Erro no treino da tarde: {e}")
+                        logging.error(f"Ã¢ÂÅ Erro no treino da tarde: {e}")
                     time.sleep(60)  # Evita re-treinar no mesmo minuto
                     continue
 
-                # ===== FORA DA JANELA PA1 (ex.: apÃ³s 17:15) â€” NÃƒO opera, sÃ³ aguarda =====
-                # "Bloquear operaÃ§Ãµes Ã s 17:15" = nem processa decisÃ£o/salva/treina Ã  toa.
+                # ===== FORA DA JANELA PA1 (ex.: apÃÂ³s 17:15) Ã¢â¬â NÃÆO opera, sÃÂ³ aguarda =====
+                # "Bloquear operaÃÂ§ÃÂµes ÃÂ s 17:15" = nem processa decisÃÂ£o/salva/treina ÃÂ  toa.
                 # Evita churn de CPU/disco e spam de log fora de 09:15-12:30 / 14:30-17:15.
-                # (SÃ³ entra aqui quando NÃƒO hÃ¡ posiÃ§Ã£o â€” posiÃ§Ãµes abertas seguem monitoradas.)
+                # (SÃÂ³ entra aqui quando NÃÆO hÃÂ¡ posiÃÂ§ÃÂ£o Ã¢â¬â posiÃÂ§ÃÂµes abertas seguem monitoradas.)
                 if not horario_permitido():
                     if _log_periodico('fora_pa1', 300):
                         logging.info(
-                            f"ðŸš« Fora do horÃ¡rio PA1 ({datetime.now().strftime('%H:%M')}) â€” "
-                             f"aguardando prÃ³xima janela (09:15-12:30 / 14:30-17:15)")
+                            f"Ã°Å¸Å¡Â« Fora do horÃÂ¡rio PA1 ({datetime.now().strftime('%H:%M')}) Ã¢â¬â "
+                             f"aguardando prÃÂ³xima janela (09:15-12:30 / 14:30-17:15)")
                     time.sleep(30)
                     continue
 
-                # ObtÃ©m dados do mercado
+                # ObtÃÂ©m dados do mercado
                 bid_qty, ask_qty, spread, volatility, candle_type, book_data, rsi_14, volume_tick, close_price, williams_r = obter_dados_mercado(
                     SYMBOL)
 
-                # Se algum dado for None, pula a iteraÃ§Ã£o
+                # Se algum dado for None, pula a iteraÃÂ§ÃÂ£o
                 if None in (bid_qty, ask_qty, spread, volatility, candle_type, book_data, rsi_14, volume_tick, close_price, williams_r):
                     logging.warning(
-                        "âš ï¸ Dados do mercado incompletos. Aguardando prÃ³xima iteraÃ§Ã£o...")
+                        "Ã¢Å¡Â Ã¯Â¸Â Dados do mercado incompletos. Aguardando prÃÂ³xima iteraÃÂ§ÃÂ£o...")
                     time.sleep(2)
                     continue
 
-                # ========== TRAVA DE TIMESTAMP: Ignora dados anteriores Ã  inicializaÃ§Ã£o ==========
-                # O EA Sniper grava "timestamp" no JSON. Verificamos se o dado Ã© POSTERIOR
-                # Ã  inicializaÃ§Ã£o do robÃ´. Dados antigos do arquivo sÃ£o ignorados.
+                # ========== TRAVA DE TIMESTAMP: Ignora dados anteriores ÃÂ  inicializaÃÂ§ÃÂ£o ==========
+                # O EA Sniper grava "timestamp" no JSON. Verificamos se o dado ÃÂ© POSTERIOR
+                # ÃÂ  inicializaÃÂ§ÃÂ£o do robÃÂ´. Dados antigos do arquivo sÃÂ£o ignorados.
                 if book_data and isinstance(book_data, dict):
                     timestamp_ea = book_data.get('timestamp', '')
                     # Tenta extrair timestamp do EA (formato: "2026.07.15 17:01:01")
@@ -7256,14 +7269,14 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                         else:
                             timestamp_ea_epoch = 0
 
-                        # Verifica se Ã© dado POSTERIOR Ã  inicializaÃ§Ã£o
+                        # Verifica se ÃÂ© dado POSTERIOR ÃÂ  inicializaÃÂ§ÃÂ£o
                         if timestamp_ea_epoch > 0 and timestamp_ea_epoch < timestamp_inicializacao:
-                            # Dado antigo â€” EA nÃ£o atualizou desde que o robÃ´ iniciou
+                            # Dado antigo Ã¢â¬â EA nÃÂ£o atualizou desde que o robÃÂ´ iniciou
                             if ultimo_timestamp_ea_processado is None:
                                 logging.warning(
-                                    f"ðŸ”’ TRAVA TIMESTAMP: Ignorando dado antigo do EA "
+                                    f"Ã°Å¸ââ TRAVA TIMESTAMP: Ignorando dado antigo do EA "
                                     f"(timestamp EA: {timestamp_ea} | "
-                                    f"RobÃ´ iniciou: {datetime.fromtimestamp(timestamp_inicializacao).strftime('%H:%M:%S')})")
+                                    f"RobÃÂ´ iniciou: {datetime.fromtimestamp(timestamp_inicializacao).strftime('%H:%M:%S')})")
                                 ultimo_timestamp_ea_processado = "aguardando"
                             time.sleep(2)
                             continue
@@ -7271,31 +7284,31 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                             # Dado novo! Pode operar
                             if ultimo_timestamp_ea_processado == "aguardando":
                                 logging.info(
-                                    f"âœ… TRAVA TIMESTAMP LIBERADA: Dado novo recebido do EA (timestamp: {timestamp_ea})")
+                                    f"Ã¢Åâ¦ TRAVA TIMESTAMP LIBERADA: Dado novo recebido do EA (timestamp: {timestamp_ea})")
                             ultimo_timestamp_ea_processado = timestamp_ea
                     except (ValueError, TypeError):
-                        # Se nÃ£o consegue parsear timestamp, aceita o dado (compatibilidade)
+                        # Se nÃÂ£o consegue parsear timestamp, aceita o dado (compatibilidade)
                         pass
 
-                # ========== ðŸ“¡ LEITURA DO BOOK DOL (FLUXO INSTITUCIONAL) ==========
-                # O DOL Ã© o mercado "real" onde grandes players operam.
-                # O WDO Ã© espelhado por HFTs com ~0.5-2s de atraso.
+                # ========== Ã°Å¸âÂ¡ LEITURA DO BOOK DOL (FLUXO INSTITUCIONAL) ==========
+                # O DOL ÃÂ© o mercado "real" onde grandes players operam.
+                # O WDO ÃÂ© espelhado por HFTs com ~0.5-2s de atraso.
                 # Ler o DOL permite antecipar movimentos do WDO.
                 book_dol_data = ler_book_dol()
                 sinal_dol = analisar_sinal_dol(book_dol_data)
 
-                # Log periÃ³dico do sinal DOL (1x a cada 2min)
+                # Log periÃÂ³dico do sinal DOL (1x a cada 2min)
                 if sinal_dol['presente'] and _log_periodico('dol', 120):
                     logging.info(
-                        f"ðŸ“Š DOL {SYMBOL_DOL}: ratio={sinal_dol['ratio']:.2f} "
+                        f"Ã°Å¸âÅ  DOL {SYMBOL_DOL}: ratio={sinal_dol['ratio']:.2f} "
                         f"lado={sinal_dol['lado']} conf={sinal_dol['confianca']:.2f} "
                         f"vol={sinal_dol['volume_total']:.0f}")
 
-                # ========== ðŸŽ¯ FILTRO SNIPER DE ELITE (BOOK NATIVO) ==========
-                # O robÃ´ sÃ³ "acorda" para buscar entrada quando hÃ¡ volume institucional
-                # no book (>= SNIPER_VOLUME_MIN) E desequilÃ­brio claro entre os lados
-                # (ratio >= SNIPER_RATIO_MIN). Ambos ajustÃ¡veis no topo do arquivo.
-                # Caso contrÃ¡rio: standby silencioso aguardando os Big Players.
+                # ========== Ã°Å¸Å½Â¯ FILTRO SNIPER DE ELITE (BOOK NATIVO) ==========
+                # O robÃÂ´ sÃÂ³ "acorda" para buscar entrada quando hÃÂ¡ volume institucional
+                # no book (>= SNIPER_VOLUME_MIN) E desequilÃÂ­brio claro entre os lados
+                # (ratio >= SNIPER_RATIO_MIN). Ambos ajustÃÂ¡veis no topo do arquivo.
+                # Caso contrÃÂ¡rio: standby silencioso aguardando os Big Players.
                 sniper_bid = book_data.get('total_bid_volume', 0) if isinstance(
                     book_data, dict) else 0
                 sniper_ask = book_data.get('total_ask_volume', 0) if isinstance(
@@ -7306,28 +7319,28 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     sniper_ratio = max(sniper_bid, sniper_ask) / \
                         min(sniper_bid, sniper_ask)
 
-                # Em modo SNIPER_APENAS o gate de "Big Players" é PULADO: o
-                # sniper %R (cérebro atual) decide SÓ pelo %R (<= -80 / >= -20),
-                # fiel ao backtest variante A — sem exigência de volume/ratio de
-                # book. O gate permanece ativo quando o robô normal (IA) opera.
+                # Em modo SNIPER_APENAS o gate de "Big Players" Ã© PULADO: o
+                # sniper %R (cÃ©rebro atual) decide SÃ pelo %R (<= -80 / >= -20),
+                # fiel ao backtest variante A â sem exigÃªncia de volume/ratio de
+                # book. O gate permanece ativo quando o robÃ´ normal (IA) opera.
                 if not SNIPER_APENAS and (
                     sniper_total < SNIPER_VOLUME_MIN or sniper_ratio < SNIPER_RATIO_MIN):
-                    if _log_periodico('standby', 300):  # 1x a cada 5min (pulso jÃ¡ mostra vida)
+                    if _log_periodico('standby', 300):  # 1x a cada 5min (pulso jÃÂ¡ mostra vida)
                         logging.info(
-                            f"ðŸ˜´ Standby: Aguardando Big Players... "
+                            f"Ã°Å¸ËÂ´ Standby: Aguardando Big Players... "
                             f"(Vol {sniper_total:.0f}/{SNIPER_VOLUME_MIN} | "
                             f"Ratio {sniper_ratio:.2f}/{SNIPER_RATIO_MIN})")
                     time.sleep(1)
                     continue
 
-                # --- NOVA LÃ“GICA DE ANÃLISE DE PROFUNDIDADE ---
+                # --- NOVA LÃâGICA DE ANÃÂLISE DE PROFUNDIDADE ---
                 tick_info = mt5.symbol_info_tick(SYMBOL)
                 preco_atual_ref = (
                     tick_info.bid + tick_info.ask) / 2 if tick_info else 0
 
                 features_profundidade = analisar_profundidade_book(
                     book_data, preco_atual_ref)
-                # --- FIM DA NOVA LÃ“GICA ---
+                # --- FIM DA NOVA LÃâGICA ---
 
                 # Calcula entropia dos dados do EA (compatibilidade com formato legado)
                 if isinstance(book_data.get('bids', []), list) and len(book_data['bids']) > 0:
@@ -7346,7 +7359,7 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                 else:
                     entropia_book = 0.0
 
-                # ========== FEATURES 16-18: DADOS REAIS DA POSIÃ‡ÃƒO ==========
+                # ========== FEATURES 16-18: DADOS REAIS DA POSIÃâ¡ÃÆO ==========
                 # Quando em trade, preenche com dados reais para Keras aprender a gerenciar
                 _is_in_trade = 1 if (monstro_position_active and posicao_atual) else 0
                 _floating_profit = 0.0
@@ -7360,7 +7373,7 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                         _floating_profit = preco_ref - posicao_atual.preco_entrada
                     _tempo_em_trade = int((datetime.now() - posicao_atual.hora_entrada).total_seconds())
 
-                # Williams %R monitor (log only, nÃ£o bloqueia)
+                # Williams %R monitor (log only, nÃÂ£o bloqueia)
                 wr_result = williams_r_monitor.alimentar(
                     preco=close_price, high=close_price, low=close_price, wr=williams_r
                 )
@@ -7386,7 +7399,7 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     "williams_r": williams_r,
                     "wr_zona": wr_result['zona'],
                     "wr_divergencia": wr_result['divergencia'],
-                    # Sinal DOL: desequilÃ­brio do book do dÃ³lar cheio (referÃªncia institucional)
+                    # Sinal DOL: desequilÃÂ­brio do book do dÃÂ³lar cheio (referÃÂªncia institucional)
                     "dol_ratio": sinal_dol.get('ratio', 1.0),
                     "dol_lado": sinal_dol.get('lado', 'NEUTRO'),
                     "dol_confianca": sinal_dol.get('confianca', 0.0),
@@ -7399,12 +7412,12 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     "dia_ptax": dia_ptax,
                     "payroll_ativado": 1 if payroll_ativado else 0,
                     "sniper_bloqueado": 1 if sniper_blq else 0,
-                    # FIX 11/08: tendência EMA9/21 M1 do detector (filtro contra-tendência do sniper)
+                    # FIX 11/08: tendÃªncia EMA9/21 M1 do detector (filtro contra-tendÃªncia do sniper)
                     "tendencia_m1": detector_tendencia.tendencia_atual if (detector_tendencia and DETECTOR_TENDENCIA_ATIVO) else "NEUTRO",
                     **features_profundidade  # Adiciona todas as novas features de uma vez!
                 }
                 # ========== COLETA MULTI-TIMEFRAME (M5/M15/M30) ==========
-                # Coleta silenciosa para histÃ³rico sem interferir na decisÃ£o M1.
+                # Coleta silenciosa para histÃÂ³rico sem interferir na decisÃÂ£o M1.
                 mtf_result = obter_dados_multitf(SYMBOL)
                 if None not in mtf_result:
                     rsi5, atr5, wr5, close5, vol5, rsi15, atr15, wr15, close15, vol15, rsi30, atr30, wr30, close30, vol30 = mtf_result
@@ -7426,10 +7439,10 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                             f"[MultiTF] M5 RSI={rsi5:.1f} ATR={atr5:.1f} WR={wr5:.1f} | "
                             f"M15 RSI={rsi15:.1f} ATR={atr15:.1f} WR={wr15:.1f} | "
                             f"M30 RSI={rsi30:.1f} ATR={atr30:.1f} WR={wr30:.1f}")
-                # close_price separado para detector de tendÃªncia (nÃ£o vai para IA)
+                # close_price separado para detector de tendÃÂªncia (nÃÂ£o vai para IA)
                 close_price_para_tendencia = close_price
 
-                # Dashboard V2 â€” Atualiza variÃ¡veis de estado para o dashboard
+                # Dashboard V2 Ã¢â¬â Atualiza variÃÂ¡veis de estado para o dashboard
                 spread_atual = spread
                 atr_atual = volatility
                 rsi_atual = rsi_14
@@ -7439,41 +7452,41 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     'bid_qty', 0) + contexto.get('ask_qty', 0)
                 volume_adaptativo.adicionar_volume_atual(volume_total_book)
 
-                # MODO EMERGÃŠNCIA: ForÃ§a operaÃ§Ã£o apÃ³s muitas rejeiÃ§Ãµes
-                # (pulado em SNIPER_APENAS — o sniper %R nÃ£o usa volume adaptativo)
+                # MODO EMERGÃÅ NCIA: ForÃÂ§a operaÃÂ§ÃÂ£o apÃÂ³s muitas rejeiÃÂ§ÃÂµes
+                # (pulado em SNIPER_APENAS â o sniper %R nÃÂ£o usa volume adaptativo)
                 if not SNIPER_APENAS and not volume_adaptativo.pode_operar(volume_total_book):
                     contador_rejeicoes_consecutivas += 1
 
                     if contador_rejeicoes_consecutivas >= LIMITE_REJEICOES_EMERGENCIA:
-                        # âœ… PA1: MESMO NO MODO EMERGÃŠNCIA, RESPEITA HORÃRIO
+                        # Ã¢Åâ¦ PA1: MESMO NO MODO EMERGÃÅ NCIA, RESPEITA HORÃÂRIO
                         if not horario_permitido():
                             horario_atual = datetime.now().strftime("%H:%M")
                             logging.warning(
-                                f"ðŸš« PA1 MODO EMERGÃŠNCIA BLOQUEADO POR HORÃRIO: {horario_atual}")
+                                f"Ã°Å¸Å¡Â« PA1 MODO EMERGÃÅ NCIA BLOQUEADO POR HORÃÂRIO: {horario_atual}")
                             time.sleep(2)
                             continue
 
                         logging.warning(
-                            f"ðŸš¨ MODO EMERGÃŠNCIA ATIVADO! {contador_rejeicoes_consecutivas} rejeiÃ§Ãµes consecutivas - FORÃ‡ANDO OPERAÃ‡ÃƒO!")
+                            f"Ã°Å¸Å¡Â¨ MODO EMERGÃÅ NCIA ATIVADO! {contador_rejeicoes_consecutivas} rejeiÃÂ§ÃÂµes consecutivas - FORÃâ¡ANDO OPERAÃâ¡ÃÆO!")
                         contador_rejeicoes_consecutivas = 0
-                        # Continua para forÃ§ar operaÃ§Ã£o mesmo com volume baixo
+                        # Continua para forÃÂ§ar operaÃÂ§ÃÂ£o mesmo com volume baixo
                     else:
                         logging.info(
-                            f"ðŸš« OperaÃ§Ã£o bloqueada: Volume atual ({volume_total_book:.0f}) < MÃ­nimo Adaptativo ({volume_adaptativo.volume_minimo_adaptativo:.0f}) - RejeiÃ§Ãµes: {contador_rejeicoes_consecutivas}/{LIMITE_REJEICOES_EMERGENCIA}")
+                            f"Ã°Å¸Å¡Â« OperaÃÂ§ÃÂ£o bloqueada: Volume atual ({volume_total_book:.0f}) < MÃÂ­nimo Adaptativo ({volume_adaptativo.volume_minimo_adaptativo:.0f}) - RejeiÃÂ§ÃÂµes: {contador_rejeicoes_consecutivas}/{LIMITE_REJEICOES_EMERGENCIA}")
                         time.sleep(2)
-                        continue  # Pula para a prÃ³xima iteraÃ§Ã£o do loop
+                        continue  # Pula para a prÃÂ³xima iteraÃÂ§ÃÂ£o do loop
                 else:
-                    # Reset contador quando volume Ã© adequado
+                    # Reset contador quando volume ÃÂ© adequado
                     contador_rejeicoes_consecutivas = 0
 
-                logging.debug(f"ðŸ“Š Contexto para decisÃ£o: {contexto}")
+                logging.debug(f"Ã°Å¸âÅ  Contexto para decisÃÂ£o: {contexto}")
 
                 # ========== SANITY CHECK: DADOS CONGELADOS ==========
                 if verificar_dados_congelados(
                     contexto.get('bid_qty', 0),
                     contexto.get('ask_qty', 0)
                 ):
-                    # Dados congelados â€” nÃ£o opera mas continua monitorando
+                    # Dados congelados Ã¢â¬â nÃÂ£o opera mas continua monitorando
                     time.sleep(10)
                     continue
 
@@ -7483,15 +7496,15 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                 # (posicoes cujo deal de saida atrasou; fecha o ciclo p/ shadow)
                 reconciliar_pendentes()
 
-                # >>> Bloco de DecisÃ£o e Salvamento de DecisÃ£o (Movido para Cima) <<<
+                # >>> Bloco de DecisÃÂ£o e Salvamento de DecisÃÂ£o (Movido para Cima) <<<
                 acao_para_executar = "NADA"  # Default
                 confianca_decisao = 0.0
 
-                # Garante que o scaler estÃ¡ limpo do JSON (treino online nÃ£o corrompe)
+                # Garante que o scaler estÃÂ¡ limpo do JSON (treino online nÃÂ£o corrompe)
                 forcar_recreacao_scaler()
 
                 contexto_df_previsao = pd.DataFrame([contexto])
-                # Adiciona coluna 'action' dummy se nÃ£o existir, para consistÃªncia com preparar_dados
+                # Adiciona coluna 'action' dummy se nÃÂ£o existir, para consistÃÂªncia com preparar_dados
                 if 'action' not in contexto_df_previsao.columns:
                     contexto_df_previsao['action'] = "BUY"  # Dummy
                 X_decisao, _ = preparar_dados(
@@ -7499,12 +7512,12 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
 
                 if X_decisao is None or X_decisao.shape[1] != N_FEATURES:
                     logging.error(
-                        f"âŒ Dados invÃ¡lidos para previsÃ£o (X_decisao). Shape: {X_decisao.shape if X_decisao is not None else 'None'}")
+                        f"Ã¢ÂÅ Dados invÃÂ¡lidos para previsÃÂ£o (X_decisao). Shape: {X_decisao.shape if X_decisao is not None else 'None'}")
                     time.sleep(2)
                     continue
 
-                # âœ… REMOVIDA A PRIMEIRA OPERAÃ‡ÃƒO ALEATÃ“RIA
-                # Motivo: entrava sem anÃ¡lise (antes da IA ter contexto) e causava
+                # Ã¢Åâ¦ REMOVIDA A PRIMEIRA OPERAÃâ¡ÃÆO ALEATÃâRIA
+                # Motivo: entrava sem anÃÂ¡lise (antes da IA ter contexto) e causava
                 # conflito de fechamento entre C12 e TP do MT5 (order_send None)
                 # Agora a IA decide desde o primeiro ciclo normalmente
                 try:
@@ -7512,109 +7525,109 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                         modelo_ia_local, X_decisao, modo_operacional,
                         None, contexto)
 
-                    # ========== INTEGRAÃ‡ÃƒO SISTEMA DE CONFLUÃŠNCIA ==========
-                    # Short-circuit: se prever_acao jÃ¡ retornou NADA (cooldown P0, horÃ¡rio, veto),
-                    # nÃ£o recalcula IA/ConfluÃªncia â€” economiza CPU e evita logs confusos
+                    # ========== INTEGRAÃâ¡ÃÆO SISTEMA DE CONFLUÃÅ NCIA ==========
+                    # Short-circuit: se prever_acao jÃÂ¡ retornou NADA (cooldown P0, horÃÂ¡rio, veto),
+                    # nÃÂ£o recalcula IA/ConfluÃÂªncia Ã¢â¬â economiza CPU e evita logs confusos
                     if acao_predita == "NADA" and confianca_predita == 0.0:
                         acao_para_executar = "NADA"
                         confianca_decisao = 0.0
                     elif sistema_confluencia:
-                        # Obter probabilidade bruta da IA para confluÃªncia
-                        # X_decisao jÃ¡ foi normalizado pela funÃ§Ã£o preparar_dados
+                        # Obter probabilidade bruta da IA para confluÃÂªncia
+                        # X_decisao jÃÂ¡ foi normalizado pela funÃÂ§ÃÂ£o preparar_dados
                         x_pred = X_decisao.values.astype(np.float32)
                         prob_bruta = modelo_ia_local.predict(
                             x_pred, verbose=0)[0][0]
 
-                        # Verificar confluÃªncia de sinais
+                        # Verificar confluÃÂªncia de sinais
                         confluencia_info = sistema_confluencia.verificar_confluencia(
                             contexto, prob_bruta, acao_predita)
 
                         # Armazenar para uso posterior
                         confluencia_info_atual = confluencia_info
 
-                        # Log detalhado da confluÃªncia (DEBUG â€” repetia a cada decisÃ£o)
+                        # Log detalhado da confluÃÂªncia (DEBUG Ã¢â¬â repetia a cada decisÃÂ£o)
                         logging.debug(
-                            f"ðŸŽ¯ CONFLUÃŠNCIA: {confluencia_info['detalhes']} | Score: {confluencia_info['score']}")
+                            f"Ã°Å¸Å½Â¯ CONFLUÃÅ NCIA: {confluencia_info['detalhes']} | Score: {confluencia_info['score']}")
                         logging.debug(
-                            f"ðŸŽ¯ Sinais BUY: {confluencia_info['sinais_buy']}")
+                            f"Ã°Å¸Å½Â¯ Sinais BUY: {confluencia_info['sinais_buy']}")
                         logging.debug(
-                            f"ðŸŽ¯ Sinais SELL: {confluencia_info['sinais_sell']}")
+                            f"Ã°Å¸Å½Â¯ Sinais SELL: {confluencia_info['sinais_sell']}")
 
-                        # ========== REFATORADO: NOVA LÃ“GICA DE DECISÃƒO ==========
-                        # ðŸŽ¯ REGRA 1: IA com confianÃ§a > 80% NÃƒO pode ser invertida pela confluÃªncia
-                        # ðŸŽ¯ REGRA 2: ConfluÃªncia precisa de mÃ­nimo 2 sinais tÃ©cnicos
+                        # ========== REFATORADO: NOVA LÃâGICA DE DECISÃÆO ==========
+                        # Ã°Å¸Å½Â¯ REGRA 1: IA com confianÃÂ§a > 80% NÃÆO pode ser invertida pela confluÃÂªncia
+                        # Ã°Å¸Å½Â¯ REGRA 2: ConfluÃÂªncia precisa de mÃÂ­nimo 2 sinais tÃÂ©cnicos
 
-                        # Verifica se VETO MATEMÃTICO estÃ¡ ativo
+                        # Verifica se VETO MATEMÃÂTICO estÃÂ¡ ativo
                         veto_ativo = getattr(
                             prever_acao, '_ultimo_veto', False)
 
-                        # Verifica confianÃ§a alta da IA
-                        # NOTA: prob_bruta=0.0 (modelo nÃ£o treinado) NÃƒO Ã© confianÃ§a alta
+                        # Verifica confianÃÂ§a alta da IA
+                        # NOTA: prob_bruta=0.0 (modelo nÃÂ£o treinado) NÃÆO ÃÂ© confianÃÂ§a alta
                         ia_confianca_alta = (prob_bruta > 0.8 or prob_bruta < 0.2) and prob_bruta != 0.0
 
                         if veto_ativo:
-                            # VETO MATEMÃTICO ativo - nada sobrescreve
+                            # VETO MATEMÃÂTICO ativo - nada sobrescreve
                             acao_para_executar = "NADA"
                             confianca_decisao = 0.0
                             logging.warning(
-                                f"ðŸš« CONFLUÃŠNCIA BLOQUEADA: Veto matemÃ¡tico ativo - hierarquia respeitada")
+                                f"Ã°Å¸Å¡Â« CONFLUÃÅ NCIA BLOQUEADA: Veto matemÃÂ¡tico ativo - hierarquia respeitada")
 
                         elif ia_confianca_alta:
-                            # IA com confianÃ§a > 80% - ConfluÃªncia NÃƒO pode inverter
+                            # IA com confianÃÂ§a > 80% - ConfluÃÂªncia NÃÆO pode inverter
                             if confluencia_info['acao'] == acao_predita:
-                                # ConfluÃªncia confirma IA de alta confianÃ§a
+                                # ConfluÃÂªncia confirma IA de alta confianÃÂ§a
                                 acao_para_executar = acao_predita
-                                # BÃ´nus por confirmaÃ§Ã£o
+                                # BÃÂ´nus por confirmaÃÂ§ÃÂ£o
                                 confianca_decisao = min(
                                     prob_bruta * 1.15, 1.0)
                                 logging.debug(
-                                    f"ðŸ”’ IA ALTA CONFIANÃ‡A CONFIRMADA: {acao_predita} | ConfianÃ§a: {confianca_decisao:.2f}")
+                                    f"Ã°Å¸ââ IA ALTA CONFIANÃâ¡A CONFIRMADA: {acao_predita} | ConfianÃÂ§a: {confianca_decisao:.2f}")
                             elif confluencia_info['acao'] == "NADA":
-                                # ConfluÃªncia sem sinais suficientes - respeita IA de alta confianÃ§a
+                                # ConfluÃÂªncia sem sinais suficientes - respeita IA de alta confianÃÂ§a
                                 acao_para_executar = acao_predita
                                 confianca_decisao = prob_bruta
                                 logging.debug(
-                                    f"ðŸ”’ IA ALTA CONFIANÃ‡A MANTIDA: {acao_predita} (ConfluÃªncia insuficiente)")
+                                    f"Ã°Å¸ââ IA ALTA CONFIANÃâ¡A MANTIDA: {acao_predita} (ConfluÃÂªncia insuficiente)")
                             else:
-                                # ConfluÃªncia tenta inverter - BLOQUEADA
+                                # ConfluÃÂªncia tenta inverter - BLOQUEADA
                                 acao_para_executar = acao_predita
-                                confianca_decisao = prob_bruta * 0.9  # Penalidade leve por divergÃªncia
+                                confianca_decisao = prob_bruta * 0.9  # Penalidade leve por divergÃÂªncia
                                 logging.warning(
-                                    f"ðŸ”’ INVERSÃƒO BLOQUEADA: IA={acao_predita} (conf:{prob_bruta:.2f}) PREVALECE sobre ConfluÃªncia={confluencia_info['acao']}")
+                                    f"Ã°Å¸ââ INVERSÃÆO BLOQUEADA: IA={acao_predita} (conf:{prob_bruta:.2f}) PREVALECE sobre ConfluÃÂªncia={confluencia_info['acao']}")
 
                         elif confluencia_info['acao'] != "NADA":
-                            # ConfluÃªncia com sinais suficientes (â‰¥2) e IA sem alta confianÃ§a
+                            # ConfluÃÂªncia com sinais suficientes (Ã¢â°Â¥2) e IA sem alta confianÃÂ§a
                             if confluencia_info['acao'] != acao_predita:
-                                # ConfluÃªncia sobrescreve IA de baixa/mÃ©dia confianÃ§a
+                                # ConfluÃÂªncia sobrescreve IA de baixa/mÃÂ©dia confianÃÂ§a
                                 logging.warning(
-                                    f"ðŸŽ¯ CONFLUÃŠNCIA SOBRESCREVE: IA={acao_predita} (conf:{prob_bruta:.2f}) â†’ CONFLUÃŠNCIA={confluencia_info['acao']}")
+                                    f"Ã°Å¸Å½Â¯ CONFLUÃÅ NCIA SOBRESCREVE: IA={acao_predita} (conf:{prob_bruta:.2f}) Ã¢â â CONFLUÃÅ NCIA={confluencia_info['acao']}")
                                 acao_para_executar = confluencia_info['acao']
                                 confianca_decisao = confluencia_info['confianca']
                             else:
-                                # ConfluÃªncia confirma IA
+                                # ConfluÃÂªncia confirma IA
                                 acao_para_executar = acao_predita
                                 base_confianca = confianca_predita if confianca_predita > 0.0 else confluencia_info[
                                     'confianca']
                                 confianca_decisao = min(
                                     base_confianca * 1.2, 1.0)
                                 logging.info(
-                                    f"ðŸŽ¯ CONFLUÃŠNCIA CONFIRMA: {acao_predita} | ConfianÃ§a aumentada: {confianca_decisao:.2f}")
+                                    f"Ã°Å¸Å½Â¯ CONFLUÃÅ NCIA CONFIRMA: {acao_predita} | ConfianÃÂ§a aumentada: {confianca_decisao:.2f}")
                         else:
-                            # ConfluÃªncia sem sinais suficientes (<2)
+                            # ConfluÃÂªncia sem sinais suficientes (<2)
                             acao_para_executar = "NADA"
                             confianca_decisao = 0.0
                             logging.info(
-                                f"ðŸŽ¯ CONFLUÃŠNCIA BLOQUEIA: Menos de 2 sinais tÃ©cnicos (mÃ­nimo exigido)")
+                                f"Ã°Å¸Å½Â¯ CONFLUÃÅ NCIA BLOQUEIA: Menos de 2 sinais tÃÂ©cnicos (mÃÂ­nimo exigido)")
                     else:
-                        # sistema_confluencia nÃ£o inicializado â€” usa aÃ§Ã£o direta da IA
+                        # sistema_confluencia nÃÂ£o inicializado Ã¢â¬â usa aÃÂ§ÃÂ£o direta da IA
                         acao_para_executar = acao_predita
                         confianca_decisao = confianca_predita
 
-                    # ========== ðŸ“¡ VETO/CONFIRMAÃ‡ÃƒO PELO DOL ==========
-                    # O DOL Ã© o mercado "real" â€” se ele contradiz a decisÃ£o,
-                    # Ã© um sinal forte de que o WDO pode nÃ£o seguir.
-                    # Regra: DOL com confianÃ§a > 0.6 e lado oposto = VETO
-                    # (exceto se IA tem confianÃ§a > 80%)
+                    # ========== Ã°Å¸âÂ¡ VETO/CONFIRMAÃâ¡ÃÆO PELO DOL ==========
+                    # O DOL ÃÂ© o mercado "real" Ã¢â¬â se ele contradiz a decisÃÂ£o,
+                    # ÃÂ© um sinal forte de que o WDO pode nÃÂ£o seguir.
+                    # Regra: DOL com confianÃÂ§a > 0.6 e lado oposto = VETO
+                    # (exceto se IA tem confianÃÂ§a > 80%)
                     if (sinal_dol['presente']
                             and acao_para_executar != "NADA"
                             and sinal_dol['lado'] != 'NEUTRO'
@@ -7629,31 +7642,31 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                         )
 
                         if dol_contra and not ia_confianca_alta:
-                            # DOL contradiz E IA nÃ£o tem confianÃ§a alta â†’ VETO
+                            # DOL contradiz E IA nÃÂ£o tem confianÃÂ§a alta Ã¢â â VETO
                             logging.warning(
-                                f"ðŸ“ŠðŸš« DOL VETA: IA/ConfluÃªncia={acao_para_executar} "
+                                f"Ã°Å¸âÅ Ã°Å¸Å¡Â« DOL VETA: IA/ConfluÃÂªncia={acao_para_executar} "
                                 f"mas DOL={sinal_dol['lado']} "
                                 f"(ratio={sinal_dol['ratio']:.2f}, conf={sinal_dol['confianca']:.2f})")
                             acao_para_executar = "NADA"
                             confianca_decisao = 0.0
                         elif dol_contra and ia_confianca_alta:
-                            # DOL contradiz MAS IA tem confianÃ§a alta â†’ penalidade
+                            # DOL contradiz MAS IA tem confianÃÂ§a alta Ã¢â â penalidade
                             confianca_decisao *= 0.85
                             logging.warning(
-                                f"ðŸ“Šâš ï¸ DOL CONTRARIA IA: {acao_para_executar} "
+                                f"Ã°Å¸âÅ Ã¢Å¡Â Ã¯Â¸Â DOL CONTRARIA IA: {acao_para_executar} "
                                 f"(DOL={sinal_dol['lado']}, ratio={sinal_dol['ratio']:.2f}) "
-                                f"â†’ confianÃ§a reduzida: {confianca_decisao:.2f}")
+                                f"Ã¢â â confianÃÂ§a reduzida: {confianca_decisao:.2f}")
                         elif dol_confirma:
-                            # DOL confirma â†’ bÃ´nus de confianÃ§a
+                            # DOL confirma Ã¢â â bÃÂ´nus de confianÃÂ§a
                             confianca_decisao = min(confianca_decisao * 1.1, 1.0)
                             logging.debug(
-                                f"ðŸ“Šâœ… DOL CONFIRMA: {acao_para_executar} "
+                                f"Ã°Å¸âÅ Ã¢Åâ¦ DOL CONFIRMA: {acao_para_executar} "
                                 f"(ratio={sinal_dol['ratio']:.2f}) "
-                                f"â†’ confianÃ§a: {confianca_decisao:.2f}")
+                                f"Ã¢â â confianÃÂ§a: {confianca_decisao:.2f}")
 
-                    # ========== NOVOS FILTROS PÓS-DOL (não-SNIPER) ==========
-                    # 1. DOL confiança ≥ DOL_CONF_MIN + alinhado obrigatório para entradas não-sniper
-                    # 2. Book ratio ≥ BOOK_RATIO_MIN para qualquer trade direcional
+                    # ========== NOVOS FILTROS PÃS-DOL (nÃ£o-SNIPER) ==========
+                    # 1. DOL confianÃ§a â¥ DOL_CONF_MIN + alinhado obrigatÃ³rio para entradas nÃ£o-sniper
+                    # 2. Book ratio â¥ BOOK_RATIO_MIN para qualquer trade direcional
                     # Valores lidos do config.json (editaveis pelo agente autonomo, whitelist):
                     DOL_CONF_MIN = float(config.get("dol_conf_min", 0.4))
                     BOOK_RATIO_MIN = float(config.get("book_ratio_min", 1.3))
@@ -7675,27 +7688,27 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                         if not dol_ok:
                             confianca_decisao *= 0.70
                             logging.warning(
-                                f"⚠️ DOL fraco/desalinhado (conf={dol_conf:.2f} lado={dol_lado} ≠ {acao_para_executar}) -> conf ×0.70={confianca_decisao:.2f} (ADVISORY, sem veto)")
+                                f"â ï¸ DOL fraco/desalinhado (conf={dol_conf:.2f} lado={dol_lado} â  {acao_para_executar}) -> conf Ã0.70={confianca_decisao:.2f} (ADVISORY, sem veto)")
                         if not ratio_ok:
                             confianca_decisao *= 0.85
                             logging.warning(
-                                f"⚠️ Book ratio baixo ({book_ratio:.2f}x < {BOOK_RATIO_MIN}) -> conf ×0.85={confianca_decisao:.2f} (ADVISORY, sem veto)")
+                                f"â ï¸ Book ratio baixo ({book_ratio:.2f}x < {BOOK_RATIO_MIN}) -> conf Ã0.85={confianca_decisao:.2f} (ADVISORY, sem veto)")
 
                     logging.debug(
-                        f"ðŸ¤– DecisÃ£o Final: {acao_para_executar} | ConfianÃ§a: {confianca_decisao:.2f}")
+                        f"Ã°Å¸Â¤â DecisÃÂ£o Final: {acao_para_executar} | ConfianÃÂ§a: {confianca_decisao:.2f}")
                 except Exception as e:
                     logging.error(
-                        f"âŒ Erro ao prever aÃ§Ã£o (bloco principal): {e}")
+                        f"Ã¢ÂÅ Erro ao prever aÃÂ§ÃÂ£o (bloco principal): {e}")
                     logging.debug(
                         f"Shape de X_decisao: {X_decisao.shape if X_decisao is not None else 'None'}")
                     time.sleep(2)
                     continue
 
-                # Salva a decisÃ£o ANTES de qualquer filtro que possa impedir a execuÃ§Ã£o da ordem
+                # Salva a decisÃÂ£o ANTES de qualquer filtro que possa impedir a execuÃÂ§ÃÂ£o da ordem
                 salvar_decisao_csv(acao_para_executar,
                                    confianca_decisao, contexto)
                 ultima_decisao = acao_para_executar  # Atualiza ultima_decisao global
-                # >>> Fim do Bloco de DecisÃ£o e Salvamento de DecisÃ£o <<<
+                # >>> Fim do Bloco de DecisÃÂ£o e Salvamento de DecisÃÂ£o <<<
 
                 # ========== FIX 11/08: TENDENCIA FRESCA ANTES DO SNIPER ==========
                 # Atualiza o detector EMA9/21 ANTES do sniper e injeta no contexto,
@@ -7706,19 +7719,19 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                             close_price_para_tendencia)
                         status_tendencia = detector_tendencia.get_status()
                         logging.debug(
-                            f"📈 Tendencia atualizada: {status_tendencia['tendencia']} | Close: {close_price_para_tendencia}")
+                            f"ð Tendencia atualizada: {status_tendencia['tendencia']} | Close: {close_price_para_tendencia}")
                     else:
                         logging.warning(
-                            "⚠️ Close price nao disponivel para detector de tendencia")
+                            "â ï¸ Close price nao disponivel para detector de tendencia")
                 if contexto is not None:
                     contexto['tendencia_m1'] = (
                         detector_tendencia.tendencia_atual
                         if (detector_tendencia and DETECTOR_TENDENCIA_ATIVO) else "NEUTRO"
                     )
-                    # FIX 12/08: vetos do FiltroTendencia (SMA-50 + momentum) —
+                    # FIX 12/08: vetos do FiltroTendencia (SMA-50 + momentum) â
                     # mesmo detector que bloqueou o dia 11/08 corretamente. O
                     # EMA9/21 ficava NEUTRO nos momentos de entrada; o SMA-50
-                    # detectou a tendência o dia todo.
+                    # detectou a tendÃªncia o dia todo.
                     _preco_tend_sniper = (contexto.get('preco', 0)
                                           or contexto.get('preco_maior_escora_bid', 0))
                     if _preco_tend_sniper and _preco_tend_sniper > 0:
@@ -7729,19 +7742,19 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                             contexto['tendencia_motivo'] = _res_tend_sniper['motivo']
                         except Exception as e:
                             logging.error(
-                                f"⚠️ Erro ao avaliar tendência SMA-50 p/ sniper: {e}")
+                                f"â ï¸ Erro ao avaliar tendÃªncia SMA-50 p/ sniper: {e}")
                             contexto['tendencia_veto_buy'] = False
                             contexto['tendencia_veto_sell'] = False
 
-                # ========== ⚡ SNIPER %R CHECK (INICIA OPERAÇÃO PRÓPRIA) ==========
-                # O sniper %R é o novo cérebro: quando o %R cruza a zona extrema
-                # (<= -80 BUY / >= -20 SELL) ele INICIA a operação com direção
-                # própria, sobrepondo a IA e pulando os filtros do robô normal.
-                # Gestão de saída: SL=1.5xATR e TP=3xATR no MT5 + trailing 50%
-                # pós-1R no loop de monitoramento (fiel ao backtest variante A).
-                # FIX 11/08: sniper NÃO dispara em modo DEFESA (evita 330 ordens
-                # bloqueadas em loop após 3 losses seguidos) e a trava de zona
-                # (em_zona) só reseta quando a posição FECHA — não a cada sinal
+                # ========== â¡ SNIPER %R CHECK (INICIA OPERAÃÃO PRÃPRIA) ==========
+                # O sniper %R Ã© o novo cÃ©rebro: quando o %R cruza a zona extrema
+                # (<= -80 BUY / >= -20 SELL) ele INICIA a operaÃ§Ã£o com direÃ§Ã£o
+                # prÃ³pria, sobrepondo a IA e pulando os filtros do robÃ´ normal.
+                # GestÃ£o de saÃ­da: SL=1.5xATR e TP=3xATR no MT5 + trailing 50%
+                # pÃ³s-1R no loop de monitoramento (fiel ao backtest variante A).
+                # FIX 11/08: sniper NÃO dispara em modo DEFESA (evita 330 ordens
+                # bloqueadas em loop apÃ³s 3 losses seguidos) e a trava de zona
+                # (em_zona) sÃ³ reseta quando a posiÃ§Ã£o FECHA â nÃ£o a cada sinal
                 # (elimina o spam de "INICIA" a cada 2s com o %R preso no extremo).
                 if modo_operacional.modo_atual == "DEFESA":
                     sniper_result = {'ativo': False, 'direcao': 'NADA', 'score': 0,
@@ -7752,11 +7765,11 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     SNIPER_SUPERMO_ATIVO = True
                     acao_para_executar = sniper_result['direcao']
                     logging.info(
-                        f"⚡ SNIPER %R INICIA {acao_para_executar} — sobrepondo IA, pulando filtros normais")
+                        f"â¡ SNIPER %R INICIA {acao_para_executar} â sobrepondo IA, pulando filtros normais")
                 else:
                     SNIPER_SUPERMO_ATIVO = False
-                    # Modo "sniper apenas": sem sinal %R o robô espera — a IA
-                    # principal não executa (evita voltar a sangrar).
+                    # Modo "sniper apenas": sem sinal %R o robÃ´ espera â a IA
+                    # principal nÃ£o executa (evita voltar a sangrar).
                     if SNIPER_APENAS:
                         acao_para_executar = "NADA"
 
@@ -7771,7 +7784,7 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                 else:
                     atr = THRESHOLD_ATR_BAIXO * 2
 
-                # Usa a entropia jÃ¡ calculada no contexto
+                # Usa a entropia jÃÂ¡ calculada no contexto
                 entropia_calculada = contexto.get('entropia_book', 0.0)
 
                 modo_anterior = modo_operacional.modo_atual
@@ -7779,21 +7792,21 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     atr, entropia_calculada, volume_tick, bid_qty, ask_qty)
                 if modo_anterior != modo_operacional.modo_atual:
                     logging.info(
-                        f"ðŸ”„ MudanÃ§a de modo: {modo_anterior} -> {modo_operacional.modo_atual}")
+                        f"Ã°Å¸ââ MudanÃÂ§a de modo: {modo_anterior} -> {modo_operacional.modo_atual}")
                     logging.info(
-                        f"ðŸ“Š ATR: {atr:.2f} | Entropia: {entropia_calculada:.2f} | Volume: {volume_tick}")
+                        f"Ã°Å¸âÅ  ATR: {atr:.2f} | Entropia: {entropia_calculada:.2f} | Volume: {volume_tick}")
                 modo_operacional.volume_anterior = volume_tick
 
-                # Filtro de volume MENOS RESTRITIVO - sÃ³ bloqueia em casos extremos
+                # Filtro de volume MENOS RESTRITIVO - sÃÂ³ bloqueia em casos extremos
                 # (pulado se SNIPER SUPERMO estiver ativo)
                 if not SNIPER_SUPERMO_ATIVO and (
                     not volume_crescente(n=2, symbol=SYMBOL) and
                     modo_operacional.modo_atual not in ["EXPLOSAO", "NORMAL"] and
-                        volume_tick < 100):  # SÃ³ bloqueia se volume muito baixo E nÃ£o crescente
+                        volume_tick < 100):  # SÃÂ³ bloqueia se volume muito baixo E nÃÂ£o crescente
                     logging.info(
-                        "â›” Volume muito baixo e nÃ£o crescente. OperaÃ§Ã£o bloqueada.")
+                        "Ã¢âºâ Volume muito baixo e nÃÂ£o crescente. OperaÃÂ§ÃÂ£o bloqueada.")
                     acao_para_executar = "NAO_AGIU_FILTRO_VOLUME"
-                    # Salva experiÃªncia e treina como no arquivo principal
+                    # Salva experiÃÂªncia e treina como no arquivo principal
                     memoria_experiencias.adicionar(
                         contexto.copy(), "NAO_AGIU", 0.0, 0.0)
                     salvar_experiencia_csv(
@@ -7802,16 +7815,16 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                         modelo_ia_local = treinar_modelo_inteligente(
                             modelo_ia_local, memoria_experiencias)
                     except Exception as e:
-                        logging.error(f"âŒ Erro no treinamento: {e}")
+                        logging.error(f"Ã¢ÂÅ Erro no treinamento: {e}")
                     time.sleep(10)
                     continue
 
                 cb_ativado, cb_mensagem = verificar_circuit_breakers(contexto)
                 if cb_ativado:
                     logging.warning(
-                        f"â›” Circuit Breaker ativado: {cb_mensagem}")
+                        f"Ã¢âºâ Circuit Breaker ativado: {cb_mensagem}")
                     acao_para_executar = "NAO_AGIU_CB"
-                    # Salva experiÃªncia e treina como no arquivo principal
+                    # Salva experiÃÂªncia e treina como no arquivo principal
                     memoria_experiencias.adicionar(
                         contexto.copy(), "NAO_AGIU", 0.0, 0.0)
                     salvar_experiencia_csv(
@@ -7820,16 +7833,16 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                         modelo_ia_local = treinar_modelo_inteligente(
                             modelo_ia_local, memoria_experiencias)
                     except Exception as e:
-                        logging.error(f"âŒ Erro no treinamento: {e}")
+                        logging.error(f"Ã¢ÂÅ Erro no treinamento: {e}")
                     time.sleep(60)
                     continue
 
                 dados_validos, erro_dados = verificar_integridade_dados(
                     contexto)
                 if not dados_validos:
-                    logging.error(f"âŒ Dados invÃ¡lidos: {erro_dados}")
+                    logging.error(f"Ã¢ÂÅ Dados invÃÂ¡lidos: {erro_dados}")
                     acao_para_executar = "NAO_AGIU_DADOS_INVALIDOS"
-                    # Salva experiÃªncia e treina como no arquivo principal
+                    # Salva experiÃÂªncia e treina como no arquivo principal
                     memoria_experiencias.adicionar(
                         contexto.copy(), "NAO_AGIU", 0.0, 0.0)
                     salvar_experiencia_csv(
@@ -7838,66 +7851,66 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                         modelo_ia_local = treinar_modelo_inteligente(
                             modelo_ia_local, memoria_experiencias)
                     except Exception as e:
-                        logging.error(f"âŒ Erro no treinamento: {e}")
+                        logging.error(f"Ã¢ÂÅ Erro no treinamento: {e}")
                     time.sleep(10)
                     continue
 
-                # Aplica bloqueio de lado APÃ“S a previsÃ£o inicial - SÃ“ PARA AÃ‡Ã•ES DE TRADING
-                # (pulado se SNIPER %R ativo: a direÃ§Ã£o extrema do %R nÃ£o pode ser invertida)
+                # Aplica bloqueio de lado APÃâS a previsÃÂ£o inicial - SÃâ PARA AÃâ¡Ãâ¢ES DE TRADING
+                # (pulado se SNIPER %R ativo: a direÃÂ§ÃÂ£o extrema do %R nÃÂ£o pode ser invertida)
                 if acao_para_executar in ["BUY", "SELL"] and not SNIPER_SUPERMO_ATIVO and gerenciador_bloqueio.verificar_bloqueio(acao_para_executar):
                     acao_original_bloqueada = acao_para_executar
                     acao_para_executar = gerenciador_bloqueio.obter_acao_alternativa(
                         acao_original_bloqueada)
                     logging.warning(
-                        f"ðŸ”„ Invertendo aÃ§Ã£o de {acao_original_bloqueada} para {acao_para_executar} devido a bloqueio de lado.")
-                    # Atualiza a decisÃ£o no CSV com a aÃ§Ã£o corrigida
+                        f"Ã°Å¸ââ Invertendo aÃÂ§ÃÂ£o de {acao_original_bloqueada} para {acao_para_executar} devido a bloqueio de lado.")
+                    # Atualiza a decisÃÂ£o no CSV com a aÃÂ§ÃÂ£o corrigida
                     salvar_decisao_csv(acao_para_executar,
                                        confianca_decisao, contexto)
 
-                # Se apÃ³s todas as verificaÃ§Ãµes, a aÃ§Ã£o for "NADA" ou alguma forma de "NAO_AGIU"
+                # Se apÃÂ³s todas as verificaÃÂ§ÃÂµes, a aÃÂ§ÃÂ£o for "NADA" ou alguma forma de "NAO_AGIU"
                 if acao_para_executar.startswith("NADA") or acao_para_executar.startswith("NAO_AGIU"):
                     if _log_periodico('nao_agindo', 300):
                         logging.debug(
-                            f"NÃ£o agindo: {acao_para_executar} (ConfianÃ§a: {confianca_decisao:.2f} ou restriÃ§Ã£o).")
-                    # Salva experiÃªncia e treina como no arquivo principal (apenas para NADA da previsÃ£o)
+                            f"NÃÂ£o agindo: {acao_para_executar} (ConfianÃÂ§a: {confianca_decisao:.2f} ou restriÃÂ§ÃÂ£o).")
+                    # Salva experiÃÂªncia e treina como no arquivo principal (apenas para NADA da previsÃÂ£o)
                     if acao_para_executar == "NADA":
                         memoria_experiencias.adicionar(
                             contexto.copy(), "NAO_AGIU", 0.0, 0.0)
                         salvar_experiencia_csv(
                             contexto.copy(), "NAO_AGIU", 0.0, 0.0)
-                        # Treina apenas dentro do horÃ¡rio de pregÃ£o (evita treino desperdiÃ§ado pÃ³s-17:30)
+                        # Treina apenas dentro do horÃÂ¡rio de pregÃÂ£o (evita treino desperdiÃÂ§ado pÃÂ³s-17:30)
                         if agora < dtime(17, 30):
                             try:
                                 modelo_ia_local = treinar_modelo_inteligente(
                                     modelo_ia_local, memoria_experiencias)
                             except Exception as e:
-                                logging.error(f"âŒ Erro no treinamento: {e}")
+                                logging.error(f"Ã¢ÂÅ Erro no treinamento: {e}")
                         time.sleep(2)
                         continue
 
-                # === VERIFICAÃ‡ÃƒO DE HORÃRIO ANTES DE EXECUTAR ORDEM ===
+                # === VERIFICAÃâ¡ÃÆO DE HORÃÂRIO ANTES DE EXECUTAR ORDEM ===
                 horario_atual = datetime.now().time()
                 horario_limite_ordens = datetime.strptime(
                     HORARIO_LIMITE_ORDENS, "%H:%M").time()
                 if horario_atual >= horario_limite_ordens:
                     logging.info(
-                        f"ðŸ•• {HORARIO_LIMITE_ORDENS} - NÃ£o executando novas ordens (prÃ³ximo ao encerramento)")
-                    # Salva experiÃªncia e treina como no arquivo principal
+                        f"Ã°Å¸â¢â¢ {HORARIO_LIMITE_ORDENS} - NÃÂ£o executando novas ordens (prÃÂ³ximo ao encerramento)")
+                    # Salva experiÃÂªncia e treina como no arquivo principal
                     memoria_experiencias.adicionar(
                         contexto.copy(), "NAO_AGIU", 0.0, 0.0)
                     salvar_experiencia_csv(
                         contexto.copy(), "NAO_AGIU", 0.0, 0.0)
-                    # Treina apenas dentro do horÃ¡rio de pregÃ£o (evita treino desperdiÃ§ado pÃ³s-17:30)
+                    # Treina apenas dentro do horÃÂ¡rio de pregÃÂ£o (evita treino desperdiÃÂ§ado pÃÂ³s-17:30)
                     if agora < dtime(17, 30):
                         try:
                             modelo_ia_local = treinar_modelo_inteligente(
                                 modelo_ia_local, memoria_experiencias)
                         except Exception as e:
-                            logging.error(f"âŒ Erro no treinamento: {e}")
+                            logging.error(f"Ã¢ÂÅ Erro no treinamento: {e}")
                             time.sleep(10)
                     continue
 
-                # ========== INTEGRAÃ‡ÃƒO MELHORIA 3: MODOS DE MERCADO SIMPLIFICADOS ==========
+                # ========== INTEGRAÃâ¡ÃÆO MELHORIA 3: MODOS DE MERCADO SIMPLIFICADOS ==========
                 if detector_modo:
                     atr = contexto.get('volatility', 0)
                     entropia = contexto.get('entropia_book', 0.5)
@@ -7906,24 +7919,24 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
 
                     if modo_mercado == "CONSERVADOR":
                         logging.info(
-                            f"ðŸŒ Modo CONSERVADOR detectado (ATR: {atr:.1f}, Entropia: {entropia:.3f})")
+                            f"Ã°Å¸ÂÅ Modo CONSERVADOR detectado (ATR: {atr:.1f}, Entropia: {entropia:.3f})")
 
-                # ========== INTEGRAÃ‡ÃƒO NOVAS MELHORIAS 7 E 9 ==========
-                # Atualiza filtro de spread dinÃ¢mico com ATR
+                # ========== INTEGRAÃâ¡ÃÆO NOVAS MELHORIAS 7 E 9 ==========
+                # Atualiza filtro de spread dinÃÂ¢mico com ATR
                 if filtro_spread and SPREAD_DINAMICO_ATIVO:
                     atr_atual = contexto.get('volatility', 0)
                     filtro_spread.atualizar_atr(atr_atual)
 
-                # ========== INTEGRAÃ‡ÃƒO MELHORIA 4: CIRCUIT BREAKERS ESSENCIAIS ==========
+                # ========== INTEGRAÃâ¡ÃÆO MELHORIA 4: CIRCUIT BREAKERS ESSENCIAIS ==========
                 if circuit_breaker and CIRCUIT_BREAKER_ATIVO:
                     spread_atual = contexto.get('spread', 0)
                     if circuit_breaker.verificar_circuit_breakers(spread_atual):
                         status = circuit_breaker.get_status()
                         logging.warning(
-                            f"ðŸš¨ CIRCUIT BREAKER ATIVADO: {status['motivo']}")
+                            f"Ã°Å¸Å¡Â¨ CIRCUIT BREAKER ATIVADO: {status['motivo']}")
                         logging.info(
-                            "â¸ï¸ OperaÃ§Ã£o bloqueada por circuit breaker. Aguardando...")
-                        # Salva experiÃªncia e treina como no arquivo principal
+                            "Ã¢ÂÂ¸Ã¯Â¸Â OperaÃÂ§ÃÂ£o bloqueada por circuit breaker. Aguardando...")
+                        # Salva experiÃÂªncia e treina como no arquivo principal
                         memoria_experiencias.adicionar(
                             contexto.copy(), "NAO_AGIU", 0.0, 0.0)
                         salvar_experiencia_csv(
@@ -7932,17 +7945,17 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                             modelo_ia_local = treinar_modelo_inteligente(
                                 modelo_ia_local, memoria_experiencias)
                         except Exception as e:
-                            logging.error(f"âŒ Erro no treinamento: {e}")
+                            logging.error(f"Ã¢ÂÅ Erro no treinamento: {e}")
                         # Aguarda 30 segundos antes de tentar novamente
                         time.sleep(30)
                         continue
 
-                # ========== ðŸ‹ DIRETRIZ: SEGUIR OS BIG PLAYERS ==========
+                # ========== Ã°Å¸Ââ¹ DIRETRIZ: SEGUIR OS BIG PLAYERS ==========
                 # A IA decide, mas NUNCA operamos CONTRA o lado dominante do book.
-                # Se os bigs estÃ£o comprando (BID > ASK) nÃ£o vendemos; se estÃ£o
-                # vendendo (ASK > BID) nÃ£o compramos. "NÃ£o brigar com a fita."
-                # (O Sniper jÃ¡ garante que o lado dominante tem >= 2x â€” desequilÃ­brio real.)
-                # (Pulado se SNIPER SUPERMO estiver ativo â€” jÃ¡ verificou alinhamento total)
+                # Se os bigs estÃÂ£o comprando (BID > ASK) nÃÂ£o vendemos; se estÃÂ£o
+                # vendendo (ASK > BID) nÃÂ£o compramos. "NÃÂ£o brigar com a fita."
+                # (O Sniper jÃÂ¡ garante que o lado dominante tem >= 2x Ã¢â¬â desequilÃÂ­brio real.)
+                # (Pulado se SNIPER SUPERMO estiver ativo Ã¢â¬â jÃÂ¡ verificou alinhamento total)
                 if not SNIPER_SUPERMO_ATIVO and acao_para_executar in ["BUY", "SELL"]:
                     _bid_dom = float(contexto.get('bid_qty', 0))
                     _ask_dom = float(contexto.get('ask_qty', 0))
@@ -7950,32 +7963,32 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                         "SELL" if _ask_dom > _bid_dom else None)
                     if lado_dominante and acao_para_executar != lado_dominante:
                         # Log do veto com THROTTLE (1x a cada VETO_LOG_INTERVALO_S) para
-                        # nÃ£o inundar o arquivo quando o desequilÃ­brio contra persiste.
+                        # nÃÂ£o inundar o arquivo quando o desequilÃÂ­brio contra persiste.
                         if time.time() - _veto_estado['ultimo_log'] >= VETO_LOG_INTERVALO_S:
                             logging.info(
-                                f"ðŸ‹ VETO SEGUIR OS BIGS: decisÃ£o {acao_para_executar} Ã© CONTRA o lado dominante "
-                                f"({lado_dominante} | BID {_bid_dom:.0f} x ASK {_ask_dom:.0f}) â€” nÃ£o brigo com a fita.")
+                                f"Ã°Å¸Ââ¹ VETO SEGUIR OS BIGS: decisÃÂ£o {acao_para_executar} ÃÂ© CONTRA o lado dominante "
+                                f"({lado_dominante} | BID {_bid_dom:.0f} x ASK {_ask_dom:.0f}) Ã¢â¬â nÃÂ£o brigo com a fita.")
                             _veto_estado['ultimo_log'] = time.time()
-                        # NÃƒO grava experiÃªncia aqui (gravava a cada 1s = flood de NAO_AGIU
-                        # na memÃ³ria e no disco). O veto Ã© uma REGRA fixa, nÃ£o aprendizado.
-                        time.sleep(5)  # re-checa a cada 5s (nÃ£o precisa 1s p/ nÃ£o brigar)
+                        # NÃÆO grava experiÃÂªncia aqui (gravava a cada 1s = flood de NAO_AGIU
+                        # na memÃÂ³ria e no disco). O veto ÃÂ© uma REGRA fixa, nÃÂ£o aprendizado.
+                        time.sleep(5)  # re-checa a cada 5s (nÃÂ£o precisa 1s p/ nÃÂ£o brigar)
                         continue
 
-                # ========== PISO DE CONFIANÃ‡A MÃNIMA (AÃ‡ÃƒO 2 â€” ROADMAP 07/08) ==========
-                # DecisÃµes BUY/SELL com confianÃ§a < 0.50 nÃ£o executam. PolÃ­tica fixa
-                # (nÃ£o grava experiÃªncia, mesmo padrÃ£o do veto de bigs). A decisÃ£o
-                # jÃ¡ foi salva no CSV (salvar_decisao_csv acima) para mÃ©tricas contÃ­nuas.
-                # (Pulado se SNIPER %R ativo — o sniper tem regra própria de entrada)
+                # ========== PISO DE CONFIANÃâ¡A MÃÂNIMA (AÃâ¡ÃÆO 2 Ã¢â¬â ROADMAP 07/08) ==========
+                # DecisÃÂµes BUY/SELL com confianÃÂ§a < 0.50 nÃÂ£o executam. PolÃÂ­tica fixa
+                # (nÃÂ£o grava experiÃÂªncia, mesmo padrÃÂ£o do veto de bigs). A decisÃÂ£o
+                # jÃÂ¡ foi salva no CSV (salvar_decisao_csv acima) para mÃÂ©tricas contÃÂ­nuas.
+                # (Pulado se SNIPER %R ativo â o sniper tem regra prÃ³pria de entrada)
                 if not SNIPER_SUPERMO_ATIVO and acao_para_executar in ["BUY", "SELL"] and confianca_decisao < PISO_CONFIANCA_MINIMA:
                     if _log_periodico('piso_confianca', 300):
                         logging.info(
-                            f"ðŸš« PISO DE CONFIANÃ‡A: {acao_para_executar} bloqueado "
-                            f"(confianÃ§a {confianca_decisao:.2f} < {PISO_CONFIANCA_MINIMA:.2f})")
+                            f"Ã°Å¸Å¡Â« PISO DE CONFIANÃâ¡A: {acao_para_executar} bloqueado "
+                            f"(confianÃÂ§a {confianca_decisao:.2f} < {PISO_CONFIANCA_MINIMA:.2f})")
                     time.sleep(5)
                     continue
 
-                # Executa ordem com a aÃ§Ã£o final decidida
-                # Se SNIPER %R ativo, usa volume próprio e SL/TP por ATR (1.5x/3x)
+                # Executa ordem com a aÃÂ§ÃÂ£o final decidida
+                # Se SNIPER %R ativo, usa volume prÃ³prio e SL/TP por ATR (1.5x/3x)
                 _volume_exec = SNIPER_SUPERMO_VOLUME if SNIPER_SUPERMO_ATIVO else VOLUME_PADRAO
                 _sl_override = sniper_result.get('sl_points') if SNIPER_SUPERMO_ATIVO else None
                 _tp_override = sniper_result.get('tp_points') if SNIPER_SUPERMO_ATIVO else None
@@ -7984,17 +7997,17 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     sniper=SNIPER_SUPERMO_ATIVO,
                     sl_points_override=_sl_override, tp_points_override=_tp_override)
                 if SNIPER_SUPERMO_ATIVO:
-                    logging.info(f"⚡ SNIPER %R: ordem enviada com {_volume_exec}cc, SL/TP por ATR")
+                    logging.info(f"â¡ SNIPER %R: ordem enviada com {_volume_exec}cc, SL/TP por ATR")
                     sniper_supermo.ativar_cooldown()
                 if not ticket:
                     logging.warning(
-                        "âŒ Ordem nÃ£o enviada (executar_ordem falhou). Loop reiniciado.")
+                        "Ã¢ÂÅ Ordem nÃÂ£o enviada (executar_ordem falhou). Loop reiniciado.")
                     time.sleep(2)
                     continue
 
-                # ... (restante da lÃ³gica de confirmaÃ§Ã£o da ordem e criaÃ§Ã£o de PosicaoAtiva) ...
-                # O bloco de salvar experiÃªncia e treinar modelo APÃ“S FECHAMENTO DE ORDEM jÃ¡ estÃ¡ lÃ¡.
-                # Apenas precisamos garantir que o contexto usado para PosicaoAtiva e para memÃ³ria seja o `contexto` correto da decisÃ£o.
+                # ... (restante da lÃÂ³gica de confirmaÃÂ§ÃÂ£o da ordem e criaÃÂ§ÃÂ£o de PosicaoAtiva) ...
+                # O bloco de salvar experiÃÂªncia e treinar modelo APÃâS FECHAMENTO DE ORDEM jÃÂ¡ estÃÂ¡ lÃÂ¡.
+                # Apenas precisamos garantir que o contexto usado para PosicaoAtiva e para memÃÂ³ria seja o `contexto` correto da decisÃÂ£o.
 
                 ticket_ordem_atual = ticket
                 esperando_confirmacao = True
@@ -8002,7 +8015,7 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                 for _ in range(20):  # Tenta por 10 segundos
                     time.sleep(0.5)
                     if verificar_se_ordem_virou_posicao(ticket, SYMBOL):
-                        logging.info(f"âœ… Ordem {ticket} virou posiÃ§Ã£o.")
+                        logging.info(f"Ã¢Åâ¦ Ordem {ticket} virou posiÃÂ§ÃÂ£o.")
                         posicao_aberta = True
                         confirmado = True
                         break
@@ -8011,22 +8024,22 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
 
                 if not confirmado:
                     logging.warning(
-                        f"âŒ Ordem {ticket} nÃ£o virou posiÃ§Ã£o. Abortando tentativa.")
+                        f"Ã¢ÂÅ Ordem {ticket} nÃÂ£o virou posiÃÂ§ÃÂ£o. Abortando tentativa.")
                     ticket_ordem_atual = None
-                    # NÃƒO salvamos experiÃªncia aqui porque a ordem nÃ£o foi efetivada
+                    # NÃÆO salvamos experiÃÂªncia aqui porque a ordem nÃÂ£o foi efetivada
                     time.sleep(3)
                     continue
 
-                # ApÃ³s confirmaÃ§Ã£o da ordem que virou posiÃ§Ã£o
+                # ApÃÂ³s confirmaÃÂ§ÃÂ£o da ordem que virou posiÃÂ§ÃÂ£o
                 ordem_confirmada_info = mt5.history_orders_get(ticket=ticket)
                 if not ordem_confirmada_info:
                     logging.error(
-                        f"âŒ NÃ£o foi possÃ­vel obter detalhes da ordem {ticket} do histÃ³rico para criar PosicaoAtiva.")
+                        f"Ã¢ÂÅ NÃÂ£o foi possÃÂ­vel obter detalhes da ordem {ticket} do histÃÂ³rico para criar PosicaoAtiva.")
                     continue
                 ordem_obj = ordem_confirmada_info[0]
 
                 preco_de_execucao_real = ordem_obj.price_open  # Fallback
-                # Busca deals desde a criaÃ§Ã£o da ordem
+                # Busca deals desde a criaÃÂ§ÃÂ£o da ordem
                 inicio_busca = datetime.fromtimestamp(
                     ordem_obj.time_setup_msc // 1000) - timedelta(seconds=1)
                 deals_da_ordem = mt5.history_deals_get(
@@ -8061,46 +8074,46 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                 )
                 posicao_atual = PosicaoAtiva(
                     ticket=ticket,
-                    tipo=acao_para_executar,  # Usar a aÃ§Ã£o efetivamente executada
+                    tipo=acao_para_executar,  # Usar a aÃÂ§ÃÂ£o efetivamente executada
                     preco_entrada=preco_de_execucao_real,
                     sl=ordem_obj.sl,
                     tp=ordem_obj.tp,
                     score_inicial=score_inicial,
-                    entry_context=contexto.copy()  # Salva o contexto que levou Ã  decisÃ£o
+                    entry_context=contexto.copy()  # Salva o contexto que levou ÃÂ  decisÃÂ£o
                 )
                 if SNIPER_SUPERMO_ATIVO:
                     posicao_atual.entry_context['sniper_wr'] = 1
                     posicao_atual.entry_context['sniper_sl_points'] = _sl_override
                     posicao_atual.entry_context['sniper_tp_points'] = _tp_override
                     logging.info(
-                        f"⚡ Posição SNIPER %R registrada: SL={_sl_override:.1f}pt TP={_tp_override:.1f}pt")
+                        f"â¡ PosiÃ§Ã£o SNIPER %R registrada: SL={_sl_override:.1f}pt TP={_tp_override:.1f}pt")
 
-                # ATIVA O GERENCIADOR DE SAÃDA (PASSO 2)
+                # ATIVA O GERENCIADOR DE SAÃÂDA (PASSO 2)
                 posicao_obj_mt5 = mt5.positions_get(ticket=ticket)[0]
                 gerenciador_saida.iniciar_monitoramento(posicao_obj_mt5)
 
                 logging.debug(
-                    f"[DEBUG] posicao_atual apÃ³s instanciaÃ§Ã£o: {posicao_atual} (type: {type(posicao_atual)})"
+                    f"[DEBUG] posicao_atual apÃÂ³s instanciaÃÂ§ÃÂ£o: {posicao_atual} (type: {type(posicao_atual)})"
                 )
                 logging.info(
-                    f"ðŸ“Š Nova posiÃ§Ã£o iniciada: Ticket={posicao_atual.ticket}, "
+                    f"Ã°Å¸âÅ  Nova posiÃÂ§ÃÂ£o iniciada: Ticket={posicao_atual.ticket}, "
                     f"Tipo={posicao_atual.tipo}, "
                     f"Entrada={posicao_atual.preco_entrada:.3f}, "
                     f"SL={posicao_atual.sl:.3f}, "
                     f"TP={posicao_atual.tp:.3f}, "
                     f"Score Inicial={posicao_atual.score_inicial:.2f}"
                 )
-                # NÃƒO calcular lucro/experiÃªncia aqui. Isso Ã© feito quando a posiÃ§Ã£o FECHA.
-                time.sleep(2)  # Pequena pausa apÃ³s abrir posiÃ§Ã£o
+                # NÃÆO calcular lucro/experiÃÂªncia aqui. Isso ÃÂ© feito quando a posiÃÂ§ÃÂ£o FECHA.
+                time.sleep(2)  # Pequena pausa apÃÂ³s abrir posiÃÂ§ÃÂ£o
 
             except Exception as e:
-                logging.error(f"âŒ Erro GRAVE no loop principal: {e}")
+                logging.error(f"Ã¢ÂÅ Erro GRAVE no loop principal: {e}")
                 logging.error(traceback.format_exc())
                 time.sleep(2)  # Aguarda um pouco antes de continuar
 
         return mt5_ativo_local, modelo_ia_local
     except Exception as e:
-        logging.error(f"âŒ Erro GRAVE no loop principal: {e}")
+        logging.error(f"Ã¢ÂÅ Erro GRAVE no loop principal: {e}")
         logging.error(traceback.format_exc())
         time.sleep(2)  # Aguarda um pouco antes de continuar
 
@@ -8110,14 +8123,14 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
 
 
 def verificar_circuit_breakers(contexto: Dict[str, Any]) -> Tuple[bool, str]:
-    """Verifica condiÃ§Ãµes de circuit breaker."""
+    """Verifica condiÃÂ§ÃÂµes de circuit breaker."""
     agora = datetime.now().time()
     inicio = datetime.strptime(HORARIO_PREGAO, "%H:%M").time()
     fim = datetime.strptime(HORARIO_AFTER, "%H:%M").time()
 
-    # Verifica horÃ¡rio de operaÃ§Ã£o
+    # Verifica horÃÂ¡rio de operaÃÂ§ÃÂ£o
     if not (inicio <= agora <= fim):
-        return True, "Fora do horÃ¡rio de operaÃ§Ã£o"
+        return True, "Fora do horÃÂ¡rio de operaÃÂ§ÃÂ£o"
 
     # Verifica spread
     if contexto.get('spread', 0) > MAX_SPREAD:
@@ -8128,16 +8141,16 @@ def verificar_circuit_breakers(contexto: Dict[str, Any]) -> Tuple[bool, str]:
     if volume_total < MIN_VOLUME_BOOK:
         return True, f"Volume total insuficiente no book: {volume_total}"
 
-    # Verifica volume mÃ­nimo em ambos os lados
+    # Verifica volume mÃÂ­nimo em ambos os lados
     if contexto.get('bid_qty', 0) < MIN_TICKS_VALIDOS:
         return True, f"Volume bid insuficiente: {contexto.get('bid_qty', 0)}"
     if contexto.get('ask_qty', 0) < MIN_TICKS_VALIDOS:
         return True, f"Volume ask insuficiente: {contexto.get('ask_qty', 0)}"
 
-    # Verifica drawdown diÃ¡rio
-    lucro_dia = sum(historico_lucro[-100:])  # Ãšltimas 100 operaÃ§Ãµes
+    # Verifica drawdown diÃÂ¡rio
+    lucro_dia = sum(historico_lucro[-100:])  # ÃÅ¡ltimas 100 operaÃÂ§ÃÂµes
     if lucro_dia < MAX_LOSS_DIARIO:
-        return True, f"Stop loss diÃ¡rio atingido: {lucro_dia:.2f}"
+        return True, f"Stop loss diÃÂ¡rio atingido: {lucro_dia:.2f}"
 
     return False, ""
 
@@ -8145,13 +8158,13 @@ def verificar_circuit_breakers(contexto: Dict[str, Any]) -> Tuple[bool, str]:
 def verificar_integridade_dados(dados: Dict[str, Any]) -> Tuple[bool, str]:
     """
     Verifica a integridade dos dados recebidos.
-    Retorna (True, mensagem) se os dados sÃ£o vÃ¡lidos.
+    Retorna (True, mensagem) se os dados sÃÂ£o vÃÂ¡lidos.
     """
     # Verifica valores nulos
     if None in dados.values():
-        return False, "Dados contÃªm valores nulos"
+        return False, "Dados contÃÂªm valores nulos"
 
-    # Verifica valores negativos onde nÃ£o deveria
+    # Verifica valores negativos onde nÃÂ£o deveria
     if dados.get('bid_qty', 0) < 0 or dados.get('ask_qty', 0) < 0:
         return False, "Quantidades negativas no book"
 
@@ -8159,10 +8172,10 @@ def verificar_integridade_dados(dados: Dict[str, Any]) -> Tuple[bool, str]:
     if dados.get('spread', 0) > 1000:  # Spread absurdamente alto
         return False, "Spread anormal"
 
-    # Verifica consistÃªncia do RSI
+    # Verifica consistÃÂªncia do RSI
     rsi = dados.get('rsi_14', 0)
     if not (0 <= rsi <= 100):
-        return False, "RSI fora do intervalo vÃ¡lido"
+        return False, "RSI fora do intervalo vÃÂ¡lido"
 
     return True, ""
 
@@ -8176,7 +8189,7 @@ def verificar_integridade_dados(dados: Dict[str, Any]) -> Tuple[bool, str]:
 
 
 class MemoriaExperiencias:
-    """Gerencia a memÃ³ria de experiÃªncias do modelo."""
+    """Gerencia a memÃÂ³ria de experiÃÂªncias do modelo."""
 
     def __init__(self, max_size: int = MAX_EXPERIENCIAS_MEMORIA):
         self.max_size = max_size
@@ -8185,28 +8198,28 @@ class MemoriaExperiencias:
         self.indices_negativos = []
         self.timestamps = []
         self.ultimo_replay = datetime.now()
-        self.historico_decisoes = []  # Para mÃ©trica de consistÃªncia
+        self.historico_decisoes = []  # Para mÃÂ©trica de consistÃÂªncia
         self.score_consistencia = 0.0
         self.contagem_acoes = {"BUY": 0, "SELL": 0,
                                "NADA": 0, "NAO_AGIU": 0}  # Novo contador
-        self.razao_buy_sell = 0.5  # Neutro atÃ© ter operaÃ§Ãµes reais (era 1.0 = forÃ§ava SELL)
+        self.razao_buy_sell = 0.5  # Neutro atÃÂ© ter operaÃÂ§ÃÂµes reais (era 1.0 = forÃÂ§ava SELL)
 
-        # CORREÃ‡ÃƒO CRÃTICA: Carrega experiÃªncias na inicializaÃ§Ã£o
+        # CORREÃâ¡ÃÆO CRÃÂTICA: Carrega experiÃÂªncias na inicializaÃÂ§ÃÂ£o
         self.carregar_experiencias_do_csv()
 
     def adicionar(self, contexto: Dict[str, Any], acao: str, lucro: float, score_dist: float) -> None:
-        """Adiciona uma nova experiÃªncia Ã  memÃ³ria."""
+        """Adiciona uma nova experiÃÂªncia ÃÂ  memÃÂ³ria."""
         self._adicionar_direto(contexto, acao, lucro, score_dist)
 
-        # MantÃ©m apenas Ãºltimas N decisÃµes para consistÃªncia
+        # MantÃÂ©m apenas ÃÂºltimas N decisÃÂµes para consistÃÂªncia
         if len(self.historico_decisoes) > JANELA_CONSISTENCIA:
             self.historico_decisoes.pop(0)
 
-        # Atualiza score de consistÃªncia
+        # Atualiza score de consistÃÂªncia
         self.atualizar_consistencia()
 
     def get_balanceamento_status(self) -> Dict[str, Any]:
-        """Retorna estatÃ­sticas de balanceamento das operaÃ§Ãµes."""
+        """Retorna estatÃÂ­sticas de balanceamento das operaÃÂ§ÃÂµes."""
         total_ops = sum(self.contagem_acoes.values())
         return {
             "contagem": self.contagem_acoes.copy(),
@@ -8220,11 +8233,11 @@ class MemoriaExperiencias:
         """Calcula o decay exponencial baseado no tempo passado desde o timestamp.
 
         Args:
-            timestamp: Momento em que a experiÃªncia foi registrada
+            timestamp: Momento em que a experiÃÂªncia foi registrada
 
         Returns:
-            float: Valor entre 0 e 1, onde 1 significa experiÃªncia recente e
-                  valores prÃ³ximos de 0 significam experiÃªncias antigas
+            float: Valor entre 0 e 1, onde 1 significa experiÃÂªncia recente e
+                  valores prÃÂ³ximos de 0 significam experiÃÂªncias antigas
         """
         tempo_passado = (datetime.now() - timestamp).total_seconds()
         # Usa DECAY_MEIA_VIDA (em horas) para calcular o decay
@@ -8232,12 +8245,12 @@ class MemoriaExperiencias:
         return max(0.1, min(1.0, decay))  # Limita entre 0.1 e 1.0
 
     def atualizar_consistencia(self) -> None:
-        """Calcula score de consistÃªncia baseado nas Ãºltimas decisÃµes."""
+        """Calcula score de consistÃÂªncia baseado nas ÃÂºltimas decisÃÂµes."""
         if len(self.historico_decisoes) < 2:
             self.score_consistencia = 0.5
             return
 
-        # Calcula sequÃªncias de acertos e erros
+        # Calcula sequÃÂªncias de acertos e erros
         sequencias = []
         seq_atual = 1
         for i in range(1, len(self.historico_decisoes)):
@@ -8249,36 +8262,36 @@ class MemoriaExperiencias:
         sequencias.append(seq_atual)
 
         # Score baseado em:
-        # 1. Tamanho mÃ©dio das sequÃªncias (maior = mais consistente)
-        # 2. ProporÃ§Ã£o de acertos
-        # 3. PenalizaÃ§Ã£o por alternÃ¢ncia frequente
+        # 1. Tamanho mÃÂ©dio das sequÃÂªncias (maior = mais consistente)
+        # 2. ProporÃÂ§ÃÂ£o de acertos
+        # 3. PenalizaÃÂ§ÃÂ£o por alternÃÂ¢ncia frequente
         media_seq = sum(sequencias) / len(sequencias) if sequencias else 1
         prop_acertos = sum(self.historico_decisoes) / \
             len(self.historico_decisoes)
         alternancia = len(sequencias) / len(self.historico_decisoes)
 
         self.score_consistencia = (
-            0.4 * (media_seq / JANELA_CONSISTENCIA) +  # Peso das sequÃªncias
+            0.4 * (media_seq / JANELA_CONSISTENCIA) +  # Peso das sequÃÂªncias
             0.4 * prop_acertos +                       # Peso dos acertos
-            # PenalizaÃ§Ã£o por alternÃ¢ncia
+            # PenalizaÃÂ§ÃÂ£o por alternÃÂ¢ncia
             0.2 * (1 - alternancia)
         )
 
     def verificar_replay(self) -> bool:
-        """Verifica se Ã© hora de fazer replay das experiÃªncias."""
+        """Verifica se ÃÂ© hora de fazer replay das experiÃÂªncias."""
         tempo_desde_replay = (
             datetime.now() - self.ultimo_replay).total_seconds() / 60
         return tempo_desde_replay >= INTERVALO_REPLAY
 
     def obter_batch_replay(self) -> Tuple[List[Tuple[Dict[str, Any], str, float, float]], List[float]]:
-        """ObtÃ©m batch para replay â€” inclui TODAS as experiÃªncias reais para aprendizado completo."""
+        """ObtÃÂ©m batch para replay Ã¢â¬â inclui TODAS as experiÃÂªncias reais para aprendizado completo."""
         self.ultimo_replay = datetime.now()
 
-        # âœ… CORREÃ‡ÃƒO: Inclui TODAS as experiÃªncias reais (BUY/SELL), nÃ£o apenas positivas
+        # Ã¢Åâ¦ CORREÃâ¡ÃÆO: Inclui TODAS as experiÃÂªncias reais (BUY/SELL), nÃÂ£o apenas positivas
         # A IA precisa aprender tanto com acertos quanto com erros
         # Prioriza positivas mas inclui negativas com peso menor
         exp_reais = [(i, exp) for i, exp in enumerate(self.experiencias)
-                     # Filtra apenas operaÃ§Ãµes reais
+                     # Filtra apenas operaÃÂ§ÃÂµes reais
                      if exp[1] in ['BUY', 'SELL']]
 
         if not exp_reais:
@@ -8303,15 +8316,15 @@ class MemoriaExperiencias:
         return batch, decays
 
     def tem_suficiente(self) -> bool:
-        """Verifica se hÃ¡ experiÃªncias suficientes para treino."""
+        """Verifica se hÃÂ¡ experiÃÂªncias suficientes para treino."""
         return len(self.experiencias) >= MIN_EXPERIENCIAS_TREINO
 
     def carregar_experiencias_do_csv(self) -> None:
-        """CORREÃ‡ÃƒO CRÃTICA: Carrega experiÃªncias do arquivo CSV na inicializaÃ§Ã£o."""
+        """CORREÃâ¡ÃÆO CRÃÂTICA: Carrega experiÃÂªncias do arquivo CSV na inicializaÃÂ§ÃÂ£o."""
         try:
             if not os.path.exists(HISTORICO_CSV):
                 logging.info(
-                    f"ðŸ“š Arquivo {HISTORICO_CSV} nÃ£o existe. Iniciando com memÃ³ria vazia.")
+                    f"Ã°Å¸âÅ¡ Arquivo {HISTORICO_CSV} nÃÂ£o existe. Iniciando com memÃÂ³ria vazia.")
                 return
 
             import pandas as pd
@@ -8332,7 +8345,7 @@ class MemoriaExperiencias:
             losses_recentes = losses.tail(max_losses) if max_losses > 0 else losses
 
             logging.info(
-                f"ðŸ“š CARREGAMENTO EQUILIBRADO: {max_wins} WINS + {max_losses} LOSSES (de {len(wins)}W/{len(losses)}L)")
+                f"Ã°Å¸âÅ¡ CARREGAMENTO EQUILIBRADO: {max_wins} WINS + {max_losses} LOSSES (de {len(wins)}W/{len(losses)}L)")
 
             # Carrega NAO_AGIU proporcionalmente
             max_nao_agiu = min(200, len(experiencias_nao_agiu))
@@ -8343,16 +8356,16 @@ class MemoriaExperiencias:
                 [wins_recentes, losses_recentes, nao_agiu_recentes], ignore_index=True)
 
             logging.info(
-                f"ðŸ“š âœ… TOTAL: {len(wins_recentes)} WINS + {len(losses_recentes)} LOSSES + {len(nao_agiu_recentes)} NAO_AGIU")
+                f"Ã°Å¸âÅ¡ Ã¢Åâ¦ TOTAL: {len(wins_recentes)} WINS + {len(losses_recentes)} LOSSES + {len(nao_agiu_recentes)} NAO_AGIU")
 
             if len(experiencias_recentes) == 0:
-                logging.info("ðŸ“š Nenhuma experiÃªncia encontrada no CSV.")
+                logging.info("Ã°Å¸âÅ¡ Nenhuma experiÃÂªncia encontrada no CSV.")
                 return
 
             carregadas = 0
             for _, row in experiencias_recentes.iterrows():
                 try:
-                    # ReconstrÃ³i o contexto com TODAS as 22 features
+                    # ReconstrÃÂ³i o contexto com TODAS as 22 features
                     contexto = {
                         'bid_qty': float(row.get('bid_qty', 0)),
                         'ask_qty': float(row.get('ask_qty', 0)),
@@ -8379,50 +8392,50 @@ class MemoriaExperiencias:
                         'dia_ptax': float(row.get('dia_ptax', 0))
                     }
 
-                    acao = str(row['action'])  # CSV usa 'action', nÃ£o 'acao'
+                    acao = str(row['action'])  # CSV usa 'action', nÃÂ£o 'acao'
                     lucro = float(row['reward'])
                     # Para NAO_AGIU, usa score neutro; para BUY/SELL usa reward
                     if acao == 'NAO_AGIU':
-                        score_dist = 0.1  # Score neutro positivo para nÃ£o agir quando correto
+                        score_dist = 0.1  # Score neutro positivo para nÃÂ£o agir quando correto
                     else:
                         score_dist = float(row.get('reward', 0))
 
-                    # Adiciona Ã  memÃ³ria (sem chamar carregar_experiencias_do_csv novamente)
+                    # Adiciona ÃÂ  memÃÂ³ria (sem chamar carregar_experiencias_do_csv novamente)
                     self._adicionar_direto(contexto, acao, lucro, score_dist)
                     carregadas += 1
 
                 except Exception as e:
-                    logging.debug(f"Erro ao carregar experiÃªncia: {e}")
+                    logging.debug(f"Erro ao carregar experiÃÂªncia: {e}")
                     continue
 
             logging.info(
-                f"ðŸ“š âœ… CORREÃ‡ÃƒO APLICADA: {carregadas} experiÃªncias carregadas do CSV!")
+                f"Ã°Å¸âÅ¡ Ã¢Åâ¦ CORREÃâ¡ÃÆO APLICADA: {carregadas} experiÃÂªncias carregadas do CSV!")
             logging.info(
-                f"ðŸ“Š ExperiÃªncias positivas: {len(self.indices_positivos)}")
+                f"Ã°Å¸âÅ  ExperiÃÂªncias positivas: {len(self.indices_positivos)}")
             logging.info(
-                f"ðŸ“Š ExperiÃªncias negativas: {len(self.indices_negativos)}")
+                f"Ã°Å¸âÅ  ExperiÃÂªncias negativas: {len(self.indices_negativos)}")
 
-            # CORREÃ‡ÃƒO CRÃTICA: Ajusta contador global para evitar perda de progresso
+            # CORREÃâ¡ÃÆO CRÃÂTICA: Ajusta contador global para evitar perda de progresso
             global contador_experiencias_novas
             experiencias_reais_carregadas = len(
                 [exp for exp in self.experiencias if exp[1] in ['BUY', 'SELL']])
             contador_experiencias_novas = experiencias_reais_carregadas % LIMITE_EXPERIENCIAS_PARA_TREINO
             logging.info(
-                f"ðŸ”„ CONTADOR AJUSTADO: {contador_experiencias_novas}/{LIMITE_EXPERIENCIAS_PARA_TREINO} (baseado em {experiencias_reais_carregadas} operaÃ§Ãµes reais)")
+                f"Ã°Å¸ââ CONTADOR AJUSTADO: {contador_experiencias_novas}/{LIMITE_EXPERIENCIAS_PARA_TREINO} (baseado em {experiencias_reais_carregadas} operaÃÂ§ÃÂµes reais)")
 
-            # Log da razÃ£o BUY/SELL apÃ³s carregamento completo
+            # Log da razÃÂ£o BUY/SELL apÃÂ³s carregamento completo
             total_ops = self.contagem_acoes.get(
                 "BUY", 0) + self.contagem_acoes.get("SELL", 0)
             if total_ops > 0:
                 logging.info(
-                    f"ðŸ“Š RazÃ£o BUY/SELL final: {self.razao_buy_sell:.3f} ({self.contagem_acoes.get('BUY', 0)}/{total_ops})")
+                    f"Ã°Å¸âÅ  RazÃÂ£o BUY/SELL final: {self.razao_buy_sell:.3f} ({self.contagem_acoes.get('BUY', 0)}/{total_ops})")
 
         except Exception as e:
             logging.warning(
-                f"âš ï¸ CSV histÃ³rico com formato antigo ('{e}') â€” serÃ¡ corrigido automaticamente na inicializaÃ§Ã£o")
+                f"Ã¢Å¡Â Ã¯Â¸Â CSV histÃÂ³rico com formato antigo ('{e}') Ã¢â¬â serÃÂ¡ corrigido automaticamente na inicializaÃÂ§ÃÂ£o")
 
     def _adicionar_direto(self, contexto: Dict[str, Any], acao: str, lucro: float, score_dist: float) -> None:
-        """Adiciona experiÃªncia diretamente sem chamar carregar_experiencias_do_csv."""
+        """Adiciona experiÃÂªncia diretamente sem chamar carregar_experiencias_do_csv."""
         if len(self.experiencias) >= self.max_size:
             self.experiencias.pop(0)
             self.timestamps.pop(0)
@@ -8431,15 +8444,15 @@ class MemoriaExperiencias:
             self.indices_negativos = [
                 i-1 for i in self.indices_negativos if i > 0]
 
-        # Adiciona nova experiÃªncia
+        # Adiciona nova experiÃÂªncia
         experiencia = (contexto, acao, lucro, score_dist)
         self.experiencias.append(experiencia)
         self.timestamps.append(datetime.now())
         idx = len(self.experiencias) - 1
 
-        # CORREÃ‡ÃƒO: Considera score_dist para NAO_AGIU e lucro para operaÃ§Ãµes reais
+        # CORREÃâ¡ÃÆO: Considera score_dist para NAO_AGIU e lucro para operaÃÂ§ÃÂµes reais
         if acao == 'NAO_AGIU':
-            # NAO_AGIU com score positivo = decisÃ£o correta de nÃ£o operar
+            # NAO_AGIU com score positivo = decisÃÂ£o correta de nÃÂ£o operar
             if score_dist > 0:
                 self.indices_positivos.append(idx)
                 self.historico_decisoes.append(1)
@@ -8454,14 +8467,14 @@ class MemoriaExperiencias:
             else:
                 self.indices_negativos.append(idx)
                 self.historico_decisoes.append(0)
-        # Atualiza contagem de aÃ§Ãµes
+        # Atualiza contagem de aÃÂ§ÃÂµes
         if acao in self.contagem_acoes:
             self.contagem_acoes[acao] += 1
         else:
-            # Adiciona nova aÃ§Ã£o se nÃ£o existir
+            # Adiciona nova aÃÂ§ÃÂ£o se nÃÂ£o existir
             self.contagem_acoes[acao] = 1
 
-        # CORREÃ‡ÃƒO CRÃTICA: Atualiza razao_buy_sell (SEM LOG para evitar spam)
+        # CORREÃâ¡ÃÆO CRÃÂTICA: Atualiza razao_buy_sell (SEM LOG para evitar spam)
         total_operacoes = self.contagem_acoes["BUY"] + \
             self.contagem_acoes["SELL"]
         if total_operacoes > 0:
@@ -8471,8 +8484,8 @@ class MemoriaExperiencias:
 def normalizar_recompensas(recompensas: List[float], scores_distancia: List[float], decays: List[float]) -> List[float]:
     """Normaliza recompensas preservando sinal: losses = negativo, wins = positivo.
 
-    Usa divisÃ£o por 100 (apÃ³s clipping) para mapear [-100,+100] â†’ [-1,+1].
-    Losses recebem puniÃ§Ã£o (negativo), wins recebem bÃ´nus (positivo).
+    Usa divisÃÂ£o por 100 (apÃÂ³s clipping) para mapear [-100,+100] Ã¢â â [-1,+1].
+    Losses recebem puniÃÂ§ÃÂ£o (negativo), wins recebem bÃÂ´nus (positivo).
     """
     if not recompensas:
         return []
@@ -8493,42 +8506,42 @@ def normalizar_recompensas(recompensas: List[float], scores_distancia: List[floa
 
 
 def deve_treinar_modelo() -> bool:
-    """Verifica se deve treinar o modelo baseado no contador de experiÃªncias."""
+    """Verifica se deve treinar o modelo baseado no contador de experiÃÂªncias."""
     global contador_experiencias_novas, MODO_APRENDIZADO_FORCADO
 
-    # APRENDIZADO ACELERADO: Treina mais frequentemente quando em modo forÃ§ado
+    # APRENDIZADO ACELERADO: Treina mais frequentemente quando em modo forÃÂ§ado
     if MODO_APRENDIZADO_FORCADO and contador_experiencias_novas >= 3:
         logging.info(
-            "ðŸš€ APRENDIZADO ACELERADO: Treinando com apenas 3 experiÃªncias")
+            "Ã°Å¸Å¡â¬ APRENDIZADO ACELERADO: Treinando com apenas 3 experiÃÂªncias")
         return True
 
-    # MODO TESTE DESATIVADO â€” causava loop de spam a cada 2s (colunas faltantes no CSV)
+    # MODO TESTE DESATIVADO Ã¢â¬â causava loop de spam a cada 2s (colunas faltantes no CSV)
     # if ciclos_sem_operacao % 10 == 0 and contador_experiencias_novas == 0:
-    #     logging.info("ðŸ§ª MODO TESTE: ForÃ§ando treinamento mesmo sem operaÃ§Ãµes novas")
+    #     logging.info("Ã°Å¸Â§Âª MODO TESTE: ForÃÂ§ando treinamento mesmo sem operaÃÂ§ÃÂµes novas")
     #     return True
 
     return contador_experiencias_novas >= LIMITE_EXPERIENCIAS_PARA_TREINO
 
 
 def treinar_modelo_inteligente(modelo: Sequential, memoria: MemoriaExperiencias) -> Sequential:
-    """Treina o modelo apenas quando necessÃ¡rio."""
+    """Treina o modelo apenas quando necessÃÂ¡rio."""
     global contador_experiencias_novas
 
     if not deve_treinar_modelo():
         logging.debug(
-            f"ðŸ§  Treinamento adiado. ExperiÃªncias: {contador_experiencias_novas}/{LIMITE_EXPERIENCIAS_PARA_TREINO}")
+            f"Ã°Å¸Â§Â  Treinamento adiado. ExperiÃÂªncias: {contador_experiencias_novas}/{LIMITE_EXPERIENCIAS_PARA_TREINO}")
         return modelo
 
     # Reset contador
     contador_experiencias_novas = 0
     logging.info(
-        f"ðŸ§  Iniciando treinamento apÃ³s {LIMITE_EXPERIENCIAS_PARA_TREINO} experiÃªncias novas")
+        f"Ã°Å¸Â§Â  Iniciando treinamento apÃÂ³s {LIMITE_EXPERIENCIAS_PARA_TREINO} experiÃÂªncias novas")
 
     return treinar_modelo(modelo, memoria)
 
 
 def _modelo_tem_l2(modelo):
-    """Verifica se o modelo jÃ¡ tem regularizaÃ§Ã£o L2 nas camadas Dense."""
+    """Verifica se o modelo jÃÂ¡ tem regularizaÃÂ§ÃÂ£o L2 nas camadas Dense."""
     for camada in modelo.layers:
         if isinstance(camada, tf.keras.layers.Dense):
             reg = getattr(camada, 'kernel_regularizer', None)
@@ -8547,7 +8560,7 @@ def _migrar_modelo_l2(modelo_antigo, n_features):
                 camada.set_weights(modelo_antigo.layers[i].get_weights())
             except Exception:
                 pass
-    logging.info("âœ… Modelo migrado para arquitetura com L2 regularization.")
+    logging.info("Ã¢Åâ¦ Modelo migrado para arquitetura com L2 regularization.")
     return modelo_novo
 
 
@@ -8558,19 +8571,19 @@ def treinar_modelo(modelo: Sequential, memoria: MemoriaExperiencias) -> Sequenti
     """
     global historico_loss
     logging.info(
-        f"[treinar_modelo] Iniciando treino. Tenho {len(memoria.experiencias)} experiÃªncias.")
+        f"[treinar_modelo] Iniciando treino. Tenho {len(memoria.experiencias)} experiÃÂªncias.")
 
     if not memoria.tem_suficiente():
         logging.info(
-            "[treinar_modelo] Aguardando mais experiÃªncias para treino.")
+            "[treinar_modelo] Aguardando mais experiÃÂªncias para treino.")
         return modelo
 
     try:
-        # 0. Migrar para L2 se necessÃ¡rio (garante que modelo tenha regularizaÃ§Ã£o)
+        # 0. Migrar para L2 se necessÃÂ¡rio (garante que modelo tenha regularizaÃÂ§ÃÂ£o)
         if not _modelo_tem_l2(modelo):
             modelo = _migrar_modelo_l2(modelo, N_FEATURES)
 
-        # 1. Obter o batch de experiÃªncias
+        # 1. Obter o batch de experiÃÂªncias
         batch, decays = memoria.obter_batch_replay()
         if not batch:
             logging.info(
@@ -8591,7 +8604,7 @@ def treinar_modelo(modelo: Sequential, memoria: MemoriaExperiencias) -> Sequenti
             columns=["reward", "reward_norm", "score_dist"])
         X, y = preparar_dados(df_treino, treino=False)
 
-        # Remove NaN/inf e alinha recompensas com dados vÃ¡lidos
+        # Remove NaN/inf e alinha recompensas com dados vÃÂ¡lidos
         if X is not None and y is not None and len(X) > 0:
             mask_valid = np.isfinite(X.values if hasattr(X, 'values') else X).all(axis=1)
             X = X[mask_valid].reset_index(drop=True)
@@ -8600,7 +8613,7 @@ def treinar_modelo(modelo: Sequential, memoria: MemoriaExperiencias) -> Sequenti
 
         if X is None or y is None or len(X) < 4:
             logging.warning(
-                f"[treinar_modelo] Dados insuficientes: {len(X) if X is not None else 0} amostras vÃ¡lidas (mÃ­nimo 4).")
+                f"[treinar_modelo] Dados insuficientes: {len(X) if X is not None else 0} amostras vÃÂ¡lidas (mÃÂ­nimo 4).")
             return modelo
 
         # Converte para numpy arrays
@@ -8613,7 +8626,7 @@ def treinar_modelo(modelo: Sequential, memoria: MemoriaExperiencias) -> Sequenti
         else:
             y = np.array(y, dtype=np.float32)
 
-        # 3. TIMESERIES SPLIT (sem shuffle) â€” Ãºltimos 20% viram validaÃ§Ã£o
+        # 3. TIMESERIES SPLIT (sem shuffle) Ã¢â¬â ÃÂºltimos 20% viram validaÃÂ§ÃÂ£o
         split_idx = int(len(X) * 0.8)
         X_train, X_val = X[:split_idx], X[split_idx:]
         y_train, y_val = y[:split_idx], y[split_idx:]
@@ -8631,9 +8644,9 @@ def treinar_modelo(modelo: Sequential, memoria: MemoriaExperiencias) -> Sequenti
             smote = SMOTE(random_state=42)
             X_train, y_train = smote.fit_resample(X_train, y_train)
             smote_aplicado = True
-            logging.info(f"âœ… SMOTE aplicado. Treino final: {len(X_train)} amostras.")
+            logging.info(f"Ã¢Åâ¦ SMOTE aplicado. Treino final: {len(X_train)} amostras.")
         except Exception as e:
-            logging.debug(f"SMOTE nÃ£o disponÃ­vel: {e}")
+            logging.debug(f"SMOTE nÃÂ£o disponÃÂ­vel: {e}")
 
         # 5. SALVAR PESOS DO MODELO ATUAL ANTES DE TREINAR
         modelo_temp_path = MODELO_PATH + ".temp_treino"
@@ -8644,7 +8657,7 @@ def treinar_modelo(modelo: Sequential, memoria: MemoriaExperiencias) -> Sequenti
 
         loss_antiga, acc_antiga = modelo.evaluate(X_val, y_val, verbose=0)
         logging.info(
-            f"Performance do Modelo ANTIGO na validaÃ§Ã£o: Loss={loss_antiga:.4f}, AcurÃ¡cia={acc_antiga:.4f}")
+            f"Performance do Modelo ANTIGO na validaÃÂ§ÃÂ£o: Loss={loss_antiga:.4f}, AcurÃÂ¡cia={acc_antiga:.4f}")
 
         # 6. TREINAR
         early_stop = tf.keras.callbacks.EarlyStopping(
@@ -8669,18 +8682,18 @@ def treinar_modelo(modelo: Sequential, memoria: MemoriaExperiencias) -> Sequenti
             validation_data=(X_val, y_val),
             callbacks=[early_stop],
             sample_weight=sample_weight,
-            shuffle=False  # Temporal: NÃƒO embaralhar
+            shuffle=False  # Temporal: NÃÆO embaralhar
         )
 
         # 7. COMPARAR E DECIDIR SE SALVA
         loss_nova, acc_nova = modelo.evaluate(X_val, y_val, verbose=0)
         logging.info(
-            f"Performance do Modelo NOVO na validaÃ§Ã£o: Loss={loss_nova:.4f}, AcurÃ¡cia={acc_nova:.4f}")
+            f"Performance do Modelo NOVO na validaÃÂ§ÃÂ£o: Loss={loss_nova:.4f}, AcurÃÂ¡cia={acc_nova:.4f}")
 
         melhoria_minima = loss_antiga * 0.01
         if loss_nova < (loss_antiga - melhoria_minima):
             logging.info(
-                f"âœ… MELHORIA REAL: Loss {loss_antiga:.4f} â†’ {loss_nova:.4f}. Salvando.")
+                f"Ã¢Åâ¦ MELHORIA REAL: Loss {loss_antiga:.4f} Ã¢â â {loss_nova:.4f}. Salvando.")
             salvar_modelo(modelo)
             historico_loss.extend(history.history['val_loss'])
             if modelo_temp_path and os.path.exists(modelo_temp_path):
@@ -8690,27 +8703,27 @@ def treinar_modelo(modelo: Sequential, memoria: MemoriaExperiencias) -> Sequenti
                     pass
         else:
             logging.warning(
-                f"âŒ SEM MELHORIA ({loss_antiga:.4f} â†’ {loss_nova:.4f}). Restaurando anterior.")
+                f"Ã¢ÂÅ SEM MELHORIA ({loss_antiga:.4f} Ã¢â â {loss_nova:.4f}). Restaurando anterior.")
             if modelo_temp_path and os.path.exists(modelo_temp_path):
                 try:
                     modelo = carregar_modelo(modelo_temp_path)
                     os.remove(modelo_temp_path)
                 except Exception as e:
-                    logging.error(f"âŒ Erro ao restaurar: {e}")
+                    logging.error(f"Ã¢ÂÅ Erro ao restaurar: {e}")
                     modelo = carregar_modelo(MODELO_PATH)
 
         salvar_experiencias_json(memoria.experiencias)
         final_loss = history.history['loss'][-1]
         epochs_trained = len(history.history['loss'])
         logging.info(
-            f"ðŸ§  Modelo treinado por {epochs_trained} Ã©pocas. Loss final: {final_loss:.4f}")
+            f"Ã°Å¸Â§Â  Modelo treinado por {epochs_trained} ÃÂ©pocas. Loss final: {final_loss:.4f}")
 
     except Exception as e:
         logging.error(f"[treinar_modelo] Erro durante o fit(): {e}")
         logging.debug(f"Stack trace: {traceback.format_exc()}")
         return modelo
 
-    # Restaura scaler global do JSON apÃ³s treino (evita corromper escala)
+    # Restaura scaler global do JSON apÃÂ³s treino (evita corromper escala)
     forcar_recreacao_scaler()
 
     return modelo
@@ -8718,33 +8731,33 @@ def treinar_modelo(modelo: Sequential, memoria: MemoriaExperiencias) -> Sequenti
 
 def filtros_alta_acertividade(contexto_completo: Dict) -> Tuple[bool, str]:
     """
-    ðŸŽ¯ FILTROS DE MÃXIMA ACERTIVIDADE - SÃ“ OPERA EM SETUPS PREMIUM
-    Reduz operaÃ§Ãµes mas aumenta drasticamente a taxa de acerto
+    Ã°Å¸Å½Â¯ FILTROS DE MÃÂXIMA ACERTIVIDADE - SÃâ OPERA EM SETUPS PREMIUM
+    Reduz operaÃÂ§ÃÂµes mas aumenta drasticamente a taxa de acerto
     """
     if not contexto_completo:
-        return False, "Contexto nÃ£o fornecido"
+        return False, "Contexto nÃÂ£o fornecido"
 
     # FILTRO 1: Volume ALTO (big players) - AJUSTADO PARA WDO
     volume_total = contexto_completo.get(
         'bid_qty', 0) + contexto_completo.get('ask_qty', 0)
-    if volume_total < MIN_VOLUME_BOOK:  # 400cc mÃ­nimo (era 800)
+    if volume_total < MIN_VOLUME_BOOK:  # 400cc mÃÂ­nimo (era 800)
         return False, f"Volume insuficiente: {volume_total} < {MIN_VOLUME_BOOK}"
 
-    # FILTRO 2: Entropia â€” desequilÃ­brio do book
+    # FILTRO 2: Entropia Ã¢â¬â desequilÃÂ­brio do book
     # FIX (01/08/2026): escala real 2.69-2.97, era 0.2 em [0,1] -> nunca bloqueava
     entropia = contexto_completo.get('entropia_book', 0)
     if entropia < 2.60:
         return False, f"Book equilibrado demais: entropia {entropia:.3f} < 2.60"
 
-    # FILTRO 3: ATR MÃNIMO (volatilidade real)
-    # WDO: ATR tÃ­pico 2-10 pontos (tick=0.5). Abaixo de 1.5 = lateral total.
-    atr = contexto_completo.get('volatility', 0)  # ATR estÃ¡ como 'volatility'
+    # FILTRO 3: ATR MÃÂNIMO (volatilidade real)
+    # WDO: ATR tÃÂ­pico 2-10 pontos (tick=0.5). Abaixo de 1.5 = lateral total.
+    atr = contexto_completo.get('volatility', 0)  # ATR estÃÂ¡ como 'volatility'
     if atr < 1.5:
         return False, f"Mercado lateral demais: ATR {atr:.1f} < 1.5"
 
-    # FILTRO 4: RSI confirmando direÃ§Ã£o (FLEXIBILIZADO PARA APRENDIZADO)
+    # FILTRO 4: RSI confirmando direÃÂ§ÃÂ£o (FLEXIBILIZADO PARA APRENDIZADO)
     rsi = contexto_completo.get('rsi_14', 50)
-    # REMOVIDO: Filtro RSI neutro estava impedindo 80% das operaÃ§Ãµes
+    # REMOVIDO: Filtro RSI neutro estava impedindo 80% das operaÃÂ§ÃÂµes
     # if 35 <= rsi <= 65:  # RSI neutro - evita
     #     return False, f"RSI neutro: {rsi:.1f} (evitando zona 35-65)"
 
@@ -8756,7 +8769,7 @@ def filtros_alta_acertividade(contexto_completo: Dict) -> Tuple[bool, str]:
     # FILTRO 6: Score de qualidade do setup
     score_qualidade = 0
 
-    # PontuaÃ§Ã£o por volume (peso 3)
+    # PontuaÃÂ§ÃÂ£o por volume (peso 3)
     if volume_total >= 1500:
         score_qualidade += 3
     elif volume_total >= 1200:
@@ -8764,7 +8777,7 @@ def filtros_alta_acertividade(contexto_completo: Dict) -> Tuple[bool, str]:
     elif volume_total >= 800:
         score_qualidade += 1
 
-    # PontuaÃ§Ã£o por entropia (peso 3) - escala real (2.69-2.97), era 0.7/0.6/0.5
+    # PontuaÃÂ§ÃÂ£o por entropia (peso 3) - escala real (2.69-2.97), era 0.7/0.6/0.5
     if entropia >= 2.85:
         score_qualidade += 3
     elif entropia >= 2.80:
@@ -8772,7 +8785,7 @@ def filtros_alta_acertividade(contexto_completo: Dict) -> Tuple[bool, str]:
     elif entropia >= 2.75:
         score_qualidade += 1
 
-    # PontuaÃ§Ã£o por ATR (peso 3) â€” WDO: ATR tÃ­pico 2-10 pontos
+    # PontuaÃÂ§ÃÂ£o por ATR (peso 3) Ã¢â¬â WDO: ATR tÃÂ­pico 2-10 pontos
     if atr >= 8:
         score_qualidade += 3
     elif atr >= 5:
@@ -8780,13 +8793,13 @@ def filtros_alta_acertividade(contexto_completo: Dict) -> Tuple[bool, str]:
     elif atr >= 3:
         score_qualidade += 1
 
-    # PontuaÃ§Ã£o por RSI extremo (peso 2)
+    # PontuaÃÂ§ÃÂ£o por RSI extremo (peso 2)
     if rsi <= 25 or rsi >= 75:
         score_qualidade += 2
     elif rsi <= 30 or rsi >= 70:
         score_qualidade += 1
 
-    # SISTEMA DE APRENDIZADO FORÃ‡ADO - Permite operaÃ§Ãµes para gerar experiÃªncias
+    # SISTEMA DE APRENDIZADO FORÃâ¡ADO - Permite operaÃÂ§ÃÂµes para gerar experiÃÂªncias
     global CONTADOR_OPERACOES_REJEITADAS, MODO_APRENDIZADO_FORCADO
     global FORCADOS_HOJE, FORCADOS_DATA
 
@@ -8794,14 +8807,14 @@ def filtros_alta_acertividade(contexto_completo: Dict) -> Tuple[bool, str]:
         CONTADOR_OPERACOES_REJEITADAS += 1
 
         if CONTADOR_OPERACOES_REJEITADAS >= LIMITE_REJEICOES_PARA_APRENDIZADO:
-            # âœ… PA1: MESMO NO MODO FORÃ‡ADO, RESPEITA HORÃRIO
+            # Ã¢Åâ¦ PA1: MESMO NO MODO FORÃâ¡ADO, RESPEITA HORÃÂRIO
             if not horario_permitido():
                 horario_atual = datetime.now().strftime("%H:%M")
                 logging.warning(
-                    f"ðŸš« PA1 APRENDIZADO FORÃ‡ADO BLOQUEADO POR HORÃRIO: {horario_atual}")
-                return False, f"Aprendizado forÃ§ado bloqueado por horÃ¡rio: {horario_atual}"
+                    f"Ã°Å¸Å¡Â« PA1 APRENDIZADO FORÃâ¡ADO BLOQUEADO POR HORÃÂRIO: {horario_atual}")
+                return False, f"Aprendizado forÃÂ§ado bloqueado por horÃÂ¡rio: {horario_atual}"
 
-            # LIMITE DIÃRIO: mÃ¡ximo 3 operaÃ§Ãµes forÃ§adas por dia
+            # LIMITE DIÃÂRIO: mÃÂ¡ximo 3 operaÃÂ§ÃÂµes forÃÂ§adas por dia
             hoje = datetime.now().date()
             if FORCADOS_DATA != hoje:
                 FORCADOS_HOJE = 0
@@ -8809,27 +8822,27 @@ def filtros_alta_acertividade(contexto_completo: Dict) -> Tuple[bool, str]:
 
             if FORCADOS_HOJE >= MAX_FORCADOS_DIA:
                 logging.warning(
-                    f"ðŸš« LIMITE DIÃRIO DE FORÃ‡ADOS ATINGIDO: {FORCADOS_HOJE}/{MAX_FORCADOS_DIA}. Bloqueando.")
+                    f"Ã°Å¸Å¡Â« LIMITE DIÃÂRIO DE FORÃâ¡ADOS ATINGIDO: {FORCADOS_HOJE}/{MAX_FORCADOS_DIA}. Bloqueando.")
                 CONTADOR_OPERACOES_REJEITADAS = 0
-                return False, f"Limite diÃ¡rio de aprendizado forÃ§ado atingido ({MAX_FORCADOS_DIA}/dia)"
+                return False, f"Limite diÃÂ¡rio de aprendizado forÃÂ§ado atingido ({MAX_FORCADOS_DIA}/dia)"
 
             CONTADOR_OPERACOES_REJEITADAS = 0
             FORCADOS_HOJE += 1
             MODO_APRENDIZADO_FORCADO = True
             logging.warning(
-                f"ðŸŽ“ APRENDIZADO FORÃ‡ADO {FORCADOS_HOJE}/{MAX_FORCADOS_DIA}: Score {score_qualidade}/11 aceito")
-            return True, f"Aprendizado forÃ§ado {FORCADOS_HOJE}/{MAX_FORCADOS_DIA} (score {score_qualidade}/11)"
+                f"Ã°Å¸Å½â APRENDIZADO FORÃâ¡ADO {FORCADOS_HOJE}/{MAX_FORCADOS_DIA}: Score {score_qualidade}/11 aceito")
+            return True, f"Aprendizado forÃÂ§ado {FORCADOS_HOJE}/{MAX_FORCADOS_DIA} (score {score_qualidade}/11)"
 
         logging.info(
-            f"âŒ C10: Score {score_qualidade}/11 < 2. OperaÃ§Ã£o bloqueada. RejeiÃ§Ãµes: {CONTADOR_OPERACOES_REJEITADAS}/{LIMITE_REJEICOES_PARA_APRENDIZADO}")
-        return False, f"Setup de baixa qualidade: score {score_qualidade}/11 < 2 (RejeiÃ§Ãµes: {CONTADOR_OPERACOES_REJEITADAS}/{LIMITE_REJEICOES_PARA_APRENDIZADO})"
+            f"Ã¢ÂÅ C10: Score {score_qualidade}/11 < 2. OperaÃÂ§ÃÂ£o bloqueada. RejeiÃÂ§ÃÂµes: {CONTADOR_OPERACOES_REJEITADAS}/{LIMITE_REJEICOES_PARA_APRENDIZADO}")
+        return False, f"Setup de baixa qualidade: score {score_qualidade}/11 < 2 (RejeiÃÂ§ÃÂµes: {CONTADOR_OPERACOES_REJEITADAS}/{LIMITE_REJEICOES_PARA_APRENDIZADO})"
 
-    # Reset contador quando o setup Ã© bom
+    # Reset contador quando o setup ÃÂ© bom
     CONTADOR_OPERACOES_REJEITADAS = 0
 
     # Setup aprovado
     logging.info(
-        f"âœ… C10: SETUP APROVADO! Score: {score_qualidade}/11 | Vol: {volume_total} | Entropia: {entropia:.3f} | ATR: {atr:.1f} | RSI: {rsi:.1f}")
+        f"Ã¢Åâ¦ C10: SETUP APROVADO! Score: {score_qualidade}/11 | Vol: {volume_total} | Entropia: {entropia:.3f} | ATR: {atr:.1f} | RSI: {rsi:.1f}")
     return True, f"C10: Setup aprovado (score {score_qualidade}/11)"
 
 
@@ -8837,26 +8850,26 @@ def prever_acao(modelo: Sequential, X: pd.DataFrame,
                 modo_operacional: Optional[ModoOperacional] = None,
                 filtros_evolutivos: Optional[Any] = None,
                 contexto_completo: Optional[Dict] = None) -> Tuple[str, float]:
-    """PrevÃª a prÃ³xima aÃ§Ã£o com VETO SIMPLES E DIRETO baseado na sugestÃ£o da IA."""
+    """PrevÃÂª a prÃÂ³xima aÃÂ§ÃÂ£o com VETO SIMPLES E DIRETO baseado na sugestÃÂ£o da IA."""
     # Inicializa flag de veto (False = sem veto ativo)
     prever_acao._ultimo_veto = False
     try:
-        # ========== âœ… PRIORIDADE 0: COOLDOWN â€” NADA PASSA ANTES DISSO ==========
+        # ========== Ã¢Åâ¦ PRIORIDADE 0: COOLDOWN Ã¢â¬â NADA PASSA ANTES DISSO ==========
         # Regra Sniper: Se cooldown ativo, retorna NADA imediatamente sem ler book ou consultar IA
         if COOLDOWN_ATIVO and cooldown_sistema and not cooldown_sistema.pode_operar():
             tempo_restante = cooldown_sistema.tempo_restante_cooldown()
             logging.info(
-                f"ðŸ›‘ [P0] COOLDOWN ATIVO ({tempo_restante}s restantes) â€” Bloqueio total, aguardando...")
+                f"Ã°Å¸âºâ [P0] COOLDOWN ATIVO ({tempo_restante}s restantes) Ã¢â¬â Bloqueio total, aguardando...")
             return "NADA", 0.0
 
-        # ========== âœ… PA1: TRAVA DE HORÃRIO - PRIORIDADE MÃXIMA ==========
+        # ========== Ã¢Åâ¦ PA1: TRAVA DE HORÃÂRIO - PRIORIDADE MÃÂXIMA ==========
         if not horario_permitido():
-            # Log com throttle (1x a cada 300s) â€” fora do horÃ¡rio PA1 isso repetiria
+            # Log com throttle (1x a cada 300s) Ã¢â¬â fora do horÃÂ¡rio PA1 isso repetiria
             # a cada ciclo e inundaria o log.
             if _log_periodico('pa1_bloqueado', 300):
                 horario_atual = datetime.now().strftime("%H:%M")
                 logging.info(
-                    f"ðŸš« PA1 HORÃRIO BLOQUEADO: {horario_atual} - SÃ³ opera 09:15-12:30 e 14:30-17:15")
+                    f"Ã°Å¸Å¡Â« PA1 HORÃÂRIO BLOQUEADO: {horario_atual} - SÃÂ³ opera 09:15-12:30 e 14:30-17:15")
             return "NADA", 0.0
 
         # ========== SENTINELA DE FLUXO (gatekeeper macro) - classifica 1x ==========
@@ -8878,7 +8891,7 @@ def prever_acao(modelo: Sequential, X: pd.DataFrame,
                 elif _sf['cenario'] == 'RISK_ON':
                     _sf_veto_buy = True  # so SELL liberado
             except Exception as _e:
-                logging.debug(f"Sentinela de fluxo indisponível (fail-open): {_e}")
+                logging.debug(f"Sentinela de fluxo indisponÃ­vel (fail-open): {_e}")
 
 # ========== VETO SIMPLES + WILLIAMS %R ==========
         if contexto_completo:
@@ -8895,13 +8908,13 @@ def prever_acao(modelo: Sequential, X: pd.DataFrame,
             if pode_sell and wr_val < -80:
                 logging.warning(f"WILLIAMS %R VETO SELL: WR={wr_val:.0f} (sobrevendido)")
                 pode_sell = False
-            # WILLIAMS %R: VETO BUY EM SOBREVENDA EXTREMA (continuaÃ§Ã£o de queda, nÃ£o fundo)
-            # THRESHOLD -80: simÃ©trico ao veto SELL (WR < -80 = sobrevenda agressiva)
+            # WILLIAMS %R: VETO BUY EM SOBREVENDA EXTREMA (continuaÃÂ§ÃÂ£o de queda, nÃÂ£o fundo)
+            # THRESHOLD -80: simÃÂ©trico ao veto SELL (WR < -80 = sobrevenda agressiva)
             if pode_buy and wr_val < -80:
-                logging.warning(f"WILLIAMS %R VETO BUY (continuaÃ§Ã£o): WR={wr_val:.0f} (< -80, sobrevenda agressiva)")
+                logging.warning(f"WILLIAMS %R VETO BUY (continuaÃÂ§ÃÂ£o): WR={wr_val:.0f} (< -80, sobrevenda agressiva)")
                 pode_buy = False
 
-            # MULTI-TF VETO: nÃ£o comprar contra 3 timeframes bearish
+            # MULTI-TF VETO: nÃÂ£o comprar contra 3 timeframes bearish
             m5_rsi = contexto_completo.get('m5_rsi', 50)
             m15_rsi = contexto_completo.get('m15_rsi', 50)
             m30_rsi = contexto_completo.get('m30_rsi', 50)
@@ -8914,33 +8927,33 @@ def prever_acao(modelo: Sequential, X: pd.DataFrame,
                 logging.warning(f"VETO TOTAL: BUY={motivo_buy}, SELL={motivo_sell}")
                 return "NADA", 0.0
 
-            # Se so uma viavel, forca essa (com proteÃ§Ã£o Multi-TF)
+            # Se so uma viavel, forca essa (com proteÃÂ§ÃÂ£o Multi-TF)
             if pode_buy and not pode_sell:
-                # NÃ£o forÃ§ar BUY se Multi-TF mostra bearish (todos < 50)
+                # NÃÂ£o forÃÂ§ar BUY se Multi-TF mostra bearish (todos < 50)
                 if m5_rsi < 50 and m15_rsi < 50 and m30_rsi < 50:
-                    logging.warning(f"FORÃ‡A BUY BLOQUEADO: Multi-TF bearish (M5={m5_rsi:.0f} M15={m15_rsi:.0f} M30={m30_rsi:.0f})")
+                    logging.warning(f"FORÃâ¡A BUY BLOQUEADO: Multi-TF bearish (M5={m5_rsi:.0f} M15={m15_rsi:.0f} M30={m30_rsi:.0f})")
                     return "NADA", 0.0
                 if _sf_veto_buy:
-                    logging.warning(f"ðŸš« SENTINELA VETO BUY: {_sf_detalhe}")
+                    logging.warning(f"Ã°Å¸Å¡Â« SENTINELA VETO BUY: {_sf_detalhe}")
                     prever_acao._ultimo_veto = True
                     return "NADA", 0.0
                 logging.info(f"FORCA BUY: {motivo_buy}")
                 return "BUY", 0.8
             if pode_sell and not pode_buy:
-                # NÃ£o forÃ§ar SELL se Multi-TF mostra bullish (todos > 50)
+                # NÃÂ£o forÃÂ§ar SELL se Multi-TF mostra bullish (todos > 50)
                 if m5_rsi > 50 and m15_rsi > 50 and m30_rsi > 50:
-                    logging.warning(f"FORÃ‡A SELL BLOQUEADO: Multi-TF bullish (M5={m5_rsi:.0f} M15={m15_rsi:.0f} M30={m30_rsi:.0f})")
+                    logging.warning(f"FORÃâ¡A SELL BLOQUEADO: Multi-TF bullish (M5={m5_rsi:.0f} M15={m15_rsi:.0f} M30={m30_rsi:.0f})")
                     return "NADA", 0.0
                 if _sf_veto_sell:
-                    logging.warning(f"ðŸš« SENTINELA VETO SELL: {_sf_detalhe}")
+                    logging.warning(f"Ã°Å¸Å¡Â« SENTINELA VETO SELL: {_sf_detalhe}")
                     prever_acao._ultimo_veto = True
                     return "NADA", 0.0
                 logging.info(f"FORCA SELL: {motivo_sell}")
                 return "SELL", 0.8
 
-# ========== FILTRO DE TENDÃŠNCIA (SMA-50 + MOMENTUM) ==========
-        # Bloqueia operaÃ§Ãµes contra a tendÃªncia para evitar comprar em queda
-        # Avalia UMA VEZ (avaliar_tendencia registra preÃ§o e calcula tudo)
+# ========== FILTRO DE TENDÃÅ NCIA (SMA-50 + MOMENTUM) ==========
+        # Bloqueia operaÃÂ§ÃÂµes contra a tendÃÂªncia para evitar comprar em queda
+        # Avalia UMA VEZ (avaliar_tendencia registra preÃÂ§o e calcula tudo)
         _tendencia_veto_buy = False
         _tendencia_veto_sell = False
         preco_atual_tend = None
@@ -8952,19 +8965,19 @@ def prever_acao(modelo: Sequential, X: pd.DataFrame,
             _tendencia_veto_sell = _tendencia_result['veto_sell']
 
             if _tendencia_veto_buy and _tendencia_veto_sell:
-                logging.warning(f"ðŸš« TENDÃŠNCIA VETO TOTAL: {_tendencia_result['motivo']}")
+                logging.warning(f"Ã°Å¸Å¡Â« TENDÃÅ NCIA VETO TOTAL: {_tendencia_result['motivo']}")
                 return "NADA", 0.0
             if _tendencia_veto_buy:
-                logging.info(f"ðŸš« TENDÃŠNCIA BLOQUEIA BUY: {_tendencia_result['motivo']}")
+                logging.info(f"Ã°Å¸Å¡Â« TENDÃÅ NCIA BLOQUEIA BUY: {_tendencia_result['motivo']}")
             if _tendencia_veto_sell:
-                logging.info(f"ðŸš« TENDÃŠNCIA BLOQUEIA SELL: {_tendencia_result['motivo']}")
+                logging.info(f"Ã°Å¸Å¡Â« TENDÃÅ NCIA BLOQUEIA SELL: {_tendencia_result['motivo']}")
 
         # ========== FASE 1: BLOQUEIO DE CONTEXTO PERDEDOR ==========
         if contexto_completo:
             if bloqueador_contexto.contexto_bloqueado(contexto_completo):
                 return "NADA", 0.0
 
-        # ========== FASE 2: CONSULTA EXPERIÃŠNCIAS PASSADAS ==========
+        # ========== FASE 2: CONSULTA EXPERIÃÅ NCIAS PASSADAS ==========
         if contexto_completo:
             expectativa_buy = replay_experiencias.calcular_expectativa_contexto(
                 contexto_completo, "BUY")
@@ -8974,12 +8987,12 @@ def prever_acao(modelo: Sequential, X: pd.DataFrame,
             tem_dados_buy = expectativa_buy['trades_similares'] >= 5
             tem_dados_sell = expectativa_sell['trades_similares'] >= 5
 
-            # VETO MATEMÃTICO: SÃ³ veta se tiver dados suficientes E expectativa NEGATIVA REAL
-            # Sem dados (0.00) = NEUTRO = deixa passar para IA/ConfluÃªncia decidirem
+            # VETO MATEMÃÂTICO: SÃÂ³ veta se tiver dados suficientes E expectativa NEGATIVA REAL
+            # Sem dados (0.00) = NEUTRO = deixa passar para IA/ConfluÃÂªncia decidirem
             if tem_dados_buy and tem_dados_sell:
                 if expectativa_buy['expectativa'] < 0 and expectativa_sell['expectativa'] < 0:
                     logging.warning(
-                        f"ðŸš« VETO MATEMÃTICO (prova real): BUY={expectativa_buy['expectativa']:.2f} "
+                        f"Ã°Å¸Å¡Â« VETO MATEMÃÂTICO (prova real): BUY={expectativa_buy['expectativa']:.2f} "
                         f"({expectativa_buy['trades_similares']} trades), "
                         f"SELL={expectativa_sell['expectativa']:.2f} "
                         f"({expectativa_sell['trades_similares']} trades)")
@@ -8987,15 +9000,15 @@ def prever_acao(modelo: Sequential, X: pd.DataFrame,
                     prever_acao._ultimo_veto = True
                     return "NADA", 0.0
 
-            # Se uma direÃ§Ã£o tem dados positivos e a outra nÃ£o tem dados ou Ã© negativa
+            # Se uma direÃÂ§ÃÂ£o tem dados positivos e a outra nÃÂ£o tem dados ou ÃÂ© negativa
             if tem_dados_buy and expectativa_buy['expectativa'] > 0:
                 if not tem_dados_sell or expectativa_sell['expectativa'] <= 0:
                     if _sf_veto_buy:
-                        logging.warning(f"ðŸš« SENTINELA VETO BUY: {_sf_detalhe}")
+                        logging.warning(f"Ã°Å¸Å¡Â« SENTINELA VETO BUY: {_sf_detalhe}")
                         prever_acao._ultimo_veto = True
                         return "NADA", 0.0
                     logging.info(
-                        f"ðŸŽ¯ FORÃ‡A BUY por expectativa positiva: {expectativa_buy['expectativa']:.2f} "
+                        f"Ã°Å¸Å½Â¯ FORÃâ¡A BUY por expectativa positiva: {expectativa_buy['expectativa']:.2f} "
                         f"({expectativa_buy['trades_similares']} trades)")
                     prever_acao._ultimo_veto = False
                     return "BUY", min(0.9, expectativa_buy['expectativa'] / 100)
@@ -9003,25 +9016,25 @@ def prever_acao(modelo: Sequential, X: pd.DataFrame,
             if tem_dados_sell and expectativa_sell['expectativa'] > 0:
                 if not tem_dados_buy or expectativa_buy['expectativa'] <= 0:
                     if _sf_veto_sell:
-                        logging.warning(f"ðŸš« SENTINELA VETO SELL: {_sf_detalhe}")
+                        logging.warning(f"Ã°Å¸Å¡Â« SENTINELA VETO SELL: {_sf_detalhe}")
                         prever_acao._ultimo_veto = True
                         return "NADA", 0.0
                     logging.info(
-                        f"ðŸŽ¯ FORÃ‡A SELL por expectativa positiva: {expectativa_sell['expectativa']:.2f} "
+                        f"Ã°Å¸Å½Â¯ FORÃâ¡A SELL por expectativa positiva: {expectativa_sell['expectativa']:.2f} "
                         f"({expectativa_sell['trades_similares']} trades)")
                     prever_acao._ultimo_veto = False
                     return "SELL", min(0.9, expectativa_sell['expectativa'] / 100)
 
-            # Sem dados suficientes em nenhuma direÃ§Ã£o: log neutro e deixa passar
+            # Sem dados suficientes em nenhuma direÃÂ§ÃÂ£o: log neutro e deixa passar
             if not tem_dados_buy and not tem_dados_sell:
                 logging.debug(
-                    f"ðŸ“Š Sem histÃ³rico suficiente (BUY:{expectativa_buy['trades_similares']}, "
+                    f"Ã°Å¸âÅ  Sem histÃÂ³rico suficiente (BUY:{expectativa_buy['trades_similares']}, "
                     f"SELL:{expectativa_sell['trades_similares']}) - IA decide normalmente")
 
-            # Dados mistos ou inconclusivos: NÃƒO forÃ§a direÃ§Ã£o â€” deixa IA decidir
+            # Dados mistos ou inconclusivos: NÃÆO forÃÂ§a direÃÂ§ÃÂ£o Ã¢â¬â deixa IA decidir
             prever_acao._ultimo_veto = False
 
-        # ========== APLICAÃ‡ÃƒO DOS FILTROS DE ALTA ACERTIVIDADE ==========
+        # ========== APLICAÃâ¡ÃÆO DOS FILTROS DE ALTA ACERTIVIDADE ==========
         if contexto_completo:
             pode_operar, motivo = filtros_alta_acertividade(contexto_completo)
             if not pode_operar:
@@ -9032,16 +9045,16 @@ def prever_acao(modelo: Sequential, X: pd.DataFrame,
                     prever_acao._ultimo_log_bloqueio = time.time()
                 return "NADA", 0.0
 
-        # VALIDAÃ‡ÃƒO E CORREÃ‡ÃƒO DE TIPOS PARA PREDIÃ‡ÃƒO
+        # VALIDAÃâ¡ÃÆO E CORREÃâ¡ÃÆO DE TIPOS PARA PREDIÃâ¡ÃÆO
         if hasattr(X, 'values'):
             x_pred = X.values.astype(np.float32)
         else:
             x_pred = np.array(X, dtype=np.float32)
 
-        # Verifica se hÃ¡ valores invÃ¡lidos
+        # Verifica se hÃÂ¡ valores invÃÂ¡lidos
         if np.isnan(x_pred).any() or np.isinf(x_pred).any():
             logging.warning(
-                "[prever_acao] Dados contÃªm valores NaN ou infinitos - corrigindo")
+                "[prever_acao] Dados contÃÂªm valores NaN ou infinitos - corrigindo")
             x_pred = np.nan_to_num(x_pred, nan=0.0, posinf=1.0, neginf=0.0)
 
         # Verifica shape
@@ -9055,50 +9068,50 @@ def prever_acao(modelo: Sequential, X: pd.DataFrame,
 
         resultado_predicao = modelo.predict(x_pred, verbose=0)
         if resultado_predicao is None or len(resultado_predicao) == 0:
-            logging.warning("âš ï¸ PrevisÃ£o vazia ou invÃ¡lida")
+            logging.warning("Ã¢Å¡Â Ã¯Â¸Â PrevisÃÂ£o vazia ou invÃÂ¡lida")
             return "NADA", 0.0
 
-        acao_prob = float(resultado_predicao[0][0])  # Garante que Ã© float
+        acao_prob = float(resultado_predicao[0][0])  # Garante que ÃÂ© float
         confianca = 1.0
 
-        # Log detalhado da prediÃ§Ã£o para diagnÃ³stico
+        # Log detalhado da prediÃÂ§ÃÂ£o para diagnÃÂ³stico
         logging.debug(
-            f"[prever_acao] Resultado bruto da prediÃ§Ã£o: {resultado_predicao[0][0]}")
+            f"[prever_acao] Resultado bruto da prediÃÂ§ÃÂ£o: {resultado_predicao[0][0]}")
         logging.debug(f"[prever_acao] Probabilidade processada: {acao_prob}")
 
-        # Se a probabilidade estÃ¡ muito baixa (prÃ³xima de 0), pode indicar problema no modelo
+        # Se a probabilidade estÃÂ¡ muito baixa (prÃÂ³xima de 0), pode indicar problema no modelo
         if acao_prob < 0.001:
             logging.warning(
-                f"âš ï¸ Probabilidade muito baixa: {acao_prob:.6f} - Modelo pode precisar de retreino")
-            # ForÃ§a uma decisÃ£o baseada em RSI como fallback
+                f"Ã¢Å¡Â Ã¯Â¸Â Probabilidade muito baixa: {acao_prob:.6f} - Modelo pode precisar de retreino")
+            # ForÃÂ§a uma decisÃÂ£o baseada em RSI como fallback
             if 'rsi_14' in X.columns:
                 rsi_val_scaled = X['rsi_14'].iloc[0]
-                # X jÃ¡ estÃ¡ escalado pelo scaler: rsi_14 min=1.0, max=100.0
+                # X jÃÂ¡ estÃÂ¡ escalado pelo scaler: rsi_14 min=1.0, max=100.0
                 rsi_val_real = rsi_val_scaled * 99.0 + 1.0
                 if rsi_val_real < 30:  # Sobrevenda - favorece compra
                     acao_prob = 0.7
                     logging.info(
-                        f"ðŸ”„ Fallback RSI: RSI={rsi_val_real:.1f} (raw) < 30, forÃ§ando BUY (prob={acao_prob})")
+                        f"Ã°Å¸ââ Fallback RSI: RSI={rsi_val_real:.1f} (raw) < 30, forÃÂ§ando BUY (prob={acao_prob})")
                 elif rsi_val_real > 70:  # Sobrecompra - favorece venda
                     acao_prob = 0.3
                     logging.info(
-                        f"ðŸ”„ Fallback RSI: RSI={rsi_val_real:.1f} (raw) > 70, forÃ§ando SELL (prob={acao_prob})")
+                        f"Ã°Å¸ââ Fallback RSI: RSI={rsi_val_real:.1f} (raw) > 70, forÃÂ§ando SELL (prob={acao_prob})")
                 else:
-                    # RSI neutro - usa desequilÃ­brio do book para direÃ§Ã£o
+                    # RSI neutro - usa desequilÃÂ­brio do book para direÃÂ§ÃÂ£o
                     bid_dom = float(contexto_completo.get('bid_qty', 0)) if contexto_completo else 0
                     ask_dom = float(contexto_completo.get('ask_qty', 0)) if contexto_completo else 0
                     if bid_dom > ask_dom:
-                        acao_prob = 0.6  # Mais compradores â†’ favorece BUY
+                        acao_prob = 0.6  # Mais compradores Ã¢â â favorece BUY
                         logging.info(
-                            f"ðŸ”„ Fallback Book: BID {bid_dom:.0f} > ASK {ask_dom:.0f}, favorecendo BUY")
+                            f"Ã°Å¸ââ Fallback Book: BID {bid_dom:.0f} > ASK {ask_dom:.0f}, favorecendo BUY")
                     elif ask_dom > bid_dom:
-                        acao_prob = 0.4  # Mais vendedores â†’ favorece SELL
+                        acao_prob = 0.4  # Mais vendedores Ã¢â â favorece SELL
                         logging.info(
-                            f"ðŸ”„ Fallback Book: ASK {ask_dom:.0f} > BID {bid_dom:.0f}, favorecendo SELL")
+                            f"Ã°Å¸ââ Fallback Book: ASK {ask_dom:.0f} > BID {bid_dom:.0f}, favorecendo SELL")
                     else:
-                        acao_prob = 0.5  # Equilibrado â†’ neutro
+                        acao_prob = 0.5  # Equilibrado Ã¢â â neutro
                         logging.info(
-                            f"ðŸ”„ Fallback Book: BID=ASK={bid_dom:.0f}, neutro")
+                            f"Ã°Å¸ââ Fallback Book: BID=ASK={bid_dom:.0f}, neutro")
 
         # Ajusta threshold baseado no balanceamento atual
         if memoria_experiencias:
@@ -9107,23 +9120,23 @@ def prever_acao(modelo: Sequential, X: pd.DataFrame,
 
             # Log detalhado do estado atual
             logging.info(
-                f"ðŸ“Š Estado atual - Prob. compra: {acao_prob:.3f}, RSI: {X['rsi_14'].iloc[0]:.1f}")
+                f"Ã°Å¸âÅ  Estado atual - Prob. compra: {acao_prob:.3f}, RSI: {X['rsi_14'].iloc[0]:.1f}")
 
-            # ========== INTEGRAÃ‡ÃƒO MELHORIA 2: BALANCEAMENTO BUY/SELL ==========
+            # ========== INTEGRAÃâ¡ÃÆO MELHORIA 2: BALANCEAMENTO BUY/SELL ==========
             threshold_base = 0.5
             acao_forcada_balanceador = None
 
             if balanceador and BALANCEAMENTO_ATIVO:
                 threshold_base = balanceador.ajustar_threshold(threshold_base)
                 status = balanceador.get_status()
-                logging.info(f"âš–ï¸ Balanceamento: BUY={status['buy_count']}, SELL={status['sell_count']}, "
+                logging.info(f"Ã¢Å¡âÃ¯Â¸Â Balanceamento: BUY={status['buy_count']}, SELL={status['sell_count']}, "
                              f"BUY%={status['buy_percentage']:.1f}%, Threshold ajustado={threshold_base:.3f}")
 
-                # Verifica se deve forÃ§ar operaÃ§Ã£o pelo balanceador
+                # Verifica se deve forÃÂ§ar operaÃÂ§ÃÂ£o pelo balanceador
                 if status['deve_forcar']:
                     acao_forcada_balanceador = status['acao_forcada']
                     logging.info(
-                        f"ðŸš¨ BALANCEADOR FORÃ‡A: {acao_forcada_balanceador} devido a desbalanceamento extremo")
+                        f"Ã°Å¸Å¡Â¨ BALANCEADOR FORÃâ¡A: {acao_forcada_balanceador} devido a desbalanceamento extremo")
 
             # Ajusta threshold dinamicamente com MAIS AGRESSIVIDADE
             max_ajuste = 0.25  # Aumentado para 25% (mais agressivo)
@@ -9137,28 +9150,28 @@ def prever_acao(modelo: Sequential, X: pd.DataFrame,
             elif rsi > 70:  # Sobrecompra
                 rsi_ajuste = 0.05  # Favorece vendas
 
-            # Filtro de ConfianÃ§a MÃ­nima (confidence gap 0.15) â€” zona neutra
+            # Filtro de ConfianÃÂ§a MÃÂ­nima (confidence gap 0.15) Ã¢â¬â zona neutra
             CONFIDENCE_GAP = 0.15
             confianca = abs(acao_prob - 0.5)
             if confianca < CONFIDENCE_GAP:
                 logging.info(
-                    f"â¸ï¸ Sinal NEUTRO (confianÃ§a {confianca:.3f} < {CONFIDENCE_GAP}) | Prob: {acao_prob:.3f} | Ignorado")
+                    f"Ã¢ÂÂ¸Ã¯Â¸Â Sinal NEUTRO (confianÃÂ§a {confianca:.3f} < {CONFIDENCE_GAP}) | Prob: {acao_prob:.3f} | Ignorado")
                 return "NADA", 0.0
 
-            # DecisÃ£o baseada na probabilidade (sem forÃ§ar lado)
+            # DecisÃÂ£o baseada na probabilidade (sem forÃÂ§ar lado)
             threshold = threshold_base + rsi_ajuste
             acao_inicial = "BUY" if acao_prob > threshold else "SELL"
             logging.info(
-                f"ðŸ“Š DecisÃ£o por probabilidade: {acao_inicial} | Prob: {acao_prob:.3f} | ConfianÃ§a: {confianca:.3f} | Threshold: {threshold:.3f}")
+                f"Ã°Å¸âÅ  DecisÃÂ£o por probabilidade: {acao_inicial} | Prob: {acao_prob:.3f} | ConfianÃÂ§a: {confianca:.3f} | Threshold: {threshold:.3f}")
 
-            # ========== ESTRATÃ‰GIA ESCALONADA POR QUALIDADE DO SETUP ==========
+            # ========== ESTRATÃâ°GIA ESCALONADA POR QUALIDADE DO SETUP ==========
             if contexto_completo:
                 volume_total = contexto_completo.get(
                     'bid_qty', 0) + contexto_completo.get('ask_qty', 0)
                 entropia = contexto_completo.get('entropia_book', 0)
                 atr = contexto_completo.get('volatility', 0)
 
-                # Calcula score de qualidade novamente para definir estratÃ©gia
+                # Calcula score de qualidade novamente para definir estratÃÂ©gia
                 score_qualidade = 0
                 if volume_total >= 1500:
                     score_qualidade += 3
@@ -9181,27 +9194,27 @@ def prever_acao(modelo: Sequential, X: pd.DataFrame,
                 elif atr >= 3:
                     score_qualidade += 1
 
-                # Define parÃ¢metros baseado na qualidade do setup
+                # Define parÃÂ¢metros baseado na qualidade do setup
                 if score_qualidade >= 8:  # Setup ULTRA PREMIUM
                     confianca = 0.95
                     logging.info(
-                        f"ðŸ† SETUP ULTRA PREMIUM (score {score_qualidade}/11) - ConfianÃ§a mÃ¡xima!")
+                        f"Ã°Å¸Ââ  SETUP ULTRA PREMIUM (score {score_qualidade}/11) - ConfianÃÂ§a mÃÂ¡xima!")
                 elif score_qualidade >= 6:  # Setup PREMIUM
                     confianca = 0.85
                     logging.info(
-                        f"â­ SETUP PREMIUM (score {score_qualidade}/11) - Alta confianÃ§a")
-                else:  # Setup BOM (jÃ¡ passou nos filtros)
+                        f"Ã¢Â­Â SETUP PREMIUM (score {score_qualidade}/11) - Alta confianÃÂ§a")
+                else:  # Setup BOM (jÃÂ¡ passou nos filtros)
                     confianca = 0.75
                     logging.info(
-                        f"âœ… SETUP BOM (score {score_qualidade}/11) - ConfianÃ§a moderada")
+                        f"Ã¢Åâ¦ SETUP BOM (score {score_qualidade}/11) - ConfianÃÂ§a moderada")
 
-            # ========== APLICAÃ‡ÃƒO DOS FILTROS ADICIONAIS ==========
-            # Filtro 1: HorÃ¡rio Premium
+            # ========== APLICAÃâ¡ÃÆO DOS FILTROS ADICIONAIS ==========
+            # Filtro 1: HorÃÂ¡rio Premium
             if FILTRO_HORARIO_ATIVO and filtro_horario and not filtro_horario.is_horario_premium():
-                logging.info("â° OperaÃ§Ã£o bloqueada - Fora do horÃ¡rio premium")
+                logging.info("Ã¢ÂÂ° OperaÃÂ§ÃÂ£o bloqueada - Fora do horÃÂ¡rio premium")
                 return "NADA", 0.0
 
-            # Filtro 2: TendÃªncia em CONSENSO (sÃ³ bloqueia se AMBOS detectores concordarem)
+            # Filtro 2: TendÃÂªncia em CONSENSO (sÃÂ³ bloqueia se AMBOS detectores concordarem)
             if DETECTOR_TENDENCIA_ATIVO and detector_tendencia:
                 _ema_bloqueia_buy = detector_tendencia.tendencia_atual == "BAIXA" and acao_inicial == "BUY"
                 _ema_bloqueia_sell = detector_tendencia.tendencia_atual == "ALTA" and acao_inicial == "SELL"
@@ -9209,46 +9222,46 @@ def prever_acao(modelo: Sequential, X: pd.DataFrame,
                 _sma_bloqueia_sell = _tendencia_veto_sell and acao_inicial == "SELL"
                 if (_ema_bloqueia_buy and _sma_bloqueia_buy) or (_ema_bloqueia_sell and _sma_bloqueia_sell):
                     logging.info(
-                        f"ðŸ“ˆ CONSENSO DE TENDÃŠNCIA: {acao_inicial} bloqueado "
+                        f"Ã°Å¸âË CONSENSO DE TENDÃÅ NCIA: {acao_inicial} bloqueado "
                         f"(EMA={detector_tendencia.tendencia_atual}, SMA={_tendencia_result['motivo']})")
                     return "NADA", 0.0
 
-            # Filtro 3: Cooldown â€” jÃ¡ verificado na Prioridade 0, mantido aqui como seguranÃ§a de redundÃ¢ncia
-            # (nÃ£o gera log duplicado pois Prioridade 0 jÃ¡ bloqueou antes de chegar aqui)
+            # Filtro 3: Cooldown Ã¢â¬â jÃÂ¡ verificado na Prioridade 0, mantido aqui como seguranÃÂ§a de redundÃÂ¢ncia
+            # (nÃÂ£o gera log duplicado pois Prioridade 0 jÃÂ¡ bloqueou antes de chegar aqui)
 
-            # Filtro 4: Spread dinÃ¢mico
+            # Filtro 4: Spread dinÃÂ¢mico
             spread_atual = contexto_completo.get(
                 'spread', 0) if contexto_completo else 0
             if SPREAD_DINAMICO_ATIVO and filtro_spread and not filtro_spread.spread_aceitavel(spread_atual):
                 logging.info(
-                    f"ðŸ“Š OperaÃ§Ã£o bloqueada - Spread alto ({spread_atual:.1f} >{filtro_spread.spread_maximo_atual})")
+                    f"Ã°Å¸âÅ  OperaÃÂ§ÃÂ£o bloqueada - Spread alto ({spread_atual:.1f} >{filtro_spread.spread_maximo_atual})")
                 return "NADA", 0.0
 
-            # DECISÃƒO FINAL: Considera ambos os sistemas de balanceamento
+            # DECISÃÆO FINAL: Considera ambos os sistemas de balanceamento
             if acao_forcada_balanceador:
                 acao = acao_forcada_balanceador
                 logging.info(
-                    f"ðŸŽ¯ DECISÃƒO FINAL FORÃ‡ADA pelo balanceador: {acao}")
+                    f"Ã°Å¸Å½Â¯ DECISÃÆO FINAL FORÃâ¡ADA pelo balanceador: {acao}")
             else:
                 acao = acao_inicial
-                logging.info(f"ðŸŽ¯ DECISÃƒO FINAL normal: {acao}")
+                logging.info(f"Ã°Å¸Å½Â¯ DECISÃÆO FINAL normal: {acao}")
 
-            # ========== VETO DE TENDÃŠNCIA (pÃ³s-decisÃ£o) ==========
-            # Se o modelo escolheu BUY mas tendÃªncia Ã© de baixa â†’ bloqueia
+            # ========== VETO DE TENDÃÅ NCIA (pÃÂ³s-decisÃÂ£o) ==========
+            # Se o modelo escolheu BUY mas tendÃÂªncia ÃÂ© de baixa Ã¢â â bloqueia
             # EXCETO se RSI estiver em zona extrema (mean reversion)
             if acao == "BUY" and _tendencia_veto_buy:
                 rsi_override = rsi * 99.0 + 1.0
                 if rsi_override < 25.0:
-                    logging.info(f"ðŸ“Š RSI={rsi_override:.1f} (sobrevendido) sobrepÃµe veto de tendÃªncia - BUY liberado")
+                    logging.info(f"Ã°Å¸âÅ  RSI={rsi_override:.1f} (sobrevendido) sobrepÃÂµe veto de tendÃÂªncia - BUY liberado")
                 else:
-                    logging.warning(f"ðŸš« TENDÃŠNCIA VETO pÃ³s-decisÃ£o: BUY bloqueado (mercado em queda, RSI={rsi_override:.1f})")
+                    logging.warning(f"Ã°Å¸Å¡Â« TENDÃÅ NCIA VETO pÃÂ³s-decisÃÂ£o: BUY bloqueado (mercado em queda, RSI={rsi_override:.1f})")
                     return "NADA", 0.0
             if acao == "SELL" and _tendencia_veto_sell:
                 rsi_override = rsi * 99.0 + 1.0
                 if rsi_override > 75.0:
-                    logging.info(f"ðŸ“Š RSI={rsi_override:.1f} (sobrecomprado) sobrepÃµe veto de tendÃªncia - SELL liberado")
+                    logging.info(f"Ã°Å¸âÅ  RSI={rsi_override:.1f} (sobrecomprado) sobrepÃÂµe veto de tendÃÂªncia - SELL liberado")
                 else:
-                    logging.warning(f"ðŸš« TENDÃŠNCIA VETO pÃ³s-decisÃ£o: SELL bloqueado (mercado em alta, RSI={rsi_override:.1f})")
+                    logging.warning(f"Ã°Å¸Å¡Â« TENDÃÅ NCIA VETO pÃÂ³s-decisÃÂ£o: SELL bloqueado (mercado em alta, RSI={rsi_override:.1f})")
                     return "NADA", 0.0
 
             # ========== FILTRO MEAN REVERSION (RSI + Z-Score + ADX) ==========
@@ -9258,17 +9271,17 @@ def prever_acao(modelo: Sequential, X: pd.DataFrame,
                 mr_result = filtro_mean_reversion.avaliar(
                     preco_atual=preco_atual_tend,
                     rsi_real=rsi_real,
-                    ema_atual=preco_atual_tend,  # Usando preÃ§o como proxy da EMA
+                    ema_atual=preco_atual_tend,  # Usando preÃÂ§o como proxy da EMA
                     ema_anterior=preco_atual_tend
                 )
                 if mr_result['veto_buy'] and acao == "BUY":
                     logging.warning(
-                        f"ðŸš« MR VETO BUY: RSI={rsi_real:.1f}({mr_result['rsi_zona']}) | "
+                        f"Ã°Å¸Å¡Â« MR VETO BUY: RSI={rsi_real:.1f}({mr_result['rsi_zona']}) | "
                         f"Z={mr_result['zscore']:+.2f} | ADX={mr_result['adx']:.1f}({mr_result['estado']})")
                     return "NADA", 0.0
                 if mr_result['veto_sell'] and acao == "SELL":
                     logging.warning(
-                        f"ðŸš« MR VETO SELL: RSI={rsi_real:.1f}({mr_result['rsi_zona']}) | "
+                        f"Ã°Å¸Å¡Â« MR VETO SELL: RSI={rsi_real:.1f}({mr_result['rsi_zona']}) | "
                         f"Z={mr_result['zscore']:+.2f} | ADX={mr_result['adx']:.1f}({mr_result['estado']})")
                     return "NADA", 0.0
 
@@ -9276,41 +9289,41 @@ def prever_acao(modelo: Sequential, X: pd.DataFrame,
             if balanceador and BALANCEAMENTO_ATIVO:
                 status_bal = balanceador.get_status()
                 logging.info(
-                    f"ðŸ”„ Balanceamento - BUY: {status_bal['buy_percentage']:.1f}% | SELL: {status_bal['sell_percentage']:.1f}%")
+                    f"Ã°Å¸ââ Balanceamento - BUY: {status_bal['buy_percentage']:.1f}% | SELL: {status_bal['sell_percentage']:.1f}%")
             else:
                 mem_status = memoria_experiencias.get_balanceamento_status()
                 logging.info(
-                    f"ðŸ”„ Balanceamento - BUY: {mem_status['buy_percent']:.1f}% | SELL: {mem_status['sell_percent']:.1f}%")
-            # Log detalhado da decisÃ£o final
+                    f"Ã°Å¸ââ Balanceamento - BUY: {mem_status['buy_percent']:.1f}% | SELL: {mem_status['sell_percent']:.1f}%")
+            # Log detalhado da decisÃÂ£o final
             if acao_forcada_balanceador:
                 logging.info(
-                    f"ðŸ“ˆ DecisÃ£o FORÃ‡ADA: {acao} | Prob original: {acao_prob:.3f} | Threshold: {threshold:.3f} | IGNORADO por balanceamento")
+                    f"Ã°Å¸âË DecisÃÂ£o FORÃâ¡ADA: {acao} | Prob original: {acao_prob:.3f} | Threshold: {threshold:.3f} | IGNORADO por balanceamento")
             else:
                 logging.info(
-                    f"ðŸ“ˆ DecisÃ£o normal: {acao} | Prob: {acao_prob:.3f} | Threshold: {threshold:.3f}")
+                    f"Ã°Å¸âË DecisÃÂ£o normal: {acao} | Prob: {acao_prob:.3f} | Threshold: {threshold:.3f}")
         else:
             threshold = 0.5
             acao = "BUY" if acao_prob > threshold else "SELL"
             logging.info(
-                f"ðŸ“ˆ DecisÃ£o sem balanceamento: {acao} | Prob: {acao_prob:.3f}")
+                f"Ã°Å¸âË DecisÃÂ£o sem balanceamento: {acao} | Prob: {acao_prob:.3f}")
 
-        # ========== VETO DE TENDÃŠNCIA (pÃ³s-decisÃ£o, fora do balanceador) ==========
+        # ========== VETO DE TENDÃÅ NCIA (pÃÂ³s-decisÃÂ£o, fora do balanceador) ==========
         if acao == "BUY" and _tendencia_veto_buy:
             rsi_over = rsi * 99.0 + 1.0
             if rsi_over < 25.0:
-                logging.info(f"ðŸ“Š RSI={rsi_over:.1f} (sobrevendido) sobrepÃµe veto de tendÃªncia - BUY liberado")
+                logging.info(f"Ã°Å¸âÅ  RSI={rsi_over:.1f} (sobrevendido) sobrepÃÂµe veto de tendÃÂªncia - BUY liberado")
             else:
-                logging.warning(f"ðŸš« TENDÃŠNCIA VETO pÃ³s-decisÃ£o: BUY bloqueado (mercado em queda, RSI={rsi_over:.1f})")
+                logging.warning(f"Ã°Å¸Å¡Â« TENDÃÅ NCIA VETO pÃÂ³s-decisÃÂ£o: BUY bloqueado (mercado em queda, RSI={rsi_over:.1f})")
                 return "NADA", 0.0
         if acao == "SELL" and _tendencia_veto_sell:
             rsi_over = rsi * 99.0 + 1.0
             if rsi_over > 75.0:
-                logging.info(f"ðŸ“Š RSI={rsi_over:.1f} (sobrecomprado) sobrepÃµe veto de tendÃªncia - SELL liberado")
+                logging.info(f"Ã°Å¸âÅ  RSI={rsi_over:.1f} (sobrecomprado) sobrepÃÂµe veto de tendÃÂªncia - SELL liberado")
             else:
-                logging.warning(f"ðŸš« TENDÃŠNCIA VETO pÃ³s-decisÃ£o: SELL bloqueado (mercado em alta, RSI={rsi_over:.1f})")
+                logging.warning(f"Ã°Å¸Å¡Â« TENDÃÅ NCIA VETO pÃÂ³s-decisÃÂ£o: SELL bloqueado (mercado em alta, RSI={rsi_over:.1f})")
                 return "NADA", 0.0
 
-        # ========== FILTRO MEAN REVERSION (pÃ³s-decisÃ£o, fora do balanceador) ==========
+        # ========== FILTRO MEAN REVERSION (pÃÂ³s-decisÃÂ£o, fora do balanceador) ==========
         rsi_real_fallback = rsi * 99.0 + 1.0
         preco_atual_tend_fb = contexto_completo.get('preco', 0) if contexto_completo else 0
         if preco_atual_tend_fb and preco_atual_tend_fb > 0 and rsi_real_fallback > 0:
@@ -9322,35 +9335,35 @@ def prever_acao(modelo: Sequential, X: pd.DataFrame,
             )
             if mr_fb['veto_buy'] and acao == "BUY":
                 logging.warning(
-                    f"ðŸš« MR VETO BUY: RSI={rsi_real_fallback:.1f}({mr_fb['rsi_zona']}) | "
+                    f"Ã°Å¸Å¡Â« MR VETO BUY: RSI={rsi_real_fallback:.1f}({mr_fb['rsi_zona']}) | "
                     f"Z={mr_fb['zscore']:+.2f} | ADX={mr_fb['adx']:.1f}({mr_fb['estado']})")
                 return "NADA", 0.0
             if mr_fb['veto_sell'] and acao == "SELL":
                 logging.warning(
-                    f"ðŸš« MR VETO SELL: RSI={rsi_real_fallback:.1f}({mr_fb['rsi_zona']}) | "
+                    f"Ã°Å¸Å¡Â« MR VETO SELL: RSI={rsi_real_fallback:.1f}({mr_fb['rsi_zona']}) | "
                     f"Z={mr_fb['zscore']:+.2f} | ADX={mr_fb['adx']:.1f}({mr_fb['estado']})")
                 return "NADA", 0.0
 
         # ========== SENTINELA DE FLUXO (gatekeeper macro) - veto final ==========
         if _sf_veto_sell and acao == 'SELL':
-            logging.warning(f"ðŸš« SENTINELA VETO SELL: {_sf_detalhe}")
+            logging.warning(f"Ã°Å¸Å¡Â« SENTINELA VETO SELL: {_sf_detalhe}")
             prever_acao._ultimo_veto = True
             return "NADA", 0.0
         if _sf_veto_buy and acao == 'BUY':
-            logging.warning(f"ðŸš« SENTINELA VETO BUY: {_sf_detalhe}")
+            logging.warning(f"Ã°Å¸Å¡Â« SENTINELA VETO BUY: {_sf_detalhe}")
             prever_acao._ultimo_veto = True
             return "NADA", 0.0
 
         return acao, confianca
     except Exception as e:
-        logging.error(f"âŒ Erro ao prever aÃ§Ã£o: {e}")
+        logging.error(f"Ã¢ÂÅ Erro ao prever aÃÂ§ÃÂ£o: {e}")
         return "NADA", 0.0
 
 
 def salvar_experiencias_json(experiencias: List[Tuple[Dict[str, Any], str, float, float]], arquivo: str = "experiencias_wdo.json") -> None:
     """
-    âœ… PA2: FILTRO DE MEMÃ“RIA: Salva as experiÃªncias em formato JSON.
-    SÃ³ salva experiÃªncias com lucro > 0 conforme plano de aÃ§Ã£o.
+    Ã¢Åâ¦ PA2: FILTRO DE MEMÃâRIA: Salva as experiÃÂªncias em formato JSON.
+    SÃÂ³ salva experiÃÂªncias com lucro > 0 conforme plano de aÃÂ§ÃÂ£o.
     """
     try:
         dados = []
@@ -9358,7 +9371,7 @@ def salvar_experiencias_json(experiencias: List[Tuple[Dict[str, Any], str, float
         experiencias_totais = len(experiencias)
 
         for contexto, acao, lucro, score_dist in experiencias:
-            # âœ… PA2: FILTRO DE MEMÃ“RIA: SÃ³ salva se lucro > 0
+            # Ã¢Åâ¦ PA2: FILTRO DE MEMÃâRIA: SÃÂ³ salva se lucro > 0
             if lucro > 0:
                 dados.append({
                     "contexto": contexto,
@@ -9373,20 +9386,20 @@ def salvar_experiencias_json(experiencias: List[Tuple[Dict[str, Any], str, float
             json.dump(dados, f, indent=2)
 
         logging.info(
-            f"âœ… PA2 FILTRO DE MEMÃ“RIA: {experiencias_positivas}/{experiencias_totais} experiÃªncias positivas salvas em {arquivo}")
+            f"Ã¢Åâ¦ PA2 FILTRO DE MEMÃâRIA: {experiencias_positivas}/{experiencias_totais} experiÃÂªncias positivas salvas em {arquivo}")
 
     except Exception as e:
-        logging.error(f"âŒ Erro ao salvar experiÃªncias em JSON: {e}")
+        logging.error(f"Ã¢ÂÅ Erro ao salvar experiÃÂªncias em JSON: {e}")
 
 
 def salvar_decisao_csv(acao: str, confianca: float, contexto: Dict[str, Any], arquivo: str = None) -> None:
     if arquivo is None:
         arquivo = DECISIONS_CSV
-    """Salva uma decisÃ£o no arquivo CSV de decisÃµes."""
+    """Salva uma decisÃÂ£o no arquivo CSV de decisÃÂµes."""
     try:
         abs_path_arquivo = os.path.abspath(arquivo)
         logging.debug(
-            f"[salvar_decisao_csv] Tentando salvar decisÃ£o em: {abs_path_arquivo}")
+            f"[salvar_decisao_csv] Tentando salvar decisÃÂ£o em: {abs_path_arquivo}")
 
         dados = {
             "timestamp": datetime.now().strftime("%Y.%m.%d %H:%M:%S"),  # Formato corrigido
@@ -9409,49 +9422,49 @@ def salvar_decisao_csv(acao: str, confianca: float, contexto: Dict[str, Any], ar
         logging.debug(
             f"[salvar_decisao_csv] Arquivo '{abs_path_arquivo}' existe: {file_exists}, Tamanho: {file_size} bytes")
 
-        # Escreve com cabeÃ§alho se o arquivo nÃ£o existe OU se existe mas estÃ¡ vazio.
+        # Escreve com cabeÃÂ§alho se o arquivo nÃÂ£o existe OU se existe mas estÃÂ¡ vazio.
         if not file_exists or (file_exists and file_size == 0):
             df.to_csv(abs_path_arquivo, index=False)
         else:
-            # Adiciona sem cabeÃ§alho se o arquivo jÃ¡ existe e tem conteÃºdo.
+            # Adiciona sem cabeÃÂ§alho se o arquivo jÃÂ¡ existe e tem conteÃÂºdo.
             df.to_csv(abs_path_arquivo, mode='a', header=False, index=False)
 
-        logging.debug(f"âœ… DecisÃ£o salva em {abs_path_arquivo}")
+        logging.debug(f"Ã¢Åâ¦ DecisÃÂ£o salva em {abs_path_arquivo}")
     except Exception as e:
-        logging.error(f"âŒ Erro ao salvar decisÃ£o em CSV: {e}")
+        logging.error(f"Ã¢ÂÅ Erro ao salvar decisÃÂ£o em CSV: {e}")
 
 # endregion
 
-# region [FunÃ§Ãµes de Mercado]
+# region [FunÃÂ§ÃÂµes de Mercado]
 
 
 def verificar_estado_book(symbol: str = SYMBOL) -> bool:
-    """Verifica se o book estÃ¡ ativo e funcionando corretamente."""
+    """Verifica se o book estÃÂ¡ ativo e funcionando corretamente."""
     try:
-        # Verifica se Ã© fim de semana
-        if datetime.now().weekday() > 4:  # 5 = SÃ¡bado, 6 = Domingo
+        # Verifica se ÃÂ© fim de semana
+        if datetime.now().weekday() > 4:  # 5 = SÃÂ¡bado, 6 = Domingo
             logging.info(
-                "ðŸ“… Fim de semana: book nÃ£o disponÃ­vel (comportamento normal)")
-            return True  # Retorna True para evitar tentativas de reinicializaÃ§Ã£o
+                "Ã°Å¸ââ¦ Fim de semana: book nÃÂ£o disponÃÂ­vel (comportamento normal)")
+            return True  # Retorna True para evitar tentativas de reinicializaÃÂ§ÃÂ£o
 
-        # Verifica se Ã© horÃ¡rio de mercado fechado (fora do pregÃ£o)
+        # Verifica se ÃÂ© horÃÂ¡rio de mercado fechado (fora do pregÃÂ£o)
         agora = datetime.now().time()
         inicio_pregao = datetime.strptime("09:00", "%H:%M").time()
         fim_pregao = datetime.strptime("17:40", "%H:%M").time()
 
         if agora < inicio_pregao or agora > fim_pregao:
             logging.info(
-                f"ðŸ• Mercado fechado ({agora.strftime('%H:%M')}): book nativo indisponÃ­vel (normal)")
-            # Fora do pregÃ£o o book nativo fica vazio â€” retorna True para nÃ£o
-            # disparar reinicializaÃ§Ãµes desnecessÃ¡rias do book.
+                f"Ã°Å¸â¢Â Mercado fechado ({agora.strftime('%H:%M')}): book nativo indisponÃÂ­vel (normal)")
+            # Fora do pregÃÂ£o o book nativo fica vazio Ã¢â¬â retorna True para nÃÂ£o
+            # disparar reinicializaÃÂ§ÃÂµes desnecessÃÂ¡rias do book.
             return True
 
-        # Garante que o sÃ­mbolo esteja selecionado
+        # Garante que o sÃÂ­mbolo esteja selecionado
         mt5.symbol_select(symbol)
 
-        # Verifica se o sÃ­mbolo estÃ¡ ativo
+        # Verifica se o sÃÂ­mbolo estÃÂ¡ ativo
         if not mt5.symbol_info(symbol):
-            logging.error(f"âŒ SÃ­mbolo {symbol} nÃ£o encontrado")
+            logging.error(f"Ã¢ÂÅ SÃÂ­mbolo {symbol} nÃÂ£o encontrado")
             return False
 
         # Tenta obter dados do book
@@ -9461,7 +9474,7 @@ def verificar_estado_book(symbol: str = SYMBOL) -> bool:
             return False
 
         if len(book) == 0:
-            logging.error("âŒ Book vazio")
+            logging.error("Ã¢ÂÅ Book vazio")
             return False
 
         # Verifica tipos no book
@@ -9471,7 +9484,7 @@ def verificar_estado_book(symbol: str = SYMBOL) -> bool:
             return False
 
     except Exception as e:
-        logging.error(f"âŒ Erro ao verificar book: {e}")
+        logging.error(f"Ã¢ÂÅ Erro ao verificar book: {e}")
         return False
 
 
@@ -9484,28 +9497,28 @@ def reiniciar_book(symbol: str = SYMBOL) -> bool:
 
         # Reativa o book
         if not mt5.market_book_add(symbol):
-            logging.error("âŒ Falha ao reativar book")
+            logging.error("Ã¢ÂÅ Falha ao reativar book")
             return False
 
         time.sleep(1)  # Espera mais 1 segundo
 
-        # Verifica se estÃ¡ funcionando
+        # Verifica se estÃÂ¡ funcionando
         return verificar_estado_book(symbol)
 
     except Exception as e:
-        logging.error(f"âŒ Erro ao reiniciar book: {e}")
+        logging.error(f"Ã¢ÂÅ Erro ao reiniciar book: {e}")
         return False
 
 
 def calcular_atr(high_prices: List[float], low_prices: List[float], close_prices: List[float], periodo: int = 14) -> float:
     """
-    Calcula o Average True Range (ATR) para um perÃ­odo especÃ­fico.
+    Calcula o Average True Range (ATR) para um perÃÂ­odo especÃÂ­fico.
 
     Args:
-        high_prices: Lista de preÃ§os mÃ¡ximos
-        low_prices: Lista de preÃ§os mÃ­nimos
-        close_prices: Lista de preÃ§os de fechamento
-        periodo: PerÃ­odo para cÃ¡lculo do ATR (default 14)
+        high_prices: Lista de preÃÂ§os mÃÂ¡ximos
+        low_prices: Lista de preÃÂ§os mÃÂ­nimos
+        close_prices: Lista de preÃÂ§os de fechamento
+        periodo: PerÃÂ­odo para cÃÂ¡lculo do ATR (default 14)
 
     Returns:
         float: Valor do ATR
@@ -9527,7 +9540,7 @@ def calcular_atr(high_prices: List[float], low_prices: List[float], close_prices
         )
         tr_values.append(tr)
 
-    # Calcula mÃ©dia mÃ³vel do TR para obter ATR
+    # Calcula mÃÂ©dia mÃÂ³vel do TR para obter ATR
     if not tr_values:
         return 0.0
 
@@ -9540,72 +9553,72 @@ def calcular_atr(high_prices: List[float], low_prices: List[float], close_prices
 
 
 def verificar_mercado_aberto() -> Tuple[bool, str]:
-    """Verifica se o mercado estÃ¡ aberto e em qual perÃ­odo."""
+    """Verifica se o mercado estÃÂ¡ aberto e em qual perÃÂ­odo."""
     agora = datetime.now().time()
     pregao = datetime.strptime(HORARIO_PREGAO, "%H:%M").time()
     after = datetime.strptime(HORARIO_AFTER, "%H:%M").time()
 
-    # Verifica se Ã© fim de semana
-    if datetime.now().weekday() > 4:  # 5 = SÃ¡bado, 6 = Domingo
-        return False, "Mercado fechado (Fim de semana) ðŸ–ï¸"
+    # Verifica se ÃÂ© fim de semana
+    if datetime.now().weekday() > 4:  # 5 = SÃÂ¡bado, 6 = Domingo
+        return False, "Mercado fechado (Fim de semana) Ã°Å¸ÂâÃ¯Â¸Â"
 
-    # Verifica horÃ¡rio
+    # Verifica horÃÂ¡rio
     if agora < pregao:
-        return False, "Mercado fechado (Antes do pregÃ£o) â°"
+        return False, "Mercado fechado (Antes do pregÃÂ£o) Ã¢ÂÂ°"
     elif agora > after:
-        return False, "Mercado fechado (ApÃ³s after-market) ðŸŒ™"
+        return False, "Mercado fechado (ApÃÂ³s after-market) Ã°Å¸Åâ¢"
 
-    # Verifica se o sÃ­mbolo estÃ¡ ativo
+    # Verifica se o sÃÂ­mbolo estÃÂ¡ ativo
     symbol_info = get_cached_symbol_info(SYMBOL)
     if symbol_info is None:
-        return False, "SÃ­mbolo nÃ£o encontrado â“"
+        return False, "SÃÂ­mbolo nÃÂ£o encontrado Ã¢Ââ"
 
     if not symbol_info.trade_mode == mt5.SYMBOL_TRADE_MODE_FULL:
-        return False, f"SÃ­mbolo nÃ£o estÃ¡ ativo para trading ({symbol_info.trade_mode}) âš ï¸"
+        return False, f"SÃÂ­mbolo nÃÂ£o estÃÂ¡ ativo para trading ({symbol_info.trade_mode}) Ã¢Å¡Â Ã¯Â¸Â"
 
-    return True, "Mercado aberto âœ…"
+    return True, "Mercado aberto Ã¢Åâ¦"
 
 
 def arredondar_preco(preco: float) -> float:
-    """Arredonda o preÃ§o para a precisÃ£o correta do Mini DÃ³lar (WDO)."""
+    """Arredonda o preÃÂ§o para a precisÃÂ£o correta do Mini DÃÂ³lar (WDO)."""
     return round(preco / TICK_SIZE) * TICK_SIZE
 
 
 def calcular_preco_sl_tp(preco_entrada: float, action: str, sl_points: int, tp_points: int) -> Tuple[float, float]:
-    """Calcula preÃ§os de SL e TP com arredondamento correto, usando pontos (nÃ£o ticks).
-    WDO: tp_points=0 â†’ TP=0 (sem take profit, saÃ­da dinÃ¢mica por GerenciadorDeSaida)."""
+    """Calcula preÃÂ§os de SL e TP com arredondamento correto, usando pontos (nÃÂ£o ticks).
+    WDO: tp_points=0 Ã¢â â TP=0 (sem take profit, saÃÂ­da dinÃÂ¢mica por GerenciadorDeSaida)."""
     from MetaTrader5 import symbol_info
     symbol = SYMBOL
     symbol_info_obj = get_cached_symbol_info(symbol)
     if symbol_info_obj is None:
         raise ValueError(
-            "InformaÃ§Ãµes do sÃ­mbolo indisponÃ­veis para cÃ¡lculo de SL/TP.")
+            "InformaÃÂ§ÃÂµes do sÃÂ­mbolo indisponÃÂ­veis para cÃÂ¡lculo de SL/TP.")
 
     ponto = symbol_info_obj.point
-    # Para WDO: 1 ponto = 1.0 de distÃ¢ncia de preÃ§o (tick = 0.5)
-    # Corrigido: NÃƒO multiplicar por TICK_SIZE (dava fator 2, SL apertado)
+    # Para WDO: 1 ponto = 1.0 de distÃÂ¢ncia de preÃÂ§o (tick = 0.5)
+    # Corrigido: NÃÆO multiplicar por TICK_SIZE (dava fator 2, SL apertado)
     sl_dist = float(sl_points)  # 8 pontos = 8.0
 
-    # Garante distÃ¢ncia mÃ­nima conforme trade_stops_level do broker
+    # Garante distÃÂ¢ncia mÃÂ­nima conforme trade_stops_level do broker
     min_stops_ticks = symbol_info_obj.trade_stops_level  # ex: 5 ticks
     min_dist = max(sl_dist, (min_stops_ticks + 1) * TICK_SIZE)
     if min_dist > sl_dist:
         logging.info(
-            f"ðŸ”§ SL dist ajustada: {sl_dist:.1f} -> {min_dist:.1f} (trade_stops_level={min_stops_ticks})")
+            f"Ã°Å¸âÂ§ SL dist ajustada: {sl_dist:.1f} -> {min_dist:.1f} (trade_stops_level={min_stops_ticks})")
     sl_dist = min_dist
 
-    # TP=0 â†’ sem take profit (saÃ­da dinÃ¢mica)
+    # TP=0 Ã¢â â sem take profit (saÃÂ­da dinÃÂ¢mica)
     tp_dist = float(tp_points) if tp_points > 0 else 0.0
 
     # Log detalhado para debug
     logging.info(
-        f"ðŸ”§ DEBUG SL/TP - Entrada: {preco_entrada:.1f}, AÃ§Ã£o: {action}")
+        f"Ã°Å¸âÂ§ DEBUG SL/TP - Entrada: {preco_entrada:.1f}, AÃÂ§ÃÂ£o: {action}")
     logging.info(
-        f"ðŸ”§ DEBUG SL/TP - SL_POINTS: {sl_points}, TP_POINTS: {tp_points}")
+        f"Ã°Å¸âÂ§ DEBUG SL/TP - SL_POINTS: {sl_points}, TP_POINTS: {tp_points}")
     logging.info(
-        f"ðŸ”§ DEBUG SL/TP - Point: {ponto}, TICK_SIZE: {TICK_SIZE}, TICKS_POR_PONTO: {TICKS_POR_PONTO}")
+        f"Ã°Å¸âÂ§ DEBUG SL/TP - Point: {ponto}, TICK_SIZE: {TICK_SIZE}, TICKS_POR_PONTO: {TICKS_POR_PONTO}")
     logging.info(
-        f"ðŸ”§ DEBUG SL/TP - SL_dist: {sl_dist:.5f}, TP_dist: {tp_dist:.5f}")
+        f"Ã°Å¸âÂ§ DEBUG SL/TP - SL_dist: {sl_dist:.5f}, TP_dist: {tp_dist:.5f}")
 
     if action == 'BUY':
         sl = arredondar_preco(preco_entrada - sl_dist)
@@ -9615,52 +9628,52 @@ def calcular_preco_sl_tp(preco_entrada: float, action: str, sl_points: int, tp_p
         tp = 0.0 if tp_points == 0 else arredondar_preco(preco_entrada - tp_dist)
 
     tp_str = f"{tp:.1f}" if tp > 0 else "0 (sem TP)"
-    logging.info(f"ðŸ”§ DEBUG SL/TP - Calculado: SL={sl:.1f}, TP={tp_str}")
+    logging.info(f"Ã°Å¸âÂ§ DEBUG SL/TP - Calculado: SL={sl:.1f}, TP={tp_str}")
 
-    # ValidaÃ§Ã£o bÃ¡sica
+    # ValidaÃÂ§ÃÂ£o bÃÂ¡sica
     if action == 'BUY':
         if sl >= preco_entrada:
             logging.error(
-                f"âŒ SL invÃ¡lido para BUY: {sl:.1f} >= {preco_entrada:.1f}")
+                f"Ã¢ÂÅ SL invÃÂ¡lido para BUY: {sl:.1f} >= {preco_entrada:.1f}")
         if tp > 0 and tp <= preco_entrada:
             logging.error(
-                f"âŒ TP invÃ¡lido para BUY: {tp:.1f} <= {preco_entrada:.1f}")
+                f"Ã¢ÂÅ TP invÃÂ¡lido para BUY: {tp:.1f} <= {preco_entrada:.1f}")
     else:  # SELL
         if sl <= preco_entrada:
             logging.error(
-                f"âŒ SL invÃ¡lido para SELL: {sl:.1f} <= {preco_entrada:.1f}")
+                f"Ã¢ÂÅ SL invÃÂ¡lido para SELL: {sl:.1f} <= {preco_entrada:.1f}")
         if tp > 0 and tp >= preco_entrada:
             logging.error(
-                f"âŒ TP invÃ¡lido para SELL: {tp:.1f} >= {preco_entrada:.1f}")
+                f"Ã¢ÂÅ TP invÃÂ¡lido para SELL: {tp:.1f} >= {preco_entrada:.1f}")
 
     return sl, tp
 
 
 def calcular_sl_tp_dinamico(preco_entrada: float, acao: str, atr: float) -> Tuple[float, float]:
-    """Calcula preÃ§os de SL e TP com base no ATR e aÃ§Ã£o de compra ou venda."""
+    """Calcula preÃÂ§os de SL e TP com base no ATR e aÃÂ§ÃÂ£o de compra ou venda."""
     symbol_info = get_cached_symbol_info(SYMBOL)
     if symbol_info is None:
-        logging.error("âŒ InformaÃ§Ãµes do sÃ­mbolo indisponÃ­veis")
+        logging.error("Ã¢ÂÅ InformaÃÂ§ÃÂµes do sÃÂ­mbolo indisponÃÂ­veis")
         return calcular_preco_sl_tp(preco_entrada, acao, SL_POINTS, TP_POINTS)
 
-    # ValidaÃ§Ã£o inicial do preÃ§o de entrada
-    if not (100 <= preco_entrada <= 1000000):  # Faixa de preÃ§o razoÃ¡vel para dÃ³lar
-        logging.error(f"âŒ PreÃ§o de entrada invÃ¡lido: {preco_entrada}")
+    # ValidaÃÂ§ÃÂ£o inicial do preÃÂ§o de entrada
+    if not (100 <= preco_entrada <= 1000000):  # Faixa de preÃÂ§o razoÃÂ¡vel para dÃÂ³lar
+        logging.error(f"Ã¢ÂÅ PreÃÂ§o de entrada invÃÂ¡lido: {preco_entrada}")
         return calcular_preco_sl_tp(preco_entrada, acao, SL_POINTS, TP_POINTS)
 
-    # Calcula distÃ¢ncias iniciais em ticks baseadas no ATR
+    # Calcula distÃÂ¢ncias iniciais em ticks baseadas no ATR
     sl_ticks = int(MULTIPLICADOR_SL_ATR * atr / symbol_info.point)
     tp_ticks = int(MULTIPLICADOR_TP_ATR * atr / symbol_info.point)
 
-    # Log para debug das distÃ¢ncias iniciais
+    # Log para debug das distÃÂ¢ncias iniciais
     logging.debug(
-        f"DistÃ¢ncias iniciais - SL: {sl_ticks} ticks | TP: {tp_ticks} ticks")
+        f"DistÃÂ¢ncias iniciais - SL: {sl_ticks} ticks | TP: {tp_ticks} ticks")
 
     # Corrige para faixa segura em ticks
     sl_ticks = min(max(sl_ticks, MIN_TICKS), MAX_TICKS)
     tp_ticks = min(max(tp_ticks, MIN_TICKS), MAX_TICKS)
 
-    # Calcula preÃ§os baseados nos ticks ajustados
+    # Calcula preÃÂ§os baseados nos ticks ajustados
     if acao == "BUY":
         sl_price = preco_entrada - sl_ticks * symbol_info.point
         tp_price = preco_entrada + tp_ticks * symbol_info.point
@@ -9668,18 +9681,18 @@ def calcular_sl_tp_dinamico(preco_entrada: float, acao: str, atr: float) -> Tupl
         sl_price = preco_entrada + sl_ticks * symbol_info.point
         tp_price = preco_entrada - tp_ticks * symbol_info.point
 
-    # Arredonda os preÃ§os
+    # Arredonda os preÃÂ§os
     sl_price = arredondar_preco(sl_price)
     tp_price = arredondar_preco(tp_price)
 
-    # ValidaÃ§Ã£o final dos preÃ§os calculados
-    preco_max = preco_entrada * 1.1  # Limite mÃ¡ximo de 10% acima do preÃ§o
-    preco_min = preco_entrada * 0.9  # Limite mÃ­nimo de 10% abaixo do preÃ§o
+    # ValidaÃÂ§ÃÂ£o final dos preÃÂ§os calculados
+    preco_max = preco_entrada * 1.1  # Limite mÃÂ¡ximo de 10% acima do preÃÂ§o
+    preco_min = preco_entrada * 0.9  # Limite mÃÂ­nimo de 10% abaixo do preÃÂ§o
 
-    # Verifica se os preÃ§os estÃ£o dentro dos limites razoÃ¡veis
+    # Verifica se os preÃÂ§os estÃÂ£o dentro dos limites razoÃÂ¡veis
     if not (preco_min <= sl_price <= preco_max):
         logging.error(
-            f"âŒ SL calculado invÃ¡lido: {sl_price:.1f} (entrada: {preco_entrada:.1f})")
+            f"Ã¢ÂÅ SL calculado invÃÂ¡lido: {sl_price:.1f} (entrada: {preco_entrada:.1f})")
         # Usa fallback seguro
         sl_price = preco_entrada - 500 * \
             symbol_info.point if acao == "BUY" else preco_entrada + 500 * symbol_info.point
@@ -9687,38 +9700,38 @@ def calcular_sl_tp_dinamico(preco_entrada: float, acao: str, atr: float) -> Tupl
 
     if not (preco_min <= tp_price <= preco_max):
         logging.error(
-            f"âŒ TP calculado invÃ¡lido: {tp_price:.1f} (entrada: {preco_entrada:.1f})")
+            f"Ã¢ÂÅ TP calculado invÃÂ¡lido: {tp_price:.1f} (entrada: {preco_entrada:.1f})")
         # Usa fallback seguro
         tp_price = preco_entrada + 1000 * \
             symbol_info.point if acao == "BUY" else preco_entrada - 1000 * symbol_info.point
         tp_price = arredondar_preco(tp_price)
 
-    # ValidaÃ§Ã£o final da direÃ§Ã£o de SL/TP
+    # ValidaÃÂ§ÃÂ£o final da direÃÂ§ÃÂ£o de SL/TP
     if acao == "BUY":
         if sl_price >= preco_entrada or tp_price <= preco_entrada:
             logging.error(
-                f"âŒ DireÃ§Ã£o SL/TP invertida para BUY - SL: {sl_price:.1f}, TP: {tp_price:.1f}, Entrada: {preco_entrada:.1f}")
+                f"Ã¢ÂÅ DireÃÂ§ÃÂ£o SL/TP invertida para BUY - SL: {sl_price:.1f}, TP: {tp_price:.1f}, Entrada: {preco_entrada:.1f}")
             return calcular_preco_sl_tp(preco_entrada, acao, SL_POINTS, TP_POINTS)
     else:  # SELL
         if sl_price <= preco_entrada or tp_price >= preco_entrada:
             logging.error(
-                f"âŒ DireÃ§Ã£o SL/TP invertida para SELL - SL: {sl_price:.1f}, TP:{tp_price:.1f}, Entrada: {preco_entrada:.1f}")
+                f"Ã¢ÂÅ DireÃÂ§ÃÂ£o SL/TP invertida para SELL - SL: {sl_price:.1f}, TP:{tp_price:.1f}, Entrada: {preco_entrada:.1f}")
             return calcular_preco_sl_tp(preco_entrada, acao, SL_POINTS, TP_POINTS)
 
-    # Log das distÃ¢ncias finais
+    # Log das distÃÂ¢ncias finais
     sl_dist_final = abs(sl_price - preco_entrada) / symbol_info.point
     tp_dist_final = abs(tp_price - preco_entrada) / symbol_info.point
     logging.info(
-        f"DistÃ¢ncias finais - SL: {sl_dist_final} ticks | TP: {tp_dist_final} ticks")
+        f"DistÃÂ¢ncias finais - SL: {sl_dist_final} ticks | TP: {tp_dist_final} ticks")
 
     return sl_price, tp_price
 
 
 def verificar_spread_maximo(symbol_info: Any, tick_info: Any) -> bool:
-    """Verifica se o spread estÃ¡ dentro do limite mÃ¡ximo."""
+    """Verifica se o spread estÃÂ¡ dentro do limite mÃÂ¡ximo."""
     if symbol_info is None or tick_info is None:
         logging.error(
-            "âŒ Dados do sÃ­mbolo ou tick indisponÃ­veis para verificar spread")
+            "Ã¢ÂÅ Dados do sÃÂ­mbolo ou tick indisponÃÂ­veis para verificar spread")
         return False
 
     spread_atual = (tick_info.ask - tick_info.bid) / symbol_info.point
@@ -9726,10 +9739,10 @@ def verificar_spread_maximo(symbol_info: Any, tick_info: Any) -> bool:
 
     if spread_em_pontos > MAX_SPREAD:
         logging.warning(
-            f"âš ï¸ Spread alto: {spread_em_pontos:.1f} pontos (mÃ¡x: {MAX_SPREAD})")
+            f"Ã¢Å¡Â Ã¯Â¸Â Spread alto: {spread_em_pontos:.1f} pontos (mÃÂ¡x: {MAX_SPREAD})")
         return False
 
-    logging.info(f"âœ… Spread OK: {spread_em_pontos:.1f} pontos")
+    logging.info(f"Ã¢Åâ¦ Spread OK: {spread_em_pontos:.1f} pontos")
     return True
 
 # endregion
@@ -9738,7 +9751,7 @@ def verificar_spread_maximo(symbol_info: Any, tick_info: Any) -> bool:
 
 
 class PosicaoAtiva:
-    """MantÃ©m informaÃ§Ãµes sobre a posiÃ§Ã£o ativa."""
+    """MantÃÂ©m informaÃÂ§ÃÂµes sobre a posiÃÂ§ÃÂ£o ativa."""
 
     def __init__(self, ticket: int, tipo: str, preco_entrada: float,
                  sl: float, tp: float, score_inicial: float, entry_context: Optional[Dict[str, Any]] = None):
@@ -9751,12 +9764,12 @@ class PosicaoAtiva:
         self.score_maximo = score_inicial
         self.hora_entrada = datetime.now()
         self.travado = False
-        self.historico_scores = [score_inicial]  # HistÃ³rico para mÃ©dia mÃ³vel
+        self.historico_scores = [score_inicial]  # HistÃÂ³rico para mÃÂ©dia mÃÂ³vel
         self.entry_context = entry_context  # Novo atributo
-        self.volume = VOLUME_PADRAO  # CORREÃ‡ÃƒO: Adicionar volume padrÃ£o
+        self.volume = VOLUME_PADRAO  # CORREÃâ¡ÃÆO: Adicionar volume padrÃÂ£o
 
     def adicionar_score(self, score: float) -> float:
-        """Adiciona score ao histÃ³rico e retorna mÃ©dia mÃ³vel."""
+        """Adiciona score ao histÃÂ³rico e retorna mÃÂ©dia mÃÂ³vel."""
         self.historico_scores.append(score)
         if len(self.historico_scores) > JANELA_SUAVIZACAO:
             self.historico_scores.pop(0)
@@ -9764,60 +9777,60 @@ class PosicaoAtiva:
 
 
 def monitorar_posicao_ativa(posicao: PosicaoAtiva) -> None:
-    """Monitora uma posiÃ§Ã£o ativa e aplica critÃ©rios de saÃ­da inteligente."""
+    """Monitora uma posiÃÂ§ÃÂ£o ativa e aplica critÃÂ©rios de saÃÂ­da inteligente."""
     tempo_posicao = (datetime.now() - posicao.hora_entrada).total_seconds()
     if tempo_posicao < TEMPO_MIN_POSICAO:
         return
 
     tick = mt5.symbol_info_tick(SYMBOL)
     if tick is None:
-        logging.warning("âš ï¸ Tick indisponÃ­vel para monitoramento")
+        logging.warning("Ã¢Å¡Â Ã¯Â¸Â Tick indisponÃÂ­vel para monitoramento")
         return
 
     preco_atual = tick.bid if posicao.tipo == "SELL" else tick.ask
 
-    # ========== INTEGRAÃ‡ÃƒO MELHORIA 1: TRAILING STOP INTELIGENTE ==========
+    # ========== INTEGRAÃâ¡ÃÆO MELHORIA 1: TRAILING STOP INTELIGENTE ==========
     if trailing_stop and TRAILING_ATIVO:
         novo_sl = trailing_stop.atualizar_trailing(preco_atual, posicao.tipo)
         if novo_sl:
-            # USAR FUNÃ‡ÃƒO CORRIGIDA com validaÃ§Ã£o de distÃ¢ncia mÃ­nima
+            # USAR FUNÃâ¡ÃÆO CORRIGIDA com validaÃÂ§ÃÂ£o de distÃÂ¢ncia mÃÂ­nima
             if atualizar_sl(posicao.ticket, novo_sl):
                 posicao.sl = novo_sl
 
-    # ========== SAÃDA INTELIGENTE ULTRA RESTRITIVA (+MÃXIMA ACERTIVIDADE) ==========
+    # ========== SAÃÂDA INTELIGENTE ULTRA RESTRITIVA (+MÃÂXIMA ACERTIVIDADE) ==========
     lucro_atual = calcular_lucro_posicao(posicao, preco_atual)
     lucro_maximo = getattr(posicao, 'lucro_maximo', lucro_atual)
 
-    # Atualiza lucro mÃ¡ximo
+    # Atualiza lucro mÃÂ¡ximo
     if lucro_atual > lucro_maximo:
         posicao.lucro_maximo = lucro_atual
         lucro_maximo = lucro_atual
 
-    # REGRA 1: Timeout sem evoluÃ§Ã£o (MAIS RESTRITIVO - 2 minutos)
+    # REGRA 1: Timeout sem evoluÃÂ§ÃÂ£o (MAIS RESTRITIVO - 2 minutos)
     if tempo_posicao > 120 and lucro_atual <= 15:  # 2 min sem aevoluir
         logging.info(
-            f"â° SAÃDA POR TIMEOUT: {tempo_posicao:.0f}s sem evoluÃ§Ã£o (lucro: R${lucro_atual:.2f})")
-        fechar_posicao_score(posicao, "timeout sem evoluÃ§Ã£o", 0.0)
+            f"Ã¢ÂÂ° SAÃÂDA POR TIMEOUT: {tempo_posicao:.0f}s sem evoluÃÂ§ÃÂ£o (lucro: R${lucro_atual:.2f})")
+        fechar_posicao_score(posicao, "timeout sem evoluÃÂ§ÃÂ£o", 0.0)
         return
 
-    # REGRA 2: Lucro derretendo (PROTEÃ‡ÃƒO AGRESSIVA)
+    # REGRA 2: Lucro derretendo (PROTEÃâ¡ÃÆO AGRESSIVA)
     if lucro_maximo > 40 and lucro_atual < lucro_maximo * 0.8:  # Perdeu 20% do pico
         logging.info(
-            f"ðŸ“‰ SAÃDA POR PROTEÃ‡ÃƒO: Lucro caiu de R${lucro_maximo:.2f} para R${lucro_atual:.2f}")
-        fechar_posicao_score(posicao, "proteÃ§Ã£o de lucro", 0.0)
+            f"Ã°Å¸ââ° SAÃÂDA POR PROTEÃâ¡ÃÆO: Lucro caiu de R${lucro_maximo:.2f} para R${lucro_atual:.2f}")
+        fechar_posicao_score(posicao, "proteÃÂ§ÃÂ£o de lucro", 0.0)
         return
 
-    # REGRA 3: Breakeven apÃ³s tempo (MAIS AGRESSIVO)
+    # REGRA 3: Breakeven apÃÂ³s tempo (MAIS AGRESSIVO)
     if tempo_posicao > 90 and lucro_atual <= 0:  # 1.5 min no zero/negativo
-        logging.info(f"ðŸš« SAÃDA POR BREAKEVEN: {tempo_posicao:.0f}s sem lucro")
+        logging.info(f"Ã°Å¸Å¡Â« SAÃÂDA POR BREAKEVEN: {tempo_posicao:.0f}s sem lucro")
         fechar_posicao_score(posicao, "breakeven preventivo", 0.0)
         return
 
-    # REGRA 4: Lucro pequeno hÃ¡ muito tempo (NOVA REGRA)
+    # REGRA 4: Lucro pequeno hÃÂ¡ muito tempo (NOVA REGRA)
     if tempo_posicao > 180 and 0 < lucro_atual < 25:  # 3 min com lucro pequeno
         logging.info(
-            f"ðŸŒ SAÃDA POR ESTAGNAÃ‡ÃƒO: Lucro pequeno R${lucro_atual:.2f} hÃ¡ {tempo_posicao:.0f}s")
-        fechar_posicao_score(posicao, "estagnaÃ§Ã£o", 0.0)
+            f"Ã°Å¸ÂÅ SAÃÂDA POR ESTAGNAÃâ¡ÃÆO: Lucro pequeno R${lucro_atual:.2f} hÃÂ¡ {tempo_posicao:.0f}s")
+        fechar_posicao_score(posicao, "estagnaÃÂ§ÃÂ£o", 0.0)
         return
 
     score_atual = calcular_score_distancia(
@@ -9834,26 +9847,26 @@ def monitorar_posicao_ativa(posicao: PosicaoAtiva) -> None:
     # Fechamento por score mais responsivo
     if posicao.score_maximo > 0.5 and score_suavizado < 0.2:
         fechar_posicao_score(
-            posicao, "queda de score pÃ³s-lucro", score_suavizado)
+            posicao, "queda de score pÃÂ³s-lucro", score_suavizado)
         return
 
-    # CritÃ©rios jÃ¡ existentes
+    # CritÃÂ©rios jÃÂ¡ existentes
     if verificar_inversao_score(posicao, score_atual):
-        fechar_posicao_score(posicao, "inversÃ£o de direÃ§Ã£o", score_suavizado)
+        fechar_posicao_score(posicao, "inversÃÂ£o de direÃÂ§ÃÂ£o", score_suavizado)
     elif verificar_enfraquecimento(posicao, score_atual):
         if not posicao.travado:
             travar_lucro(posicao, score_atual)
 
 
 def obter_contexto_completo() -> Optional[Dict]:
-    """ObtÃ©m o contexto completo atual para anÃ¡lise de qualidade do setup."""
+    """ObtÃÂ©m o contexto completo atual para anÃÂ¡lise de qualidade do setup."""
     try:
-        # ObtÃ©m dados do book (nativo, direto do MT5)
+        # ObtÃÂ©m dados do book (nativo, direto do MT5)
         book_data = ler_book_nativo()
         if not book_data:
             return None
 
-        # ObtÃ©m dados de mercado
+        # ObtÃÂ©m dados de mercado
         rates = mt5.copy_rates_from_pos(SYMBOL, TIMEFRAME, 0, 50)
         if rates is None or len(rates) == 0:
             return None
@@ -9863,9 +9876,9 @@ def obter_contexto_completo() -> Optional[Dict]:
         atr = calcular_atr(df_rates['high'].tolist(
         ), df_rates['low'].tolist(), df_rates['close'].tolist(), 14)
         rsi = calcular_rsi(df_rates['close'].tolist(), period=14)
-        # CORREÃ‡ÃƒO: Calcula entropia considerando formato JSON
+        # CORREÃâ¡ÃÆO: Calcula entropia considerando formato JSON
         if isinstance(book_data['bids'][0], dict):
-            # Formato JSON: extrai volumes dos dicionÃ¡rios
+            # Formato JSON: extrai volumes dos dicionÃÂ¡rios
             volumes_bid = [item['volume'] for item in book_data['bids']]
             volumes_ask = [item['volume'] for item in book_data['asks']]
             entropia = calcular_entropia(volumes_bid + volumes_ask)
@@ -9877,9 +9890,9 @@ def obter_contexto_completo() -> Optional[Dict]:
         tick = mt5.symbol_info_tick(SYMBOL)
         spread = (tick.ask - tick.bid) / TICK_SIZE if tick else 0
 
-        # ðŸ”§ CORREÃ‡ÃƒO CRÃTICA 2: Calcula volumes corretamente baseado no formato
+        # Ã°Å¸âÂ§ CORREÃâ¡ÃÆO CRÃÂTICA 2: Calcula volumes corretamente baseado no formato
         if isinstance(book_data['bids'][0], dict):
-            # Formato JSON: extrai volumes dos dicionÃ¡rios
+            # Formato JSON: extrai volumes dos dicionÃÂ¡rios
             bid_qty = sum(item['volume'] for item in book_data['bids'])
             ask_qty = sum(item['volume'] for item in book_data['asks'])
         else:
@@ -9896,7 +9909,7 @@ def obter_contexto_completo() -> Optional[Dict]:
             'spread': spread
         }
 
-        # Adiciona sinal DOL ao contexto (referÃªncia institucional)
+        # Adiciona sinal DOL ao contexto (referÃÂªncia institucional)
         book_dol_data = ler_book_dol()
         sinal_dol = analisar_sinal_dol(book_dol_data)
         contexto['dol_ratio'] = sinal_dol.get('ratio', 1.0)
@@ -9906,12 +9919,12 @@ def obter_contexto_completo() -> Optional[Dict]:
 
         return contexto
     except Exception as e:
-        logging.error(f"âŒ Erro ao obter contexto completo: {e}")
+        logging.error(f"Ã¢ÂÅ Erro ao obter contexto completo: {e}")
         return None
 
 
 def calcular_lucro_posicao(posicao: PosicaoAtiva, preco_atual: float) -> float:
-    """Calcula o lucro atual da posiÃ§Ã£o em reais."""
+    """Calcula o lucro atual da posiÃÂ§ÃÂ£o em reais."""
     if posicao.tipo == "BUY":
         diferenca_pontos = (preco_atual - posicao.preco_entrada) / TICK_SIZE
     else:  # SELL
@@ -9923,14 +9936,14 @@ def calcular_lucro_posicao(posicao: PosicaoAtiva, preco_atual: float) -> float:
 
 
 def verificar_inversao_score(posicao: PosicaoAtiva, score_atual: float) -> bool:
-    """Verifica se houve inversÃ£o significativa no score."""
-    # InversÃ£o de positivo para negativo (mais conservador)
+    """Verifica se houve inversÃÂ£o significativa no score."""
+    # InversÃÂ£o de positivo para negativo (mais conservador)
     if posicao.score_inicial > 0 and score_atual < THRESHOLD_INVERSAO_SCORE:
         return True
-    # InversÃ£o de negativo para positivo (mais conservador)
+    # InversÃÂ£o de negativo para positivo (mais conservador)
     if posicao.score_inicial < 0 and score_atual > abs(THRESHOLD_INVERSAO_SCORE):
         return True
-    # Queda abrupta do mÃ¡ximo (usando score suavizado)
+    # Queda abrupta do mÃÂ¡ximo (usando score suavizado)
     if (posicao.score_maximo > SCORE_LOCK_PROFIT and
             score_atual < posicao.score_maximo - INVERSAO_SCORE_MIN):
         return True
@@ -9938,7 +9951,7 @@ def verificar_inversao_score(posicao: PosicaoAtiva, score_atual: float) -> bool:
 
 
 def verificar_enfraquecimento(posicao: PosicaoAtiva, score_atual: float) -> bool:
-    """Verifica se o movimento estÃ¡ enfraquecendo e precisa travar lucro."""
+    """Verifica se o movimento estÃÂ¡ enfraquecendo e precisa travar lucro."""
     if not posicao.travado:
         if score_atual > SCORE_LOCK_PROFIT:
             return True
@@ -9952,11 +9965,11 @@ def travar_lucro(posicao: PosicaoAtiva, score_atual: float) -> None:
     tick = mt5.symbol_info_tick(SYMBOL)
     symbol_info = get_cached_symbol_info(SYMBOL)
     if tick is None or symbol_info is None:
-        logging.warning("[travar_lucro] Tick ou SymbolInfo indisponÃ­vel.")
+        logging.warning("[travar_lucro] Tick ou SymbolInfo indisponÃÂ­vel.")
         return
 
     logging.debug(
-        f"[travar_lucro] PosiÃ§Ã£o: Tipo={posicao.tipo}, Entrada={posicao.preco_entrada:.3f}")
+        f"[travar_lucro] PosiÃÂ§ÃÂ£o: Tipo={posicao.tipo}, Entrada={posicao.preco_entrada:.3f}")
     logging.debug(
         f"[travar_lucro] Tick Atual: Ask={tick.ask:.3f}, Bid={tick.bid:.3f}")
 
@@ -9964,53 +9977,53 @@ def travar_lucro(posicao: PosicaoAtiva, score_atual: float) -> None:
     if posicao.tipo == "BUY":
         movimento = max(0, tick.bid - posicao.preco_entrada)
         novo_sl = posicao.preco_entrada + movimento * 0.3
-        # Nunca mova o SL para baixo do preÃ§o de entrada (com margem de 1 tick)
+        # Nunca mova o SL para baixo do preÃÂ§o de entrada (com margem de 1 tick)
         novo_sl = max(novo_sl, posicao.preco_entrada - symbol_info.point)
     else:
         movimento = max(0, posicao.preco_entrada - tick.ask)
         novo_sl = posicao.preco_entrada - movimento * 0.3
-        # Nunca mova o SL para cima do preÃ§o de entrada (com margem de 1 tick)
+        # Nunca mova o SL para cima do preÃÂ§o de entrada (com margem de 1 tick)
         novo_sl = min(novo_sl, posicao.preco_entrada + symbol_info.point)
 
-    # Limite de seguranÃ§a: SL nÃ£o pode ficar mais de 2x o stop original de distÃ¢ncia
-    sl_dist_original_ticks = SL_POINTS * TICKS_POR_PONTO  # SL_POINTS Ã© em pontos
-    # sl_max_dist_ticks = sl_dist_original_ticks * 2 # NÃ£o parece estar sendo usado, mas a ideia de limitar Ã© boa.
+    # Limite de seguranÃÂ§a: SL nÃÂ£o pode ficar mais de 2x o stop original de distÃÂ¢ncia
+    sl_dist_original_ticks = SL_POINTS * TICKS_POR_PONTO  # SL_POINTS ÃÂ© em pontos
+    # sl_max_dist_ticks = sl_dist_original_ticks * 2 # NÃÂ£o parece estar sendo usado, mas a ideia de limitar ÃÂ© boa.
 
     logging.debug(
-        f"[travar_lucro] Novo SL (calculado, antes de arredondar e limites de seguranÃ§a): {novo_sl:.3f}, Movimento: {movimento:.3f}")
+        f"[travar_lucro] Novo SL (calculado, antes de arredondar e limites de seguranÃÂ§a): {novo_sl:.3f}, Movimento: {movimento:.3f}")
 
-    # Limites de seguranÃ§a baseados no preÃ§o de entrada e um mÃºltiplo do SL original em pontos
-    # Convertendo SL_MAX_POINTS para valor de preÃ§o
+    # Limites de seguranÃÂ§a baseados no preÃÂ§o de entrada e um mÃÂºltiplo do SL original em pontos
+    # Convertendo SL_MAX_POINTS para valor de preÃÂ§o
     max_sl_dev = SL_MAX_POINTS * TICKS_POR_PONTO * symbol_info.point
     if posicao.tipo == "BUY":
         sl_limite_inferior = posicao.preco_entrada - max_sl_dev
-        # Garante que nÃ£o seja muito longe pra baixo
+        # Garante que nÃÂ£o seja muito longe pra baixo
         novo_sl = max(novo_sl, sl_limite_inferior)
     else:  # SELL
         sl_limite_superior = posicao.preco_entrada + max_sl_dev
-        # Garante que nÃ£o seja muito longe pra cima
+        # Garante que nÃÂ£o seja muito longe pra cima
         novo_sl = min(novo_sl, sl_limite_superior)
 
     logging.debug(
-        f"[travar_lucro] Novo SL (apÃ³s limites de seguranÃ§a adicionais): {novo_sl:.3f}")
+        f"[travar_lucro] Novo SL (apÃÂ³s limites de seguranÃÂ§a adicionais): {novo_sl:.3f}")
 
     novo_sl_arredondado = arredondar_preco(novo_sl)
     logging.debug(
-        f"[travar_lucro] Novo SL (apÃ³s arredondar_preco): {novo_sl_arredondado:.3f}")
+        f"[travar_lucro] Novo SL (apÃÂ³s arredondar_preco): {novo_sl_arredondado:.3f}")
 
     if atualizar_sl(posicao.ticket, novo_sl_arredondado):
         posicao.sl = novo_sl_arredondado
         posicao.travado = True
         logging.info(
-            f"ðŸ”’ Lucro travado em {novo_sl_arredondado:.2f} (Score: {score_atual:.2f})")
+            f"Ã°Å¸ââ Lucro travado em {novo_sl_arredondado:.2f} (Score: {score_atual:.2f})")
 
 
 def fechar_posicao_atual(motivo: str = "Fechamento manual") -> bool:
-    """Fecha a posiÃ§Ã£o atual ativa â€” detecta filling aceito pela corretora automaticamente."""
+    """Fecha a posiÃÂ§ÃÂ£o atual ativa Ã¢â¬â detecta filling aceito pela corretora automaticamente."""
     global posicao_atual
 
     if posicao_atual is None:
-        logging.warning("Nenhuma posiÃ§Ã£o ativa para fechar")
+        logging.warning("Nenhuma posiÃÂ§ÃÂ£o ativa para fechar")
         return False
 
     try:
@@ -10022,12 +10035,12 @@ def fechar_posicao_atual(motivo: str = "Fechamento manual") -> bool:
         tipo_ordem = mt5.ORDER_TYPE_SELL if posicao_atual.tipo == "BUY" else mt5.ORDER_TYPE_BUY
         preco = tick.bid if posicao_atual.tipo == "BUY" else tick.ask
 
-        # Detecta filling aceito pelo sÃ­mbolo na corretora
+        # Detecta filling aceito pelo sÃÂ­mbolo na corretora
         info = mt5.symbol_info(SYMBOL)
         filling_mode = info.filling_mode if info else 0
 
-        # Monta lista de fillings na ordem de preferÃªncia
-        # filling_mode Ã© bitmask: 1=FOK, 2=IOC, 4=RETURN
+        # Monta lista de fillings na ordem de preferÃÂªncia
+        # filling_mode ÃÂ© bitmask: 1=FOK, 2=IOC, 4=RETURN
         fillings_disponiveis = []
         if filling_mode & 1:
             fillings_disponiveis.append(mt5.ORDER_FILLING_FOK)
@@ -10036,7 +10049,7 @@ def fechar_posicao_atual(motivo: str = "Fechamento manual") -> bool:
         if filling_mode & 4:
             fillings_disponiveis.append(mt5.ORDER_FILLING_RETURN)
 
-        # Fallback: tenta todos se nÃ£o conseguiu detectar
+        # Fallback: tenta todos se nÃÂ£o conseguiu detectar
         if not fillings_disponiveis:
             fillings_disponiveis = [
                 mt5.ORDER_FILLING_FOK,
@@ -10045,7 +10058,7 @@ def fechar_posicao_atual(motivo: str = "Fechamento manual") -> bool:
             ]
 
         logging.debug(
-            f"ðŸ”§ Fillings disponÃ­veis para {SYMBOL}: {fillings_disponiveis}")
+            f"Ã°Å¸âÂ§ Fillings disponÃÂ­veis para {SYMBOL}: {fillings_disponiveis}")
 
         for filling in fillings_disponiveis:
             request = {
@@ -10066,7 +10079,7 @@ def fechar_posicao_atual(motivo: str = "Fechamento manual") -> bool:
 
             if resultado is None:
                 logging.warning(
-                    f"âš ï¸ order_send None (filling={filling}), reconectando...")
+                    f"Ã¢Å¡Â Ã¯Â¸Â order_send None (filling={filling}), reconectando...")
                 reconectar_mt5()
                 time.sleep(0.5)
                 tick = mt5.symbol_info_tick(SYMBOL)
@@ -10077,26 +10090,26 @@ def fechar_posicao_atual(motivo: str = "Fechamento manual") -> bool:
 
             if resultado is not None and resultado.retcode == mt5.TRADE_RETCODE_DONE:
                 logging.info(
-                    f"âœ… PosiÃ§Ã£o {posicao_atual.ticket} fechada (filling={filling}): {motivo}")
+                    f"Ã¢Åâ¦ PosiÃÂ§ÃÂ£o {posicao_atual.ticket} fechada (filling={filling}): {motivo}")
                 return True
             elif resultado is not None:
-                # Retcodes que indicam posiÃ§Ã£o jÃ¡ fechada pelo MT5 (TP/SL/manual)
-                # Trata como sucesso â€” a posiÃ§Ã£o nÃ£o existe mais de qualquer forma
+                # Retcodes que indicam posiÃÂ§ÃÂ£o jÃÂ¡ fechada pelo MT5 (TP/SL/manual)
+                # Trata como sucesso Ã¢â¬â a posiÃÂ§ÃÂ£o nÃÂ£o existe mais de qualquer forma
                 retcodes_posicao_fechada = [
                     10009,  # TRADE_RETCODE_DONE
                     10010,  # TRADE_RETCODE_DONE_PARTIAL
-                    10015,  # TRADE_RETCODE_INVALID_PRICE â€” preÃ§o mudou, posiÃ§Ã£o jÃ¡ fechou
+                    10015,  # TRADE_RETCODE_INVALID_PRICE Ã¢â¬â preÃÂ§o mudou, posiÃÂ§ÃÂ£o jÃÂ¡ fechou
                     10016,  # TRADE_RETCODE_INVALID_STOPS
                     10018,  # TRADE_RETCODE_MARKET_CLOSED
-                    10019,  # TRADE_RETCODE_NO_MONEY â€” nÃ£o aplica mas posiÃ§Ã£o foi
-                    10030,  # TRADE_RETCODE_POSITION_CLOSED â€” posiÃ§Ã£o jÃ¡ encerrada
+                    10019,  # TRADE_RETCODE_NO_MONEY Ã¢â¬â nÃÂ£o aplica mas posiÃÂ§ÃÂ£o foi
+                    10030,  # TRADE_RETCODE_POSITION_CLOSED Ã¢â¬â posiÃÂ§ÃÂ£o jÃÂ¡ encerrada
                 ]
                 if resultado.retcode in retcodes_posicao_fechada:
                     logging.info(
-                        f"âœ… PosiÃ§Ã£o considerada fechada (retcode={resultado.retcode}): {resultado.comment}")
+                        f"Ã¢Åâ¦ PosiÃÂ§ÃÂ£o considerada fechada (retcode={resultado.retcode}): {resultado.comment}")
                     return True
 
-                # Verifica se posiÃ§Ã£o ainda existe no MT5 apÃ³s falha
+                # Verifica se posiÃÂ§ÃÂ£o ainda existe no MT5 apÃÂ³s falha
                 posicoes_check = mt5.positions_get(symbol=SYMBOL)
                 ticket_ainda_aberto = any(
                     p.ticket == posicao_atual.ticket
@@ -10104,23 +10117,23 @@ def fechar_posicao_atual(motivo: str = "Fechamento manual") -> bool:
                 )
                 if not ticket_ainda_aberto:
                     logging.info(
-                        f"âœ… PosiÃ§Ã£o {posicao_atual.ticket} jÃ¡ foi fechada pelo MT5 (detectado apÃ³s retcode={resultado.retcode})")
+                        f"Ã¢Åâ¦ PosiÃÂ§ÃÂ£o {posicao_atual.ticket} jÃÂ¡ foi fechada pelo MT5 (detectado apÃÂ³s retcode={resultado.retcode})")
                     return True
 
                 logging.warning(
-                    f"âš ï¸ Retcode {resultado.retcode} (filling={filling}): {resultado.comment}")
+                    f"Ã¢Å¡Â Ã¯Â¸Â Retcode {resultado.retcode} (filling={filling}): {resultado.comment}")
 
         logging.error(
-            f"âŒ Falha ao fechar posiÃ§Ã£o apÃ³s todos os fillings: {motivo}")
+            f"Ã¢ÂÅ Falha ao fechar posiÃÂ§ÃÂ£o apÃÂ³s todos os fillings: {motivo}")
         return False
 
     except Exception as e:
-        logging.error(f"Erro ao fechar posiÃ§Ã£o atual: {e}")
+        logging.error(f"Erro ao fechar posiÃÂ§ÃÂ£o atual: {e}")
         return False
 
 
 def fechar_posicao_score(posicao: PosicaoAtiva, motivo: str, score_atual: float) -> None:
-    """Fecha posiÃ§Ã£o por critÃ©rio de score."""
+    """Fecha posiÃÂ§ÃÂ£o por critÃÂ©rio de score."""
     request = {
         "action": mt5.TRADE_ACTION_DEAL,
         "position": posicao.ticket,
@@ -10137,57 +10150,57 @@ def fechar_posicao_score(posicao: PosicaoAtiva, motivo: str, score_atual: float)
 
     resultado = mt5.order_send(request)
 
-    # ðŸ”§ CORREÃ‡ÃƒO CRÃTICA 3: Verificar se resultado nÃ£o Ã© None
+    # Ã°Å¸âÂ§ CORREÃâ¡ÃÆO CRÃÂTICA 3: Verificar se resultado nÃÂ£o ÃÂ© None
     if resultado is None:
         logging.error(
-            "âŒ Erro crÃ­tico: mt5.order_send retornou None (falha de conexÃ£o)")
+            "Ã¢ÂÅ Erro crÃÂ­tico: mt5.order_send retornou None (falha de conexÃÂ£o)")
         return
 
     if resultado.retcode == mt5.TRADE_RETCODE_DONE:
         logging.info(
-            f"âš ï¸ PosiÃ§Ã£o fechada por {motivo}. Score inicial: {posicao.score_inicial:.2f}, Score final: {score_atual:.2f}")
+            f"Ã¢Å¡Â Ã¯Â¸Â PosiÃÂ§ÃÂ£o fechada por {motivo}. Score inicial: {posicao.score_inicial:.2f}, Score final: {score_atual:.2f}")
     else:
-        logging.error(f"âŒ Erro ao fechar posiÃ§Ã£o: {resultado.comment}")
+        logging.error(f"Ã¢ÂÅ Erro ao fechar posiÃÂ§ÃÂ£o: {resultado.comment}")
 
 
-def fechar_todas_posicoes(motivo: str = "Encerramento automÃ¡tico") -> int:
-    """Fecha todas as posiÃ§Ãµes abertas do robÃ´."""
+def fechar_todas_posicoes(motivo: str = "Encerramento automÃÂ¡tico") -> int:
+    """Fecha todas as posiÃÂ§ÃÂµes abertas do robÃÂ´."""
     posicoes_fechadas = 0
 
     try:
-        # ObtÃ©m todas as posiÃ§Ãµes abertas
+        # ObtÃÂ©m todas as posiÃÂ§ÃÂµes abertas
         posicoes = mt5.positions_get()
         if not posicoes:
-            logging.info("âœ… Nenhuma posiÃ§Ã£o aberta para fechar")
+            logging.info("Ã¢Åâ¦ Nenhuma posiÃÂ§ÃÂ£o aberta para fechar")
             return 0
 
-        # Filtra apenas posiÃ§Ãµes do robÃ´ (por magic number)
+        # Filtra apenas posiÃÂ§ÃÂµes do robÃÂ´ (por magic number)
         posicoes_monstro = [
             pos for pos in posicoes if pos.magic == MAGIC_NUMBER]
 
         if not posicoes_monstro:
-            logging.info("âœ… Nenhuma posiÃ§Ã£o do Monstro para fechar")
+            logging.info("Ã¢Åâ¦ Nenhuma posiÃÂ§ÃÂ£o do Monstro para fechar")
             return 0
 
         logging.info(
-            f"ðŸ”´ Iniciando fechamento de {len(posicoes_monstro)} posiÃ§Ãµes - {motivo}")
+            f"Ã°Å¸âÂ´ Iniciando fechamento de {len(posicoes_monstro)} posiÃÂ§ÃÂµes - {motivo}")
 
-        # Fecha cada posiÃ§Ã£o
+        # Fecha cada posiÃÂ§ÃÂ£o
         for pos in posicoes_monstro:
             try:
-                # Determina o tipo de ordem necessÃ¡rio para fechar
+                # Determina o tipo de ordem necessÃÂ¡rio para fechar
                 tipo_fechamento = mt5.ORDER_TYPE_SELL if pos.type == mt5.POSITION_TYPE_BUY else mt5.ORDER_TYPE_BUY
 
-                # ObtÃ©m preÃ§o atual
+                # ObtÃÂ©m preÃÂ§o atual
                 tick = mt5.symbol_info_tick(pos.symbol)
                 if not tick:
                     logging.error(
-                        f"âŒ NÃ£o foi possÃ­vel obter tick para {pos.symbol}")
+                        f"Ã¢ÂÅ NÃÂ£o foi possÃÂ­vel obter tick para {pos.symbol}")
                     continue
 
                 preco_fechamento = tick.bid if pos.type == mt5.POSITION_TYPE_BUY else tick.ask
 
-                # Prepara requisiÃ§Ã£o de fechamento
+                # Prepara requisiÃÂ§ÃÂ£o de fechamento
                 request = {
                     "action": mt5.TRADE_ACTION_DEAL,
                     "position": pos.ticket,
@@ -10205,10 +10218,10 @@ def fechar_todas_posicoes(motivo: str = "Encerramento automÃ¡tico") -> int:
                 # Envia ordem de fechamento
                 resultado = mt5.order_send(request)
 
-                # ðŸ”§ CORREÃ‡ÃƒO CRÃTICA 3: Verificar se resultado nÃ£o Ã© None
+                # Ã°Å¸âÂ§ CORREÃâ¡ÃÆO CRÃÂTICA 3: Verificar se resultado nÃÂ£o ÃÂ© None
                 if resultado is None:
                     logging.error(
-                        f"�Œ Erro crÃ­tico: mt5.order_send retornou None para posiÃ§Ã£o #{pos.ticket}")
+                        f"ï¿½Å Erro crÃÂ­tico: mt5.order_send retornou None para posiÃÂ§ÃÂ£o #{pos.ticket}")
                     # PATCH v22.1 CORTE 2: em alta latencia o servidor processa a
                     # ordem mesmo com retorno None (Trade #7). Varre os ultimos 60s
                     # para capturar a execucao real antes de declarar a falha.
@@ -10228,56 +10241,56 @@ def fechar_todas_posicoes(motivo: str = "Encerramento automÃ¡tico") -> int:
                             shadow_registrar_resultado(
                                 pos.ticket, _deal_fecho.profit)
                             logging.info(
-                                f"�… Fecho confirmado via varredura 60s: posicao "
+                                f"ï¿½â¦ Fecho confirmado via varredura 60s: posicao "
                                 f"#{pos.ticket} Lucro={_deal_fecho.profit:.2f}")
                         else:
                             logging.error(
-                                f"âŒ� Falha critica %s: ordem de fecho nao confirmada "
+                                f"Ã¢Åï¿½ Falha critica %s: ordem de fecho nao confirmada "
                                 f"no servidor para #{pos.ticket}", motivo)
                     except Exception as e:
                         logging.error(
-                            f"âŒ� Erro na varredura de fechamento #{pos.ticket}: {e}")
+                            f"Ã¢Åï¿½ Erro na varredura de fechamento #{pos.ticket}: {e}")
                     continue
 
                 if resultado.retcode == mt5.TRADE_RETCODE_DONE:
                     posicoes_fechadas += 1
                     logging.info(
-                        f"âœ… PosiÃ§Ã£o #{pos.ticket} fechada - {pos.symbol} {pos.type} Vol:{pos.volume}")
+                        f"Ã¢Åâ¦ PosiÃÂ§ÃÂ£o #{pos.ticket} fechada - {pos.symbol} {pos.type} Vol:{pos.volume}")
                 else:
                     logging.error(
-                        f"âŒ Erro ao fechar posiÃ§Ã£o #{pos.ticket}: {resultado.retcode} - {resultado.comment}")
+                        f"Ã¢ÂÅ Erro ao fechar posiÃÂ§ÃÂ£o #{pos.ticket}: {resultado.retcode} - {resultado.comment}")
 
             except Exception as e:
                 logging.error(
-                    f"âŒ Erro ao processar posiÃ§Ã£o #{pos.ticket}: {e}")
+                    f"Ã¢ÂÅ Erro ao processar posiÃÂ§ÃÂ£o #{pos.ticket}: {e}")
                 continue
 
         logging.info(
-            f"ðŸ Fechamento concluÃ­do: {posicoes_fechadas} posiÃ§Ãµes fechadas")
+            f"Ã°Å¸ÂÂ Fechamento concluÃÂ­do: {posicoes_fechadas} posiÃÂ§ÃÂµes fechadas")
         return posicoes_fechadas
 
     except Exception as e:
-        logging.error(f"âŒ Erro crÃ­tico ao fechar posiÃ§Ãµes: {e}")
+        logging.error(f"Ã¢ÂÅ Erro crÃÂ­tico ao fechar posiÃÂ§ÃÂµes: {e}")
         return 0
 
 
 def salvar_dados_finais(modelo_ia_local: Optional[Sequential], memoria_experiencias: MemoriaExperiencias) -> None:
     """Salva todos os dados importantes antes do encerramento."""
     try:
-        logging.info("ðŸ’¾ Iniciando salvamento final de dados...")
+        logging.info("Ã°Å¸âÂ¾ Iniciando salvamento final de dados...")
 
         # Salva modelo de IA
         if modelo_ia_local:
             salvar_modelo(modelo_ia_local, MODELO_PATH)
-            logging.info("âœ… Modelo de IA salvo com sucesso")
+            logging.info("Ã¢Åâ¦ Modelo de IA salvo com sucesso")
 
-        # Salva experiÃªncias em JSON
+        # Salva experiÃÂªncias em JSON
         if memoria_experiencias and memoria_experiencias.experiencias:
             salvar_experiencias_json(
                 memoria_experiencias.experiencias, "experiencias_finais.json")
-            logging.info("âœ… ExperiÃªncias salvas em JSON")
+            logging.info("Ã¢Åâ¦ ExperiÃÂªncias salvas em JSON")
 
-        # Salva estatÃ­sticas finais
+        # Salva estatÃÂ­sticas finais
         estatisticas_finais = {
             "timestamp_encerramento": datetime.now().isoformat(),
             "total_experiencias": len(memoria_experiencias.experiencias) if memoria_experiencias else 0,
@@ -10290,25 +10303,25 @@ def salvar_dados_finais(modelo_ia_local: Optional[Sequential], memoria_experienc
 
         with open("estatisticas_finais.json", "w") as f:
             json.dump(estatisticas_finais, f, indent=2)
-        logging.info("âœ… EstatÃ­sticas finais salvas")
+        logging.info("Ã¢Åâ¦ EstatÃÂ­sticas finais salvas")
 
-        # ForÃ§a flush dos logs
-        logging.info("ðŸ’¾ Salvamento final concluÃ­do com sucesso")
+        # ForÃÂ§a flush dos logs
+        logging.info("Ã°Å¸âÂ¾ Salvamento final concluÃÂ­do com sucesso")
 
     except Exception as e:
-        logging.error(f"âŒ Erro ao salvar dados finais: {e}")
+        logging.error(f"Ã¢ÂÅ Erro ao salvar dados finais: {e}")
 
 
 def fechar_conexoes_seguras() -> None:
-    """Fecha todas as conexÃµes de forma segura."""
+    """Fecha todas as conexÃÂµes de forma segura."""
     try:
-        logging.info("ðŸ”Œ Iniciando fechamento seguro de conexÃµes...")
+        logging.info("Ã°Å¸âÅ Iniciando fechamento seguro de conexÃÂµes...")
 
-        # Cancela a subscriÃ§Ã£o do book nativo (Depth of Market) antes de desligar
+        # Cancela a subscriÃÂ§ÃÂ£o do book nativo (Depth of Market) antes de desligar
         try:
             if SYMBOL:
                 mt5.market_book_release(SYMBOL)
-                logging.info(f"ðŸ“• Book nativo liberado para {SYMBOL}")
+                logging.info(f"Ã°Å¸ââ¢ Book nativo liberado para {SYMBOL}")
         except Exception as e:
             logging.debug(f"Falha ao liberar book nativo: {e}")
 
@@ -10316,62 +10329,62 @@ def fechar_conexoes_seguras() -> None:
         try:
             if SYMBOL_DOL:
                 mt5.market_book_release(SYMBOL_DOL)
-                logging.info(f"ðŸ“• Book DOL liberado para {SYMBOL_DOL}")
+                logging.info(f"Ã°Å¸ââ¢ Book DOL liberado para {SYMBOL_DOL}")
         except Exception as e:
             logging.debug(f"Falha ao liberar book DOL: {e}")
 
-        # Fecha conexÃ£o MT5
+        # Fecha conexÃÂ£o MT5
         try:
             if mt5.initialize():
                 mt5.shutdown()
-                logging.info("âœ… ConexÃ£o MT5 fechada")
+                logging.info("Ã¢Åâ¦ ConexÃÂ£o MT5 fechada")
         except Exception as e:
-            logging.error(f"âŒ Erro ao fechar MT5: {e}")
+            logging.error(f"Ã¢ÂÅ Erro ao fechar MT5: {e}")
 
         # Para threads de forma segura
         global thread_ativo
         thread_ativo = False
-        logging.info("âœ… Threads marcadas para encerramento")
+        logging.info("Ã¢Åâ¦ Threads marcadas para encerramento")
 
         # Aguarda um momento para threads terminarem
         time.sleep(2)
 
-        logging.info("ðŸ”Œ Fechamento de conexÃµes concluÃ­do")
+        logging.info("Ã°Å¸âÅ Fechamento de conexÃÂµes concluÃÂ­do")
 
     except Exception as e:
-        logging.error(f"âŒ Erro ao fechar conexÃµes: {e}")
+        logging.error(f"Ã¢ÂÅ Erro ao fechar conexÃÂµes: {e}")
 
 
 def encerramento_seguro_completo(modelo_ia_local: Optional[Sequential], memoria_experiencias: MemoriaExperiencias) -> None:
     """Executa encerramento completo e seguro do sistema."""
     try:
-        logging.info("ðŸ”´ INICIANDO ENCERRAMENTO SEGURO COMPLETO DO SISTEMA")
+        logging.info("Ã°Å¸âÂ´ INICIANDO ENCERRAMENTO SEGURO COMPLETO DO SISTEMA")
 
-        # Passo 1: Fecha todas as posiÃ§Ãµes
+        # Passo 1: Fecha todas as posiÃÂ§ÃÂµes
         posicoes_fechadas = fechar_todas_posicoes(
             "Encerramento seguro do sistema")
-        logging.info(f"âœ… {posicoes_fechadas} posiÃ§Ãµes fechadas")
+        logging.info(f"Ã¢Åâ¦ {posicoes_fechadas} posiÃÂ§ÃÂµes fechadas")
 
         # Passo 2: Salva todos os dados importantes
         salvar_dados_finais(modelo_ia_local, memoria_experiencias)
 
-        # Passo 3: Fecha conexÃµes
+        # Passo 3: Fecha conexÃÂµes
         fechar_conexoes_seguras()
 
         # Passo 4: Log final
-        logging.info("ðŸ ENCERRAMENTO SEGURO CONCLUÃDO COM SUCESSO")
-        logging.info("ðŸ¤– MONSTRO DAS NEGOCIAÃ‡Ã•ES DESLIGADO AUTOMATICAMENTE")
+        logging.info("Ã°Å¸ÂÂ ENCERRAMENTO SEGURO CONCLUÃÂDO COM SUCESSO")
+        logging.info("Ã°Å¸Â¤â MONSTRO DAS NEGOCIAÃâ¡Ãâ¢ES DESLIGADO AUTOMATICAMENTE")
 
-        # Passo 5: ForÃ§a flush final dos logs
+        # Passo 5: ForÃÂ§a flush final dos logs
         for handler in logging.getLogger().handlers:
             handler.flush()
 
         # Passo 6: Encerra o programa
-        logging.info("ðŸ’¤ Sistema sendo desligado...")
-        os._exit(0)  # Encerramento forÃ§ado mas seguro
+        logging.info("Ã°Å¸âÂ¤ Sistema sendo desligado...")
+        os._exit(0)  # Encerramento forÃÂ§ado mas seguro
 
     except Exception as e:
-        logging.error(f"âŒ Erro crÃ­tico no encerramento seguro: {e}")
+        logging.error(f"Ã¢ÂÅ Erro crÃÂ­tico no encerramento seguro: {e}")
         # Mesmo com erro, tenta encerrar
         try:
             os._exit(1)
@@ -10386,13 +10399,13 @@ def encerramento_seguro_completo(modelo_ia_local: Optional[Sequential], memoria_
 def monitorar_spread() -> None:
     """Monitora o spread do mercado."""
     try:
-        # Verifica se Ã© fim de semana
-        if datetime.now().weekday() > 4:  # 5 = SÃ¡bado, 6 = Domingo
+        # Verifica se ÃÂ© fim de semana
+        if datetime.now().weekday() > 4:  # 5 = SÃÂ¡bado, 6 = Domingo
             # Verifica a cada minuto durante fim de semana
             threading.Timer(60, monitorar_spread).start()
             return
 
-        # Resto do cÃ³digo permanece igual...
+        # Resto do cÃÂ³digo permanece igual...
         spreads = []
         while thread_ativo:
             try:
@@ -10404,11 +10417,11 @@ def monitorar_spread() -> None:
                     spread_em_pontos = spread_atual / TICKS_POR_PONTO
 
                     spreads.append(spread_em_pontos)
-                    if len(spreads) > 100:  # MantÃ©m Ãºltimos 100 valores
+                    if len(spreads) > 100:  # MantÃÂ©m ÃÂºltimos 100 valores
                         spreads.pop(0)
 
                     # Log removido: era redundante e bugado (mostrava 0.0). O spread
-                    # real jÃ¡ aparece correto no log de mercado (ex.: "Spread: 5.0pts").
+                    # real jÃÂ¡ aparece correto no log de mercado (ex.: "Spread: 5.0pts").
                     # A coleta de 'spreads' fica mantida caso outra parte precise.
 
                 time.sleep(1)  # Atualiza a cada segundo
@@ -10423,14 +10436,14 @@ def monitorar_spread() -> None:
 # endregion
 
 
-# ========== FILTRO DE TENDÃŠNCIA (SMA-50 + MOMENTUM) ==========
+# ========== FILTRO DE TENDÃÅ NCIA (SMA-50 + MOMENTUM) ==========
 class FiltroTendencia:
-    """Bloqueia operaÃ§Ãµes contra a tendÃªncia usando SMA-50 + momentum.
+    """Bloqueia operaÃÂ§ÃÂµes contra a tendÃÂªncia usando SMA-50 + momentum.
 
-    3 camadas de detecÃ§Ã£o:
-    1. SMA-50: diff > 1.0pt = tendÃªncia (SMA lenta, reage devagar)
-    2. Momentum: subiu >3pts nos Ãºltimos 20 ticks = tendÃªncia de alta
-    3. Consenso: se 2+ sinais concordam, bloqueia com mais forÃ§a
+    3 camadas de detecÃÂ§ÃÂ£o:
+    1. SMA-50: diff > 1.0pt = tendÃÂªncia (SMA lenta, reage devagar)
+    2. Momentum: subiu >3pts nos ÃÂºltimos 20 ticks = tendÃÂªncia de alta
+    3. Consenso: se 2+ sinais concordam, bloqueia com mais forÃÂ§a
     """
 
     def __init__(self, janela: int = 50, margem_pts: float = 1.0):
@@ -10443,7 +10456,7 @@ class FiltroTendencia:
         self._ultima_decisao_veto_sell = False
 
     def registrar_preco(self, preco: float):
-        """Registra preÃ§o UMA VEZ por ciclo (evita dupla registro)."""
+        """Registra preÃÂ§o UMA VEZ por ciclo (evita dupla registro)."""
         if preco != self._preco_registrado_ultimo_tick:
             self.historico_precos.append(preco)
             self._preco_registrado_ultimo_tick = preco
@@ -10456,7 +10469,7 @@ class FiltroTendencia:
         return sum(self.historico_precos) / len(self.historico_precos)
 
     def calcular_momentum(self) -> tuple:
-        """Detecta momentum: compara preÃ§o atual com preÃ§o de 20 ticks atrÃ¡s.
+        """Detecta momentum: compara preÃÂ§o atual com preÃÂ§o de 20 ticks atrÃÂ¡s.
         Retorna: (momentum_pts, direcao)"""
         if len(self.historico_precos) < 20:
             return 0.0, "NEUTRO"
@@ -10470,8 +10483,8 @@ class FiltroTendencia:
         return momentum, "NEUTRO"
 
     def avaliar_tendencia(self, preco_atual: float) -> dict:
-        """Avalia tendÃªncia completa e retorna dict com resultado.
-        Chamar UMA VEZ por ciclo â€” NÃƒO chamar para BUY e SELL separadamente."""
+        """Avalia tendÃÂªncia completa e retorna dict com resultado.
+        Chamar UMA VEZ por ciclo Ã¢â¬â NÃÆO chamar para BUY e SELL separadamente."""
         self.registrar_preco(preco_atual)
         sma = self.calcular_sma()
         momentum_pts, momentum_dir = self.calcular_momentum()
@@ -10494,15 +10507,15 @@ class FiltroTendencia:
         diff = preco_atual - sma
         resultado['diff'] = diff
 
-        # â”€â”€ Camada 1: SMA-50 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # Ã¢ââ¬Ã¢ââ¬ Camada 1: SMA-50 Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬
         sma_tendencia = abs(diff) > self.margem_pts
 
-        # â”€â”€ Camada 2: Momentum (20 ticks) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # Ã¢ââ¬Ã¢ââ¬ Camada 2: Momentum (20 ticks) Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬
         momentum_tendencia = momentum_dir != "NEUTRO"
 
-        # â”€â”€ Camada 3: Consenso â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        # Se SMA e momentum concordam â†’ tendÃªncia forte
-        # Se sÃ³ um detecta â†’ tendÃªncia fraca (ainda bloqueia)
+        # Ã¢ââ¬Ã¢ââ¬ Camada 3: Consenso Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬
+        # Se SMA e momentum concordam Ã¢â â tendÃÂªncia forte
+        # Se sÃÂ³ um detecta Ã¢â â tendÃÂªncia fraca (ainda bloqueia)
         em_tendencia = sma_tendencia or momentum_tendencia
         resultado['em_tendencia'] = em_tendencia
 
@@ -10517,27 +10530,27 @@ class FiltroTendencia:
             resultado['motivo'] = f"LATERAL: Diff={diff:+.1f}pts, Momentum={momentum_pts:+.1f}pts"
             return resultado
 
-        # â”€â”€ DecisÃ£o de veto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        # TendÃªncia de ALTA: bloqueia SELL
+        # Ã¢ââ¬Ã¢ââ¬ DecisÃÂ£o de veto Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬
+        # TendÃÂªncia de ALTA: bloqueia SELL
         if diff > self.margem_pts or momentum_dir == "ALTA":
             resultado['veto_sell'] = True
             resultado['motivo'] = (
                 f"TENDENCIA DE ALTA: Preco {diff:+.1f}pts acima SMA, "
                 f"Momentum {momentum_pts:+.1f}pts")
             if not self._ultima_decisao_veto_sell:
-                logging.info(f"ðŸš« TENDENCIA BLOQUEIA SELL: {resultado['motivo']}")
+                logging.info(f"Ã°Å¸Å¡Â« TENDENCIA BLOQUEIA SELL: {resultado['motivo']}")
             self._ultima_decisao_veto_sell = True
         else:
             self._ultima_decisao_veto_sell = False
 
-        # TendÃªncia de BAIXA: bloqueia BUY
+        # TendÃÂªncia de BAIXA: bloqueia BUY
         if diff < -self.margem_pts or momentum_dir == "BAIXA":
             resultado['veto_buy'] = True
             resultado['motivo'] = (
                 f"TENDENCIA DE BAIXA: Preco {diff:+.1f}pts abaixo SMA, "
                 f"Momentum {momentum_pts:+.1f}pts")
             if not self._ultima_decisao_veto_buy:
-                logging.info(f"ðŸš« TENDENCIA BLOQUEIA BUY: {resultado['motivo']}")
+                logging.info(f"Ã°Å¸Å¡Â« TENDENCIA BLOQUEIA BUY: {resultado['motivo']}")
             self._ultima_decisao_veto_buy = True
         else:
             self._ultima_decisao_veto_buy = False
@@ -10545,7 +10558,7 @@ class FiltroTendencia:
         return resultado
 
     def pode_operar(self, direcao: str, preco_atual: float) -> tuple:
-        """Compatibilidade: avalia e retorna (pode, motivo) para uma direÃ§Ã£o."""
+        """Compatibilidade: avalia e retorna (pode, motivo) para uma direÃÂ§ÃÂ£o."""
         resultado = self.avaliar_tendencia(preco_atual)
         if direcao == "BUY":
             return not resultado['veto_buy'], resultado['motivo']
@@ -10558,21 +10571,21 @@ filtro_tendencia = FiltroTendencia(janela=50, margem_pts=4.5)
 
 # ========== FILTRO MEAN REVERSION (RSI + Z-Score + ADX) ==========
 class FiltroMeanReversion:
-    """Sistema de 3 camadas para filtrar operaÃ§Ãµes por reversÃ£o Ã  mÃ©dia.
+    """Sistema de 3 camadas para filtrar operaÃÂ§ÃÂµes por reversÃÂ£o ÃÂ  mÃÂ©dia.
 
     Camada 1 - RSI por Zonas (70/50/30):
-        RSI > 70 â†’ sobrecomprado â†’ bloqueia BUY (sÃ³ permite SELL)
-        RSI < 30 â†’ sobrevendido â†’ bloqueia SELL (sÃ³ permite BUY)
-        RSI 30-70 â†’ normal â†’ permite ambos
+        RSI > 70 Ã¢â â sobrecomprado Ã¢â â bloqueia BUY (sÃÂ³ permite SELL)
+        RSI < 30 Ã¢â â sobrevendido Ã¢â â bloqueia SELL (sÃÂ³ permite BUY)
+        RSI 30-70 Ã¢â â normal Ã¢â â permite ambos
 
-    Camada 2 - Z-Score (desvio padrÃ£o da mÃ©dia):
-        Z > +1.5 â†’ preÃ§o esticado p/ cima â†’ bloqueia BUY
-        Z < -1.5 â†’ preÃ§o esticado p/ baixo â†’ bloqueia SELL
+    Camada 2 - Z-Score (desvio padrÃÂ£o da mÃÂ©dia):
+        Z > +1.5 Ã¢â â preÃÂ§o esticado p/ cima Ã¢â â bloqueia BUY
+        Z < -1.5 Ã¢â â preÃÂ§o esticado p/ baixo Ã¢â â bloqueia SELL
 
     Camada 3 - ADX Trend Classifier:
-        ADX < 20 â†’ LATERAL â†’ mean reversion ativo (RSI+Z-Score mandam)
-        ADX >= 25 + EMA subindo â†’ TENDENCIA_ALTA â†’ sÃ³ BUY
-        ADX >= 25 + EMA descendo â†’ TENDENCIA_BAIXA â†’ sÃ³ SELL
+        ADX < 20 Ã¢â â LATERAL Ã¢â â mean reversion ativo (RSI+Z-Score mandam)
+        ADX >= 25 + EMA subindo Ã¢â â TENDENCIA_ALTA Ã¢â â sÃÂ³ BUY
+        ADX >= 25 + EMA descendo Ã¢â â TENDENCIA_BAIXA Ã¢â â sÃÂ³ SELL
     """
 
     def __init__(self, janela: int = 20, rsi_compra: float = 25.0, rsi_venda: float = 75.0,
@@ -10587,7 +10600,7 @@ class FiltroMeanReversion:
         self.historico_ema: list = []
         self._log_contador = 0
 
-    # â”€â”€ Z-Score â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Ã¢ââ¬Ã¢ââ¬ Z-Score Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬
     def _calcular_zscore(self, preco: float) -> float:
         self.historico_precos.append(preco)
         if len(self.historico_precos) > self.janela:
@@ -10604,9 +10617,9 @@ class FiltroMeanReversion:
             return 0.0
         return (preco - media) / desvio
 
-    # â”€â”€ ADX + DireÃ§Ã£o (EMA slope) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Ã¢ââ¬Ã¢ââ¬ ADX + DireÃÂ§ÃÂ£o (EMA slope) Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬
     def _calcular_adx_simples(self, ema_atual: float, ema_anterior: float) -> tuple:
-        """Calcula ADX simplificado baseado na inclinaÃ§Ã£o da EMA e distÃ¢ncia do preÃ§o.
+        """Calcula ADX simplificado baseado na inclinaÃÂ§ÃÂ£o da EMA e distÃÂ¢ncia do preÃÂ§o.
 
         Retorna: (adx_valor: float, direcao: str)
         """
@@ -10617,10 +10630,10 @@ class FiltroMeanReversion:
         if len(self.historico_ema) < 5:
             return 0.0, "NEUTRO"
 
-        # InclinaÃ§Ã£o da EMA (variaÃ§Ã£o nos Ãºltimos 3 ticks)
+        # InclinaÃÂ§ÃÂ£o da EMA (variaÃÂ§ÃÂ£o nos ÃÂºltimos 3 ticks)
         inclinacao = ema_atual - self.historico_ema[-3] if len(self.historico_ema) >= 3 else 0
 
-        # ADX simplificado: magnitude da inclinaÃ§Ã£o acumulada
+        # ADX simplificado: magnitude da inclinaÃÂ§ÃÂ£o acumulada
         variacoes = [abs(self.historico_ema[i] - self.historico_ema[i-1])
                      for i in range(1, len(self.historico_ema))]
         adx = sum(variacoes) / len(variacoes) * 10 if variacoes else 0
@@ -10635,7 +10648,7 @@ class FiltroMeanReversion:
                 return adx, "TENDENCIA_BAIXA"
         return adx, "LATERAL"
 
-    # â”€â”€ AvaliaÃ§Ã£o Principal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Ã¢ââ¬Ã¢ââ¬ AvaliaÃÂ§ÃÂ£o Principal Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬
     def avaliar(self, preco_atual: float, rsi_real: float, ema_atual: float = 0,
                 ema_anterior: float = 0) -> dict:
         """Avalia os 3 filtros e retorna veto + estado de mercado.
@@ -10651,15 +10664,15 @@ class FiltroMeanReversion:
         veto_sell = False
         rsi_zona = "NEUTRO"
 
-        # â”€â”€ Se TENDÃŠNCIA, mean reversion desligado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # Ã¢ââ¬Ã¢ââ¬ Se TENDÃÅ NCIA, mean reversion desligado Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬
         if estado in ("TENDENCIA_ALTA", "TENDENCIA_BAIXA"):
             if estado == "TENDENCIA_ALTA":
-                veto_sell = True  # SÃ³ permite BUY em tendÃªncia de alta
+                veto_sell = True  # SÃÂ³ permite BUY em tendÃÂªncia de alta
             else:
-                veto_buy = True  # SÃ³ permite SELL em tendÃªncia de baixa
+                veto_buy = True  # SÃÂ³ permite SELL em tendÃÂªncia de baixa
             rsi_zona = "TENDENCIA"
         else:
-            # â”€â”€ LATERAL: RSI + Z-Score ativos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # Ã¢ââ¬Ã¢ââ¬ LATERAL: RSI + Z-Score ativos Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬Ã¢ââ¬
             # RSI por zonas
             if rsi_real > self.rsi_venda:
                 veto_buy = True
@@ -10670,7 +10683,7 @@ class FiltroMeanReversion:
             else:
                 rsi_zona = "NEUTRO"
 
-            # Z-Score (reforÃ§a o veto do RSI)
+            # Z-Score (reforÃÂ§a o veto do RSI)
             if zscore > self.zscore_limiar:
                 veto_buy = True
                 rsi_zona += "+Z_ESTICADO"
@@ -10681,7 +10694,7 @@ class FiltroMeanReversion:
         self._log_contador += 1
         if self._log_contador % 5 == 1:
             logging.info(
-                f"ðŸ“Š MR: RSI={rsi_real:.1f}({rsi_zona}) | Z={zscore:+.2f} | "
+                f"Ã°Å¸âÅ  MR: RSI={rsi_real:.1f}({rsi_zona}) | Z={zscore:+.2f} | "
                 f"ADX={adx:.1f}({estado}) | Veto: BUY={veto_buy} SELL={veto_sell}")
 
         return {
@@ -10697,7 +10710,7 @@ class FiltroMeanReversion:
 filtro_mean_reversion = FiltroMeanReversion()
 
 
-# region [InicializaÃ§Ã£o]
+# region [InicializaÃÂ§ÃÂ£o]
 
 if __name__ == "__main__":
     # PyInstaller console=False deixa sys.stdout/sys.stderr = None. Redireciona
@@ -10709,7 +10722,7 @@ if __name__ == "__main__":
     if _sys_out.stderr is None:
         _sys_out.stderr = open(_os_out.devnull, 'w')
 
-    # ---- BLOQUEIO DE INSTÃ‚NCIA ÃšNICA: se outra cÃ³pia do Monstro V22 jÃ¡ estiver rodando, sai na hora ----
+    # ---- BLOQUEIO DE INSTÃâNCIA ÃÅ¡NICA: se outra cÃÂ³pia do Monstro V22 jÃÂ¡ estiver rodando, sai na hora ----
     # FIX (01/08/2026): movido para o __main__ - antes rodava no import e matava qualquer
     # processo que importasse o modulo com outra instancia ativa
     import ctypes
@@ -10721,8 +10734,8 @@ if __name__ == "__main__":
         try:
             ctypes.windll.user32.MessageBoxW(
                 None,
-                "O Monstro V22 jÃ¡ estÃ¡ em execuÃ§Ã£o.\n"
-                "Encerre a instÃ¢ncia atual antes de iniciar outra.",
+                "O Monstro V22 jÃÂ¡ estÃÂ¡ em execuÃÂ§ÃÂ£o.\n"
+                "Encerre a instÃÂ¢ncia atual antes de iniciar outra.",
                 "Monstro Dashboard V22",
                 0x40)
         except Exception:
@@ -10733,18 +10746,18 @@ if __name__ == "__main__":
     setup_logging()
 
     # ========== REGRAS OPERACIONAIS ATIVAS ==========
-    logging.info("âš™ï¸ HorÃ¡rio: 09:15-12:30 e 14:30-17:15 | Treino sÃ³ com lucro | Aprendizado PRESERVADO entre reinÃ­cios")
+    logging.info("Ã¢Å¡â¢Ã¯Â¸Â HorÃÂ¡rio: 09:15-12:30 e 14:30-17:15 | Treino sÃÂ³ com lucro | Aprendizado PRESERVADO entre reinÃÂ­cios")
 
-    # âœ… PA3: Reset de memÃ³ria foi executado UMA vez na primeira inicializaÃ§Ã£o.
-    # DESATIVADO permanentemente â€” o aprendizado (h5/keras/experiÃªncias) Ã© PRESERVADO
-    # entre reinÃ­cios. SÃ³ reative manualmente chamando resetar_memoria_ia() se quiser zerar tudo.
-    # resetar_memoria_ia()  # SÃ³ reativar manualmente se necessÃ¡rio
+    # Ã¢Åâ¦ PA3: Reset de memÃÂ³ria foi executado UMA vez na primeira inicializaÃÂ§ÃÂ£o.
+    # DESATIVADO permanentemente Ã¢â¬â o aprendizado (h5/keras/experiÃÂªncias) ÃÂ© PRESERVADO
+    # entre reinÃÂ­cios. SÃÂ³ reative manualmente chamando resetar_memoria_ia() se quiser zerar tudo.
+    # resetar_memoria_ia()  # SÃÂ³ reativar manualmente se necessÃÂ¡rio
 
     # Reseta e recria scaler global para compatibilidade com 22 features
     resetar_scaler_global()
     forcar_recreacao_scaler()
 
-    # VariÃ¡veis globais
+    # VariÃÂ¡veis globais
     thread_ativo = True
     mt5_ativo = True
     posicao_aberta = False
@@ -10757,14 +10770,14 @@ if __name__ == "__main__":
     ticket_ordem_atual = None
     ultima_decisao = None
     historico_lucro = []
-    gerenciador_bloqueio = None  # SerÃ¡ inicializado na thread
-    modo_operacional = None      # SerÃ¡ inicializado na thread
-    confluencia_info_atual = None  # Para sistema de confluÃªncia
+    gerenciador_bloqueio = None  # SerÃÂ¡ inicializado na thread
+    modo_operacional = None      # SerÃÂ¡ inicializado na thread
+    confluencia_info_atual = None  # Para sistema de confluÃÂªncia
 
     # Corrige formato do CSV
     corrigir_csv_historico()
 
-    # Dashboard V2 â€” Registra mÃ³dulo principal para acesso aos globals
+    # Dashboard V2 Ã¢â¬â Registra mÃÂ³dulo principal para acesso aos globals
     import sys
     register_main_module(sys.modules[__name__], log_file=LOG_FILE)
 
@@ -10789,7 +10802,7 @@ if __name__ == "__main__":
             break
         except Exception:
             time.sleep(0.5)
-    # Janela Desktop (PyWebView) â€” substitui o join, roda na thread principal
+    # Janela Desktop (PyWebView) Ã¢â¬â substitui o join, roda na thread principal
     try:
         import webview
         _janela = webview.create_window(
@@ -10817,21 +10830,21 @@ if __name__ == "__main__":
             mt5.shutdown()
         except Exception:
             pass
-        logging.info("RobÃ´ encerrado pela janela Desktop.")
+        logging.info("RobÃÂ´ encerrado pela janela Desktop.")
     except Exception as e:
         logging.error(f"PyWebView nao disponivel ou falhou: {e}. Rodando sem janela desktop.")
-        # Fallback: mantÃ©m o join original se pywebview falhar
+        # Fallback: mantÃÂ©m o join original se pywebview falhar
         monstro_thread_obj.join()
 
 
 # ======================================
-# Fim do arquivo - Monstro das NegociaÃ§Ãµes v2
+# Fim do arquivo - Monstro das NegociaÃÂ§ÃÂµes v2
 
-# ========== SISTEMA DE VETO SIMPLES E DIRETO (BASEADO NA SUGESTÃƒO DA IA) ==========
+# ========== SISTEMA DE VETO SIMPLES E DIRETO (BASEADO NA SUGESTÃÆO DA IA) ==========
 
 
 def carregar_experiencias_simples():
-    """Carrega experiÃªncias do JSON de forma simples."""
+    """Carrega experiÃÂªncias do JSON de forma simples."""
     if not os.path.exists(EXPERIENCIAS_JSON):
         return []
     try:
@@ -10842,7 +10855,7 @@ def carregar_experiencias_simples():
 
 
 def contexto_similar_simples(exp_contexto, contexto_atual):
-    """Verifica se contextos sÃ£o similares usando critÃ©rios simples."""
+    """Verifica se contextos sÃÂ£o similares usando critÃÂ©rios simples."""
     # Volatilidade
     vol_atual = "baixa" if contexto_atual.get('volatility', 0) < 50 else "alta"
     vol_exp = "baixa" if exp_contexto.get('volatility', 0) < 50 else "alta"
@@ -10850,7 +10863,7 @@ def contexto_similar_simples(exp_contexto, contexto_atual):
     # RSI
     rsi_atual = contexto_atual.get('rsi_14', 50)
     rsi_exp = exp_contexto.get('rsi_14', 50)
-    rsi_similar = abs(rsi_atual - rsi_exp) <= 20  # Â±20 pontos
+    rsi_similar = abs(rsi_atual - rsi_exp) <= 20  # ÃÂ±20 pontos
 
     # Candle type
     candle_atual = contexto_atual.get('candle_type', '')
@@ -10860,8 +10873,8 @@ def contexto_similar_simples(exp_contexto, contexto_atual):
 
 
 def calcular_expectativa_simples(experiencias):
-    """Calcula expectativa matemÃ¡tica simples."""
-    if len(experiencias) < 5:  # MÃ­nimo de dados
+    """Calcula expectativa matemÃÂ¡tica simples."""
+    if len(experiencias) < 5:  # MÃÂ­nimo de dados
         return None
 
     ganhos = [e['lucro'] for e in experiencias if e['lucro'] > 0]
@@ -10879,10 +10892,10 @@ def calcular_expectativa_simples(experiencias):
 
 
 def deve_operar_contexto_simples(contexto_atual, acao_proposta, expectativa_minima=0):
-    """VETO SIMPLES: Verifica se deve operar baseado no histÃ³rico."""
+    """VETO SIMPLES: Verifica se deve operar baseado no histÃÂ³rico."""
     experiencias = carregar_experiencias_simples()
 
-    # Busca experiÃªncias similares com a mesma aÃ§Ã£o
+    # Busca experiÃÂªncias similares com a mesma aÃÂ§ÃÂ£o
     similares = []
     for exp in experiencias:
         if (exp.get('acao') == acao_proposta and
@@ -10892,7 +10905,7 @@ def deve_operar_contexto_simples(contexto_atual, acao_proposta, expectativa_mini
     expectativa = calcular_expectativa_simples(similares)
 
     if expectativa is None:
-        return True, "Sem histÃ³rico suficiente"
+        return True, "Sem histÃÂ³rico suficiente"
 
     if expectativa <= expectativa_minima:
         return False, f"Expectativa negativa: {expectativa:.2f} (similares: {len(similares)})"
@@ -10900,17 +10913,17 @@ def deve_operar_contexto_simples(contexto_atual, acao_proposta, expectativa_mini
     return True, f"Expectativa positiva: {expectativa:.2f} (similares: {len(similares)})"
 
 
-# ========== INSTÃ‚NCIAS GLOBAIS DOS NOVOS SISTEMAS ==========
-# (bloqueador_contexto e replay_experiencias jÃ¡ instanciados acima, apÃ³s as classes)
-# ========== LIMITE DE INSISTÃŠNCIA POR CONTEXTO (SUGESTÃƒO DA IA) ==========
+# ========== INSTÃâNCIAS GLOBAIS DOS NOVOS SISTEMAS ==========
+# (bloqueador_contexto e replay_experiencias jÃÂ¡ instanciados acima, apÃÂ³s as classes)
+# ========== LIMITE DE INSISTÃÅ NCIA POR CONTEXTO (SUGESTÃÆO DA IA) ==========
 
 
 class LimitadorInsistencia:
-    """Limita operaÃ§Ãµes no mesmo contexto no mesmo dia."""
+    """Limita operaÃÂ§ÃÂµes no mesmo contexto no mesmo dia."""
 
     def __init__(self):
         self.operacoes_por_contexto = {}  # {hash_contexto: [timestamps]}
-        self.max_operacoes_contexto_dia = 2  # MÃ¡ximo 2 operaÃ§Ãµes por contexto por dia
+        self.max_operacoes_contexto_dia = 2  # MÃÂ¡ximo 2 operaÃÂ§ÃÂµes por contexto por dia
 
     def _hash_contexto_dia(self, contexto: dict) -> str:
         """Cria hash do contexto + data."""
@@ -10932,20 +10945,20 @@ class LimitadorInsistencia:
         if hash_ctx not in self.operacoes_por_contexto:
             return True
 
-        # Conta operaÃ§Ãµes hoje neste contexto
+        # Conta operaÃÂ§ÃÂµes hoje neste contexto
         hoje = datetime.now().date()
         ops_hoje = [ts for ts in self.operacoes_por_contexto[hash_ctx]
                     if ts.date() == hoje]
 
         if len(ops_hoje) >= self.max_operacoes_contexto_dia:
             logging.warning(
-                f"ðŸš« LIMITE CONTEXTO: JÃ¡ operou {len(ops_hoje)}x hoje em {hash_ctx}")
+                f"Ã°Å¸Å¡Â« LIMITE CONTEXTO: JÃÂ¡ operou {len(ops_hoje)}x hoje em {hash_ctx}")
             return False
 
         return True
 
     def registrar_operacao(self, contexto: dict):
-        """Registra uma operaÃ§Ã£o neste contexto."""
+        """Registra uma operaÃÂ§ÃÂ£o neste contexto."""
         hash_ctx = self._hash_contexto_dia(contexto)
 
         if hash_ctx not in self.operacoes_por_contexto:
@@ -10953,7 +10966,7 @@ class LimitadorInsistencia:
 
         self.operacoes_por_contexto[hash_ctx].append(datetime.now())
 
-        # Limpa operaÃ§Ãµes antigas (mais de 7 dias)
+        # Limpa operaÃÂ§ÃÂµes antigas (mais de 7 dias)
         cutoff = datetime.now() - timedelta(days=7)
         self.operacoes_por_contexto[hash_ctx] = [
             ts for ts in self.operacoes_por_contexto[hash_ctx]
@@ -10961,6 +10974,6 @@ class LimitadorInsistencia:
         ]
 
 
-# InstÃ¢ncia global do limitador
+# InstÃÂ¢ncia global do limitador
 limitador_insistencia = LimitadorInsistencia()
 

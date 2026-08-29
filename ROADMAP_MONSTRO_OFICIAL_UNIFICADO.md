@@ -14,6 +14,22 @@
 - [x] **Corte #2 (Engine)**: Fallback para `order_send=None` no fecho forçado das 17:35 com varredura retroativa de 60s via `history_deals_get`.
 - [x] **Corte #3 (Dados)**: Garantia de header estático de 22 colunas (`timestamp` na 1ª coluna) na função `_migrar_historico_timestamp`. Recomposição do dataset Shadow Mode ($n=25$; Trades #1 = −80, #7 = −5, total semanal −R$755).
 
+### 🚀 v22.1 — 2026-08-29 (Multi-Estratégia & Teoria das 7 Velas)
+
+#### 🚀 Implementações & Melhorias
+- **Arquitetura Multi-Estratégia Sequencial (Faixa 1 & Faixa 2):**
+  - **Faixa 1 (09:00–11:30 BRT):** Execução exclusiva do módulo `sete_velas_orquestrador.py` em M15 (Dólar WDO) com 5 contratos (5 CC) e `magic_number = 7007`.
+  - **Faixa 2 (11:30+ BRT):** Transição automática para o modo `PADRAO_MONSTRO` reativando os agentes (Keras, Sniper %R, Supermo) com lote normal (2 CC).
+- **Módulos Criados:**
+  - `sete_velas_util.py`: Funções puras de processamento M15, contagem de direção de velas e acumulação de CVD (Volume de Agressão por Ticks).
+  - `sete_velas_orquestrador.py`: Maquinário de estado (`ESTADO_SISTEMA`), controle de idempotência, filtro CVD e emissão via callback.
+  - `shadow_sete_velas_wdo.py`: Script de shadow mode ao vivo e retrospectivo (54 registros) com parâmetro de auto-saída `--ate HH:MM`.
+- **Blindagens & Fixes em `monstro_unificado_v22.py`:**
+  - Atualização da assinatura de `executar_ordem` para suporte a `magic_override`, `comment` e desativação de shadow individual.
+  - Inserção do **Gatekeeper da Faixa 1** dentro de `executar_ordem` para bloquear chamadas de outros agentes durante `SETE_VELAS_EXCLUSIVO`.
+  - Inserção da flag `ignore_max_loss` no Circuit Breaker CB2 para evitar travamento geral do robô em caso de Stop Loss da 7 Velas (5 CC) na janela matutina.
+  - Correção cirúrgica do bug de deslocamento de velas (`n_velas`) no backtest original.
+
 ### 📌 Próximos Passos (Semana 31/08 – 04/09)
 - [ ] **Observação Passiva**: Coleta do Modelo A em Shadow Mode até atingir $n \ge 30\text{--}60$ com o CSV corrigido.
 - [ ] **Monitoramento Horário**: Auditagem da janela das 09:15 às 10:30 para avaliar se a perda concentrada em regime de baixa volatilidade (ATR < 2.5) exige regra de bloqueio.
