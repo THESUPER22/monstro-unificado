@@ -113,12 +113,15 @@
     "sete_velas": {
         "ativo": true,
         "variante": 9,
+        "lote": 5.0,
         "sl": 8.0,
         "tp": 10.0,
-        "volume": 5.0,
         "magic": 7007,
         "hora_inicio": 9.0,
         "hora_fim": 11.5,
-        "abortar_se_payroll": false
+        "V7_1045_ATIVO": false,
+        "V9_1115_ATIVO": true,
+        "gatekeeper_dual": true,
+        "cb2_ignore_max_loss": true
     }
 }

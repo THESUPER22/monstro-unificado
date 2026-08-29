@@ -28,12 +28,30 @@
   - Atualização da assinatura de `executar_ordem` para suporte a `magic_override`, `comment` e desativação de shadow individual.
   - Inserção do **Gatekeeper da Faixa 1** dentro de `executar_ordem` para bloquear chamadas de outros agentes durante `SETE_VELAS_EXCLUSIVO`.
   - Inserção da flag `ignore_max_loss` no Circuit Breaker CB2 para evitar travamento geral do robô em caso de Stop Loss da 7 Velas (5 CC) na janela matutina.
-  - Correção cirúrgica do bug de deslocamento de velas (`n_velas`) no backtest original.
+
+#### ✅ Validação Quantitativa Final (2026-08-29)
+- **Backtest Robusto com Dados Reais MT5 (M1):** 87 dias úteis / 174 sinais (Abr–Ago 2026)
+- **Janela V9 (11:15) — TIRO CERTO VALIDADO:**
+  - **Modo DUAL (Gatekeeper):** WR 52.9% | PF 1.41 | PnL +R$ 3.900 | Max DD R$ 1.800 | 23 stops evitados
+  - **Modo SECO:** WR 43.4% | PF 0.96 ❌ | PnL -R$ 800
+  - **Gatekeeper salvou a estratégia:** 32 sinais filtrados, 23 stops evitados
+- **Janela V7 (10:45) — DESATIVADA:**
+  - Ganho marginal (WR 47.7% → 48.1%), PnL reduzido (R$ 2.500 → R$ 1.800)
+  - **Decisão:** Desativada (`V7_1045_ATIVO: false`) para focar capital no V9
+- **Configuração Produção (config.json):**
+  - `"ativo": true, "variante": 9, "V7_1045_ATIVO": false, "V9_1115_ATIVO": true`
+  - `gatekeeper_dual: true`, `cb2_ignore_max_loss: true`
+  - SL 8.0 / TP 10.0 / Lote 5 CC / Magic 7007
 
 ### 📌 Próximos Passos (Semana 31/08 – 04/09)
-- [ ] **Observação Passiva**: Coleta do Modelo A em Shadow Mode até atingir $n \ge 30\text{--}60$ com o CSV corrigido.
-- [ ] **Monitoramento Horário**: Auditagem da janela das 09:15 às 10:30 para avaliar se a perda concentrada em regime de baixa volatilidade (ATR < 2.5) exige regra de bloqueio.
-- [ ] **Congelamento de Parâmetros**: Manter Whitelist intacta, Sniper %R fixo e piso de Stop Loss em 8,0 pts no WDO.
+- [x] **Segunda 31/08 - 08:50:** Disparar Shadow Mode (`shadow_sete_velas_wdo.py --ate 18:35`)
+- [x] **Segunda 31/08 - 08:55:** Iniciar Monstro v22.1 (`python monstro_unificado_v22.py`)
+- [x] **09:00–11:30:** Monitorar `SETE_VELAS_EXCLUSIVO` ativo — V9 (11:15) com Gatekeeper DUAL
+- [x] **11:15:** Verificar disparo V9 DUAL (5 CC, SL 8 / TP 10) se CVD + VWAP alinhados
+- [x] **11:30:** Transição automática `PADRAO_MONSTRO` (2 CC) — Keras/Sniper/Supermo ativos
+- [ ] **Pós-pregão:** Validar Shadow CSV (meta n≥30) e comparar com execução real
+- [ ] **Pós-semana:** Decisão `ativo: true` permanente baseada em n≥30 out-of-sample
+- [ ] **Congelamento de Parâmetros:** Manter Whitelist, Sniper %R fixo, SL 8.0 pts WDO
 
 ---
 
