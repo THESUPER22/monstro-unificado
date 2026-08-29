@@ -446,6 +446,15 @@ HISTORICO_CSV = config.get("aprendizado", {}).get(
     "historico_csv", _caminho_dados("historico_contexto_wdo.csv"))
 
 
+COLUNAS_CONTEXTO_OFICIAL = [
+    'timestamp', 'bid_qty', 'ask_qty', 'spread', 'volatility', 'candle_type',
+    'entropia_book', 'rsi_14', 'volume_tick', 'is_in_trade', 'floating_profit',
+    'tempo_em_trade', 'preco_maior_escora_bid', 'volume_maior_escora_bid',
+    'distancia_maior_escora_bid', 'preco_maior_escora_ask',
+    'volume_maior_escora_ask', 'distancia_maior_escora_ask',
+    'liquidez_top5_bid', 'liquidez_top5_ask', 'action', 'reward']
+
+
 def _migrar_historico_timestamp():
     """Migracao unica de schema: arquivo antigo sem 'timestamp' vai para .bak.
 
@@ -455,6 +464,7 @@ def _migrar_historico_timestamp():
     """
     try:
         if not os.path.exists(HISTORICO_CSV):
+            _recriar_header_contexto()
             return
         with open(HISTORICO_CSV, encoding="utf-8-sig") as f:
             cabecalho = f.readline().strip().split(",")
@@ -465,8 +475,34 @@ def _migrar_historico_timestamp():
         logging.warning(
             "HISTORICO: schema antigo sem timestamp migrado para %s. "
             "Novo arquivo sera criado com timestamp.", os.path.basename(backup))
+        _recriar_header_contexto()
     except Exception as e:
         logging.warning("HISTORICO: falha na migracao de schema (%s)", e)
+
+
+def _recriar_header_contexto() -> None:
+    """Recria o CSV de contexto com o header oficial (timestamp na 1a coluna).
+
+    Garante que um arquivo apagado/inexistente nasca com o esquema correto,
+    evitando que o append (header=False) produza um CSV sem cabecalho.
+    """
+    try:
+        if os.path.exists(HISTORICO_CSV):
+            return
+        if not os.path.exists(os.path.dirname(os.path.abspath(HISTORICO_CSV))):
+            os.makedirs(os.path.dirname(os.path.abspath(HISTORICO_CSV)), exist_ok=True)
+        try:
+            import pandas as _pd
+            _pd.DataFrame(columns=COLUNAS_CONTEXTO_OFICIAL).to_csv(
+                HISTORICO_CSV, index=False)
+        except ImportError:
+            with open(HISTORICO_CSV, "w", encoding="utf-8") as f:
+                f.write(",".join(COLUNAS_CONTEXTO_OFICIAL) + "\n")
+        logging.info(
+            "[HISTORICO] Arquivo de contexto recriado com header oficial "
+            "(%d colunas, timestamp na 1a posicao).", len(COLUNAS_CONTEXTO_OFICIAL))
+    except Exception as e:
+        logging.warning("HISTORICO: falha ao recriar header (%s)", e)
 
 
 _migrar_historico_timestamp()
@@ -3097,16 +3133,8 @@ def monitorar_recursos() -> None:
             except pd.errors.ParserError as e:
                 logging.warning(f"âš ï¸ CSV histÃ³rico corrompido: {e}")
                 logging.info("ðŸ”§ Recriando arquivo CSV histÃ³rico...")
-                # Cria cabeÃ§alho com o esquema atual (22 features + reward)
-                colunas_padrao = ['bid_qty', 'ask_qty', 'spread', 'volatility',
-                                  'candle_type', 'entropia_book', 'rsi_14', 'volume_tick',
-                                  'is_in_trade', 'floating_profit', 'tempo_em_trade',
-                                  'preco_maior_escora_bid', 'volume_maior_escora_bid',
-                                  'distancia_maior_escora_bid', 'preco_maior_escora_ask',
-                                  'volume_maior_escora_ask', 'distancia_maior_escora_ask',
-                                  'liquidez_top5_bid', 'liquidez_top5_ask',
-                                  'dolar_casado', 'em_janela_ptax', 'minutos_para_ptax', 'dia_ptax',
-                                  'action', 'reward']
+                # Cria cabeÃ§alho com o esquema oficial (timestamp + features)
+                colunas_padrao = COLUNAS_CONTEXTO_OFICIAL
                 df_novo = pd.DataFrame(columns=colunas_padrao)
                 df_novo.to_csv(HISTORICO_CSV, index=False)
                 logging.info("âœ… CSV histÃ³rico recriado com sucesso")
@@ -5385,6 +5413,112 @@ def verificar_se_ordem_virou_posicao(ticket: Optional[int], symbol: str = SYMBOL
     )
 
 
+ARQ_PENDENTES_RECONCILIACAO = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "pendentes_reconciliacao.json")
+
+
+def _pendentes_carregar() -> dict:
+    """Carrega a fila persistente de posicoes pendentes de reconciliacao."""
+    try:
+        if os.path.exists(ARQ_PENDENTES_RECONCILIACAO):
+            with open(ARQ_PENDENTES_RECONCILIACAO, encoding="utf-8") as f:
+                return json.load(f)
+    except Exception as e:
+        logging.warning(f"[RECON] Falha ao carregar pendentes: {e}")
+    return {}
+
+
+def _pendentes_salvar(pendentes: dict) -> None:
+    """Persiste a fila de posicoes pendentes de reconciliacao."""
+    try:
+        with open(ARQ_PENDENTES_RECONCILIACAO, "w", encoding="utf-8") as f:
+            json.dump(pendentes, f, ensure_ascii=False, indent=1)
+    except Exception as e:
+        logging.warning(f"[RECON] Falha ao salvar pendentes: {e}")
+
+
+def adicionar_pendente_reconciliacao(ticket: int, direcao: str, entrada: float) -> None:
+    """Marca uma posicao em PENDING_RECONCILIATION ate o deal real aparecer."""
+    try:
+        pendentes = _pendentes_carregar()
+        pendentes[str(ticket)] = {
+            "direcao": direcao,
+            "entrada": entrada,
+            "timestamp": datetime.now().isoformat(),
+        }
+        _pendentes_salvar(pendentes)
+        logging.warning(
+            f"[RECON] Posicao #{ticket} ({direcao}) entrou em PENDING_RECONCILIATION.")
+    except Exception as e:
+        logging.warning(f"[RECON] Falha ao registrar pendente #{ticket}: {e}")
+
+
+def buscar_deal_historico_estendido(ticket_ordem_abertura: Optional[int],
+                                    tentativas: int = 5,
+                                    intervalo_s: float = 1.5) -> float:
+    """Reconsulta o historico de deals com retries para capturar a saida que o
+    terminal ainda nao sincronizou (fix v22.1). Retorna o lucro real, 0.0 se nada."""
+    if ticket_ordem_abertura is None:
+        return 0.0
+    for tentativa in range(tentativas):
+        try:
+            data_inicio = datetime.now() - timedelta(days=7)
+            deals = mt5.history_deals_get(data_inicio, datetime.now())
+            if deals:
+                saidas = [d for d in deals
+                          if d.position_id == ticket_ordem_abertura
+                          and d.entry == mt5.DEAL_ENTRY_OUT]
+                if saidas:
+                    final = max(saidas, key=lambda d: d.time_msc)
+                    lucro = final.profit
+                    shadow_registrar_resultado(ticket_ordem_abertura, lucro)
+                    logging.info(
+                        f"[RECON] Deal de saida capturado apos retry {tentativa + 1}/"
+                        f"{tentativas} para #{ticket_ordem_abertura}: Lucro={lucro:.2f}")
+                    return lucro
+        except Exception as e:
+            logging.warning(f"[RECON] Erro na tentativa {tentativa + 1}: {e}")
+        time.sleep(intervalo_s)
+    logging.warning(
+        f"[RECON] Nao foi possivel localizar saida de #{ticket_ordem_abertura} "
+        f"apos {tentativas} tentativas.")
+    return 0.0
+
+
+def reconciliar_pendentes() -> None:
+    """Processa a fila persistente: tenta achar o deal real e fecha o ciclo."""
+    try:
+        pendentes = _pendentes_carregar()
+        if not pendentes:
+            return
+        removidos = []
+        for ticket_str, info in list(pendentes.items()):
+            ticket = int(ticket_str)
+            d = None
+            try:
+                data_inicio = datetime.now() - timedelta(days=7)
+                deals = mt5.history_deals_get(data_inicio, datetime.now())
+                if deals:
+                    saidas = [x for x in deals
+                              if x.position_id == ticket
+                              and x.entry == mt5.DEAL_ENTRY_OUT]
+                    if saidas:
+                        d = max(saidas, key=lambda x: x.time_msc)
+            except Exception as e:
+                logging.warning(f"[RECON] Erro ao reconciliar #{ticket}: {e}")
+            if d is not None:
+                shadow_registrar_resultado(ticket, d.profit)
+                logging.info(
+                    f"[RECON] Pendente #{ticket} reconciliado: Lucro={d.profit:.2f}")
+                removidos.append(ticket_str)
+        for chave in removidos:
+            pendentes.pop(chave, None)
+        if removidos:
+            _pendentes_salvar(pendentes)
+    except Exception as e:
+        logging.warning(f"[RECON] Falha na reconciliacao de pendentes: {e}")
+
+
 def obter_lucro_ultima_ordem(ticket_ordem_abertura: Optional[int] = None) -> Tuple[float, float]:
     """ObtÃ©m o lucro e score da Ãºltima ordem fechada, com base no ticket da ordem de abertura."""
     logging.info(
@@ -6941,6 +7075,19 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     ticket_processado = posicao_atual.ticket
                     lucro_real, score_dist = obter_lucro_ultima_ordem(
                         ticket_processado)
+                    # PATCH v22.1 CORTE 1: Reconciliacao de saida nao sincronizada.
+                    # Se o deal real nao veio no primeiro ciclo, tenta retries e,
+                    # em ultimo caso, marca PENDING_RECONCILIATION (persistente)
+                    # para o deal aparecer e o resultado NAO se perder (Trade #1).
+                    if lucro_real == 0.0:
+                        lucro_retry = buscar_deal_historico_estendido(
+                            ticket_processado)
+                        if lucro_retry != 0.0:
+                            lucro_real = lucro_retry
+                        else:
+                            adicionar_pendente_reconciliacao(
+                                ticket_processado, posicao_atual.tipo,
+                                getattr(posicao_atual, 'preco_entrada', 0.0))
                     gerenciador_bloqueio.registrar_operacao(
                         posicao_atual.tipo, lucro_real)
                     if posicao_atual.entry_context is not None:
@@ -7331,6 +7478,10 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     continue
 
                 monitorar_recursos()
+
+                # PATCH v22.1 CORTE 1: processa pendentes de reconciliacao
+                # (posicoes cujo deal de saida atrasou; fecha o ciclo p/ shadow)
+                reconciliar_pendentes()
 
                 # >>> Bloco de DecisÃ£o e Salvamento de DecisÃ£o (Movido para Cima) <<<
                 acao_para_executar = "NADA"  # Default
@@ -10057,7 +10208,35 @@ def fechar_todas_posicoes(motivo: str = "Encerramento automÃ¡tico") -> int:
                 # ðŸ”§ CORREÃ‡ÃƒO CRÃTICA 3: Verificar se resultado nÃ£o Ã© None
                 if resultado is None:
                     logging.error(
-                        f"âŒ Erro crÃ­tico: mt5.order_send retornou None para posiÃ§Ã£o #{pos.ticket}")
+                        f"�Œ Erro crÃ­tico: mt5.order_send retornou None para posiÃ§Ã£o #{pos.ticket}")
+                    # PATCH v22.1 CORTE 2: em alta latencia o servidor processa a
+                    # ordem mesmo com retorno None (Trade #7). Varre os ultimos 60s
+                    # para capturar a execucao real antes de declarar a falha.
+                    try:
+                        import time as _t_mod
+                        _agora_ts = _t_mod.time()
+                        _deals_recentes = mt5.history_deals_get(
+                            _agora_ts - 60, _agora_ts + 5)
+                        _deal_fecho = None
+                        if _deals_recentes:
+                            for _d in _deals_recentes:
+                                if (_d.position_id == pos.ticket
+                                        and _d.entry == mt5.DEAL_ENTRY_OUT):
+                                    _deal_fecho = _d
+                        if _deal_fecho is not None:
+                            posicoes_fechadas += 1
+                            shadow_registrar_resultado(
+                                pos.ticket, _deal_fecho.profit)
+                            logging.info(
+                                f"�… Fecho confirmado via varredura 60s: posicao "
+                                f"#{pos.ticket} Lucro={_deal_fecho.profit:.2f}")
+                        else:
+                            logging.error(
+                                f"âŒ� Falha critica %s: ordem de fecho nao confirmada "
+                                f"no servidor para #{pos.ticket}", motivo)
+                    except Exception as e:
+                        logging.error(
+                            f"âŒ� Erro na varredura de fechamento #{pos.ticket}: {e}")
                     continue
 
                 if resultado.retcode == mt5.TRADE_RETCODE_DONE:

@@ -1,8 +1,23 @@
 # 🚀 ROADMAP OFICIAL — MONSTRO TRADER V2
-**Última atualização:** 20/08/2026
-**Versão:** Monstro Unificado V2 — Arquitetura Nativa (Book direto do MT5)
-**Arquivo principal:** `monstro_unificado_v2.py`
-**Status geral:** Fase 10 concluída — IA com features corrigidas, aprendendo limpo
+**Última atualização:** 28/08/2026
+**Versão:** Monstro Unificado V22 (Engine v22.1 — Robustness & Audit Patch)
+**Arquivo principal:** `monstro_unificado_v22.py`
+**Status geral:** Fase 10 concluída; Engine v22.1 blindada contra perdas fantasmas e dados corrompidos
+
+---
+
+## 📦 v22.1 — 2026-08-28 (Engine Robustness & Audit Patch)
+
+### 🚀 Implementado & Auditado
+- [x] **Infraestrutura**: Servidor de produção Waitress (8 threads) + liberação de porta 5001 com 3-probes e backoff persistido (Commit `bd40ec0`).
+- [x] **Corte #1 (Engine)**: Reconciliação de posições órfãs via `PENDING_RECONCILIATION` persistida em JSON. Fim das perdas fantasmas por perda de sincronia de deals no MT5.
+- [x] **Corte #2 (Engine)**: Fallback para `order_send=None` no fecho forçado das 17:35 com varredura retroativa de 60s via `history_deals_get`.
+- [x] **Corte #3 (Dados)**: Garantia de header estático de 22 colunas (`timestamp` na 1ª coluna) na função `_migrar_historico_timestamp`. Recomposição do dataset Shadow Mode ($n=25$; Trades #1 = −80, #7 = −5, total semanal −R$755).
+
+### 📌 Próximos Passos (Semana 31/08 – 04/09)
+- [ ] **Observação Passiva**: Coleta do Modelo A em Shadow Mode até atingir $n \ge 30\text{--}60$ com o CSV corrigido.
+- [ ] **Monitoramento Horário**: Auditagem da janela das 09:15 às 10:30 para avaliar se a perda concentrada em regime de baixa volatilidade (ATR < 2.5) exige regra de bloqueio.
+- [ ] **Congelamento de Parâmetros**: Manter Whitelist intacta, Sniper %R fixo e piso de Stop Loss em 8,0 pts no WDO.
 
 ---
 
