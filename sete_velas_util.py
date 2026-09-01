@@ -24,7 +24,7 @@ def brt_para_epoch(dt):
 def velas_m15_do_dia(symbol):
     """Últimas 200 barras M15 do MT5 no dia, convertidas para BRT."""
     bars = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M15, 0, 200)
-    if not bars:
+    if bars is None or len(bars) == 0:
         return []
     hoje = brt_agora().date()
     ini = brt_para_epoch(datetime(hoje.year, hoje.month, hoje.day, 0, 0))
@@ -56,7 +56,7 @@ def calcular_cvd_janela(symbol, inicio_dt, fim_dt):
     fim = brt_para_epoch(fim_dt)
     ticks = mt5.copy_ticks_range(symbol, ini, fim, mt5.COPY_TICKS_ALL)
     cvd = 0.0
-    if not ticks:
+    if ticks is None or len(ticks) == 0:
         return cvd
     ultimo = None
     for t in ticks:

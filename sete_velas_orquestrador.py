@@ -34,6 +34,19 @@ STATE_PATH = r'C:\AIOFEN\logs\sete_velas_state.json'
 TRADES_PATH = r'C:\AIOFEN\logs\sete_velas_trades.csv'
 
 
+def _carregar_cfg():
+    """Flags de ativacao por variante vindas do config.json (V7/V9)."""
+    try:
+        with open(r'C:\AIOFEN\config.json', encoding='utf-8') as f:
+            sv = json.load(f).get('sete_velas', {})
+    except Exception:
+        sv = {}
+    return {
+        7: bool(sv.get('V7_1045_ATIVO', True)),
+        9: bool(sv.get('V9_1115_ATIVO', True)),
+    }
+
+
 def _agora_brt():
     return brt_agora()
 
@@ -156,13 +169,18 @@ class Orquestrador7Velas:
                 self.fechar_janela()
             return
         # Dentro da janela: verificar se já executou alguma variante hoje
+        vars_ativas = _carregar_cfg()
         state = _carregar_state()
         for variante in (7, 9):
+            if not vars_ativas.get(variante, False):
+                continue
             chave = f"{a.date().isoformat()}_{variante}"
             if chave in state and state[chave].get('ticket'):
                 self.ticket_aberto = state[chave].get('ticket')
         # Gatilhos de entrada
         for variante, cfg in VARIANTES.items():
+            if not vars_ativas.get(variante, False):
+                continue
             chave = f"{a.date().isoformat()}_{variante}"
             h = cfg['entrada']
             hora_entrada_dt = a.replace(hour=int(h), minute=int(round((h % 1) * 60)), second=0, microsecond=0)
