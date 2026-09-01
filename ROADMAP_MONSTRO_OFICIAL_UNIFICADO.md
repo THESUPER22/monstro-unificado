@@ -52,6 +52,7 @@
 - [x] **Pós-pregão:** Validar Shadow CSV (meta n≥30) e comparar com execução real
 - [x] **01/09:** Fase 1 (idempotência + parametrização config), Fase 2 (backtest A/B 352 dias), Fase 3 (TP parcial 1:1 + BE + trava macro) — commit `1b7aa3d` + `5518a74`
 - [ ] **Início incubação OOS:** 02/09/2026 (V9 + Gatekeeper Dual + TP parcial/BE + trava macro) — meta n≥30
+- [ ] **Retomada na SEXTA 04/09 (Payroll — teste da trava `VETADO_MACRO`):** validar que a janela 11:15 fica bloqueada na 1ª sexta do mês (conferir CSV/state com `VETADO_MACRO` e nenhum trade aberto)
 - [ ] **Pós-semana:** Decisão `ativo: true` permanente baseada em n≥30 out-of-sample (critérios da seção v22.2)
 - [ ] **Congelamento de Parâmetros:** Manter Whitelist, Sniper %R fixo, SL 8.0 pts WDO
 
@@ -484,6 +485,26 @@ Nº de features proporcional aos dados de treino. Adicionar INCREMENTAL e medir 
 | Morte Súbita (<15s) | -1.5 fixo |
 
 ---
+
+## 🔁 PONTO DE RETOMADA — SEXTA-FEIRA 04/09/2026
+
+**Sessão encerrada em 01/09/2026.** Estado congelado para incubação out-of-sample (n≥30).
+
+**Já operando automaticamente (sem intervenção):**
+- Monstro reiniciado às 12:10:27 com o orquestrador F3 carregado; **0 erros no `orquestrar`** pós-restart.
+- Tarefas agendadas ativas: `Monstro-Start` (anti-duplicidade), `Monstro-Watchdog`, `Monstro-Fecho` (17:35).
+- 7 Velas V9 (11:15) + Gatekeeper Dual + TP parcial 1:1/BE + trava macro — parametrização 100% no `config.json`.
+
+**Agenda automática da semana:**
+- **02/09 (qua)** → V9 normal (incubação trade #1).
+- **03/09 (qui)** → V9 normal (incubação trade #2).
+- **04/09 (sex) = Payroll** → validar trava `VETADO_MACRO` (janela 11:15 bloqueada; **nenhum trade abrir**; conferir CSV/state).
+
+**Checklist de retomada em 04/09 (após 11:30):**
+1. Verificar `logs/sete_velas_trades.csv`: presença de `VETADO_MACRO` na 04/09 e **ausência de trade real** nesse dia.
+2. Confirmar no `monstro_wdo.log`: `[7VELAS ...] DIA MACRO (Payroll/FOMC) -> VETADO_MACRO`.
+3. Revisar os trades reais de 02–03/09 (WR, PF, MaxDD, ganho do TP parcial em +8pts).
+4. Se tudo limpo e critérios OOS seguindo favoráveis, **marcar retomada** para decisão de homologação quando n≥30.
 
 *Mantido por: Mestre Super + Kiro AI Agent*
 *Última atualização: 19/07/2026*
