@@ -1,8 +1,8 @@
 # 🚀 ROADMAP OFICIAL — MONSTRO TRADER V2
-**Última atualização:** 28/08/2026
-**Versão:** Monstro Unificado V22 (Engine v22.1 — Robustness & Audit Patch)
+**Última atualização:** 01/09/2026
+**Versão:** Monstro Unificado V22 (Engine v22.2 — Sete Velas: Gestão de Posição + Backtest A/B)
 **Arquivo principal:** `monstro_unificado_v22.py`
-**Status geral:** Fase 10 concluída; Engine v22.1 blindada contra perdas fantasmas e dados corrompidos
+**Status geral:** Fase 10 concluída; v22.1b reparada; v22.2 (Fase 3) implementada — 7 Velas em incubação out-of-sample (n≥30)
 
 ---
 
@@ -50,7 +50,9 @@
 - [x] **11:15:** Verificar disparo V9 DUAL (5 CC, SL 8 / TP 10) se CVD + VWAP alinhados
 - [x] **11:30:** Transição automática `PADRAO_MONSTRO` (2 CC) — Keras/Sniper/Supermo ativos
 - [x] **Pós-pregão:** Validar Shadow CSV (meta n≥30) e comparar com execução real
-- [ ] **Pós-semana:** Decisão `ativo: true` permanente baseada em n≥30 out-of-sample
+- [x] **01/09:** Fase 1 (idempotência + parametrização config), Fase 2 (backtest A/B 352 dias), Fase 3 (TP parcial 1:1 + BE + trava macro) — commit `1b7aa3d` + `5518a74`
+- [ ] **Início incubação OOS:** 02/09/2026 (V9 + Gatekeeper Dual + TP parcial/BE + trava macro) — meta n≥30
+- [ ] **Pós-semana:** Decisão `ativo: true` permanente baseada em n≥30 out-of-sample (critérios da seção v22.2)
 - [ ] **Congelamento de Parâmetros:** Manter Whitelist, Sniper %R fixo, SL 8.0 pts WDO
 
 ### 🚨 v22.1b HOTFIX — 2026-09-01 (Reparo da Integração 7 Velas)
@@ -71,6 +73,44 @@
 - [x] **Orquestrador**: `_orq = Orquestrador7Velas(fn_executar=wrapper, symbol=SYMBOL, ativo=SETE_VELAS_ATIVO)` instanciado em `monstro_thread` + `_orq.orquestrar()` no loop quando `SETE_VELAS_EXCLUSIVO`
 - [x] **Instância única**: processos duplicados encerrados; único venv310 reiniciado 10:30 — log confirma `[7VELAS] Orquestrador instanciado (magic 7007)` e zero NameErrors pós-restart
 - [x] **py_compile** 100% (4 módulos) + commit/push
+
+### 🎯 v22.2 — 2026-09-01 (Fase 3: Gestão de Posição + Trava Macro + Backtest A/B)
+
+#### 🔬 Backtest A/B Histórico (352 dias — 2025-04 a 2026-08, `WDO@` M1)
+Motivo: **sepultar cientificamente o Modelo B de varejo** antes de investir em parametrização.
+
+| Métrica | **Modelo A** (Monstro: majority V9 + Gatekeeper Dual, SL8/TP10) | **Modelo B** (Varejo: 7 velas mesma cor + RSI + Bollinger) |
+|---|---|---|
+| Sinais | 349 | 43 |
+| Trades de fato | **145** | **3** (8 → 5 stop não disparou) |
+| Win rate | 49.7% | 33.3% (n=3) |
+| PnL 5CC | **R$ 6.800** | R$ 649 |
+| Profit Factor | 1.23 | 2.27 (amostra irrelevante) |
+| Max DD | R$ 3.600 | R$ 320 |
+
+**Conclusão:** Modelo B gera ~3 trades em 17 meses — inviável operacionalmente. **Gatekeeper Dual + Majority V9 confirmado como superior e único candidato de produção.** Script: `backtest/backtest_ab_7velas.py` (commit `1b7aa3d`).
+
+#### 💰 Gestão de TP Parcial 1:1 + Breakeven (implementada)
+- **TP1 no SL (1:1, 8 pts):** ao atingir +8 pts, realiza **3 CC** (`TRADE_ACTION_DEAL`) e move o SL dos **2 CC restantes** para o **breakeven** (entrada) via `TRADE_ACTION_SLTP`.
+- **Alvo final:** TP do MT5 permanece 10 pts nos remanescentes → captura +R$200 adicionais (total +R$440 no cenário ótimo).
+- **Matemática:** 3 CC × 8 pt × R$10 = +R$240 garantidos no TP1; operação vira **risco zero** após o breakeven.
+- **Controle via `config['sete_velas']`:** `gestao_tp_parcial`, `tp1_dist` (8.0), `lote_tp1` (3.0), `tp_final_dist` (10.0). Toggle permite desativar sem mexer no código.
+- **Validação:** `py_compile` OK + teste offline com mock MT5 (parcial 3CC + BE correto; preço abaixo do TP1 sem ação; gestão desativada sem ação).
+
+#### 🛡️ Trava Macro Automática (Payroll / FOMC / Copom)
+- **Payroll (automático):** primeira sexta-feira do mês — bloqueia abertura na janela 11:15.
+- **FOMC/Copom (manual):** lista `datas_bloqueadas` em `config['sete_velas']` (agenda anual do Fed/BCB).
+- **Comportamento:** não abre posição; registra **`VETADO_MACRO`** no CSV/state (idempotência preservada).
+
+#### 🧪 Protocolo de Validação Out-of-Sample (n ≥ 30) — HOMOLOGAÇÃO
+- **Período de incubação:** operar ao vivo desde **02/09/2026** (V9, Gatekeeper Dual + TP parcial/BE + trava macro ativa).
+- **Critério de homologação definitiva (`ativo: true` permanente):**
+  - [ ] **n ≥ 30 trades reais** registrados em `logs/sete_velas_trades.csv` (excluindo VETADO_MACRO/VETADO_CVD).
+  - [ ] Tactics mensais: WR ≥ 45% **e** PF ≥ 1.1 sobre o período de incubação.
+  - [ ] **Drawdown máximo ≤ R$ 3.600** (teto da validação histórica).
+  - [ ] Gerenciamento de posição ativo: auferir ganho do TP parcial (3 CC) em ≥ 80% dos trades que alcançaram +8 pts.
+- **Critério de rollback:** se PF < 1.0 ou MaxDD > R$ 3.600 antes de n=30, desativar `ativo: false` e reavaliar.
+- **Congelamento de parâmetros durante a incubação:** SL 8 / TP 10 / 5 CC / `<tp1_dist>` 8 / `<lote_tp1>` 3 — nenhuma alteração até n≥30.
 
 ---
 
