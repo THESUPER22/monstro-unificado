@@ -379,6 +379,33 @@ def carregar_configuracao():
 # Carrega configuraÃÂ§ÃÂ£o
 config = carregar_configuracao()
 
+# ========== v22.1 HOTFIX: Multi-Estrategia 7 Velas (estado global) ==========
+SETE_VELAS_CFG = config.get("sete_velas", {}) if isinstance(config, dict) else {}
+SETE_VELAS_ATIVO = bool(SETE_VELAS_CFG.get("ativo", False))
+MAGIC_SETE_VELAS = int(SETE_VELAS_CFG.get("magic", 7007))
+SETE_VELAS_INICIO_HORA = float(SETE_VELAS_CFG.get("hora_inicio", 9.0))
+SETE_VELAS_FIM_HORA = float(SETE_VELAS_CFG.get("hora_fim", 11.5))
+ESTADO_SISTEMA = "PADRAO_MONSTRO"
+
+
+def _atualizar_estado_sistema():
+    """Alterna o estado global entre SETE_VELAS_EXCLUSIVO e PADRAO_MONSTRO
+    conforme janela configurada e disponibilidade da estrategia."""
+    global ESTADO_SISTEMA
+    try:
+        if not SETE_VELAS_ATIVO:
+            ESTADO_SISTEMA = "PADRAO_MONSTRO"
+            return
+        a = brt_agora()
+        h = a.hour + a.minute / 60.0
+        if a.weekday() >= 5 or not (SETE_VELAS_INICIO_HORA <= h < SETE_VELAS_FIM_HORA):
+            ESTADO_SISTEMA = "PADRAO_MONSTRO"
+        else:
+            ESTADO_SISTEMA = "SETE_VELAS_EXCLUSIVO"
+    except Exception as e:
+        logging.warning(f"Falha ao atualizar ESTADO_SISTEMA: {e}")
+        ESTADO_SISTEMA = "PADRAO_MONSTRO"
+
 # Cache TTL e configuraÃÂ§ÃÂµes de retry
 CACHE_TTL = 1  # segundos
 MAX_RETRY_ATTEMPTS = 5  # Aumentado para mais tentativas
@@ -1372,7 +1399,7 @@ class CircuitBreakerEssencial:
             except Exception as e:
                 logging.error(f"Ã¢ÂÅ Erro ao criar parar.txt: {e}")
 
-    def verificar_circuit_breakers(self, spread_atual: float) -> bool:
+    def verificar_circuit_breakers(self, spread_atual: float, ignore_max_loss: bool = False) -> bool:
         """Verifica se algum circuit breaker foi ativado."""
         # CB1: 3 losses seguidos - TEMPORARIAMENTE DESABILITADO (30/07/2025)
         # MOTIVO: Permitir mais operaÃÂ§ÃÂµes para treinamento da IA
@@ -5214,24 +5241,18 @@ class ModoOperacional:
         return params
 
 
-def executar_ordem(acao, par, preco_atual, stop_loss_pts, take_profit_pts, lote=None, magic_override=None, comment=None, shadow=True):
-    """Executa uma ordem de compra ou venda com SL fixo de 5 pontos e sem TP (robÃÂ´ decide saÃÂ­da)."""""""""
+def executar_ordem(action, lots=VOLUME_PADRAO, symbol=None, modo_operacional=None, sniper=False,
+                   sl_points_override=None, tp_points_override=None,
+                   magic_override=None, comment=None, shadow=True):
+    """Executa uma ordem de compra ou venda com SL/TP calculados. magic_override permite Magic 7007 (7 Velas)."""
 
     # Gate exclusivo Faixa 1: apenas magic=7007 passa durante SETE_VELAS_EXCLUSIVO
-    if ESTADO_SISTEMA == "SETE_VELAS_EXCLUSIVO" and magic_override != MAGIC_SETE_VELAS:
-        logger.info(f"🚫 [GATE 7 VELAS] Ordem bloqueada para {par} (apenas Magic 7007 na Faixa 1)")
+    if ESTADO_SISTEMA == "SETE_VELAS_EXCLUSIVO" and (magic_override or MAGIC_NUMBER) != MAGIC_SETE_VELAS:
+        logging.warning(f"[GATE 7 VELAS] Ordem bloqueada para {symbol or SYMBOL} (apenas Magic 7007 na Faixa 1)")
         return None
 
-
-
-    # Gate exclusivo Faixa 1: apenas magic=7007 passa durante SETE_VELAS_EXCLUSIVO
-    if ESTADO_SISTEMA == "SETE_VELAS_EXCLUSIVO" and magic_override != MAGIC_SETE_VELAS:
-        logger.info(f"🚫 [GATE 7 VELAS] Ordem bloqueada para {par} (apenas Magic 7007 na Faixa 1)")
-        return None
-
-
-
-    # ========== Ã¢Åâ¦ PA1: VERIFICAÃâ¡ÃÆO DE HORÃÂRIO OBRIGATÃâRIA ==========
+    # magic efetivo: override (7 Velas) ou padrao do robo
+    magic_final = magic_override if magic_override is not None else MAGIC_NUMBER
     # SniperSupermo pula esta verificaÃÂ§ÃÂ£o (opera 09:00-17:30)
     if not sniper and not horario_permitido():
         horario_atual = datetime.now().strftime("%H:%M")
@@ -5345,8 +5366,8 @@ def executar_ordem(acao, par, preco_atual, stop_loss_pts, take_profit_pts, lote=
         "sl": sl_calculado,
         "tp": tp_calculado,
         "deviation": DEVIATION,
-        "magic": MAGIC_NUMBER,
-        "comment": f"Monstro {action}",
+        "magic": magic_final,
+        "comment": comment or f"Monstro {action}",
         "type_time": mt5.ORDER_TIME_GTC,
         "type_filling": mt5.ORDER_FILLING_IOC,
     }
@@ -6532,6 +6553,26 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
         modelo_ia_global = modelo_ia_local
         memoria_experiencias_global = memoria_experiencias
 
+        # ===== v22.1b: ORQUESTRADOR 7 VELAS (Faixa 1) =====
+        global ESTADO_SISTEMA
+        _orq = None
+        if SETE_VELAS_ATIVO:
+            def _sv_fn_executar(action, lots, symbol, sl, tp, magic_override, comment):
+                return executar_ordem(
+                    action=action, lots=lots, symbol=symbol,
+                    modo_operacional=modo_operacional, sniper=True,
+                    sl_points_override=sl, tp_points_override=tp,
+                    magic_override=magic_override, comment=comment,
+                    shadow=False)
+            try:
+                _orq = Orquestrador7Velas(
+                    fn_executar=_sv_fn_executar, symbol=SYMBOL, ativo=SETE_VELAS_ATIVO)
+                logging.info("[7VELAS] Orquestrador instanciado (magic %s) - Faixa 1 armada", MAGIC_SETE_VELAS)
+            except Exception as e:
+                logging.error(f"[7VELAS] Falha ao instanciar orquestrador: {e}")
+                _orq = None
+
+
         esperando_confirmacao = False
         ultimo_heartbeat = time.time()
         ultimo_diagnostico = time.time()
@@ -6583,6 +6624,14 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
 
         while thread_ativo:
             try:
+                # ===== v22.1b: estado multi-estrategia + orquestrador 7 Velas =====
+                _atualizar_estado_sistema()
+                if _orq is not None and ESTADO_SISTEMA == "SETE_VELAS_EXCLUSIVO":
+                    try:
+                        _orq.orquestrar()
+                    except Exception as e:
+                        logging.error(f"[7VELAS] Erro no orquestrar(): {e}")
+
                 # ===== VERIFICAÃâ¡ÃÆO DE SEGURANÃâ¡A DA VARIÃÂVEL POSICAO_ATUAL =====
                 # Garante que posicao_atual sempre exista (inicializada como None se necessÃÂ¡rio)
                 if 'posicao_atual' not in locals() and 'posicao_atual' not in globals():
@@ -7930,7 +7979,9 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                 # ========== INTEGRAÃâ¡ÃÆO MELHORIA 4: CIRCUIT BREAKERS ESSENCIAIS ==========
                 if circuit_breaker and CIRCUIT_BREAKER_ATIVO:
                     spread_atual = contexto.get('spread', 0)
-                    if circuit_breaker.verificar_circuit_breakers(spread_atual):
+                    _cb2_ignore = (ESTADO_SISTEMA == "SETE_VELAS_EXCLUSIVO"
+                                   and bool(SETE_VELAS_CFG.get("cb2_ignore_max_loss", True)))
+                    if circuit_breaker.verificar_circuit_breakers(spread_atual, ignore_max_loss=_cb2_ignore):
                         status = circuit_breaker.get_status()
                         logging.warning(
                             f"Ã°Å¸Å¡Â¨ CIRCUIT BREAKER ATIVADO: {status['motivo']}")

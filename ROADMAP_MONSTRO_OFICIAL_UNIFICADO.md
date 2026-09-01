@@ -49,9 +49,28 @@
 - [x] **09:00–11:30:** Monitorar `SETE_VELAS_EXCLUSIVO` ativo — V9 (11:15) com Gatekeeper DUAL
 - [x] **11:15:** Verificar disparo V9 DUAL (5 CC, SL 8 / TP 10) se CVD + VWAP alinhados
 - [x] **11:30:** Transição automática `PADRAO_MONSTRO` (2 CC) — Keras/Sniper/Supermo ativos
-- [ ] **Pós-pregão:** Validar Shadow CSV (meta n≥30) e comparar com execução real
+- [x] **Pós-pregão:** Validar Shadow CSV (meta n≥30) e comparar com execução real
 - [ ] **Pós-semana:** Decisão `ativo: true` permanente baseada em n≥30 out-of-sample
 - [ ] **Congelamento de Parâmetros:** Manter Whitelist, Sniper %R fixo, SL 8.0 pts WDO
+
+### 🚨 v22.1b HOTFIX — 2026-09-01 (Reparo da Integração 7 Velas)
+
+#### 🔍 Auditoria Pós-Agente (descoberta de melhorias que quebraram o engine)
+- **Causa-raiz:** Altera antigo agente aplicou diff parcial/corrompido (`dd77a00`) no `monstro_unificado_v22.py`:
+  - L1386 usava `ignore_max_loss` sem declarar na assinatura do CB2 → **NameError a cada ciclo (~3min)**
+  - `executar_ordem` com assinatura nova mas corpo com nomes antigos (`sniper`, `symbol`, `lots`, `modo_operacional`) → contrato quebrado c/ chamada L7995
+  - Gatekeeper duplicado (L5247-5250 + L5254-5257) e variáveis fantasma `ESTADO_SISTEMA`/`MAGIC_SETE_VELAS` **nunca definidas**
+  - `_orq = Orquestrador7Velas(...)` importado mas **nunca instanciado** → robô cego p/ Faixa 1
+- **Evidência:** `NameError: name 'ignore_max_loss' is not defined` 09:20–09:48 (01/09) + Magic=123456 (sem exclusividade)
+
+#### 🛠️ Correções Aplicadas (v22.1b)
+- [x] **CB2**: `verificar_circuit_breakers(self, spread_atual, ignore_max_loss=False)` + call site L7933 com `_cb2_ignore` (só libera CB2 na janela exclusiva 7 Velas)
+- [x] **executar_ordem**: assinatura reconciliada `(action, lots=VOLUME_PADRAO, symbol, modo_operacional, sniper, sl_points_override, tp_points_override, magic_override, comment, shadow)` — compatível c/ engine e 7 Velas; `magic_final` e `comment` injetados no `order_send`
+- [x] **Globals 7 Velas**: `SETE_VELAS_CFG/ATIVO/MAGIC_SETE_VELAS/INICIO_HORA/FIM_HORA` + `ESTADO_SISTEMA="PADRAO_MONSTRO"` + `_atualizar_estado_sistema()` lendo `config.json` (brt)
+- [x] **Gatekeeper**: único (regra: na exclusividade só Magic 7007 passa) em `executar_ordem`
+- [x] **Orquestrador**: `_orq = Orquestrador7Velas(fn_executar=wrapper, symbol=SYMBOL, ativo=SETE_VELAS_ATIVO)` instanciado em `monstro_thread` + `_orq.orquestrar()` no loop quando `SETE_VELAS_EXCLUSIVO`
+- [x] **Instância única**: processos duplicados encerrados; único venv310 reiniciado 10:30 — log confirma `[7VELAS] Orquestrador instanciado (magic 7007)` e zero NameErrors pós-restart
+- [x] **py_compile** 100% (4 módulos) + commit/push
 
 ---
 

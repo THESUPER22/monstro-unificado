@@ -23,6 +23,7 @@ dist/
 # --- Logs (o monstro.log tem 176MB!) ---
 *.log
 startup_log.txt
+logs/
 
 # --- Modelos e memória da IA (dados, não código) ---
 *.h5
