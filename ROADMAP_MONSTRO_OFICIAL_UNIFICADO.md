@@ -51,6 +51,7 @@
 - [x] **11:30:** Transição automática `PADRAO_MONSTRO` (2 CC) — Keras/Sniper/Supermo ativos
 - [x] **Pós-pregão:** Validar Shadow CSV (meta n≥30) e comparar com execução real
 - [x] **01/09:** Fase 1 (idempotência + parametrização config), Fase 2 (backtest A/B 352 dias), Fase 3 (TP parcial 1:1 + BE + trava macro) — commit `1b7aa3d` + `5518a74`
+- [ ] **Correção de autópsia (01/09, pós-sessão):** reducer raiz `max_loss_diario` → -1000.0 alinhado com `risk_management` (Kill-Switch mantido em R$1.000, inalterado); rate-limit no append de `historico_multitf.csv` (1 write/60s) — commit pendente
 - [ ] **Início incubação OOS:** 02/09/2026 (V9 + Gatekeeper Dual + TP parcial/BE + trava macro) — meta n≥30
 - [ ] **Retomada na SEXTA 04/09 (Payroll — teste da trava `VETADO_MACRO`):** validar que a janela 11:15 fica bloqueada na 1ª sexta do mês (conferir CSV/state com `VETADO_MACRO` e nenhum trade aberto)
 - [ ] **Pós-semana:** Decisão `ativo: true` permanente baseada em n≥30 out-of-sample (critérios da seção v22.2)
@@ -508,3 +509,26 @@ Nº de features proporcional aos dados de treino. Adicionar INCREMENTAL e medir 
 
 *Mantido por: Mestre Super + Kiro AI Agent*
 *Última atualização: 19/07/2026*
+
+---
+
+## 🔍 CORREÇÃO DE AUTÓPSIA — 01/09 (PÓS-SESSÃO)
+
+**Autópsia original alegou:** Sniper bloqueado por gate `sniper_ratio_min=2.0` (L6845) → `continue` antes de chegar ao Sniper %R.
+
+**Contra-evidência (código real + log):**
+- O gate real está na **L7375** e **já é pulado em `SNIPER_APENAS=true`** (`if not SNIPER_APENAS and (...)`). O ratio 2.0 da raiz **NÃO** bloqueia o Sniper.
+- Log de 01/09 (monstro_wdo.log) prova o bloqueador real = **veto multi-TF** (M15/M30 em consenso extremo):
+  - 11:31 `%R=-80 BUY` → bloqueado `M15=-97 M30=-97`
+  - 11:46 `%R=-88 BUY` → bloqueado `M15=-98 M30=-98`
+  - 11:51/52 `%R=-17 SELL` → bloqueado `M15=-92 M30=-92`
+  - 11:54 **`%R=-15 SELL` disparou** (fora do consenso extremo) → ticket 2517225296, **-8 pts**
+- Conclusão: o veto multi-TF funcionou como projetado (bloqueou entradas contra consenso M15/M30). O trade que escapou perdeu. **NÃO mexer no `sniper_ratio_min` nem criar bypass no gate.**
+
+**Ações executadas (passivas/seguras):**
+1. Root `max_loss_diario`: -100.0 → **-1000.0** (alinha com `risk_management`; Kill-Switch em R$1.000 inalterado — engine lê ninho L810-811).
+2. `historico_multitf.csv`: append a cada ciclo (33.3k linhas) → **rate-limit 1x/60s** via `_log_periodico` (mantém auditoria, corta bloat ~120x).
+
+**Avaliação veto multi-TF:** legítimo e protetivo — manter. Rigidez p/ scalp 8SL/6TP é conservadora por design (fix 13/08). Nenhum afrouxamento sem backtest.
+
+**Validação:** `py_compile` OK (v22 + agente), `tests/testes_pos_fix.py` **9/9 PASS**, config `ALINHADO`.

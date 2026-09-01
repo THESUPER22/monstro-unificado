@@ -7476,7 +7476,8 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                         "rsi_15": round(rsi15, 2), "atr_15": round(atr15, 2), "wr_15": round(wr15, 2), "close_15": round(close15, 2), "vol_15": vol15,
                         "rsi_30": round(rsi30, 2), "atr_30": round(atr30, 2), "wr_30": round(wr30, 2), "close_30": round(close30, 2), "vol_30": vol30,
                     }
-                    salvar_dados_multitf_csv(dados_mtf)
+                    if _log_periodico('multitf_csv', 60):
+                        salvar_dados_multitf_csv(dados_mtf)
                     # Injeta no contexto para veto Multi-TF em prever_acao()
                     contexto.update({
                         "m5_rsi": round(rsi5, 2), "m5_atr": round(atr5, 2), "m5_wr": round(wr5, 2),
