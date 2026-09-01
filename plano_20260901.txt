@@ -1,0 +1,8 @@
+============================================================
+PLANO DO DIA SEGUINTE - MONSTRO WDO v22
+Gerado em: 01/09/2026 17:36:06
+============================================================
+[PRIORIDADE 3] Win rate abaixo de 35%.
+  -> Contramedida: NAO ajustar nada automaticamente; aguardar mais amostra.
+  -> Reversivel: nao se aplica.
+[PADRAO] Manter parametros atuais se nenhuma prioridade critica acionar.
