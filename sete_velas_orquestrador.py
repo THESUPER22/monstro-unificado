@@ -26,7 +26,9 @@ JANELA_FIM_HORA = 11.5
 LOTE = 5.0
 SL_DEFAULT = 8.0
 TP_DEFAULT = 10.0
-VARIANTES = {
+# ---- Gestao de posicao (TP parcial 1:1 + breakeven) ----
+LOTE_TP1_DEFAULT = 3.0      # contratos realizados no TP1; restante segue para o alvo final
+VARIANTES_BASE = {
     7: dict(entrada=10.75, sl=SL_DEFAULT, tp=TP_DEFAULT),
     9: dict(entrada=11.25, sl=SL_DEFAULT, tp=TP_DEFAULT),
 }
@@ -77,6 +79,42 @@ def _agora_brt():
     return brt_agora()
 
 
+def _dia_macro():
+    """Trava macro: True se hoje a janela do 7 Velas deve ser blindada.
+    - Payroll (Non-Farm Payrolls) : primeira sexta-feira do mes (automatico).
+    - Datas manuais (FOMC/Copom)  : lista em config['sete_velas']['datas_bloqueadas'].
+    Na hipotese de dia macro, nenhuma posicao eh aberta (VETADO_MACRO)."""
+    try:
+        p = _parametros_sv()
+        datas_bloqueadas = p.get('datas_bloqueadas') or []
+        a = _agora_brt()
+        hoje = a.date()
+        # Datas manuais (FOMC/Copom)
+        if hoje in datas_bloqueadas:
+            return True
+        # Payroll: primeira sexta do mes (a.weekday()==4 -> sexta)
+        if a.weekday() == 4:
+            if a.day <= 7:
+                return True
+        return False
+    except Exception:
+        return False
+
+
+def _gestao():
+    """Dict de gerenciamento de posicao vindo do config (tp1/breakeven)."""
+    p = _parametros_sv()
+    sl = float(p.get('sl', SL_DEFAULT))
+    tp = float(p.get('tp', TP_DEFAULT))
+    return {
+        'ativo': bool(p.get('gestao_tp_parcial', True)),
+        'tp1_dist': float(p.get('tp1_dist', sl)),      # distancia do TP1 (1:1 = SL)
+        'lote_tp1': float(p.get('lote_tp1', LOTE_TP1_DEFAULT)),
+        'tp_final_dist': float(p.get('tp_final_dist', tp)),
+        'rear_tp': bool(p.get('rear_tp', False)),
+    }
+
+
 def _carregar_state():
     if os.path.exists(STATE_PATH):
         try:
@@ -104,6 +142,9 @@ class Orquestrador7Velas:
         self.ativo = ativo
         self.ticket_aberto = None
         self.variante_entrando = None
+        self.tp1_feito = False     # 3 CC ja realizados + BE aplicado?
+        self._tp1_nivel = None
+        self._be_nivel = None
 
     def _registrar_trade(self, rec):
         os.makedirs(os.path.dirname(TRADES_PATH), exist_ok=True)
@@ -134,6 +175,16 @@ class Orquestrador7Velas:
         """Avalia sinal e executa se confluente. Retorna dict de resultado."""
         cfg = _variantes()[variante]
         p = _parametros_sv()
+        # Trava macro (Payroll/FOMC/Copom): nao abrir posicao, registrar veto
+        if _dia_macro():
+            print(f"[7VELAS V{variante}] DIA MACRO (Payroll/FOMC) -> VETADO_MACRO",
+                  flush=True)
+            return dict(
+                dia=_agora_brt().date().isoformat(), variante=variante,
+                hora_entrada=f"{int(cfg['entrada']):02d}:{int(round((cfg['entrada'] % 1) * 60)):02d}",
+                sinal='NENHUM', ups=0, downs=0, cvd=0, cvd_confluente=False,
+                entrada='', saida='', pts='', motivo='VETADO_MACRO',
+                ticket=None)
         entrada_dt = _agora_brt().replace(hour=int(cfg['entrada']), minute=int(round((cfg['entrada'] % 1) * 60)), second=0, microsecond=0)
         prox, preco, ups, downs = velas_para_entrada(self.symbol, variante, entrada_dt)
         if prox is None or preco is None:
@@ -162,6 +213,11 @@ class Orquestrador7Velas:
         else:
             rec['saida'] = 'ABERTA'
             rec['pts'] = ''
+            # Prepara gestao de TP parcial 1:1 + breakeven
+            g = _gestao()
+            self.tp1_feito = False
+            self._tp1_nivel = (preco + g['tp1_dist']) if sinal == 'BUY' else (preco - g['tp1_dist'])
+            self._be_nivel = preco
         print(f"[7VELAS V{variante}] {sinal} {ups}-{downs} cvd={cvd:.1f} "
               f"CONF {cvd_confluente} @ {preco:.1f} ticket={ticket}", flush=True)
         return rec
@@ -176,6 +232,116 @@ class Orquestrador7Velas:
                 print(f"[7VELAS] ERRO ao fechar {self.ticket_aberto}: {e}", flush=True)
             self.ticket_aberto = None
             self.variante_entrando = None
+            self.tp1_feito = False
+
+    def _fechar_parcial(self, ticket, volume_parcial, symbol=None, direction=None, magic=7007):
+        """Fecha volume_parcial lotes de uma posicao aberta (TP parcial)."""
+        try:
+            pos = mt5.positions_get(ticket=ticket)
+            if not pos:
+                return False
+            pos = pos[0]
+            sym = pos.symbol
+            tick = mt5.symbol_info_tick(sym)
+            if tick is None:
+                return False
+            tipo_fechamento = mt5.ORDER_TYPE_SELL if pos.type == mt5.POSITION_TYPE_BUY else mt5.ORDER_TYPE_BUY
+            preco = tick.bid if pos.type == mt5.POSITION_TYPE_BUY else tick.ask
+            request = {
+                "action": mt5.TRADE_ACTION_DEAL,
+                "symbol": sym,
+                "volume": float(volume_parcial),
+                "type": tipo_fechamento,
+                "position": int(pos.ticket),
+                "price": preco,
+                "deviation": 20,
+                "magic": magic,
+                "comment": f"7Velas TP1 parcial {volume_parcial}",
+                "type_time": mt5.ORDER_TIME_GTC,
+                "type_filling": mt5.ORDER_FILLING_IOC,
+            }
+            res = mt5.order_send(request)
+            if res is None:
+                print(f"[7VELAS] TP1 parcial order_send None: {mt5.last_error()}", flush=True)
+                return False
+            if res.retcode != mt5.TRADE_RETCODE_DONE:
+                print(f"[7VELAS] TP1 parcial rejeitada retcode={res.retcode} {res.comment}", flush=True)
+                return False
+            print(f"[7VELAS] TP1 parcial de {volume_parcial} CC realizado (ticket {ticket})", flush=True)
+            return True
+        except Exception as e:
+            print(f"[7VELAS] ERRO TP1 parcial: {e}", flush=True)
+            return False
+
+    def _mover_sl(self, ticket, novo_sl):
+        """Move o Stop Loss de uma posicao aberta (ex.: para breakeven)."""
+        try:
+            pos = mt5.positions_get(ticket=ticket)
+            if not pos:
+                return False
+            pos = pos[0]
+            sym_info = mt5.symbol_info(pos.symbol)
+            if sym_info is None:
+                return False
+            novo_sl = round(float(novo_sl), 1)
+            request = {
+                "action": mt5.TRADE_ACTION_SLTP,
+                "symbol": pos.symbol,
+                "position": int(pos.ticket),
+                "sl": novo_sl,
+                "tp": pos.tp,
+                "deviation": 20,
+                "magic": int(pos.magic),
+            }
+            res = mt5.order_send(request)
+            if res is None or res.retcode != mt5.TRADE_RETCODE_DONE:
+                print(f"[7VELAS] mover SL falhou retcode={res.retcode if res else 'None'}", flush=True)
+                return False
+            print(f"[7VELAS] SL movido p/ breakeven {novo_sl} (ticket {ticket})", flush=True)
+            return True
+        except Exception as e:
+            print(f"[7VELAS] ERRO mover SL: {e}", flush=True)
+            return False
+
+    def gerenciar_posicao(self):
+        """TP parcial 1:1 + breakeven: ao atingir +tp1_dist, realiza lote_tp1 CC e
+        move SL dos restantes (original tp1 + SL remanescente) para breakeven."""
+        if self.ticket_aberto is None or self.tp1_feito:
+            return
+        g = _gestao()
+        if not g['ativo']:
+            return
+        try:
+            pos = mt5.positions_get(ticket=self.ticket_aberto)
+            if not pos:
+                # posicao ja fechada (SL/TP 10pts ou manual)
+                self.ticket_aberto = None
+                self.tp1_feito = False
+                return
+            pos = pos[0]
+            preco_ent = float(pos.price_open)
+            if pos.type == mt5.POSITION_TYPE_BUY:
+                atingiu_tp1 = pos.price_current >= self._tp1_nivel
+            else:
+                atingiu_tp1 = pos.price_current <= self._tp1_nivel
+            if not atingiu_tp1:
+                return
+            # Realiza parcial
+            lote_total = float(pos.volume)
+            lote_tp1 = min(g['lote_tp1'], lote_total)
+            lote_restante = lote_total - lote_tp1
+            if lote_restante <= 0:
+                # Nada a manter: deixa o TP original do MT5 encerrar tudo
+                self.tp1_feito = True
+                return
+            ok = self._fechar_parcial(self.ticket_aberto, lote_tp1, magic=int(pos.magic))
+            if ok:
+                # Move SL dos restantes para breakeven (entrada)
+                self._mover_sl(self.ticket_aberto, preco_ent)
+                self.tp1_feito = True
+                print(f"[7VELAS] TP1 OK: {lote_tp1} CC realizados, BE nos {lote_restante:.2f} CC", flush=True)
+        except Exception as e:
+            print(f"[7VELAS] ERRO gerenciar_posicao: {e}", flush=True)
 
     def orquestrar(self):
         """Gancho chamado a cada iteração do loop principal do monstro."""
@@ -184,6 +350,11 @@ class Orquestrador7Velas:
         a = _agora_brt()
         if a.weekday() >= 5:
             return
+        # Gestao de TP parcial 1:1 + breakeven (executa a cada iteracao)
+        try:
+            self.gerenciar_posicao()
+        except Exception:
+            pass
         if not _na_janela():
             # Fora da janela: fecha posição pendente e reseta
             if self.ticket_aberto is not None:
