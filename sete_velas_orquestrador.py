@@ -36,15 +36,41 @@ TRADES_PATH = r'C:\AIOFEN\logs\sete_velas_trades.csv'
 
 def _carregar_cfg():
     """Flags de ativacao por variante vindas do config.json (V7/V9)."""
+    p = _parametros_sv()
+    return {
+        7: bool(p.get('V7_1045_ATIVO', True)),
+        9: bool(p.get('V9_1115_ATIVO', True)),
+    }
+
+
+def _parametros_sv():
+    """Dict completo da secao sete_velas do config.json (parametros unificados)."""
     try:
         with open(r'C:\AIOFEN\config.json', encoding='utf-8') as f:
-            sv = json.load(f).get('sete_velas', {})
+            return json.load(f).get('sete_velas', {}) or {}
     except Exception:
-        sv = {}
+        return {}
+
+
+def _variantes():
+    """VARIANTES dinamicas: entradas fixas (7->10:45, 9->11:15), SL/TP/lote do config."""
+    p = _parametros_sv()
+    sl = float(p.get('sl', SL_DEFAULT))
+    tp = float(p.get('tp', TP_DEFAULT))
+    lote = float(p.get('lote', LOTE))
     return {
-        7: bool(sv.get('V7_1045_ATIVO', True)),
-        9: bool(sv.get('V9_1115_ATIVO', True)),
+        7: dict(entrada=10.75, sl=sl, tp=tp, lote=lote),
+        9: dict(entrada=11.25, sl=sl, tp=tp, lote=lote),
     }
+
+
+def _na_janela():
+    p = _parametros_sv()
+    ini = float(p.get('hora_inicio', JANELA_INICIO_HORA))
+    fim = float(p.get('hora_fim', JANELA_FIM_HORA))
+    a = _agora_brt()
+    h = a.hour + a.minute / 60.0
+    return ini <= h < fim
 
 
 def _agora_brt():
@@ -71,12 +97,6 @@ def _chave_dia(variante):
     return f"{_agora_brt().date().isoformat()}_{variante}"
 
 
-def _na_janela():
-    a = _agora_brt()
-    h = a.hour + a.minute / 60.0
-    return JANELA_INICIO_HORA <= h < JANELA_FIM_HORA
-
-
 class Orquestrador7Velas:
     def __init__(self, fn_executar, symbol='WDOU26', ativo=True):
         self.fn_executar = fn_executar
@@ -96,11 +116,11 @@ class Orquestrador7Velas:
                 w.writeheader()
             w.writerow(rec)
 
-    def _executar(self, action, sl, tp):
+    def _executar(self, action, sl, tp, lote, magic):
         try:
             ticket = self.fn_executar(
-                action, lots=LOTE, symbol=self.symbol,
-                sl=sl, tp=tp, magic_override=MAGIC_SETE_VELAS,
+                action, lots=lote, symbol=self.symbol,
+                sl=sl, tp=tp, magic_override=magic,
                 comment=f"7Velas V{self.variante_entrando}")
         except Exception as e:
             print(f"[7VELAS] ERRO ao executar {action}: {e}", flush=True)
@@ -112,7 +132,8 @@ class Orquestrador7Velas:
 
     def avaliar(self, variante):
         """Avalia sinal e executa se confluente. Retorna dict de resultado."""
-        cfg = VARIANTES[variante]
+        cfg = _variantes()[variante]
+        p = _parametros_sv()
         entrada_dt = _agora_brt().replace(hour=int(cfg['entrada']), minute=int(round((cfg['entrada'] % 1) * 60)), second=0, microsecond=0)
         prox, preco, ups, downs = velas_para_entrada(self.symbol, variante, entrada_dt)
         if prox is None or preco is None:
@@ -129,18 +150,18 @@ class Orquestrador7Velas:
             entrada=round(preco, 3), saida='', pts='', motivo='')
         if not cvd_confluente:
             rec['motivo'] = 'VETADO_CVD'
-            self._registrar_trade(rec)
+            rec['ticket'] = None
             print(f"[7VELAS V{variante}] {sinal} {ups}-{downs} cvd={cvd:.1f} "
                   f"VETADO-CVD @ {preco:.1f}", flush=True)
             return rec
         # Executa
-        ticket = self._executar(sinal, cfg['sl'], cfg['tp'])
+        ticket = self._executar(sinal, cfg['sl'], cfg['tp'], cfg['lote'], int(p.get('magic', MAGIC_SETE_VELAS)))
+        rec['ticket'] = ticket
         if ticket is None:
             rec['motivo'] = 'ERRO_EXECUCAO'
         else:
             rec['saida'] = 'ABERTA'
             rec['pts'] = ''
-        self._registrar_trade(rec)
         print(f"[7VELAS V{variante}] {sinal} {ups}-{downs} cvd={cvd:.1f} "
               f"CONF {cvd_confluente} @ {preco:.1f} ticket={ticket}", flush=True)
         return rec
@@ -178,7 +199,7 @@ class Orquestrador7Velas:
             if chave in state and state[chave].get('ticket'):
                 self.ticket_aberto = state[chave].get('ticket')
         # Gatilhos de entrada
-        for variante, cfg in VARIANTES.items():
+        for variante, cfg in _variantes().items():
             if not vars_ativas.get(variante, False):
                 continue
             chave = f"{a.date().isoformat()}_{variante}"
@@ -187,12 +208,20 @@ class Orquestrador7Velas:
             if a >= hora_entrada_dt and chave not in state:
                 self.variante_entrando = variante
                 rec = self.avaliar(variante)
-                if rec and rec.get('ticket'):
-                    state[chave] = {
-                        'ticket': rec.get('ticket'),
-                        'sinal': rec['sinal'], 'entrada': rec['entrada'],
-                        'saida': 'ABERTA', 'pts': ''}
-                    _salvar_state(state)
+                # Idempotencia: registra trade uma unica vez e grava state em
+                # QUALQUER resultado (executado, vetado CVD ou erro)
+                if rec is None:
+                    rec = dict(dia=a.date().isoformat(), variante=variante,
+                               hora_entrada=cfg['entrada'], sinal='', ups=0, downs=0,
+                               cvd=0, cvd_confluente=False, entrada=0,
+                               saida='', pts='', motivo='SEM_DADOS')
+                self._registrar_trade(rec)
+                state[chave] = {
+                    'ticket': rec.get('ticket'),
+                    'sinal': rec.get('sinal', ''), 'entrada': rec.get('entrada', 0),
+                    'saida': rec.get('saida', ''), 'pts': rec.get('pts', ''),
+                    'motivo': rec.get('motivo', '')}
+                _salvar_state(state)
         # Fim da janela: fecha tudo e reseta state
         h = a.hour + a.minute / 60.0
         if h >= JANELA_FIM_HORA and self.ticket_aberto is not None:
