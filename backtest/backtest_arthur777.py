@@ -145,34 +145,61 @@ class Arthur777Backtest:
         return df
     
     def simular_trades(self, df_sinais: pd.DataFrame) -> List[Trade]:
+        """Simula trades com AVANÇO DE CURSOR TEMPORAL.
+
+        Regras aplicadas (correções de auditoria 03/09):
+          1. Sobreposição eliminada: após abrir uma posição, só um novo trade é
+             considerado depois que o anterior fechou (SL/TP/EOD). Isso garante
+             1 posição simultânea, como no MT5 real.
+          2. Fator 2 corrigido: `pts` internamente é medido em TICKS (comparado
+             com tick_size). Na conversão para PnL financeiro, convertemos
+             ticks -> pontos reais de preço (pts * tick_size) antes de aplicar
+             valor_por_ponto.
+
+        Implementação: usa índices posicionais (ordinal) em vez de iterar todas
+        as linhas, pulando o cursor após o fechamento de cada trade.
+        """
         self._trades = []
         trades = []
-        
-        for i, row in df_sinais.iterrows():
+
+        dati = df_sinais.reset_index(drop=True)
+        n = len(dati)
+        i = 0
+        while i < n:
+            row = dati.iloc[i]
             if not (row['sinal_long'] or row['sinal_short']):
+                i += 1
                 continue
-            
+
             tipo = 'BUY' if row['sinal_long'] else 'SELL'
-            entrada = df_sinais.loc[i+1, 'open'] if i+1 < len(df_sinais) else row['close']
-            
+            # Entrada na abertura da próxima barra após o sinal
+            if i + 1 < n:
+                entrada = dati.iloc[i + 1]['open']
+                inicio_varredura = i + 1  # a própria barra de entrada pode fechar TP/SL
+                # cursor começa na barra de entrada (j >= inicio_varredura)
+            else:
+                entrada = row['close']
+                inicio_varredura = n
+
             if tipo == 'BUY':
                 sl = entrada - self.sl_pts * self.tick_size
                 tp = entrada + self.tp_pts * self.tick_size
             else:
                 sl = entrada + self.sl_pts * self.tick_size
                 tp = entrada - self.tp_pts * self.tick_size
-            
-            # Simular até TP/SL ou EOD
-            trades_futuros = df_sinais.loc[i+1:] if i+1 < len(df_sinais) else pd.DataFrame()
-            
-            pts_resultado = 0
+
+            pts = 0
             saida_tipo = 'EOD'
-            saida_preco = 0
+            saida_preco = entrada
             duracao_min = 0
-            
-            for j, f_row in trades_futuros.iterrows():
+            cursor = 0  # índice (relativo a inicio_varredura) onde a posição fecha
+
+            # Varredura até TP/SL ou fim do dia
+            for j in range(inicio_varredura, n):
+                f_row = dati.iloc[j]
                 duracao_min += 15
-                
+                cursor = j
+
                 if tipo == 'BUY':
                     if f_row['low'] <= sl:
                         pts = -self.sl_pts
@@ -195,50 +222,54 @@ class Arthur777Backtest:
                         saida_tipo = 'TP'
                         saida_preco = tp
                         break
-                duracao_min += 15
             else:
-                # Fim do dia
-                if trades_futuros.empty:
-                    pts = 0
-                    saida_tipo = 'EOD'
-                    saida_preco = row['close']
+                # Fim da série (ou sem fechamento) -> EOD
+                saida_tipo = 'EOD'
+                if tipo == 'BUY':
+                    saida_preco = dati.iloc[-1]['close']
+                    pts = (dati.iloc[-1]['close'] - entrada) / self.tick_size
                 else:
-                    if tipo == 'BUY':
-                        pts = (trades_futuros.iloc[-1]['close'] - entrada) / self.tick_size
-                    else:
-                        pts = (entrada - trades_futuros.iloc[-1]['close']) / self.tick_size
-                    saida_tipo = 'EOD'
-                    saida_preco = trades_futuros.iloc[-1]['close']
-            
-            # Calcular custo real
-            if pts != 0:
-                custo_info = calcular_custo_trade(self.ativo, pts)
-                custo_trade = custo_info['custo_total']
+                    saida_preco = dati.iloc[-1]['close']
+                    pts = (entrada - dati.iloc[-1]['close']) / self.tick_size
+                cursor = n - 1
+
+            # Convertir ticks -> pontos de preço (CORREÇÃO FATOR 2)
+            # Internamente `pts` está em ticks; PnL financeiro usa pontos reais.
+            pontos = pts * self.tick_size
+
+            # Calcular custo real com pontos (não ticks)
+            if pontos != 0:
+                custo_info = calcular_custo_trade(self.ativo, round(pontos, 2))
                 pnl_bruto = custo_info['pnl_bruto']
                 pnl_liquido = custo_info['pnl_liquido']
+                custo_trade = custo_info['custo_total']
             else:
-                pnl_liquido = 0
-                custo_trade = 0
-            
+                pnl_liquido = 0.0
+                pnl_bruto = 0.0
+                custo_trade = 0.0
+
             trade = Trade(
-                data=df_sinais.loc[i, 'time'].strftime('%Y-%m-%d'),
+                data=row['time'].strftime('%Y-%m-%d'),
                 ativo=self.ativo,
-                hora_entrada=df_sinais.loc[i, 'time'].strftime('%H:%M'),
+                hora_entrada=row['time'].strftime('%H:%M'),
                 tipo=tipo,
                 entrada=round(entrada, 1),
                 sl=round(sl, 1),
                 tp=round(tp, 1),
                 saida=round(saida_preco, 1),
-                pts=pts,
-                pnl_bruto=custo_info['pnl_bruto'] if pts != 0 else 0,
-                custo=custo_info['custo_total'] if pts != 0 else 0,
-                pnl_liquido=custo_info['pnl_liquido'] if pts != 0 else 0,
+                pts=pts,  # mantém ticks no registro para rastreabilidade
+                pnl_bruto=pnl_bruto,
+                custo=custo_trade,
+                pnl_liquido=pnl_liquido,
                 saida_tipo=saida_tipo,
                 duracao_min=duracao_min
             )
             trades.append(trade)
             self._trades.append(trade)
-        
+
+            # AVANÇO DE CURSOR: próxima avaliação só após a barra de fechamento
+            i = inicio_varredura + (cursor - inicio_varredura) + 1 if cursor >= inicio_varredura else n
+
         return trades
     
     def executar(self, df_m5: pd.DataFrame) -> dict:

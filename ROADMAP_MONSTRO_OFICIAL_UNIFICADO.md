@@ -550,9 +550,31 @@ Nº de features proporcional aos dados de treino. Adicionar INCREMENTAL e medir 
 | 3 | "Config bagunça total (sniper 2.0 vs 1.2)" | `sniper_ratio_min` **1.5** (raiz + risk), `max_loss_diario` **-1000** (raiz + risk), kill_switch **-250/-400** (agente). | 🟡 **Maioria alinhada** |
 | 4 | "experiencias_wdo.json VAZIO" | **Só 3 registros.** | 🔴 **GAP REAL — priorizar** |
 | 5 | "Shadow Model A correlação invertida" | Base: n=27, WR 33%, PF 0.34, -R$395 — **nunca teve poder de veto** (passivo). | 🟡 Validar, risco baixo |
-| 6 | WIN "golden goose" | Backtest WIN A: PF 1.94, +R$654k, **MaxDD -R$43k**. Robô em produção é **WDO**. | 🟠 **Decisão estratégica**, não bug |
+| 6 | WIN "golden goose" | Backtest WIN A **original viciado**: PF 1.94, +R$654k, MaxDD -R$43k. **Corrigido 03/09 (auditoria):** PF 1.68, +R$107.734, **MaxDD -R$12.810** (ver bloco AUDITORIA abaixo). Robô em produção é **WDO**. | 🟠 **Decisão estratégica**, não bug |
 
 **⚠️ RISCO Nº1 IDENTIFICADO (não é bug, é processo):** múltiplos agentes/sessões editando `config.json` **em paralelo** (prova: `sniper_ratio_min` virou 1.5 depois da minha sessão de 01/09 sem commit correspondente). Esta é a real ameaça à integridade — qualquer "unificação" será inútil se a escrita concorrente continuar. **Ação: single-writer lock em config/prod.**
+
+---
+
+## 🔍 AUDITORIA BACKTEST ARTHUR 777 — CORRIGIDO EM 03/09 (números calibrados)
+
+**Contexto:** o backtest original do agente (`backtest_arthur777.py`) apresentava **2 vícios de metodologia** que inflavam os resultados. Auditoria feita por mim em 03/09/2026, corrigida e **validada matematicamente** (fator 2 + zero sobreposição restante).
+
+| Vício | Antes (inflado) | Depois (corrigido) |
+|---|---|---|
+| **Fator 2 (dupla contagem do tick)** — `pts` medido em TICKS multiplicava `valor_por_ponto` como se fosse pontos de preço (`tick_size=0.5` → 1 ponto = 2 ticks). Todo PnL e MaxDD dobrados. | WIN A TP = R$7.500/trade | **R$3.750/trade** ✔ (bate c/ distância real em preço) |
+| **Sobreposição temporal** — loop abria trade a cada sinal SEM avançar o cursor após o fechamento (≥1 posição simultânea impossível no MT5). | 50% dos trades WIN sobrepostos (até 17/dia) | **0 sobreposições** (máx 8/dia, 1 por vez) ✔ |
+
+### RESULTADOS CALIBRADOS (5 contratos, custos reais XP RLP, 15/04–28/08/26)
+| Cenário | Ativo | Trades | WR | Saldo líq | PF | Payoff | MaxDD |
+|---|---|---|---|---|---|---|---|
+| **A (Tendência)** | **WIN** | **229** | 31.0% | **+R$107.734** | **1.68** | 3.74 | **-R$12.810** |
+| B (Scalper) | WIN | 338 | 64.2% | -R$67.510 | 0.44 | 0.25 | -R$68.501 |
+| A (Tendência) | WDO | 121 | 27.3% | +R$5.786 | 1.25 | 3.34 | -R$4.913 |
+| B (Scalper) | WDO | 228 | 70.2% | -R$7.052 | 0.60 | 0.25 | -R$7.397 |
+
+**LEITURA SÊNIOR:** a **tese estatística principal se MANTÉM** — Cenário A (Tendência) > Cenário B; **WIN A segue o melhor setup** (PF 1.68, payoff 3.74, +R$107k). Mas o risco é **muito menor do que os "R$654k / -R$43k" falsos**: MaxDD real de **-R$12.810** em 229 trades (5 cts) é **dimensionável** (≤5%/trade), não 4,3x capital como os relatórios alarmistas afirmavam. **Cenário B permanece geneticamente perdedor** (payoff 0.25 < custos) — nunca subir. **WIN V2 real já existe portado para MT5** (`monstro_unificado_v2.py` + `config_win_v2.json` + `modelo_monstro_win.h5`); o NO-GO de "matar/não colocar WIN" foi baseado em número inflado — decisão deve ser reavaliada com dados calibrados em SEX 04/09.
+
 
 ---
 
@@ -603,7 +625,7 @@ Semana real 01–02/09 (WDOV26, 1 ct): 8 trades | 5 W / 3 L | **62.5% WR** | PnL
 | Item | Ação | Critério de GO |
 |---|---|---|
 | E1 | Alinhar com Mestre Super: **WDO (atual) × WIN × ambos** | Decisão explícita do dono |
-| E2 | Se WIN: validar Margem/contrato/custos reais + Backtest A **sem overfitting** (MaxDD -R$43k exige sizing ≤2% capital) | Paper 20 dias antes de real |
+| E2 | Se WIN: validar Margem/contrato/custos reais + Backtest A **calibrado** (MaxDD -R$12.810 em 229 trades → sizing ≤5% capital) | Paper 20 dias antes de real |
 | E3 | Se manter WDO: **foco em V9 DUAL** (PF 1.44) + consolidar incubação n≥30 | n≥30 OOS |
 
 ---
