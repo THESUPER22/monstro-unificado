@@ -532,3 +532,125 @@ Nº de features proporcional aos dados de treino. Adicionar INCREMENTAL e medir 
 **Avaliação veto multi-TF:** legítimo e protetivo — manter. Rigidez p/ scalp 8SL/6TP é conservadora por design (fix 13/08). Nenhum afrouxamento sem backtest.
 
 **Validação:** `py_compile` OK (v22 + agente), `tests/testes_pos_fix.py` **9/9 PASS**, config `ALINHADO`.
+
+---
+
+# 🧭 DELIBERAÇÃO DE SEXTA-FEIRA — 04/09/2026 (PÓS-FECHAMENTO)
+
+> **Objetivo deste bloco:** consolidar a semana **01/09–04/09**, separar factos verificados de alegações de autópsia, e tomar **decisão GO/NÃO-GO** sobre as MUDANÇAS propostas nos relatórios (`para ox alpha.txt`). Nada abaixo deve ser implementado às cegas — cada item tem **estado verificado** e **critério objetivo** de decisão (VIDE SEMANA).
+
+---
+
+## 0. PREMISSAS VERIFICADAS EM CÓDIGO (independente — base para tudo)
+
+| # | Alegação de autópsia | **Estado VERIFICADO (02/09)** | Veredito |
+|---|---|---|---|
+| 1 | "Bug 7 Velas L198: truth value of array ambiguous" | **JÁ CORRIGIDO.** Orquestrador reescrito (Fase 2, 01/09) usa `calcular_cvd_janela()` → retorna **escalar float** e `cvd_confluente = (ups>downs and cvd>0)...` (boolean escalar). **Não existe** `cvd.any()/.all()`. | ✅ Já resolvido — **não mexer** |
+| 2 | "historico_multitf.csv PARADO em 08/08" | **FUNCIONANDO.** Último registro 2026.09.02 17:14. | ✅ Já resolvido |
+| 3 | "Config bagunça total (sniper 2.0 vs 1.2)" | `sniper_ratio_min` **1.5** (raiz + risk), `max_loss_diario` **-1000** (raiz + risk), kill_switch **-250/-400** (agente). | 🟡 **Maioria alinhada** |
+| 4 | "experiencias_wdo.json VAZIO" | **Só 3 registros.** | 🔴 **GAP REAL — priorizar** |
+| 5 | "Shadow Model A correlação invertida" | Base: n=27, WR 33%, PF 0.34, -R$395 — **nunca teve poder de veto** (passivo). | 🟡 Validar, risco baixo |
+| 6 | WIN "golden goose" | Backtest WIN A: PF 1.94, +R$654k, **MaxDD -R$43k**. Robô em produção é **WDO**. | 🟠 **Decisão estratégica**, não bug |
+
+**⚠️ RISCO Nº1 IDENTIFICADO (não é bug, é processo):** múltiplos agentes/sessões editando `config.json` **em paralelo** (prova: `sniper_ratio_min` virou 1.5 depois da minha sessão de 01/09 sem commit correspondente). Esta é a real ameaça à integridade — qualquer "unificação" será inútil se a escrita concorrente continuar. **Ação: single-writer lock em config/prod.**
+
+---
+
+## 1. ESTADO DA SEMANA (compilar SEX 18:00 — via MT5 + logs)
+
+Semana real 01–02/09 (WDOV26, 1 ct): 8 trades | 5 W / 3 L | **62.5% WR** | PnL bruto +R$80 | **líq +R$73.60** após custos.
+
+⚠️ **LEITURA SÊNIOR (honesta):**
+- **n=8 é estatisticamente irrelevante.** 62.5% não prova edge — pode ser sorte. NÃO aumentar lote por causa disto.
+- Os 3 losses de 01/09 foram **entradas contra fluxo** (multi-TF) → reforça que o veto multi-TF está **correto**, não "restritivo demais".
+- Os 3 gains de 02/09 foram **a favor da tendência** → valida a direção do sistema.
+
+**Para SEX 18:00:** gerar relatório consolidado 01–04/09 (trades, WR, PF, MaxDD, PnL líq, custos) e **marcar cada item abaixo como GO / NÃO-GO / ADIAR** com base na semana + critérios objetivos.
+
+---
+
+## 2. DECISÕES EM PAUTA (VOTAR SEX, IMPLEMENTAR RÁPIDO NÃO-IMEDIATO)
+
+### 🟢 A. UNIFICAR CONFIG (verificado: 85% já feito — completar de forma SEGURA)
+| Item | Ação | Critério de GO |
+|---|---|---|
+| A1 | **Single-writer lock** de `config.json`/`agente_config.json` (mutex p/ edição; git diff obrigatório antes de commit) | **SEMPRE — sem isso nada vale** |
+| A2 | Verificar `custos_operacionais` = valores XP RLP (R$0,80 WDO / R$0,25 WIN) | Presente e coerente c/ `backtest/custos_reais.py` |
+| A3 | `py_compile` config.json + `python -c "json.load(...)"` em config + agente_config | Exit 0 |
+| A4 | Criar `tests/validar_config_estrutura.py` (checa 1 ocorrência de cada chave crítica + tipos) | 9/9 + novo teste PASS |
+
+### 🟡 B. EXPERIENCIAS_WDO.JSON (GAP REAL — PRIORIDADE 1)
+| Item | Ação | Critério de GO |
+|---|---|---|
+| B1 | Popular `experiencias_wdo.json` a partir de `decisions_wdo.csv` + `historico_contexto_wdo.csv` (feats → contexto, label = resultado real do trade) | **>100 registros** válidos |
+| B2 | Alimentar automaticamente **no fecho** (`Monstro-Fecho` / fim de `orquestrar`) | Todo pregão registra experiências |
+| B3 | Validar distribuição: ≥30% wins / losses (não só NÃO_AGIU) | Distribuição balanceada |
+
+### 🟠 C. SHADOW MODEL A (validar, NÃO desligar às cegas)
+| Item | Ação | Critério de GO |
+|---|---|---|
+| C1 | Confirmar em código que Modelo A **não tem poder de veto** (só shadow/passivo) | Verificar execução real |
+| C2 | Re-analisar com n≥60 (meta) a correlação confiança×resultado | Curva monotônica OU desligar |
+
+### 🔴 D. CENÁRIO B (SCALPER) — NUNCA subir em produção
+| Item | Ação | Critério de GO |
+|---|---|---|
+| D1 | Confirmar que NENHUM caminho de produção invoca escalper puro (payoff<0.3) | grep: nenhuma chamada ativa |
+| D2 | Se existir código morto de scalper: marcar/remover **COM TESTE** (nunca remover lógica viva às cegas) | py_compile + testes 9/9 |
+
+### 🔴 E. MUDANÇA DE PRODUTO WDO → WIN (DECISÃO ESTRATÉGICA — NÃO é ajuste de config)
+> **Ponto que os relatórios não enfatizam:** o robô em produção opera **WDO**. A recomendação "WIN A como golden goose" é **trocar de produto** — implica: símbolo, tick/point, contrato, custos, margem, corretora (WIN ≠ WDO no demo XP? confirmar contrato), gestão de risco do ativo. **Não é "ligar uma flag".**
+| Item | Ação | Critério de GO |
+|---|---|---|
+| E1 | Alinhar com Mestre Super: **WDO (atual) × WIN × ambos** | Decisão explícita do dono |
+| E2 | Se WIN: validar Margem/contrato/custos reais + Backtest A **sem overfitting** (MaxDD -R$43k exige sizing ≤2% capital) | Paper 20 dias antes de real |
+| E3 | Se manter WDO: **foco em V9 DUAL** (PF 1.44) + consolidar incubação n≥30 | n≥30 OOS |
+
+---
+
+## 3. PAPER TRADING / EMULAÇÃO (GATE PARA DINHEIRO REAL)
+
+| # | Etapa | Duração | Critério de SAÍDA |
+|---|---|---|---|
+| P1 | Rodar produção atual em **conta demo** (sem descongelar) | até n≥30 OOS | Critérios v22.2 (WR≥45%, PF≥1.1, MaxDD≤R$3.600) |
+| P2 | Se E2 (WIN): **paper dedicado em WIN** | 20 dias | PF≥1.5, MaxDD<15% capital, ≥30 trades |
+| P3 | Nenhum **aumento de lote** antes de P1/P2 GO | — | GO só com critérios batidos |
+
+---
+
+## 4. CHECKLIST EXECUTÁVEL SEXTA (pós 17:40 fecho — ORDEM)
+
+```powershell
+# 0) Single-writer: confirmar ninguém editando (git status limpo)
+cd C:\AIOFEN
+git status
+
+# 1) Unificação segura (A)
+python -m py_compile config.json
+python -c "import json;json.load(open('config.json'));json.load(open('agente_config.json'));print('configs OK')"
+
+# 2) Experiências (B) — popular + validar
+python scripts/popular_experiencias.py        # (criar) exporta decisions->experiencias
+python -c "import json;print(len(json.load(open('experiencias_wdo.json'))))"   # >100
+
+# 3) Bugs reais (D/C) — só se existirem
+python -m py_compile monstro_unificado_v22.py agente_monstro_core.py sete_velas_util.py
+
+# 4) Testes
+python tests/testes_pos_fix.py                # 9/9
+python tests/validar_config_estrutura.py      # (novo) PASS
+
+# 5) Backtests (referência, não regressão)
+python backtest/backtest_sete_velas.py         # gera CSV
+python backtest/backtest_arthur777.py          # 4 cenários
+```
+
+## 5. ENTREGÁVEIS MÍNIMOS DE SEXTA
+- [ ] Relatório consolidado da semana 01–04/09 (com custos).
+- [ ] Decisão explícita registrada p/ **cada** item A–E (GO/NÃO-GO/ADIAR).
+- [ ] `experiencias_wdo.json` **>100** registros + alimentação no fecho ativa.
+- [ ] Single-writer lock documentado (não necessariamente codificado — pode ser **protocolo/checklist**).
+- [ ] Se E1=WIN: paper WIN P2 montado. Se E1=WDO: incubação V9 continua até n≥30.
+- [ ] Commit + push de configs/scripts validados (com diff revisado).
+
+*Mantido por: Mestre Super + Kiro AI Agent — revisado e direcionado por Ox Alfa (dev/quant sênior)*
