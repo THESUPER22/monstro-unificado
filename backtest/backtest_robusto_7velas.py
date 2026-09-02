@@ -24,6 +24,9 @@ TP_PONTOS = 10.0
 VALOR_POR_PONTO_5CC = 50.0  # 5 contratos x R$10/pontos
 MAGIC = 7007
 
+# Custos reais XP NOMOS + RLP (5 contratos)
+CUSTO_TRADE_WDO_5CT = 4.00   # R$ 4,00 por trade (5 contratos)
+
 # Janelas de Entrada
 JANELAS = {
     7: time(10, 45),   # V7 - 10:45 BRT
@@ -188,6 +191,9 @@ def run_backtest():
                             resultado = 'LOSS'; pnl_pts = -SL_PONTOS; break
                 
                 if resultado in ['WIN', 'LOSS']:
+                    pnl_bruto = pnl_pts * VALOR_POR_PONTO
+                    custo_trade = 4.00  # R$ 4,00 por trade (5 contratos WDO com RLP)
+                    pnl_liquido = pnl_bruto - custo_trade
                     trades.append({
                         'data': candle['time'].date(),
                         'hora': candle['time'].time(),
@@ -196,7 +202,9 @@ def run_backtest():
                         'direcao': direcao,
                         'resultado': resultado,
                         'pontos': pnl_pts,
-                        'financeiro': pnl_pts * VALOR_POR_PONTO,
+                        'financeiro': pnl_bruto,
+                        'custo_operacional': custo_trade,
+                        'pnl_liquido': pnl_liquido,
                         'duracao_min': duracao
                     })
         
@@ -218,6 +226,8 @@ def gerar_relatorio_completo(trades_df):
     print("\n" + "=" * 80)
     print("RELATÓRIO DE BACKTEST - 7 VELAS (MAGIC 7007) - WDO M1")
     print("=" * 80)
+    print(">>> CUSTOS REAIS XP RLP: R$ 4,00/trade (5 contratos WDO) <<<")
+    print("=" * 80)
     
     print(f"\nTotal de trades simulados: {len(trades_df)}")
     print(f"Período: {trades_df['data'].min()} a {trades_df['data'].max()}")
@@ -235,15 +245,17 @@ def gerar_relatorio_completo(trades_df):
             losses = (subset['resultado'] == 'LOSS').sum()
             wr = wins / ops * 100
             
-            pnl = subset['financeiro'].sum()
+            pnl_bruto = subset['financeiro'].sum()
+            pnl_liquido = subset['pnl_liquido'].sum()
+            custo_total = subset['custo_operacional'].sum()
             
-            # Profit Factor
-            gp = subset[subset['financeiro'] > 0]['financeiro'].sum()
-            gl = abs(subset[subset['financeiro'] < 0]['financeiro'].sum())
+            # Profit Factor (líquido)
+            gp = subset[subset['pnl_liquido'] > 0]['pnl_liquido'].sum()
+            gl = abs(subset[subset['pnl_liquido'] < 0]['pnl_liquido'].sum())
             pf = gp / gl if gl > 0 else float('inf')
             
-            # Max DD
-            cum = subset['financeiro'].cumsum()
+            # Max DD (líquido)
+            cum = subset['pnl_liquido'].cumsum()
             dd = (cum.cummax() - cum).max()
             
             dur_med = subset['duracao_min'].mean()
@@ -254,10 +266,9 @@ def gerar_relatorio_completo(trades_df):
             print(f"{'='*60}")
             print(f"  Operações: {len(subset)}")
             print(f"  Win Rate: {wr:.1f}% ({wins}W / {losses}L)")
-            print(f"  PnL Total: R$ {subset['financeiro'].sum():,.2f}")
-            pf = subset[subset['financeiro']>0]['financeiro'].sum() / abs(subset[subset['financeiro']<0]['financeiro'].sum()) if (subset['financeiro']<0).any() else float('inf')
-            print(f"  Profit Factor: {pf:.2f}")
-            print(f"  Max Drawdown: R$ {dd:,.0f}")
+            print(f"  PnL Bruto: R$ {pnl_bruto:,.2f} | Custos: R$ {custo_total:,.2f} | PnL Líquido: R$ {pnl_liquido:,.2f}")
+            print(f"  Profit Factor (líq.): {pf:.2f}")
+            print(f"  Max Drawdown (líq.): R$ {dd:,.0f}")
             print(f"  Duração média: {dur_med:.1f} min")
     
     # Resumo comparativo
@@ -274,15 +285,17 @@ def gerar_relatorio_completo(trades_df):
             
         wr_seca = (seca['resultado']=='WIN').sum() / len(seca) * 100
         wr_dual = (dual['resultado']=='WIN').sum() / len(dual) * 100
-        pnl_seca = seca['financeiro'].sum()
-        pnl_dual = dual['financeiro'].sum()
+        pnl_seca = seca['pnl_liquido'].sum()
+        pnl_dual = dual['pnl_liquido'].sum()
+        custo_seca = seca['custo_operacional'].sum()
+        custo_dual = dual['custo_operacional'].sum()
         
-        gp_s = seca[seca['financeiro']>0]['financeiro'].sum()
-        gl_s = abs(seca[seca['financeiro']<0]['financeiro'].sum())
+        gp_s = seca[seca['pnl_liquido']>0]['pnl_liquido'].sum()
+        gl_s = abs(seca[seca['pnl_liquido']<0]['pnl_liquido'].sum())
         pf_s = gp_s/gl_s if gl_s > 0 else float('inf')
         
-        gp_d = dual[dual['financeiro']>0]['financeiro'].sum()
-        gl_d = abs(dual[dual['financeiro']<0]['financeiro'].sum())
+        gp_d = dual[dual['pnl_liquido']>0]['pnl_liquido'].sum()
+        gl_d = abs(dual[dual['pnl_liquido']<0]['pnl_liquido'].sum())
         pf_d = gp_d/gl_d if gl_d > 0 else float('inf')
         
         filt = len(seca) - len(dual)
@@ -292,9 +305,9 @@ def gerar_relatorio_completo(trades_df):
         print(f"  Ops:     SECO={len(seca):3d} | DUAL={len(dual):3d} | Filtrados: {len(seca)-len(dual):3d}")
         print(f"  WR:      SECO={wr_seca:5.1f}% | DUAL={wr_dual:5.1f}%")
         print(f"  PnL:     SECO=R${pnl_seca:>10,.0f} | DUAL=R${pnl_dual:>10,.0f}")
+        print(f"  Custos:  SECO=R${custo_seca:>8,.0f} | DUAL=R${custo_dual:>8,.0f}")
         print(f"  PF:      SECO={pf_s:.2f} | DUAL={pf_d:.2f}")
         print(f"  Filtrados: {len(seca)-len(dual)} sinais | Stops evitados: {len(seca[seca['resultado']=='LOSS']) - len(dual[dual['resultado']=='LOSS'])}")
-
 
 if __name__ == "__main__":
     run_backtest()

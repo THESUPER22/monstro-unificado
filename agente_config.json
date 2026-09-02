@@ -1,23 +1,23 @@
 {
   "comentario": "Config do AGENTE AUTONOMO (nao do robo). Whitelist vazia desde 08/08/2026 (noite 4): o cerebro passou a ser o SNIPER %R (var. A) com parametros fixos validados em backtest (thresholds %R e SL/TP por ATR sao hardcoded no fonte). Nenhum parametro do config.json tem efeito real nas operacoes, entao o agente NAO ajusta nada - vira modo VIGILANCIA (kill-switch + watchdog + fecho + relatorio).",
   "whitelist": {},
- "decisao": {
-  "min_eventos_standby": 20,
-  "min_trades_para_winpct": 10,
-  "winpct_acaso": 30.5,
-  "entropia_min_operavel": 2.75,
-  "atr_min_operavel": 1.5
- },
- "kill_switch": {
-  "ativo": true,
-  "limite_1": -100,
-  "limite_2": -150,
-  "obs": "Alinhado ao max_loss_diario do robo (-100) em 08/08/2026. limite_1 cria parar.txt; limite_2 mata processo e MT5. Ativacao unica/dia."
- },
- "autopsia_eod": {
-  "ativo": true,
-  "gerar_plano": true
- },
+  "decisao": {
+    "min_eventos_standby": 20,
+    "min_trades_para_winpct": 10,
+    "winpct_acaso": 30.5,
+    "entropia_min_operavel": 2.75,
+    "atr_min_operavel": 1.5
+  },
+  "kill_switch": {
+    "ativo": true,
+    "limite_1": -250,
+    "limite_2": -400,
+    "obs": "Alinhado ao max_loss_diario do robo (-1000) em 01/09/2026. limite_1 cria parar.txt (25%); limite_2 mata processo e MT5 (40%). Ativacao unica/dia."
+  },
+  "autopsia_eod": {
+    "ativo": true,
+    "gerar_plano": true
+  },
   "rotinas": {
     "graceful_timeout_s": 90,
     "health_timeout_s": 120,
