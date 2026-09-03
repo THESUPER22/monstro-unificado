@@ -696,20 +696,39 @@ python backtest/backtest_arthur777.py          # 4 cenários
 |---|---|---|
 | Nome do script | "criar monstro_win_v2.py" | **JÁ EXISTE** `monstro_unificado_v2.py` |
 | Config | "criar config_win.json" | **JÁ EXISTE** `config_win_v2.json` — apenas **alinhar** |
-| **tick_size WIN** | **5.0** ❌ | **0.5 tick / 2 ticks por ponto** (`custos_reais.py`, v2 L437-439) |
+| **tick_size WIN** | **5.0** ❌ | ⚠️ **CONFLITO no repo:** `custos_reais.py`=0.5tick/2pts, engine/config=0.2 & ticks_por_ponto=10000. **GATE 6.2a os resolve lendo o símbolo real** |
+| **valor ponto WIN** | "0.20/ct" | Backtest auditado usou **R$1,00/pt × 5ct = R$5,00/pt** (Cenário A). Confirmar contrato real no GATE |
 | magic | "2002" (inexistente) | Definir **de verdade** em `config_win_v2.json → geral.magic_number` (atual usa default 123457) |
 | sniper_ratio_min | 1.5 | Alinhar `config_win_v2.json` (atual **2.0**) → **1.5** |
 | modelo | "modelo_win_v2.h5" | `modelo_monstro_win.h5` |
 
+### 6.2a 🔑 GATE OBRIGATÓRIO — VALIDAR UNIDADE DO SÍMBOLO WIN NO MT5 (ANTES DE LIGAR)
+> O repo tem **3 tick_sizes WIN conflitantes** (0.2, 0.5, 5.0). **Não chutar.** O passo mais importante de toda a Fase 6: conectar ao MT5 da conta **Simulador** e ler as **specs reais** do contrato WIN vigente, comparando com a config antes de abrir qualquer ordem.
+```python
+# scripts/validar_simbolo_win.py  (a criar)
+import MetaTrader5 as mt5
+info = mt5.symbol_info("WINV26")          # contrato vigente (ou WIN$)
+print("point     =", info.point)          # tick em preço
+print("trade_tick_value =", info.trade_tick_value)  # R$/tick
+print("trade_tick_size  =", info.trade_tick_size)   # preço por tick
+# validação: config_win_v2.json contrato.tick_size/ticks_por_ponto devem reproduzir
+#            R$/ponto observado no símbolo. Se divergir >1e-6 → BLOQUEIA, corrige config.
+```
+**Critério de GO:** `validar_simbolo_win` imprime specs reais e **bate** com config; só então prosseguir à incubação.
+
 ## 6.3 PASSOS EXECUTÁVEIS (SEX 04/09 18:00 — ORDEM)
 ```powershell
-# 1) Alinhar config WIN (não criar do zero)
+# 0) GATE 6.2a — validar unidade do símbolo WIN no MT5 simulado (BLOQUEANTE)
+python scripts/validar_simbolo_win.py
+
+# 1) Alinhar config WIN (não criar do zero) — USANDO specs reais do GATE
 #    - geral.magic_number = 2002
 #    - sniper_ratio_min = 1.5
 #    - max_loss_diario = -1000.0
-#    - contrato.tick_size / ticks_por_ponto = 0.5 / 2  (JÁ no custos_reais)
 #    - contrato.symbol_prefix = WIN
-#    - sl_points=100 / tp_points=250 (Cenário A Tendência)
+#    - contrato.tick_size / ticks_por_ponto  ← valores do GATE 6.2a (NÃO 0.2 cego)
+#    - sl_points / tp_points: Cenário A Tendência (SL 200 / TP 750 no backtest auditado)
+#      → o config_win_v2 atual (100/250) é config clássica v2, NÃO o Arthur A.
 
 # 2) Validar WIN engine (compila + modelo carrega)
 python -m py_compile monstro_unificado_v2.py
@@ -718,10 +737,10 @@ python -c "from tensorflow.keras.models import load_model; m=load_model('modelo_
 # 3) Reusar/ajustar iniciar_monstro_win_v2.bat (já existe) apontando pro config_win_v2.json
 #    Garantir MODO SIMULADOR (sem ordens reais) e magic 2002
 
-# 4) Disparar DUPLO:
+# 4) Disparar DUPLO (rodar_simulador_duplo.bat):
 #    - Processo 1: python monstro_unificado_v22.py   (WDO, magic 7007)
 #    - Processo 2: python monstro_unificado_v2.py    (WIN, magic 2002, simulado)
-#    (ajustar o .bat proposto p/ apontar os nomes REAIS)
+#    (nome real do script WIN é monstro_unificado_v2.py, NÃO monstro_win_v2.py)
 
 # 5) Log consolidado: historico_simulado_duplo.csv (um registro/dia por ativo)
 ```
