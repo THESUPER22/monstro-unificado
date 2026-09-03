@@ -1,0 +1,11 @@
+============================================================
+PLANO DO DIA SEGUINTE - MONSTRO WDO v22
+Gerado em: 03/09/2026 17:35:36
+============================================================
+[PRIORIDADE 3] Win rate abaixo de 35%.
+  -> Contramedida: NAO ajustar nada automaticamente; aguardar mais amostra.
+  -> Reversivel: nao se aplica.
+[PRIORIDADE 4] Breakevens frequentes.
+  -> Contramedida: trailing stop pode estar muito agressivo; verificar TRAILING_GATILHO.
+  -> Reversivel: sim, ajustar trailing_gatilho 5->7 pts.
+[PADRAO] Manter parametros atuais se nenhuma prioridade critica acionar.
