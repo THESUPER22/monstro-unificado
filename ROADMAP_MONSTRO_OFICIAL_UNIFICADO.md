@@ -675,4 +675,66 @@ python backtest/backtest_arthur777.py          # 4 cenários
 - [ ] Se E1=WIN: paper WIN P2 montado. Se E1=WDO: incubação V9 continua até n≥30.
 - [ ] Commit + push de configs/scripts validados (com diff revisado).
 
+---
+
+# 🧪 FASE 6 — MÓDULO WIN V2 EM PARALELO (SIMULADO DUPLO WDO+WIN)
+
+> **Decisão do Mestre (04/09):** a descoberta WIN A (PF 1.68, Payoff 3.74, MaxDD -R$12.810 calibrado) **não fica na gaveta**. Roda em **conta Simulador MT5, em paralelo** com o WDO, via **multi-instância** (2 processos Python independentes) — sem gambiarra de Keras, sem poluir o WDO que já funciona.
+
+## 6.1 ARQUITETURA (2 PROCESSOS / 1 CONTA SIMULADOR)
+
+```
+[MetaTrader 5 (Conta Demo/Simulador)] ──┬──> Processo 1: monstro_unificado_v22.py  (WDO)  magic 7007
+                                        └──> Processo 2: monstro_unificado_v2.py   (WIN)  magic 2002
+```
+- **Isolamento total de memória Keras**: cada processo carrega seu próprio `.h5` (`modelo_monstro_wdo` / `modelo_monstro_win.h5`) em memória separada. Sem conflito de thread/estado.
+- **Magic separados** impedem o MT5 de misturar posições.
+- **Kill-switch independente** por processo (config próprio).
+
+## 6.2 ⚠️ CORREÇÕES AO RELATÓRIO (o relatório propõe valores INCORRETOS — usar os reais)
+| Item | Relatório propõe | **CORRETO (verificado em código)** |
+|---|---|---|
+| Nome do script | "criar monstro_win_v2.py" | **JÁ EXISTE** `monstro_unificado_v2.py` |
+| Config | "criar config_win.json" | **JÁ EXISTE** `config_win_v2.json` — apenas **alinhar** |
+| **tick_size WIN** | **5.0** ❌ | **0.5 tick / 2 ticks por ponto** (`custos_reais.py`, v2 L437-439) |
+| magic | "2002" (inexistente) | Definir **de verdade** em `config_win_v2.json → geral.magic_number` (atual usa default 123457) |
+| sniper_ratio_min | 1.5 | Alinhar `config_win_v2.json` (atual **2.0**) → **1.5** |
+| modelo | "modelo_win_v2.h5" | `modelo_monstro_win.h5` |
+
+## 6.3 PASSOS EXECUTÁVEIS (SEX 04/09 18:00 — ORDEM)
+```powershell
+# 1) Alinhar config WIN (não criar do zero)
+#    - geral.magic_number = 2002
+#    - sniper_ratio_min = 1.5
+#    - max_loss_diario = -1000.0
+#    - contrato.tick_size / ticks_por_ponto = 0.5 / 2  (JÁ no custos_reais)
+#    - contrato.symbol_prefix = WIN
+#    - sl_points=100 / tp_points=250 (Cenário A Tendência)
+
+# 2) Validar WIN engine (compila + modelo carrega)
+python -m py_compile monstro_unificado_v2.py
+python -c "from tensorflow.keras.models import load_model; m=load_model('modelo_monstro_win.h5'); print('WIN modelo OK', m.layers[0].input_shape)"
+
+# 3) Reusar/ajustar iniciar_monstro_win_v2.bat (já existe) apontando pro config_win_v2.json
+#    Garantir MODO SIMULADOR (sem ordens reais) e magic 2002
+
+# 4) Disparar DUPLO:
+#    - Processo 1: python monstro_unificado_v22.py   (WDO, magic 7007)
+#    - Processo 2: python monstro_unificado_v2.py    (WIN, magic 2002, simulado)
+#    (ajustar o .bat proposto p/ apontar os nomes REAIS)
+
+# 5) Log consolidado: historico_simulado_duplo.csv (um registro/dia por ativo)
+```
+
+## 6.4 MÉTRICAS DE CORTE PARA LIBERAÇÃO DE CAPITAL REAL (30 DIAS DE INCUBAÇÃO SIMULADO)
+| Critério | Meta | Status |
+|---|---|---|
+| Trades executados (WIN) | ≥ 30 | — |
+| Profit Factor real (WIN) | ≥ 1.50 | — |
+| Drawdown diário respeitando travas | R$ 250 / R$ 400 (kill-switch WIN) | — |
+| Zero exceção de tipo/desconexão nos logs | 0 falhas | — |
+| MaxDD acumulado (WIN) | ≤ 20% do capital simulado | — |
+
+> **Anteparo de honestidade:** incubação simulada ≠ garantia de lucro real. NÃO aumentar lote no WDO nem misturar capital até os critérios 6.4 batidos. WIN real exige validar **margem/contrato/custos reais** (potencialmente outra corretora/terminal que o demo XP atual) — decisão separada, agendada.
+
 *Mantido por: Mestre Super + Kiro AI Agent — revisado e direcionado por Ox Alfa (dev/quant sênior)*
