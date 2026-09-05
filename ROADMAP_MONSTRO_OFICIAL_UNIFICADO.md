@@ -252,6 +252,19 @@ Motivo: **sepultar cientificamente o Modelo B de varejo** antes de investir em p
 ### 4. Baseline Semanal (para referência de comparação)
 - Core: 15 trades, 10W/3L, +R$155 confirmáveis (+R$175 c/ manuais); Sete Velas: 3 trades Core (03/09) + anomalia 133×SL (corrigida); agente autônomo: zero ajustes, whitelist vazia; kill-switch inerte.
 
+#### NOTA 05/09 — ADIAMENTO DO WIN V2 (decisão registrada)
+- **WIN V2 NÃO será iniciado na semana de 07/09.** Decisão do guardião (05/09) após checagem empírica: o relatório de "PASS" gerado em 05/09 foi antecipado/incorreto — a implementação de unidade NÃO estava aplicada (`config_win_v2.json` seguia `contrato.tick_size=0.2`, `ticks_por_ponto=10000`) e o GATE 6.2a real retorna **FAIL** (`point real WIN=1.0`, `tick=5.0`, `R$1,00/tick @5ct` ≈ 5x abaixo do backtest R$5,00).
+- **Motivo estrutural:** alinhar unidade não é trocar 3 números — hardcodes de `0.2` afetam o cálculo do **Trailing Stop** (saída) no `monstro_unificado_v2.py` (L166-201, L1394, L1850, L4760-4765). Mexer no trailing sem modelo viola "mexe no que mede, não no que decide".
+- **Área reservada:** auditoria completa de unidade (tick/ponto/R$/trailing) em sessão dedicada antes de qualquer incubação do WIN.
+- **Garantia de não-disparo automático na segunda:** `Monstro-Start` 09:00 → `start_all.bat` (apenas WDO v22); `rodar_simulador_duplo.bat` (GATE 6.2a embutido, bloqueia WIN em FAIL); `iniciar_monstro_win_v2.bat`/`testar_monstro.bat` são manuais.
+- **Segunda-feira:** foco 100% no Core v22 WDO em quarentena (execução automática + monitoramento via `analisar_quarentena.py`), repo em commit `0cb453f`.
+
+#### NOTA 07/09 — PATCHES A + B APLICADOS (v22.2-protected, autorizado pelo Mestre em 05/09)
+- **Patch A — Watchdog DLL (travamento de thread):** thread daemon monitora o estado de tick do loop principal; se o tick estagnar **>10s durante o expediente (09:00–17:40)** com MT5 conectado, executa `hard_reset_mt5()` (`shutdown()` + `reconectar_mt5()`) para destravar a DLL. Cobre o gap de ~65 min do Payroll 04/09 (13:24→14:29), em que o loop ficava "cego" com o heartbeat de diagnóstico (300s) funcionando. Sem mudança em gatilhos/entradas/saídas — alçada de processo/resgate/observabilidade.
+- **Patch B — Re-checagem assíncrona do fecho:** o caminho `fechar_todas_posicoes` (CORTE 2) agora agenda, quando a confirmação imediata falha, uma varredura em thread daemon (+15s/+30s) de `history_deals_get` procurando o `DEAL_ENTRY_OUT` que o servidor processa com atraso (caso Trade #7 das 17:35). Ao confirmar, registra PnL via `shadow_registrar_resultado` + `_telemetria_capturar_pnl`.
+- **Suíte de testes:** `tests/teste_watchdog_e_fecho.py` (19 casos: PA1–PA5 watchdog/horário, PB1–PB3 fecho atrasado) — **19/19 PASS** sem MT5 real (mocks). `py_compile` validado.
+- **Feriado 07/09 (Independência, sem B3):** patches aplicados e commitados (`v22.2-protected`); Core segue **congelado** na lógica de decisão. **Terça 08/09 = dia 1** da quarentena pós-telemetria (n≥100) monitorada via `analisar_quarentena.py`.
+
 ---
 
 ## 📋 ESTADO ATUAL DO SISTEMA

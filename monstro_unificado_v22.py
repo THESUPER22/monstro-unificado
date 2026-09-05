@@ -434,6 +434,77 @@ def reconectar_mt5() -> bool:
         return False
 
 
+# ===== PATCH A v22.2: WATCHDOG DLL (resgate de trava de thread) =====
+# Autorizado pelo Mestre em 05/09 para o feriado de 07/09 (v22.2-protected).
+# Escopo: processo/resgate/observabilidade - NENHUMA logica de gatilho,
+# entrada, saida ou estrategia do Core foi alterada.
+_WATCHDOG_DLL_TICK_TIMEOUT = 10.0
+_estado_watchdog_dll = {"ultimo_tick": time.time()}
+
+
+def horario_expediente(agora=None):
+    """Expediente de mercado (HORARIO_PREGAO..HORARIO_AFTER). Fora dele o
+    watchdog nunca age (manutencao, fim de semana e fechamento)."""
+    try:
+        if agora is None:
+            agora = datetime.now().time()
+        inicio = datetime.strptime(HORARIO_PREGAO, "%H:%M").time()
+        fim = datetime.strptime(HORARIO_AFTER, "%H:%M").time()
+        return inicio <= agora <= fim
+    except Exception:
+        return False
+
+
+def watchdog_dll_decidir(agora, ultimo_tick, em_expediente,
+                         timeout=_WATCHDOG_DLL_TICK_TIMEOUT):
+    """True se o tick estagnou alem do timeout durante o expediente."""
+    if not em_expediente:
+        return False
+    return (agora - ultimo_tick) > timeout
+
+
+def hard_reset_mt5() -> bool:
+    """Forca shutdown + initialize para destravar a DLL do MT5."""
+    try:
+        mt5.shutdown()
+    except Exception as e:
+        logging.error(f"[WATCHDOG-DLL] shutdown falhou: {e}")
+    return reconectar_mt5()
+
+
+def executar_resgate_dll(estado=None, agora=None,
+                         timeout=_WATCHDOG_DLL_TICK_TIMEOUT):
+    """Se o tick congelou >timeout durante o expediente, destrava a DLL do MT5.
+    Retorna True se o resgate foi acionado. Reset do tick evita cascata."""
+    if estado is None:
+        estado = _estado_watchdog_dll
+    if agora is None:
+        agora = time.time()
+    if not watchdog_dll_decidir(agora, estado["ultimo_tick"],
+                                horario_expediente(), timeout):
+        return False
+    try:
+        ok = hard_reset_mt5()
+        logging.error(
+            f"[WATCHDOG-DLL] Tick estagnado >{timeout:.0f}s durante o "
+            f"expediente - reconexao forcada (ok={ok}). Fluxo destravado.")
+    except Exception as e:
+        logging.error(f"[WATCHDOG-DLL] Falha no resgate de emergencia: {e}")
+    finally:
+        estado["ultimo_tick"] = agora
+    return True
+
+
+def _loop_watchdog_dll():
+    """Ciclo do watchdog: checa a cada 3s o estado de tick compartilhado."""
+    while True:
+        time.sleep(3)
+        try:
+            executar_resgate_dll(_estado_watchdog_dll)
+        except Exception as e:
+            logging.error(f"[WATCHDOG-DLL] Erro no ciclo: {e}")
+
+
 @retry(stop=stop_after_attempt(MAX_RETRY_ATTEMPTS),
        wait=wait_exponential(multiplier=RETRY_WAIT_MULTIPLIER))
 def retry_market_book_get(symbol: str) -> Optional[Any]:
@@ -6881,6 +6952,7 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     # SUBSTITUI A LÃâGICA ANTIGA PELA NOVA (PASSO 2)
                     # OBTÃâ°M DADOS ATUAIS
                     tick = mt5.symbol_info_tick(SYMBOL)
+                    _estado_watchdog_dll["ultimo_tick"] = time.time()
                     # Obtenha o RSI atual aqui tambÃÂ©m, se a regra for usada
 
                     if tick and posicao_atual is not None:
@@ -10242,6 +10314,68 @@ def fechar_posicao_score(posicao: PosicaoAtiva, motivo: str, score_atual: float)
         logging.error(f"Ã¢ÂÅ Erro ao fechar posiÃÂ§ÃÂ£o: {resultado.comment}")
 
 
+# ===== PATCH B v22.2: RE-CHEGAGEM DO FECHO (confirmacao assincrona) =====
+# Autorizado pelo Mestre em 05/09 para o feriado de 07/09 (v22.2-protected).
+# Captura o DEAL_ENTRY_OUT que o servidor processa com alguns segundos de
+# atraso (caso Trade #7 das 17:35). Roda em thread daemon: nao bloqueia o loop.
+
+def varrear_deal_fecho(ticket, janela=90):
+    """Procura DEAL_ENTRY_OUT do ticket nos ultimos `janela` segundos
+    (margem forward de +5s p/ relogio). Retorna o deal ou None."""
+    try:
+        _agora_ts = time.time()
+        _deals = mt5.history_deals_get(_agora_ts - janela, _agora_ts + 5)
+        if not _deals:
+            return None
+        for _d in _deals:
+            if _d.position_id == ticket and _d.entry == mt5.DEAL_ENTRY_OUT:
+                return _d
+        return None
+    except Exception as e:
+        logging.error(f"Erro na varredura de deal #{ticket}: {e}")
+        return None
+
+
+def _registrar_pnl_fecho_atrasado(ticket, deal):
+    """Registra o PnL de um fecho confirmado com atraso pelo servidor."""
+    try:
+        shadow_registrar_resultado(ticket, deal.profit)
+    except Exception as e:
+        logging.error(f"[re-checagem] falha shadow #{ticket}: {e}")
+    try:
+        _telemetria_capturar_pnl(ticket)
+    except Exception as e:
+        logging.error(f"[re-checagem] falha telemetria #{ticket}: {e}")
+    logging.info(
+        f"[re-checagem] Fecho confirmado com atraso: posicao #{ticket} "
+        f"Lucro={deal.profit:.2f}")
+
+
+def rechecagem_fecho_sincrona(ticket, varredor=None, registrar=None,
+                              intervalos=(15, 30)):
+    """Tenta confirmar o DEAL_ENTRY_OUT apos `intervalos` tentativas atrasadas.
+    Retorna True quando o deal e encontrado (PnL registrado)."""
+    if varredor is None:
+        varredor = varrear_deal_fecho
+    if registrar is None:
+        registrar = _registrar_pnl_fecho_atrasado
+    for _seg in intervalos:
+        time.sleep(_seg)
+        _deal = varredor(ticket)
+        if _deal is not None:
+            registrar(ticket, _deal)
+            return True
+    return False
+
+
+def agendar_rechecagem_fecho(ticket, intervalos=(15, 30)):
+    """Agenda a confirmacao assincrona do fecho em thread daemon."""
+    threading.Thread(
+        target=rechecagem_fecho_sincrona,
+        args=(ticket, None, None, intervalos),
+        daemon=True).start()
+
+
 def fechar_todas_posicoes(motivo: str = "Encerramento automÃÂ¡tico") -> int:
     """Fecha todas as posiÃÂ§ÃÂµes abertas do robÃÂ´."""
     posicoes_fechadas = 0
@@ -10323,6 +10457,10 @@ def fechar_todas_posicoes(motivo: str = "Encerramento automÃÂ¡tico") -> int
                                 f"ï¿½â¦ Fecho confirmado via varredura 60s: posicao "
                                 f"#{pos.ticket} Lucro={_deal_fecho.profit:.2f}")
                         else:
+                            logging.warning(
+                                f"Confirmacao imediata nao obtida para #{pos.ticket} "
+                                f"({motivo}) - agendando re-checagem 15s/30s")
+                            agendar_rechecagem_fecho(pos.ticket)
                             logging.error(
                                 f"Ã¢Åï¿½ Falha critica %s: ordem de fecho nao confirmada "
                                 f"no servidor para #{pos.ticket}", motivo)
@@ -10873,6 +11011,8 @@ if __name__ == "__main__":
     threading.Thread(target=monitorar_spread, daemon=True).start()
     # Sentinela de Fluxo (gatekeeper macro) em background
     threading.Thread(target=atualizar_sentinela, daemon=True).start()
+    # PATCH A v22.2: Watchdog DLL - destrava a thread principal se o MT5 congelar
+    threading.Thread(target=_loop_watchdog_dll, daemon=True).start()
 
     # Aguarda Flask ficar pronto antes de abrir a janela
     import urllib.request
