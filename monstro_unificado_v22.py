@@ -6870,6 +6870,7 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     ultimo_diagnostico = timestamp_atual
 
                 if esperando_confirmacao:
+                    _estado_watchdog_dll["ultimo_tick"] = time.time()
                     logging.info("Ã¢ÂÂ³ Aguardando confirmaÃÂ§ÃÂ£o da ÃÂºltima ordem...")
                     time.sleep(1)
                     continue
