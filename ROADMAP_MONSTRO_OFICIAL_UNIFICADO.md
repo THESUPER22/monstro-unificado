@@ -229,6 +229,31 @@ Motivo: **sepultar cientificamente o Modelo B de varejo** antes de investir em p
 7. **Decisão para o Core v22 (CONGELADO):** nenhuma alteração nesta semana. O padrão da semana (10W/3L, +R$155 confirmáveis) corrobora a manutenção dos parâmetros atuais. Ações sugeridas apenas como follow-ups (fora do Core): documentar fechamentos manuais com PnL no shadow CSV; auditar mudanças manuais de config fora do log do agente; avaliar plug do `SelecionadorRegime` quando fora de mercado (sessão dedicada, com OOS n≥30).
 
 ---
+
+## 🛡️ PROTOCOLO OFICIAL DE QUARENTENA E TRAVA DE MUDANÇAS (04/09/2026)
+
+> Estado da base de código: **CONGELADA / MANTIDA EM PRODUÇÃO** desde o commit `8758b19`. Diretriz-mestra: **"mexe no que mede, não no que decide"**. Nenhuma alteração será feita na lógica de decisão do Core v22 enquanto os critérios abaixo não forem atingidos.
+
+### 1. Diretriz Rígida de Mudanças ("Não mexa em quem está ganhando")
+- **Core v22 (`monstro_unificado_v22.py`):** 100% congelado — nenhuma linha de código de decisão, parâmetro de gatilho, stop/take (`trailing 8/4`) ou filtro de IA será alterado até a amostra mínima.
+- **Fila de melhorias (backlog/gaveta):** proibida a implementação de veto ativo do Modelo A, integração do `SelecionadorRegime`, ou qualquer ajuste fino de parâmetros baseado na semana. "Ideia boa sem amostra estatística é apenas palpite."
+
+### 2. Critérios Objetivos para Futuros Destraves (Régua Quantitativa)
+1. **Core v22 (WDO):** mínimo de **n ≥ 100 trades válidos** acumulados a partir do marcador **04/09/2026** (isolamento do sinal SNIPER %R da variância de curto prazo).
+2. **Sete Velas (incubação):** **n ≥ 30 trades** com as novas travas ativas e **WR ≥ 45%, PF ≥ 1.1, MaxDD ≤ R$ 3.600**.
+3. **Modelo A (Shadow Mode):** habilitação como veto ativo apenas com **correlação estatística contínua ≥ 0.15** sobre o PnL real (atual ~0.005) **e acurácia > 60%** em base expandida.
+
+### 3. Fila Autorizada para Desenvolvimento Paralelo (Fora do Core)
+- **WIN V2:** execução e coleta de amostras exclusivamente em **Conta Simulador** (não afeta/cruza o WDO).
+- **Telemetria de fechamento manual:** ajuste pontual (único toque no v22) para capturar PnL real em fechamentos manuais — sanar a lacuna dos 2 trades da semana. **Aditivo, não altera gatilhos.**
+- **`analisar_quarentena.py`:** monitoramento read-only das metas do protocolo (n/7 Velas/corr).
+- **Single-writer lock em config:** trava leve para impedir escrita concorrente em `config.json`.
+
+### 4. Baseline Semanal (para referência de comparação)
+- Core: 15 trades, 10W/3L, +R$155 confirmáveis (+R$175 c/ manuais); Sete Velas: 3 trades Core (03/09) + anomalia 133×SL (corrigida); agente autônomo: zero ajustes, whitelist vazia; kill-switch inerte.
+
+---
+
 ## 📋 ESTADO ATUAL DO SISTEMA
 
 | Item | Valor |

@@ -10070,6 +10070,30 @@ def travar_lucro(posicao: PosicaoAtiva, score_atual: float) -> None:
             f"Ã°Å¸ââ Lucro travado em {novo_sl_arredondado:.2f} (Score: {score_atual:.2f})")
 
 
+def _telemetria_capturar_pnl(ticket: int) -> None:
+    """TELEMETRIA (bloqueio 04/09): captura o PnL real de um fechamento manual
+    e grava no shadow CSV do Modelo A. SOMENTE observacao - nao altera
+    gating, entradas, saidas nem parametros do Core. Idempotente por design
+    (shadow_registrar_resultado so preenche resultado_bruto vazio)."""
+    if not ticket:
+        return
+    try:
+        inicio = datetime.now() - timedelta(days=7)
+        deals = mt5.history_deals_get(inicio, datetime.now())
+        if not deals:
+            return
+        saidas = [d for d in deals
+                  if d.position_id == ticket
+                  and d.entry == mt5.DEAL_ENTRY_OUT]
+        if not saidas:
+            return
+        final = max(saidas, key=lambda d: d.time_msc)
+        shadow_registrar_resultado(ticket, final.profit)
+        logging.info(f"[TELEMETRIA] PnL manual #{ticket} capturado: {final.profit:.2f}")
+    except Exception as e:
+        logging.warning(f"TELEMETRIA: falha ao capturar PnL #{ticket}: {e}")
+
+
 def fechar_posicao_atual(motivo: str = "Fechamento manual") -> bool:
     """Fecha a posiÃÂ§ÃÂ£o atual ativa Ã¢â¬â detecta filling aceito pela corretora automaticamente."""
     global posicao_atual
@@ -10143,6 +10167,7 @@ def fechar_posicao_atual(motivo: str = "Fechamento manual") -> bool:
             if resultado is not None and resultado.retcode == mt5.TRADE_RETCODE_DONE:
                 logging.info(
                     f"Ã¢Åâ¦ PosiÃÂ§ÃÂ£o {posicao_atual.ticket} fechada (filling={filling}): {motivo}")
+                _telemetria_capturar_pnl(posicao_atual.ticket)
                 return True
             elif resultado is not None:
                 # Retcodes que indicam posiÃÂ§ÃÂ£o jÃÂ¡ fechada pelo MT5 (TP/SL/manual)
@@ -10159,6 +10184,7 @@ def fechar_posicao_atual(motivo: str = "Fechamento manual") -> bool:
                 if resultado.retcode in retcodes_posicao_fechada:
                     logging.info(
                         f"Ã¢Åâ¦ PosiÃÂ§ÃÂ£o considerada fechada (retcode={resultado.retcode}): {resultado.comment}")
+                    _telemetria_capturar_pnl(posicao_atual.ticket)
                     return True
 
                 # Verifica se posiÃÂ§ÃÂ£o ainda existe no MT5 apÃÂ³s falha
@@ -10170,6 +10196,7 @@ def fechar_posicao_atual(motivo: str = "Fechamento manual") -> bool:
                 if not ticket_ainda_aberto:
                     logging.info(
                         f"Ã¢Åâ¦ PosiÃÂ§ÃÂ£o {posicao_atual.ticket} jÃÂ¡ foi fechada pelo MT5 (detectado apÃÂ³s retcode={resultado.retcode})")
+                    _telemetria_capturar_pnl(posicao_atual.ticket)
                     return True
 
                 logging.warning(
@@ -10308,6 +10335,7 @@ def fechar_todas_posicoes(motivo: str = "Encerramento automÃÂ¡tico") -> int
                     posicoes_fechadas += 1
                     logging.info(
                         f"Ã¢Åâ¦ PosiÃÂ§ÃÂ£o #{pos.ticket} fechada - {pos.symbol} {pos.type} Vol:{pos.volume}")
+                    _telemetria_capturar_pnl(pos.ticket)
                 else:
                     logging.error(
                         f"Ã¢ÂÅ Erro ao fechar posiÃÂ§ÃÂ£o #{pos.ticket}: {resultado.retcode} - {resultado.comment}")
