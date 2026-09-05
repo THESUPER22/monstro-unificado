@@ -149,13 +149,50 @@ class Orquestrador7Velas:
     def _registrar_trade(self, rec):
         os.makedirs(os.path.dirname(TRADES_PATH), exist_ok=True)
         campos = ['dia', 'variante', 'hora_entrada', 'sinal', 'ups', 'downs',
-                  'cvd', 'cvd_confluente', 'entrada', 'saida', 'pts', 'motivo']
+                  'cvd', 'cvd_confluente', 'entrada', 'saida', 'pts', 'motivo',
+                  'ticket']
+        linha = {c: rec.get(c, '') for c in campos}
         file_exists = os.path.exists(TRADES_PATH)
         with open(TRADES_PATH, 'a', encoding='utf-8', newline='') as f:
             w = csv.DictWriter(f, fieldnames=campos)
             if not file_exists:
                 w.writeheader()
-            w.writerow(rec)
+            w.writerow(linha)
+
+    def _tem_posicao_aberta(self, magic):
+        """Trava dupla de reentrada: impede nova ordem se ja houver posicao
+        aberta do magic no MT5 (essencial em conta Netting)."""
+        try:
+            pos = mt5.positions_get()
+            if pos:
+                for p in pos:
+                    if p.magic == magic:
+                        return True
+        except Exception:
+            if self.ticket_aberto is not None:
+                return True
+        return False
+
+    def _acumulado_janela(self, magic):
+        """Volume total ja acumulado na janela para o magic (contra Netting)."""
+        total = 0.0
+        try:
+            pos = mt5.positions_get()
+            if pos:
+                for p in pos:
+                    if p.magic == magic:
+                        total += p.volume
+        except Exception:
+            total = self.ticket_aberto is not None and 1.0 or 0.0
+        return total
+
+    def _teto_volume_janela(self):
+        """Teto de volume acumulado por janela = lote configurado (1 lote)."""
+        try:
+            p = _parametros_sv()
+            return float(p.get('lote', LOTE))
+        except Exception:
+            return float(LOTE)
 
     def _executar(self, action, sl, tp, lote, magic):
         try:
@@ -188,7 +225,7 @@ class Orquestrador7Velas:
         entrada_dt = _agora_brt().replace(hour=int(cfg['entrada']), minute=int(round((cfg['entrada'] % 1) * 60)), second=0, microsecond=0)
         prox, preco, ups, downs = velas_para_entrada(self.symbol, variante, entrada_dt)
         if prox is None or preco is None:
-            return dict(ok=False, motivo='sem_velas_suficientes')
+            return dict(ok=False, motivo='sem_velas_suficientes', ticket=None)
         cvd = calcular_cvd_janela(self.symbol, _agora_brt().replace(hour=9, minute=0), entrada_dt)
         cvd_confluente = (ups > downs and cvd > 0) or (downs > ups and cvd < 0)
         sinal = 'BUY' if ups > downs else 'SELL'
@@ -369,7 +406,13 @@ class Orquestrador7Velas:
             chave = f"{a.date().isoformat()}_{variante}"
             if chave in state and state[chave].get('ticket'):
                 self.ticket_aberto = state[chave].get('ticket')
-        # Gatilhos de entrada
+        # Gatilhos de entrada (trava dupla Netting):
+        # 1) qualquer posicao aberta do magic (mesmo parcial apos TP1) bloqueia;
+        # 2) volume acumulado na janela nao pode exceder o lote configurado.
+        if self._tem_posicao_aberta(MAGIC_SETE_VELAS):
+            return
+        if self._acumulado_janela(MAGIC_SETE_VELAS) >= self._teto_volume_janela():
+            return
         for variante, cfg in _variantes().items():
             if not vars_ativas.get(variante, False):
                 continue
@@ -385,7 +428,7 @@ class Orquestrador7Velas:
                     rec = dict(dia=a.date().isoformat(), variante=variante,
                                hora_entrada=cfg['entrada'], sinal='', ups=0, downs=0,
                                cvd=0, cvd_confluente=False, entrada=0,
-                               saida='', pts='', motivo='SEM_DADOS')
+                               saida='', pts='', motivo='SEM_DADOS', ticket=None)
                 self._registrar_trade(rec)
                 state[chave] = {
                     'ticket': rec.get('ticket'),
@@ -393,6 +436,9 @@ class Orquestrador7Velas:
                     'saida': rec.get('saida', ''), 'pts': rec.get('pts', ''),
                     'motivo': rec.get('motivo', '')}
                 _salvar_state(state)
+                # Trava de volume maximo acumulado por janela (Netting):
+                # apos a primeira entrada da janela, nao reentrar.
+                return
         # Fim da janela: fecha tudo e reseta state
         h = a.hour + a.minute / 60.0
         if h >= JANELA_FIM_HORA and self.ticket_aberto is not None:

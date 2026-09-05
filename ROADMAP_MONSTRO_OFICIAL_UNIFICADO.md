@@ -116,6 +116,119 @@ Motivo: **sepultar cientificamente o Modelo B de varejo** antes de investir em p
 
 ---
 
+## 🔍 AUDITORIA DA SEMANA 01–04/09/2026 (documentação + REPARO AUTORIZADO E APLICADO em 04/09)
+
+### 📊 Resumo real (cruzado com logs diários `monstro_wdo_202609*.log`)
+
+| Dia | Ordens executadas | Observação |
+|---|---|---|
+| 01/09 | 5 | Core normal (11:54, 14:41, 15:45, 16:00, 17:03) |
+| 02/09 | 3 | Core normal |
+| 03/09 | **136** | **133 SELL × 5.0 CC = 665 lotes = ANOMALIA 11:15:03→11:29:58** + 3 BUY normais |
+| 04/09 | 4 | Core normal |
+| **Semana** | **15 (core) + 133 (anomalia)** | Nº de trades do core = 15 confirma relatório (11W/4L) |
+
+### 🐛 CAUSA RAIZ DA ANOMALIA (COMPROVADA NOS LOGS) — DIVERGE DO RELATÓRIO DO AGENTE
+
+**Sintoma (bate com relatório):** 03/09 11:15:03 a 11:29:58 → **133 ordens SELL×5 CC = 665 lotes** → PnL ~R$ 57.425 negativo (fechamento via SL no MT5).
+
+**Causa raiz real (dupla):** o relatório atribuiu a "loop de ordens sem `positions_get` em conta Netting". **A evidência mostra outra mecânica:**
+
+1. **Bug de CSV (`dict contains fields not in fieldnames: 'ticket'`)** — introduzido no commit `1b7aa3d` (Fase 1/2, 01/09 11:57, post-janela): `avaliar()` passou a incluir `rec['ticket']` (L204/L210/L187) mas o `campos` do `_registrar_trade()` (L151-152) **não foi atualizado** com `'ticket'`. Todo `w.writerow(rec)` lança ValueError.
+2. **Idempotência morta:** `orquestrar()` chama `_registrar_trade(rec)` (L389) → exceção → linhas L390-395 (`state[chave]=...; _salvar_state(state)`) **nunca executam** → `logs/sete_velas_state.json` **nunca é criado** (confirmado: arquivo não existe). O gatilho de entrada L379 (`chave not in state`) permanece verdadeiro para sempre.
+3. **Loop engolido pelo engine:** `monstro_unificado_v22.py` L6630-6633 chama `orquestrar()` dentro de `except Exception: logging.error(...)` que apenas **loga e segue** → a cada iteração do loop principal (~6s) reexecuta `avaliar()` → **nova ordem**.
+4. **Quando confluente ≠ quando vetado:** 02/09 o mesmo erro ocorreu (377x às 11:15) mas **sem ordens** — o sinal foi VETADO_CVD. 03/09 o sinal foi **CONFLUENTE** → reenvio real a cada ~6s (133 ordens).
+5. **Fim natural:** parou às 11:29:58 porque `JANELA_FIM_HORA=11.5` → `_na_janela()` falso → loop de entrada não mais executado.
+
+**Mecânica exata da cadeia (logs):** a cada tick: `Volume ajustado: 5.0` → `Ordem SELL executada. Ticket: ...` → `SHADOW Modelo A p=0.389` → `Não foi possível confirmar se ordem virou posição` → `[7VELAS] Erro no orquestrar(): dict contains fields not in fieldnames: 'ticket'`.
+
+**Por que a gestão não fechou:** após 11:30, `Posição ativa no MT5 mas posicao_atual é None` + `Gerenciador de Saída DESATIVADO` — a posição do magic 7007 não é reconhecida como "posição do Monstro" (bate no fallback), então só o SL/TP fixo do MT5 encerrou.
+
+**Verificação adicional:** `logs/sete_velas_trades.csv` tem apenas a linha de 01/09 (VETADO_CVD, gravada ANTES do commit bugado) — prova que a versão ativa em 01/09 era a pré-`1b7aa3d` e que a anomalia é pós-commit.
+
+### ✅ VEREDICTO SOBRE O RELATÓRIO DO AGENTE
+- **CONFIRMADO:** 665 lotes × 5 CC na janela 11:15-11:29 de 03/09; total da semana ~-R$ 57.250; 15 trades no core.
+- **INEXATO:** causa raiz "loop sem `positions_get`". O gatilho real é o **ValueError do CSV** que mata a idempotência persistida + `except` do engine que engole o erro. A ausência de `positions_get` no orquestrador é um agravante (não uma causa).
+
+### 🔧 AÇÕES RECOMENDADAS — ✅ EXECUTADAS EM 04/09/2026 (autorizadas pelo Mestre)
+> Arquivo reparado: `sete_velas_orquestrador.py`. Suíte de validação: `tests/teste_orquestrador_7velas.py` (11/11 PASS) + `py_compile` OK + `testes_pos_fix.py` (9/9) + `validar_config_estrutura.py` (PASS). Core v22 congelado — zero alterações.
+
+1. **Fix mínimo (`sete_velas_orquestrador.py`):** `'ticket'` adicionado ao `campos` do `_registrar_trade()` — **restaura a idempotência** (`state[chave]` volta a ser persistido em `logs/sete_velas_state.json`). ✅
+2. **Trava dupla de reentrada no gatilho de entrada:** novo gate `_tem_posicao_aberta(MAGIC_SETE_VELAS)` (scan `positions_get` por magic 7007, mesmo posição parcial pós-TP1) — bloqueia nova ordem enquanto houver posição aberta do 7 Velas no MT5 (essencial em Netting). ✅
+3. **Trava de volume máximo acumulado por janela:** `_acumulado_janela(MAGIC_SETE_VELAS)` (soma volume das posições do magic) vs `_teto_volume_janela()` (= lote configurado, 5.0 CC ≈ 1 lote) — defesa final contra acúmulo tipo 03/09. ✅
+4. **Alinhar `campos` vs `rec` em TODOS os caminhos:** `_registrar_trade()` agora grave apenas `{c: rec.get(c, '') for c in campos}` (filtra chaves extras de qualquer fluxo — VETADO_MACRO, VETADO_CVD, sem_velas, executado); `ticket=None` adicionado aos fallbacks `sem_velas_suficientes` (L219) e `SEM_DADOS` (L424) e ao `rec` None. ✅
+5. **Alteração cirúrgica:** após a primeira entrada da janela, `orquestrar()` retorna (trava 1-lote), mantendo o comportamento das variantes 7/V9 nas janelas distintas.
+
+---
+
+## 📊 RELATÓRIO DE INTELIGÊNCIA QUANTITATIVA — 7 TÓPICOS (04/09/2026)
+
+> Análise contextual completa da semana 01–04/09/2026 cruzando log de ordens/posições (`monstro_wdo_2026090{1,2,3}.log`, `monstro_wdo.log`=04/09), `logs/modelo_a_shadow.csv`, `historico_multitf.csv`, `agente_autonomo.log`, `config.json`/`agente_config.json` e código. Somente leitura (nenhum arquivo alterado nesta etapa).
+
+### TÓPICO 1 — RAIZ TRADE-A-TRADE DO CORE (15 trades)
+
+**Base de dados:** 15 tickets do Core EXATAMENTE confirmados via "Ordem ... executada. Ticket:" nos logs. Dia 03/09 tem 136 ordens (133 anômalas + 3 core). Total Core da semana = **15 trades (5+3+3+4)** — bate com o relatório.
+
+| # | Dia | Entr. | Ticket | Tipo | PnL (R$) | p-Shadow A |
+|---|---|---|---|---|---|---|
+| 1 | 01/09 | 11:54:13 | 2517225296 | SELL | **−80** (SL) | 0.390 |
+| 2 | 01/09 | 14:41:53 | 2517464087 | SELL | **−80** (SL) | 0.676 |
+| 3 | 01/09 | 15:45:16 | 2517534687 | SELL | +40 (TP) | 0.747 |
+| 4 | 01/09 | 16:00:16 | 2517557147 | BUY | +45 (TP) | 0.725 |
+| 5 | 01/09 | 17:03:18 | 2517669288 | SELL | *n.r. (fech. manual 17:35)* | 0.651 |
+| 6 | 02/09 | 11:54:24 | 2518269183 | SELL | +40 (TP) | 0.180 |
+| 7 | 02/09 | 14:35:18 | 2518543349 | SELL | +35 (TP) | 0.830 |
+| 8 | 02/09 | 15:25:52 | 2518616714 | SELL | +55 (TP) | 0.822 |
+| 9 | 03/09 | 14:30:07 | 2519688252 | BUY | +40 (TP) | 0.507 |
+| 10 | 03/09 | 15:09:35 | 2519722964 | BUY | +15 (TP) | 0.591 |
+| 11 | 03/09 | 16:08:24 | 2519781301 | BUY | +45 (TP) | 0.605 |
+| 12 | 04/09 | 11:32:58 | 2520474202 | BUY | **−80** (SL) | 0.470 |
+| 13 | 04/09 | 14:36:01 | 2520715797 | SELL | +40 (TP) | 0.488 |
+| 14 | 04/09 | 15:14:25 | 2520757216 | BUY | +40 (TP) | 0.549 |
+| 15 | 04/09 | 15:40:40 | 2520776665 | SELL | *n.r. (fech. manual 17:35)* | 0.667 |
+
+*n.r. = não registrado: os 2 fechamentos manuais (encerramento 17:35) não gravam preço de saída/lucro no log.*
+
+**Consolidação verificada nos logs:** 13 trades com PnL fechado → **10W / 3L, WR 76,9%, net +R$ 155,00** (GP R$395 / GL −R$240). Os 2 trades sem PnL registrado impactam a diferença vs. o "+R$175 / 11W-4L" do relatório — o valor exato deles **não é verificável** nos logs (seria +R$20 nos dois para bater).
+
+**Padrão dos 3 losses (−80 cada):** todos SELL/BUY abertos **pelo SNIPER %R sobrepondo a IA** contra book ratio fraco (<1.3), DOL desalinhado e/ou tendência adversa — 01/09 11:54 (SELL contra TEND ALTA +2.2pts, DOL conf ~0.34), 01/09 14:41 (lateral, ATR 1.4<1.5, WR sobrecomprado), 04/09 11:32 (BUY com preço −2.9pts abaixo da SMA, DOL lado SELL, sinal NEUTRO conf 0.117 ignorado). **Nenhum dos 15 trades tem "CVD" logado nesta semana** — o indicador CVD/Book/Dólar-Cheio só aparece via book_ratio (1.00–1.25 na maioria dos trades) e DOL conf (0.34–0.46).
+
+### TÓPICO 2 — AUDITORIA DO AGENTE AUTÔNOMO / WHITELIST
+
+- **Zero ajustes aplicados na semana.** As 4 pausas das 12:30 (01–04/09) logaram idênticos `DECISAO: SEM AJUSTE. Whitelist vazia (sniper %R fixo desde 08/08)`. `agente_estado.json`: `ultima_mudanca=null`, `historico=[]`. Nenhuma ocorrência de `AJUSTE APLICADO` em todo o log (desde 03/08).
+- **Whitelist de fato = `{}` vazia desde 08/08** (cancelamento do Pilar 3). `decidir()` aborta em `if not CFG["whitelist"]:` → nenhum parâmetro é tocado. Travas: janela de autonomia 12:30–14:30 (`rotinas.janela`) + trava física de 1 ajuste/dia + rollback/smoke_test.
+- **Mudanças de valor na semana foram EXTERNAS ao agente (noite de 01/09):** `max_loss_diario` raiz −100→−1000 (commit `1730eea` 01/09 13:25), `sniper_ratio_min` raiz/risk 2.0→1.5 e 1.2→1.5, `kill_switch` −100/−150→−250/−400 (mtime 01/09 17:41 e 17:43; efetivadas via boot 09:05 de 02/09). **Sem trilha de auditoria própria** — único ponto de exposição de processo (mudança manual em config fora do log do agente).
+- **Regime de autonomia respeitado:** watchdog restart único legítimo 03/09 15:50 (robô travado/porta morta); nenhuma ação fora da janela; plano do dia seguinte é só PROPOSTA (o `trailing 5→7` sugerido no plano 03/09 **não foi aplicado**; trailing é hardcoded 8/4, fora da whitelist).
+- **Valores atuais 04/09:** `sniper_ratio_min=1.5`, `book_ratio_min=1.3`, `dol_conf_min=0.4`, `max_loss_diario=−1000`, kill_switch −250/−400, trailing hardcoded 8/4.
+- **Mapa de vetos:** `williams_r` domina todos os dias (4767/3683/2183/2701); `multi_tf` sumiu em 03–04/09 (380/599 → 0/0); kill-switch jamais disparou na semana.
+
+### TÓPICO 3 — AUDITORIA SHADOW MODE / MODELO A
+
+- **É passivo (somente registro).** `monstro_unificado_v22.py` L5389-5394 executa a ordem **antes** de `shadow_registrar_entrada`; L545-547: "Registra ... SEM bloquear execucao". Não há nenhum branch de veto baseado em `prob_modelo_a`.
+- **Amostra total (173 registros):** WR 50%, PF 0.58, net −R$600, corr(prob,resultado)=**+0.005** ≈ zero — o Modelo A **não tem capacidade preditiva** na amostra histórica.
+- **Sub-amostra da semana (13 fechados):** WR 76.9%, PF 1.65, net +R$155, corr=+0.245, acurácia threshold 0.5 = 76.9%.
+- **Simulação de veto p<0.5 na semana:** teria bloqueado 4 trades (2 perdas −80 e 2 lucros +40/+40) → net subiria de +155 para **+235**. A perda `2517464087` (p=0.676) **não seria evitada**. Na amostra inteira, veto p<0.5 pioraria levemente o ponto de corte (PF mantém 0.58).
+- **Sobre a anomalia 03/09:** 124 de 133 ordens teriam prob <0.5 (seriam vetadas); as 9 de p=0.5277 passariam. **Mas o PnL real das 133 nunca foi registrado** (rastreamento de posição quebrado pós-11:30) — estimativa se stoppadas em −8pts: ~−R$53k de exposição (vol 5 CC × 133).
+- **Conclusão:** hoje o Modelo A **não impede nenhuma perda**. Ativá-lo como veto exigiria mais amostra (corr ≈ 0 na base total) e corrigir o registro de resultado de fechamentos manuais.
+
+### TÓPICO 4 — ANÁLISE DE REGIME POR DIA (SelecionadorRegime)
+
+- **Fato estrutural:** o `SelecionadorRegime` (Sessão 19, perfis NORMAL/LATERAL/EXPLOSAO/CONSERVADOR/DEFESA/AGUARDANDO) **NÃO está plugado no v22** — docstring literal "NAO esta plugado ... ainda (mercado em operacao)"; nenhuma ocorrência de REGIME nos 4 logs. Em produção só operam `DetectorModoMercado`/`ModoOperacional` (NORMAL o tempo todo — ATR C10 2.4–4.8 nunca <1.5).
+- **Regime inferido (filtro de tendência interno TENDENCIA: LATERAL/tend + métricas C10):**
+  - **01/09:** LATERAL 66% → virada de tendência fraca à tarde. ATR med 2.40.
+  - **02/09:** LATERAL forte 84%. ATR med 2.90.
+  - **03/09:** LATERAL 88% mas ATR med **3.20** (mais alta da semana; M30 sobrecomprado 80.5–87.3).
+  - **04/09:** LATERAL 69% → **TENDÊNCIA ALTA à tarde** (ALTA 25.6%; ATR P90 4.6).
+- **Trades vs regime:** o Core é mean-reversion e entrou **contra a tendência** em 4+ ocasiões (01/09 11:54 SELL vs TEND ALTA → −80; 01/09 17:03 SELL vs ALTA → sem PnL; 02/09 11:54 SELL vs ALTA → +40; 04/09 15:40 SELL vs ALTA contínua → sem PnL). O maior lucro (+55, 02/09 15:25) também foi SELL com estado ALTA. **Se o SelecionadorRegime tivesse veto de direção, teria cortado lucros E perdas (líquido − falso: evitaria apenas o −80 de 01/09).**
+- **Confluências M15/M30:** divergência marcante em 03/09 — M15 RSI 23–37 (sobrevendido) vs M30 RSI 80–87 (sobrecomprado); as 3 compras dessa divergência deram lucro (+40/+15/+45). WR M15/M30 na maioria das entradas em zona sobrevendida/estendida (−3 a −93) — consistentes com o viés mean-reversion do Core.
+
+### TÓPICOS 5–7 — SÍNTESE CRUZADA
+
+5. **Causa raiz da anomalia (síntese operacional):** o mesmo loop que reenviou SELL 133×também **deixou invisível o PnL** dessas ordens (o rastreamento de posição falhou — `Posição ativa no MT5 mas posicao_atual é None`, Gerenciador de Saída DESATIVADO). A anomalia destrói a validade da métrica "PF semanal" e do shadow — corrigida pelo reparo 7 Velas aplicado (trava dupla + teto de volume + idempotência restaurada).
+6. **Perfis dos 3 losses confirmam o risco SNIPER:** as 3 perdas vieram de entradas do SNIPER %R que **sobrepõem a IA e ignoram book/DOL/tendência**. Precisão do SNIPER na semana: 10 de 15 trades são dele, 12 positivos/neutros se excluirmos SL — porém 2 dos 3 fechamentos manuais também foram SELL do SNIPER contra tendência de alta.
+7. **Decisão para o Core v22 (CONGELADO):** nenhuma alteração nesta semana. O padrão da semana (10W/3L, +R$155 confirmáveis) corrobora a manutenção dos parâmetros atuais. Ações sugeridas apenas como follow-ups (fora do Core): documentar fechamentos manuais com PnL no shadow CSV; auditar mudanças manuais de config fora do log do agente; avaliar plug do `SelecionadorRegime` quando fora de mercado (sessão dedicada, com OOS n≥30).
+
+---
 ## 📋 ESTADO ATUAL DO SISTEMA
 
 | Item | Valor |
