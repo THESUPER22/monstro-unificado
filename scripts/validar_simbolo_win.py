@@ -50,11 +50,10 @@ def main():
     cfg_tick = float(contrato.get("tick_size", 0.2))
     cfg_tpp = float(contrato.get("ticks_por_ponto", 10000))
 
-    print(f"== Specs REAIS de {args.simbolo} ==")
+    print("== Specs REAIS de {symbol}".format(symbol=args.simbolo))
     print("  point              =", info.point)
     print("  trade_tick_size    =", info.trade_tick_size)
     print("  trade_tick_value   =", info.trade_tick_value, "(R$/tick, 1 contrato)")
-    print("  symbols_tick_value =", info.symbols_tick_value)
 
     ok = True
 

@@ -1,10 +1,10 @@
 {
     "symbol_prefix": "WIN",
     "volume_padrao": 5.0,
-    "sl_points": 100,
-    "tp_points": 250,
+    "sl_points": 200,
+    "tp_points": 750,
     "sniper_volume_min": 5000,
-    "sniper_ratio_min": 2.0,
+    "sniper_ratio_min": 1.5,
     "max_loss_diario": -1000.0,
     "max_spread": 10,
     "min_volume_book": 300,
@@ -23,7 +23,7 @@
     "geral": {
         "mt5_path": "C:\\Program Files\\MetaTrader 5 Terminal\\terminal64.exe",
         "log_file": "monstro_v2.log",
-        "magic_number": 123457,
+        "magic_number": 2002,
         "deviation": 20
     },
     "contrato": {
@@ -67,9 +67,9 @@
     "trading": {
         "symbol_prefix": "WIN",
         "volume_padrao": 5.0,
-        "magic_number": 123457,
-        "sl_points": 100,
-        "tp_points": 250,
+        "magic_number": 2002,
+        "sl_points": 200,
+        "tp_points": 750,
         "max_spread": 10,
         "horario_pregao": "09:00",
         "horario_after": "23:59"
@@ -85,11 +85,12 @@
         "ativo": true,
         "descricao": "Configuração para WIN - Mini Índice",
         "data_ativacao": "2025-01-22",
-        "observacoes": [
-            "Volume de 5 contratos por operação",
-            "Volume mínimo book 200cc (APRENDIZADO)",
-            "SL 90 pontos, TP 35 pontos",
-            "Risk management -R$ 1000 diário",
+"observacoes": [
+            "Volume de 5 contratos por operaĀ§Ā£o",
+            "Volume mĀnimo book 200cc (APRENDIZADO)",
+            "SL 200 pontos, TP 750 pontos (auditoria Arthur777: PF 1.68)",
+            "Risk management -R$ 1000 diĀrio",
+            "Magic 2002 (isolamento total do WDO 123457)",
             "Modelo compartilhado com WDO mas arquivos separados"
         ]
     },

@@ -4460,31 +4460,33 @@ def executar_ordem(action: str, lots: float = VOLUME_PADRAO, symbol: str = None,
         elif atr >= 45:
             score_qualidade += 1
 
-        # Define SL/TP baseado no VOLUME (SEGUIR BIG PLAYERS) - REFATORADO COM ALVOS AMPLOS
+        # Define SL/TP baseado no VOLUME (SEGUIR BIG PLAYERS) - REFATORADO c/ Alvos do Config
+        # 04/09/2026 (quarentena Win V2): alvos vindos SOMENTE de SL_POINTS/TP_POINTS
+        # (config_win_v2.json), alinhados a auditoria Arthur777 (200/750). Os valores
+        # antigos hardcoded (100/25x) NAO reproduziam a config auditada na amostragem.
         volume_total = contexto_atual.get(
             'bid_qty', 0) + contexto_atual.get('ask_qty', 0)
 
-        if volume_total >= 5000:  # VOLUME MONUMENTAL - 10cc
-            sl_points_dinamico = 100   # SL amplo — evitar violinadas
-            # TP amplo — capturar movimentos completos (R/R 1:2.5)
-            tp_points_dinamico = 250
+        if volume_total >= 5000:  # VOLUME MONUMENTAL - faixa log
+            sl_points_dinamico = SL_POINTS
+            tp_points_dinamico = TP_POINTS
             logging.info(
-                f"🚀 VOLUME MONUMENTAL (5000cc+): SL={sl_points_dinamico}, TP={tp_points_dinamico} (R/R 1:2.5)")
-        elif volume_total >= 3000:  # LIQUIDEZ TOP - 8cc
-            sl_points_dinamico = 100   # SL amplo
-            tp_points_dinamico = 230   # TP amplo (R/R 1:2.3)
+                f"🚀 VOLUME MONUMENTAL (5000cc+): SL={sl_points_dinamico}, TP={tp_points_dinamico}")
+        elif volume_total >= 3000:  # LIQUIDEZ TOP - faixa log
+            sl_points_dinamico = SL_POINTS
+            tp_points_dinamico = TP_POINTS
             logging.info(
-                f"🏆 LIQUIDEZ TOP (3000cc+): SL={sl_points_dinamico}, TP={tp_points_dinamico} (R/R 1:2.3)")
-        elif volume_total >= 2000:  # LIQUIDEZ MÉDIA-ALTA - 6cc
-            sl_points_dinamico = 100   # SL amplo
-            tp_points_dinamico = 220   # TP amplo (R/R 1:2.2)
+                f"🏆 LIQUIDEZ TOP (3000cc+): SL={sl_points_dinamico}, TP={tp_points_dinamico}")
+        elif volume_total >= 2000:  # LIQUIDEZ MÉDIA-ALTA - faixa log
+            sl_points_dinamico = SL_POINTS
+            tp_points_dinamico = TP_POINTS
             logging.info(
-                f"⭐ LIQUIDEZ MÉDIA-ALTA (2000cc+): SL={sl_points_dinamico}, TP={tp_points_dinamico} (R/R 1:2.2)")
-        else:  # LIQUIDEZ BAIXA/MÉDIA - 2-5cc
-            sl_points_dinamico = 100   # SL padrão amplo
-            tp_points_dinamico = 200   # TP amplo (R/R 1:2.0)
+                f"⭐ LIQUIDEZ MÉDIA-ALTA (2000cc+): SL={sl_points_dinamico}, TP={tp_points_dinamico}")
+        else:  # LIQUIDEZ BAIXA/MÉDIA - faixa log
+            sl_points_dinamico = SL_POINTS
+            tp_points_dinamico = TP_POINTS
             logging.info(
-                f"✅ LIQUIDEZ BAIXA/MÉDIA: SL={sl_points_dinamico}, TP={tp_points_dinamico} (R/R 1:2.0)")
+                f"✅ LIQUIDEZ BAIXA/MÉDIA: SL={sl_points_dinamico}, TP={tp_points_dinamico}")
     else:
         # Fallback para valores padrão
         sl_points_dinamico = SL_POINTS
