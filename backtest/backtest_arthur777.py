@@ -20,8 +20,41 @@ import numpy as np
 # Adicionar path do projeto
 sys.path.insert(0, r'C:\AIOFEN')
 
-# Importar função de custo real
-from sete_velas_util import calcular_custo_trade, _carregar_custos
+# Funções de custo real (antes viviam em sete_velas_util.py, removido em 10/09/2026)
+def _carregar_custos():
+    """Carrega custos operacionais do config.json"""
+    try:
+        with open(r'C:\AIOFEN\config.json', encoding='utf-8-sig') as f:
+            cfg = json.load(f)
+        return cfg.get('custos_operacionais', {})
+    except Exception:
+        return {}
+
+
+def calcular_custo_trade(ativo: str, pontos: float) -> dict:
+    """
+    Calcula custo real de um trade no ambiente XP NOMOS + RLP (5 contratos).
+    Retorna dict com pnl_bruto, custo_fixo, custo_slippage, custo_total, pnl_liquido.
+    """
+    custos = _carregar_custos()
+    cfg = custos.get(ativo.upper(), {})
+
+    valor_ponto = float(cfg.get('valor_por_ponto_5ct', 50.0 if 'WDO' in ativo.upper() else 5.0))
+    custo_fixo = float(cfg.get('custo_por_trade_5ct', 4.0 if 'WDO' in ativo.upper() else 1.25))
+    slippage_pts = float(cfg.get('slippage_pontos', 0.5 if 'WDO' in ativo.upper() else 1.0))
+
+    pnl_bruto = pontos * valor_ponto
+    custo_slippage = slippage_pts * (10.0 if 'WDO' in ativo.upper() else 1.0)  # R$/pt * pts
+    custo_total = custo_fixo + custo_slippage
+    pnl_liquido = pnl_bruto - custo_total
+
+    return {
+        'pnl_bruto': round(pnl_bruto, 2),
+        'custo_fixo': round(custo_fixo, 2),
+        'custo_slippage': round(custo_slippage, 2),
+        'custo_total': round(custo_total, 2),
+        'pnl_liquido': round(pnl_liquido, 2)
+    }
 
 # ============================================================
 # CONFIGURAÇÕES

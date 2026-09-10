@@ -18,13 +18,17 @@ jobs:
       run: |
         python -m py_compile \
           monstro_unificado_v22.py \
+          rompimento_orquestrador.py \
           agente_monstro_core.py \
           dashboard_routes.py \
           sentinela_fluxo.py \
           selecao_estrategia_regime.py \
           config_manager.py \
-          tests/testes_pos_fix.py
+          tests/testes_pos_fix.py \
+          tests/teste_orquestrador_rompimento.py
     - name: Static post-fix checks (Sessao 17)
       env:
         CI: "true"
-      run: python tests/testes_pos_fix.py
+      run: |
+        python tests/testes_pos_fix.py
+        python tests/teste_orquestrador_rompimento.py

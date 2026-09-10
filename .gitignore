@@ -69,6 +69,7 @@ relatorio_*.txt
 # --- Pastas de cópia/backup do projeto ---
 robo_trader_exe/
 backup_wdo_*/
+backup_pre_rompimento_20260910/
 "src - Copia/"
 # tests/ contém testes versionados; re-inclui os arquivos desejados
 tests/

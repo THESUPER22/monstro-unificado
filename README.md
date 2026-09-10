@@ -8,6 +8,7 @@ Rede neural Keras (22 features) + book nativo MT5 + trailing stop inteligente + 
 | Arquivo | Papel |
 |---------|-------|
 | **`monstro_unificado_v22.py`** | **PRODUÇÃO WDO** — é o robô que opera. **NÃO renomear** (referenciado por `iniciar_v22_wdo.bat`, `stop_all.bat` e pela própria rotina de encerramento). |
+| `rompimento_orquestrador.py` | **Faixa 1 (09:00–11:30):** Rompimento da 1ª Hora (WDO, 5 CC, magic 7008) — caixa 09-10h, gatilho 10-11h, SL/TP no servidor, EOD 17:30. Substitui o antigo módulo Sete Velas (removido em 10/09/2026). |
 | `monstro_unificado_v2.py` | Legado WIN (Mini Índice) — pode rodar via `iniciar_monstro_win_v2.bat`. |
 | `tests/testes_pos_fix.py` | Testes pós-fix (9 checagens, sem MT5). |
 | `ROADMAP_WDO.md` | Histórico de sessões, decisões e checklist do robô WDO. |

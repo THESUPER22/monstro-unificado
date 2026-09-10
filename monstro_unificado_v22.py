@@ -59,10 +59,7 @@ from tensorflow.keras.optimizers import Adam
 import sentinela_fluxo
 from dashboard_routes import dashboard_bp, register_main_module
 from diagnostico_monstro import checar_arquivos_essenciais
-from sete_velas_orquestrador import Orquestrador7Velas
-from sete_velas_util import (brt_agora, epoch_para_brt, brt_para_epoch,
-                           velas_m15_do_dia, majority, calcular_cvd_janela,
-                           velas_para_entrada, get_hora_entrada)
+from rompimento_orquestrador import OrquestradorRompimento
 
 # Reduz warnings do TensorFlow
 tf.config.experimental.enable_op_determinism()
@@ -379,29 +376,40 @@ def carregar_configuracao():
 # Carrega configuraÃÂ§ÃÂ£o
 config = carregar_configuracao()
 
-# ========== v22.1 HOTFIX: Multi-Estrategia 7 Velas (estado global) ==========
-SETE_VELAS_CFG = config.get("sete_velas", {}) if isinstance(config, dict) else {}
-SETE_VELAS_ATIVO = bool(SETE_VELAS_CFG.get("ativo", False))
-MAGIC_SETE_VELAS = int(SETE_VELAS_CFG.get("magic", 7007))
-SETE_VELAS_INICIO_HORA = float(SETE_VELAS_CFG.get("hora_inicio", 9.0))
-SETE_VELAS_FIM_HORA = float(SETE_VELAS_CFG.get("hora_fim", 11.5))
+# ========== v22.2: Faixa 1 Rompimento da 1a Hora (substitui Sete Velas) ==========
+ROMP_CFG = config.get("rompimento", {}) if isinstance(config, dict) else {}
+ROMPIMENTO_ATIVO = bool(ROMP_CFG.get("ativo", False))
+MAGIC_ROMPIMENTO = int(ROMP_CFG.get("magic", 7008))
+ROMPIMENTO_INICIO_HORA = float(ROMP_CFG.get("hora_inicio", 9.0))
+ROMPIMENTO_FIM_HORA = float(ROMP_CFG.get("hora_fim", 11.0))
 ESTADO_SISTEMA = "PADRAO_MONSTRO"
 
 
+def _tem_posicao_rompimento():
+    """True enquanto houver posicao aberta do Rompimento (magic 7008)."""
+    try:
+        pos = mt5.positions_get(magic=MAGIC_ROMPIMENTO)
+        return bool(pos)
+    except Exception:
+        return False
+
+
 def _atualizar_estado_sistema():
-    """Alterna o estado global entre SETE_VELAS_EXCLUSIVO e PADRAO_MONSTRO
-    conforme janela configurada e disponibilidade da estrategia."""
+    """Alterna o estado global entre ROMPIMENTO_EXCLUSIVO e PADRAO_MONSTRO.
+    Exclusivo vale durante a janela de gatilho OU enquanto o trade do
+    Rompimento estiver aberto (pausa do resto do robo ate o trade terminar)."""
     global ESTADO_SISTEMA
     try:
-        if not SETE_VELAS_ATIVO:
+        if not ROMPIMENTO_ATIVO:
             ESTADO_SISTEMA = "PADRAO_MONSTRO"
             return
-        a = brt_agora()
+        a = datetime.now()
         h = a.hour + a.minute / 60.0
-        if a.weekday() >= 5 or not (SETE_VELAS_INICIO_HORA <= h < SETE_VELAS_FIM_HORA):
-            ESTADO_SISTEMA = "PADRAO_MONSTRO"
+        dentro_janela = a.weekday() < 5 and (ROMPIMENTO_INICIO_HORA <= h < ROMPIMENTO_FIM_HORA)
+        if dentro_janela or _tem_posicao_rompimento():
+            ESTADO_SISTEMA = "ROMPIMENTO_EXCLUSIVO"
         else:
-            ESTADO_SISTEMA = "SETE_VELAS_EXCLUSIVO"
+            ESTADO_SISTEMA = "PADRAO_MONSTRO"
     except Exception as e:
         logging.warning(f"Falha ao atualizar ESTADO_SISTEMA: {e}")
         ESTADO_SISTEMA = "PADRAO_MONSTRO"
@@ -5315,11 +5323,11 @@ class ModoOperacional:
 def executar_ordem(action, lots=VOLUME_PADRAO, symbol=None, modo_operacional=None, sniper=False,
                    sl_points_override=None, tp_points_override=None,
                    magic_override=None, comment=None, shadow=True):
-    """Executa uma ordem de compra ou venda com SL/TP calculados. magic_override permite Magic 7007 (7 Velas)."""
+    """Executa uma ordem de compra ou venda com SL/TP calculados. magic_override permite Magic 7008 (Rompimento 1h)."""
 
-    # Gate exclusivo Faixa 1: apenas magic=7007 passa durante SETE_VELAS_EXCLUSIVO
-    if ESTADO_SISTEMA == "SETE_VELAS_EXCLUSIVO" and (magic_override or MAGIC_NUMBER) != MAGIC_SETE_VELAS:
-        logging.warning(f"[GATE 7 VELAS] Ordem bloqueada para {symbol or SYMBOL} (apenas Magic 7007 na Faixa 1)")
+    # Gate exclusivo Faixa 1: apenas magic=7008 passa durante ROMPIMENTO_EXCLUSIVO
+    if ESTADO_SISTEMA == "ROMPIMENTO_EXCLUSIVO" and (magic_override or MAGIC_NUMBER) != MAGIC_ROMPIMENTO:
+        logging.warning(f"[GATE ROMPIMENTO] Ordem bloqueada para {symbol or SYMBOL} (apenas Magic 7008 na Faixa 1)")
         return None
 
     # magic efetivo: override (7 Velas) ou padrao do robo
@@ -6624,11 +6632,11 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
         modelo_ia_global = modelo_ia_local
         memoria_experiencias_global = memoria_experiencias
 
-        # ===== v22.1b: ORQUESTRADOR 7 VELAS (Faixa 1) =====
+        # ===== v22.2: ORQUESTRADOR ROMPIMENTO 1H (Faixa 1) =====
         global ESTADO_SISTEMA
         _orq = None
-        if SETE_VELAS_ATIVO:
-            def _sv_fn_executar(action, lots, symbol, sl, tp, magic_override, comment):
+        if ROMPIMENTO_ATIVO:
+            def _romp_fn_executar(action, lots, symbol, sl, tp, magic_override, comment):
                 return executar_ordem(
                     action=action, lots=lots, symbol=symbol,
                     modo_operacional=modo_operacional, sniper=True,
@@ -6636,11 +6644,11 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     magic_override=magic_override, comment=comment,
                     shadow=False)
             try:
-                _orq = Orquestrador7Velas(
-                    fn_executar=_sv_fn_executar, symbol=SYMBOL, ativo=SETE_VELAS_ATIVO)
-                logging.info("[7VELAS] Orquestrador instanciado (magic %s) - Faixa 1 armada", MAGIC_SETE_VELAS)
+                _orq = OrquestradorRompimento(
+                    fn_executar=_romp_fn_executar, symbol=SYMBOL, ativo=ROMPIMENTO_ATIVO)
+                logging.info("[ROMPIMENTO] Orquestrador instanciado (magic %s) - Faixa 1 armada", MAGIC_ROMPIMENTO)
             except Exception as e:
-                logging.error(f"[7VELAS] Falha ao instanciar orquestrador: {e}")
+                logging.error(f"[ROMPIMENTO] Falha ao instanciar orquestrador: {e}")
                 _orq = None
 
 
@@ -6695,13 +6703,13 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
 
         while thread_ativo:
             try:
-                # ===== v22.1b: estado multi-estrategia + orquestrador 7 Velas =====
+                # ===== v22.2: estado multi-estrategia + orquestrador Rompimento =====
                 _atualizar_estado_sistema()
-                if _orq is not None and ESTADO_SISTEMA == "SETE_VELAS_EXCLUSIVO":
+                if _orq is not None:
                     try:
                         _orq.orquestrar()
                     except Exception as e:
-                        logging.error(f"[7VELAS] Erro no orquestrar(): {e}")
+                        logging.error(f"[ROMPIMENTO] Erro no orquestrar(): {e}")
 
                 # ===== VERIFICAÃâ¡ÃÆO DE SEGURANÃâ¡A DA VARIÃÂVEL POSICAO_ATUAL =====
                 # Garante que posicao_atual sempre exista (inicializada como None se necessÃÂ¡rio)
@@ -8053,8 +8061,8 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                 # ========== INTEGRAÃâ¡ÃÆO MELHORIA 4: CIRCUIT BREAKERS ESSENCIAIS ==========
                 if circuit_breaker and CIRCUIT_BREAKER_ATIVO:
                     spread_atual = contexto.get('spread', 0)
-                    _cb2_ignore = (ESTADO_SISTEMA == "SETE_VELAS_EXCLUSIVO"
-                                   and bool(SETE_VELAS_CFG.get("cb2_ignore_max_loss", True)))
+                    _cb2_ignore = (ESTADO_SISTEMA == "ROMPIMENTO_EXCLUSIVO"
+                                   and bool(ROMP_CFG.get("cb2_ignore_max_loss", True)))
                     if circuit_breaker.verificar_circuit_breakers(spread_atual, ignore_max_loss=_cb2_ignore):
                         status = circuit_breaker.get_status()
                         logging.warning(
@@ -10389,8 +10397,11 @@ def fechar_todas_posicoes(motivo: str = "Encerramento automÃÂ¡tico") -> int
             return 0
 
         # Filtra apenas posiÃÂ§ÃÂµes do robÃÂ´ (por magic number)
+        magics_permitidos = [MAGIC_NUMBER]
+        if ROMPIMENTO_ATIVO:
+            magics_permitidos.append(MAGIC_ROMPIMENTO)
         posicoes_monstro = [
-            pos for pos in posicoes if pos.magic == MAGIC_NUMBER]
+            pos for pos in posicoes if pos.magic in magics_permitidos]
 
         if not posicoes_monstro:
             logging.info("Ã¢Åâ¦ Nenhuma posiÃÂ§ÃÂ£o do Monstro para fechar")

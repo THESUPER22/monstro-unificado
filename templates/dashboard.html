@@ -274,10 +274,10 @@ body.neon .btn{box-shadow:0 0 8px rgba(255,0,255,.35)}
         <div class="metric"><div class="label">D Casado</div><div class="val" id="mDCasado" style="font-size:10px">--</div></div>
         <div class="metric highlight"><div class="label">Sniper %R</div><div class="val" id="mSniper" style="font-size:10px;color:#4ADE80">AGUARDANDO</div></div>
         <div class="metric"><div class="label">Modo Robo</div><div class="val" id="mSniperApenas" style="font-size:10px;color:#93C5FD">SNIPER-APENAS</div></div>
-        <div class="metric"><div class="label">7 Velas</div><div class="val" id="m7VStatus" style="font-size:10px;color:#F59E0B">INATIVO</div></div>
-        <div class="metric"><div class="label">7V Lote</div><div class="val" id="m7VLote" style="font-size:10px">5 CC</div></div>
-        <div class="metric"><div class="label">7V Próximo</div><div class="val" id="m7VProx" style="font-size:10px">--:--</div></div>
-        <div class="metric"><div class="label">7V P&L</div><div class="val" id="m7VPnL" style="font-size:10px">R$0,00</div></div>
+        <div class="metric"><div class="label">Romp 1h</div><div class="val" id="m7VStatus" style="font-size:10px;color:#F59E0B">INATIVO</div></div>
+        <div class="metric"><div class="label">Romp Lote</div><div class="val" id="m7VLote" style="font-size:10px">5 CC</div></div>
+        <div class="metric"><div class="label">Romp Próx.</div><div class="val" id="m7VProx" style="font-size:10px">--:--</div></div>
+        <div class="metric"><div class="label">Romp P&L</div><div class="val" id="m7VPnL" style="font-size:10px">R$0,00</div></div>
       </div>
     </div>
   </div>
@@ -402,19 +402,15 @@ async function fetchStatus(){
     const se=document.getElementById('mSniper'),ae=document.getElementById('alertBar'),sa=document.getElementById('mSniperApenas');
     if(sa)sa.textContent=d.sniper_apenas?'SNIPER-APENAS':'IA+SNIPER';
 
-    // 7 VELAS STATUS
-    if(d.sete_velas){
-        const sv=d.sete_velas;
+    // ROMPIMENTO 1H STATUS
+    if(d.rompimento){
+        const sv=d.rompimento;
         document.getElementById('m7VStatus').textContent=sv.estado_faixa;
         document.getElementById('m7VStatus').style.color=sv.na_janela?'#10B981':'#94A3B8';
         document.getElementById('m7VLote').textContent=sv.volume+' CC';
         document.getElementById('m7VProx').textContent=sv.proxima_janela;
         document.getElementById('m7VPnL').textContent=sv.pnl_hoje;
-        if(sv.cvd_ok && sv.maioria_ok){
-            document.getElementById('m7VProx').style.color='#10B981';
-        }else if(sv.maioria_ok==='AGUARDANDO'){
-            document.getElementById('m7VProx').style.color='#F59E0B';
-        }
+        document.getElementById('m7VProx').style.color=sv.na_janela?'#10B981':'#F59E0B';
     }
     if(d.sniper_bloqueado){const m=d.sniper_bloqueio_motivo||'BLOQ';se.textContent=m;se.style.color='#F87171';ae.style.display='block';ae.style.background='rgba(127,29,29,.4)';ae.style.border='1px solid #EF4444';ae.style.color='#FCA5A5';ae.textContent='SNIPER BLOQUEADO: '+m;}
     else if(d.payroll_ativado){se.textContent='PAYROLL';se.style.color='#FACC15';ae.style.display='block';ae.style.background='rgba(66,32,6,.4)';ae.style.border='1px solid #FACC15';ae.style.color='#FDE68A';ae.textContent='PAYROLL - Fuga ativa';}

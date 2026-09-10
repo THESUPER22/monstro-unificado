@@ -1,35 +1,47 @@
 # -*- coding: utf-8 -*-
 """Rompimento da Primeira Hora - ROBO DE PAPEL (forward test) | WIN$
-Lógica idêntica ao backtest (C:\\AIOFEN\\backtest\\backtest_rompimento_1hora.py):
-  caixa 09:00-10:00 (velas M5 hora 9), gatilho 10:00-11:00 (prioridade 60min),
+Logica identica ao backtest (C:\\AIOFEN\\backtest\\backtest_rompimento_1hora.py):
+  caixa 09:00-10:00 (velas M5 hora 9), gatilho 10:00-11:00 (janela 60min),
   fill = abertura da barra gatilho, SL conferido ANTES do TP, EOD 17:55.
-NUNCA envia ordem. Apenas registra o que acertaria em papel (banca fictícia).
-Uso:
-  python rompimento_ft.py              -> roda o dia em papel (agendado pelo Windows)
-  python rompimento_ft.py --selftest C:\AIOFEN\backtest\dados_mt5\baixa_tudo\filtrados\WING2026_M5.csv
-                                      -> valida a maquina de estados contra o historico (1:1 com o backtest)
+NUNCA envia ordem. Apenas registra o que acertaria em papel (banca ficticia).
+
+Robustez:
+  - Offset de fuso detectado automaticamente por dia (o terminal pode alternar
+    entre servidores/conta cujo relogio nao e BRT).
+  - Trava de frescor: decisoes so sao tomadas com ultima vela M5 a <=12 min da
+    hora real; caso contrario o dia fica "aguardando dados".
+  - Reconci liacao ao fim do dia (18:50 BRT): avalia o dia com as barras COMPLETAS
+    (identico ao backtest) e grava a linha autoritativa do dia (1 linha/dia).
+
+CLI:
+  python rompimento_ft.py                          -> roda o dia em papel (agendado)
+  python rompimento_ft.py --reconcilia-hoje AAAA-MM-DD -> avalia o dia completo e grava a linha
+  python rompimento_ft.py --selftest [csv]         -> valida a maquina de estados contra o historico
 """
 import csv, json, os, sys, time
 from datetime import datetime, timedelta, time as dtime
+from collections import defaultdict
 
 BT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backtest")
 if BT_DIR not in sys.path:
     sys.path.insert(0, BT_DIR)
 from backtest_rompimento_1hora import load, build_days, prep, trig, resolve
 
-# ---------------- CONFIG DA ESTRATEGIA (mesmos parametros do MELHOR combo) ----------------
+# ---------------- CONFIG DA ESTRATEGIA (parametros do MELHOR combo) ----------------
 SYMBOL = "WIN$"
 SL_MODE = "lo_half"
 TP_K = 2.0
 WINDOW_MIN = 60
-PV = 0.20          # R$ por ponto (WIN$: tick 1.0 -> R$0.20) - igual ao backtest
-CUSTO = 0.75       # R$ por trade (mesmo do backtest)
+PV = 0.20          # R$ por ponto (WIN$ tick 1.0 -> R$0.20); igual ao backtest
+CUSTO = 0.75       # R$ por trade
 BANCO_INICIAL = 1500.0
-MAGIC = 0          # inexistente: papel nao abre posicao real
 
 # ---------------- TIMES (BRT) ----------------
-TIME_EOD_FINAL = dtime(18, 0, 30)   # espera a vela 17:55 fechar (fecha 18:00) para EOD igual ao backtest
-TIME_NO_TRADE = dtime(11, 6)        # sem gatilho ate 11:06 -> dia sem trade
+TIME_NO_TRADE = dtime(11, 6)        # sem gatilho ate 11:06 (janela fecha 11:00) -> dia sem trade
+TIME_EOD_FINAL = dtime(18, 0, 30)   # aguarda a vela 17:55 fechar (fecha 18:00) p/ EOD identico ao backtest
+TIME_RECON = dtime(18, 50)          # fim do dia: reconcilia com barras completas
+TIME_STOP = dtime(18, 55)
+STALE_MAX_MIN = 12                  # feed defasado acima disso nao decide
 
 ROOT = r"C:\AIOFEN"
 LOG_DIR = os.path.join(ROOT, "logs", "rompimento_ft")
@@ -42,7 +54,7 @@ HEADER_EQUITY = ["datahora", "dia", "nav", "pts_dia", "obs"]
 
 os.makedirs(LOG_DIR, exist_ok=True)
 
-_OFFSET = 0
+_SHIFT = 0
 
 
 def log(msg):
@@ -56,46 +68,48 @@ def log(msg):
 
 
 def brt(ts):
-    return datetime.fromtimestamp(ts + _OFFSET)
+    return datetime.fromtimestamp(ts + _SHIFT)
 
 
 def short_s(var):
-    return "-" if var is None else str(round(var, 1))
+    return "-" if var is None else str(round(var, 0))
 
 
 # ---------------- MT5 ----------------
 def connect(max_wait_s=900):
-    global _OFFSET
     import MetaTrader5 as mt5
     t0 = time.time()
     while not mt5.initialize():
         if time.time() - t0 > max_wait_s:
             return False
         time.sleep(5)
-    _OFFSET = detect_offset(mt5)
-    log("MT5 conectado (expiracao=%s)".replace("expiracao=%s", "offset=%d s") % _OFFSET)
+    detect_shift(mt5)
+    log("MT5 conectado | offset=%d s" % _SHIFT)
     return True
 
 
-def detect_offset(mt5):
-    rates = mt5.copy_rates_from_pos(SYMBOL, mt5.TIMEFRAME_M5, 0, 200)
-    if rates is None or len(rates) == 0:
-        return 0
-    amb = [i for i in [-21600, -10800, 0, 10800, 21600]]
-    best = (0, -1)
-    for off in amb:
-        horas = [datetime.fromtimestamp(int(r["time"]) + off).hour
-                 for r in rates[-50:]
-                 if datetime.fromtimestamp(int(r["time"]) + off).weekday() < 5]
-        sess = sum(1 for h in horas if 9 <= h <= 18)
-        if sess > best[1]:
-            best = (off, sess)
-    return best[0]
+def detect_shift(mt5, n=3000):
+    """escolhe o deslocamento (s) que coloca mais barras historicas no horario de sessao (9-18h)."""
+    global _SHIFT
+    rates = mt5.copy_rates_from_pos(SYMBOL, mt5.TIMEFRAME_M5, 0, n)
+    if rates is None or len(rates) < 300:
+        return _SHIFT
+    best = (_SHIFT, -1)
+    for cand in (-25200, -21600, -18000, -14400, -10800, -7200, -3600, 0, 3600, 7200, 10800, 14400, 18000, 21600):
+        cnt = 0
+        for r in rates[-1500:]:
+            dt = datetime.fromtimestamp(int(r["time"]) + cand)
+            if 9 <= dt.hour <= 17 and dt.weekday() < 5:
+                cnt += 1
+        if cnt > best[1]:
+            best = (cand, cnt)
+    _SHIFT = best[0]
+    return _SHIFT
 
 
-def fetch_today_bars(mt5, hoje, now):
-    """velas M5 de hoje ja fechadas (b[0] + 5min <= now), em ordem cronologica"""
-    rates = mt5.copy_rates_from_pos(SYMBOL, mt5.TIMEFRAME_M5, 0, 1200)
+def fetch_bars(mt5, hoje):
+    """velas M5 fechadas do dia (em ordem), interpretadas com o offset atual"""
+    rates = mt5.copy_rates_from_pos(SYMBOL, mt5.TIMEFRAME_M5, 0, 1500)
     if rates is None:
         return []
     out = []
@@ -103,21 +117,47 @@ def fetch_today_bars(mt5, hoje, now):
         dt = brt(int(r["time"]))
         if dt.date() != hoje:
             continue
-        if dt + timedelta(minutes=5) > now:
-            continue
         out.append((dt, float(r["open"]), float(r["high"]), float(r["low"]),
                     float(r["close"]), int(r["tick_volume"])))
+    out.sort(key=lambda b: b[0])
     return out
 
 
-# ---------------- NUCLEO (state machine pura; identica em live e selftest) ----------------
-def make_state(dia, nav=BANCO_INICIAL):
+def batch_avail(mt5, hoje, now):
+    """barras fechadas do dia (b[0] + 5min <= now) para decisoes intraday"""
+    return [b for b in fetch_bars(mt5, hoje) if b[0] + timedelta(minutes=5) <= now]
+
+
+def feed_lag_min(mt5):
+    """defasagem (min) da ultima vela M5 em relacao a hora real. fuso-independente."""
+    r = mt5.copy_rates_from_pos(SYMBOL, mt5.TIMEFRAME_M5, 0, 1)
+    if r is None or len(r) == 0:
+        return 10 ** 9
+    last_epoch = int(r[0]["time"])
+    return (time.time() - last_epoch) / 60.0
+
+
+# ---------------- NUCLEO (identical in live/selftest/reconcile) ----------------
+def last_nav():
+    if os.path.exists(EQUITY_CSV):
+        try:
+            with open(EQUITY_CSV, encoding="utf-8") as f:
+                rows = list(csv.DictReader(f))
+            if rows and rows[-1].get("nav"):
+                return float(rows[-1]["nav"])
+        except Exception:
+            pass
+    return BANCO_INICIAL
+
+
+def make_state(dia, nav=None):
+    if nav is None:
+        nav = last_nav()
     return dict(dia=dia.isoformat(), nav=round(nav, 2), side=None, idx=None, entry=None,
-                sl_lvl=None, tp_lvl=None, pts=None, saida=None, final=False)
+                sl_lvl=None, tp_lvl=None, pts=None, saida=None, final=False, obs=None)
 
 
 def prep_safe(bars):
-    """prep() do backtest tolerante a dia incompleto (trigb vazia antes das 10:00)"""
     if not bars:
         return None
     try:
@@ -130,7 +170,7 @@ def prep_safe(bars):
 
 
 def run_step(st, bars, now, cfg):
-    """um passo. retorna (novo state, mudou_final). cfg: {sl_mode, tp_k, window_min}"""
+    """um passo. retorna (novo state, mudou_final)"""
     st = dict(st)
     if st["final"]:
         return st, False
@@ -163,11 +203,9 @@ def run_step(st, bars, now, cfg):
         st["saida"] = saida
         st["final"] = True
         return st, True
-    # EOD valido quando: (a) sessao quase completa (vela 17:55 fechada) apos 18:00, ou
-    # (b) sessao curta/encerrada (sem barra fechada nova ha 30 min apos a tarde)
     lb = max((b[0] + timedelta(minutes=5) for b in bars), default=None)
     sessao_completa = now.time() >= cfg["eod_final"] and any(b[0].time() >= dtime(17, 50) for b in bars)
-    sessao_curta = (lb is not None and now.time() >= dtime(13, 0)
+    sessao_curta = (cfg.get("fresh", True) and lb is not None and now.time() >= dtime(13, 0)
                     and now - lb >= timedelta(minutes=30))
     if sessao_completa or sessao_curta:
         st["pts"] = pts
@@ -177,8 +215,8 @@ def run_step(st, bars, now, cfg):
     return st, False
 
 
-def aplicar_resultado(st):
-    pf = st["pts"] - CUSTO if st["pts"] is not None else 0.0
+def apply_stop_custos(st):
+    pf = (st["pts"] * PV - CUSTO) if st["pts"] is not None else 0.0
     st["nav"] = round(st["nav"] + pf, 2)
     return pf
 
@@ -201,13 +239,79 @@ def save_state(st):
     os.replace(tmp, STATE_JSON)
 
 
-def append_csv(p, row, header=HEADER_TRADES):
-    novo = not os.path.exists(p) or os.path.getsize(p) == 0
-    with open(p, "a", encoding="utf-8", newline="") as f:
+def _rewrite_csv_drop_day(p, header, dia):
+    """reescreve CSV removendo as linhas do dia (garante 1 linha/dia)"""
+    rows = []
+    if os.path.exists(p):
+        with open(p, encoding="utf-8") as f:
+            rd = csv.DictReader(f)
+            rows = [r for r in rd if r.get("dia") != dia]
+    with open(p, "w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=header)
-        if novo:
-            w.writeheader()
-        w.writerow(row)
+        w.writeheader()
+        for r in rows:
+            w.writerow({k: r.get(k, "") for k in header})
+
+
+# ---------------- REGISTRO AUTORITATIVO DO DIA ----------------
+def registrar_dia(st, obs):
+    """grava a unica linha do dia em trades.csv e equity.csv a partir do estado final."""
+    dia = st["dia"]
+    nav_antes = st["nav"]
+    pf = (st["pts"] * PV - CUSTO) if st["pts"] is not None else 0.0
+    st["nav"] = round(st["nav"] + pf, 2)
+    _rewrite_csv_drop_day(TRADES_CSV, HEADER_TRADES, dia)
+    _rewrite_csv_drop_day(EQUITY_CSV, HEADER_EQUITY, dia)
+    row = {
+        "dia": dia, "side": st["side"], "entrada": short_s(st["entry"]),
+        "sl": short_s(st["sl_lvl"]), "tp": short_s(st["tp_lvl"]),
+        "saida": st["saida"], "pts": st["pts"], "custo": CUSTO,
+        "nav_antes": "%.2f" % nav_antes, "nav_depois": "%.2f" % st["nav"],
+        "obs": (st.get("obs") or obs or st["saida"]),
+    }
+    with open(TRADES_CSV, "a", encoding="utf-8", newline="") as f:
+        csv.DictWriter(f, fieldnames=HEADER_TRADES).writerow(row)
+    linha_eq = dict(datahora=datetime.now().isoformat(), dia=dia, nav="%.2f" % st["nav"],
+                    pts_dia=short_s(st["pts"]), obs=row["obs"])
+    with open(EQUITY_CSV, "a", encoding="utf-8", newline="") as f:
+        csv.DictWriter(f, fieldnames=HEADER_EQUITY).writerow(linha_eq)
+    log("=> [REGISTRO %s] side=%s entrada=%s saida=%s pts=%s obs=%s | NAV=R$%.2f" %
+        (dia, st["side"], short_s(st["entry"]), st["saida"], short_s(st["pts"]), row["obs"], st["nav"]))
+
+
+def dia_completo(mt5, dia, bars):
+    """o dia tem barras suficientes pra ser considerado 'final'? (usado a noite/reconciliacao)"""
+    lb = bars[-1] if bars else None
+    if lb is None:
+        return False
+    now = datetime.now()
+    if now.time() < dtime(18, 5):
+        return False
+    lb_end = lb[0] + timedelta(minutes=5)
+    if lb[0].time() >= dtime(17, 45) or now - lb_end >= timedelta(hours=6):
+        return True
+    return feed_lag_min(mt5) <= STALE_MAX_MIN
+
+
+def reconciliar(mt5, dia, bars=None):
+    """avalia o dia completo (barras finais) -> estado final autoritativo == backtest"""
+    if bars is None:
+        bars = fetch_bars(mt5, dia)
+    st = make_state(dia)
+    if not bars:
+        st["final"] = True
+        st["saida"] = "SEM_DADOS"
+        st["obs"] = "nenhuma barra do dia"
+        return st
+    cfg = dict(sl_mode=SL_MODE, tp_k=TP_K, window_min=WINDOW_MIN,
+               no_trade_at=TIME_NO_TRADE, eod_final=TIME_EOD_FINAL, fresh=True)
+    now = datetime(dia.year, dia.month, dia.day, 19, 0)
+    st, ch = run_step(st, bars, now, cfg)
+    if not st["final"]:
+        st["final"] = True
+        st["saida"] = st["saida"] or "S/TRADE"
+        st["obs"] = st.get("obs") or "reconciliado sem final"
+    return st
 
 
 # ---------------- LIVE ----------------
@@ -221,76 +325,81 @@ def live():
         return
     hoje = datetime.now().date()
     prev = load_state()
-    if prev and prev.get("dia") == hoje.isoformat():
-        # ja rodou hoje? verifica se o pid ainda existe
-        pid = prev.get("pid")
-        if pid:
-            ok = False
-            try:
-                import ctypes
-                PRO_QUERY = (0x0000, 0x0400)  # PROCESS_QUERY_LIMITED_INFORMATION
-                h = ctypes.windll.kernel32.OpenProcess(PRO_QUERY[1], False, pid)
-                if h:
-                    ok = True
-                    ctypes.windll.kernel32.CloseHandle(h)
-            except Exception:
-                ok = False
-            if ok:
-                log("ja rodando (pid=%s)" % pid)
-                mt5.shutdown()
-                return
+    if prev and prev.get("dia") == hoje.isoformat() and prev.get("final"):
+        log("dia %s ja finalizado (state) - encerrando" % hoje)
+        mt5.shutdown()
+        return
     st = make_state(hoje)
     st["pid"] = os.getpid()
     st["started"] = datetime.now().isoformat()
-    save_state(st)
     cfg = dict(sl_mode=SL_MODE, tp_k=TP_K, window_min=WINDOW_MIN,
-               no_trade_at=TIME_NO_TRADE, eod_final=TIME_EOD_FINAL)
+               no_trade_at=TIME_NO_TRADE, eod_final=TIME_EOD_FINAL, fresh=False)
+    save_state(st)
     log("INICIO papel | %s | banco=R$%.2f | caixa 09-10h | SL=%s TP=%sx janela=%dmin" %
         (SYMBOL, BANCO_INICIAL, SL_MODE, TP_K, WINDOW_MIN))
-    cycle = 0
+    registrado = False
+    ultimo_aviso = None
     while True:
         now = datetime.now()
-        if now.weekday() >= 5:
-            log("virou fim de semana - encerrando")
+        if now.weekday() >= 5 or now.date() != hoje:
+            log("fora do dia - encerrando")
             break
-        if now.date() != hoje:
-            log("mudou o dia - encerrando")
+        frag = feed_lag_min(mt5)
+        fresh = frag <= STALE_MAX_MIN
+        bars = batch_avail(mt5, hoje, now)
+        if fresh and bars:
+            cfg["fresh"] = True
+            st, changed = run_step(st, bars, now, cfg)
+            if st["final"]:
+                registrar_dia(st, "")
+                registrado = True
+                save_state(st)
+                break
+        else:
+            if ultimo_aviso is None or (now - ultimo_aviso).total_seconds() > 60:
+                log("feed defasado %.0f min - sem decisao (aguardando dados frescos)" %
+                    (frag if frag < 10 ** 6 else -1))
+                ultimo_aviso = now
+        save_state(st)
+        if now.time() >= TIME_RECON:
             break
-        bars = fetch_today_bars(mt5, hoje, now)
-        st2, changed = run_step(st, bars, now, cfg)
-        if st2["final"] and not st.get("final"):
-            pf = aplicar_resultado(st2)
-            row = {
-                "dia": hoje.isoformat(), "side": st2["side"], "entrada": short_s(st2["entry"]),
-                "sl": short_s(st2["sl_lvl"]), "tp": short_s(st2["tp_lvl"]),
-                "saida": st2["saida"], "pts": st2["pts"], "custo": CUSTO,
-                "nav_antes": "%.2f" % (st2["nav"] - pf if st2["pts"] is not None else st2["nav"]),
-                "nav_depois": "%.2f" % st2["nav"], "obs": st2.get("obs", ""),
-            }
-            append_csv(TRADES_CSV, row)
-            linha_eq = dict(datahora=datetime.now().isoformat(), dia=hoje.isoformat(),
-                            nav="%.2f" % st2["nav"], pts_dia=short_s(st2["pts"]), obs=st2["saida"])
-            append_csv(EQUITY_CSV, linha_eq, HEADER_EQUITY)
-            log("=> RESULTADO %s | side=%s entrada=%s saida=%s pts=%s | NAV=R$%.2f" %
-                (hoje, st2["side"], short_s(st2["entry"]), st2["saida"], short_s(st2["pts"]), st2["nav"]))
-            save_state(st2)
-        elif st2 != st:
-            save_state(st2)
-        st = st2
-        if st["final"]:
-            log("FIM do dia (estado final=%s)" % st["saida"])
-            save_state(st)
-            break
-        if now.time() >= dtime(18, 30):
-            log("tempo maximo atingido (18:30) - encerrando")
-            save_state(st)
-            break
-        cycle += 1
-        time.sleep(20 if cycle % 5 else 30)
+        time.sleep(20)
+    # reconciliacao autoritativa ao final
+    if dia_completo(mt5, hoje, fetch_bars(mt5, hoje)):
+        st = reconciliar(mt5, hoje)
+        registrar_dia(st, "REC")
+        registrado = True
+    elif not registrado:
+        log("dados incompletos/defasados no fim do dia - SEM registro (rode --reconcilia-hoje %s depois)" % hoje)
+    save_state(st)
+    log("FIM do dia %s (registrado=%s | %s %s)" % (hoje, registrado, st["saida"], short_s(st["pts"])))
     mt5.shutdown()
 
 
-# ---------------- SELFTEST (replay historico 1:1) ----------------
+# ---------------- RECONCILIA MANUAL ----------------
+def reconcilia_hoje(dia_str):
+    import MetaTrader5 as mt5
+    dia = datetime.strptime(dia_str, "%Y-%m-%d").date()
+    if not connect():
+        print("FALHA conectar MT5")
+        return 1
+    bars = fetch_bars(mt5, dia)
+    print("barras do dia %s: %d | ultima: %s" % (dia, len(bars),
+                                                 bars[-1][0].strftime("%H:%M") if bars else "-"))
+    if not dia_completo(mt5, dia, bars):
+        print("ATENCAO: dados do dia ainda incompletos/defasados - SEM registro.")
+        print("Rode de novo depois do preg~ao (18:05+) ou quando o feed sincronizar.")
+        mt5.shutdown()
+        return 2
+    st = reconciliar(mt5, dia, bars)
+    registrar_dia(st, "REC")
+    save_state(st)
+    print("registrado: %s" % st)
+    mt5.shutdown()
+    return 0
+
+
+# ---------------- SELFTEST ----------------
 def selftest(path):
     cfg = dict(sl_mode=SL_MODE, tp_k=TP_K, window_min=WINDOW_MIN,
                no_trade_at=TIME_NO_TRADE, eod_final=TIME_EOD_FINAL)
@@ -322,11 +431,9 @@ def selftest(path):
         if ref is None and got is None:
             ok += 1
         elif ref is None or got is None:
-            fail += 1
-            fails.append((d, ref, got, "presenca divergente"))
+            fail += 1; fails.append((d, ref, got, "presenca divergente"))
         elif ref[0] != got[0] or ref[1] != got[1] or ref[2] != got[2]:
-            fail += 1
-            fails.append((d, ref, got, ""))
+            fail += 1; fails.append((d, ref, got, ""))
         else:
             ok += 1
     print("SELFTEST: dias=%d OK=%d FALHA=%d" % (len(days), ok, fail))
@@ -336,9 +443,10 @@ def selftest(path):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) >= 3 and sys.argv[1] == "--selftest":
-        sys.exit(0 if selftest(sys.argv[2]) else 1)
-    elif len(sys.argv) == 2 and sys.argv[1] == "--selftest":
-        p = os.path.join(BT_DIR, "dados_mt5", "baixa_tudo", "filtrados", "WING2026_M5.csv")
+    if len(sys.argv) >= 2 and sys.argv[1] == "--selftest":
+        p = sys.argv[2] if len(sys.argv) >= 3 else os.path.join(
+            BT_DIR, "dados_mt5", "baixa_tudo", "filtrados", "WING2026_M5.csv")
         sys.exit(0 if selftest(p) else 1)
+    elif len(sys.argv) >= 3 and sys.argv[1] == "--reconcilia-hoje":
+        sys.exit(reconcilia_hoje(sys.argv[2]))
     live()

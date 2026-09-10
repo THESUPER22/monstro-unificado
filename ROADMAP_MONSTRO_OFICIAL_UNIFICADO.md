@@ -1,8 +1,8 @@
 # 🚀 ROADMAP OFICIAL — MONSTRO TRADER V2
-**Última atualização:** 01/09/2026
-**Versão:** Monstro Unificado V22 (Engine v22.2 — Sete Velas: Gestão de Posição + Backtest A/B)
+**Última atualização:** 10/09/2026
+**Versão:** Monstro Unificado V22 (Engine v22.2 — Faixa 1: Rompimento da 1ª Hora substitui Sete Velas)
 **Arquivo principal:** `monstro_unificado_v22.py`
-**Status geral:** Fase 10 concluída; v22.1b reparada; v22.2 (Fase 3) implementada — 7 Velas em incubação out-of-sample (n≥30)
+**Status geral:** Fase 10 concluída; v22.2 (Fase 3) implementada — Rompimento da 1ª Hora em produção (WDO 5 CC), Sete Velas removido por completo (10/09/2026)
 
 ---
 
@@ -908,3 +908,61 @@ python -c "from tensorflow.keras.models import load_model; m=load_model('modelo_
 > **Anteparo de honestidade:** incubação simulada ≠ garantia de lucro real. NÃO aumentar lote no WDO nem misturar capital até os critérios 6.4 batidos. WIN real exige validar **margem/contrato/custos reais** (potencialmente outra corretora/terminal que o demo XP atual) — decisão separada, agendada.
 
 *Mantido por: Mestre Super + Kiro AI Agent — revisado e direcionado por Ox Alfa (dev/quant sênior)*
+
+---
+
+# 🚀 v22.2 — 2026-09-10 (Faixa 1: Rompimento da 1ª HORA substitui SETE VELAS)
+
+## Decisão do Mestre (10/09/2026)
+- **Eliminar a estratégia das Sete Velas do código** (validação: 7 Velas sem edge confirmado no WDO).
+- **Rompimento da Primeira Hora a entrar no robô** `monstro_unificado_v22.py` (WDO, 5 CC, **sem barras noturnas**), como **Faixa 1** — o restante do robô fica em **pausa até o trade do rompimento terminar** (mesmo gate que o Sete Velas fazia).
+- **Remover a pausa de meio-dia** (task `Monstro-Pausa` 12:30) e a task `Rompimento-FT` (festiva do lado WIN fica redundante).
+- Não mexer na parte lucrativa pós-janela. Ao final: roadmap + commit.
+- (Opcional, NÃO implementado) Anticipação com o Dólar Cheio (DOL).
+
+## Estratégia (paridade com `backtest/backtest_rompimento_1hora.py`)
+- **Caixa** 09:00–10:00 BRT (M5 da hora 9) → hi/lo/rr.
+- **Gatilho** 10:00–11:00 (janela 60 min): primeira M5 **fechada** que rompe hi → BUY; rompe low → SELL.
+- **Fill** a mercado no momento em que a vela gatilho fecha (backtest: abertura da vela gatilho — **desvio documentado**).
+- **SL** extremidade oposta da caixa (`sl_mode=lo`), **TP = 1.5×rr**; SL conferido antes do TP intrabarra.
+- **EOD**: posição ainda aberta à `hora_eod` 17:30 BRT → fechada a mercado (antes do encerramento 17:35).
+
+## Validação (backtest WDO 2021–2026, sem noturnas)
+- Combo oficial: SL=lo / TP=1.5 / janela=60min. n≈1000, todos os anos positivos (2021-25 + 2026), PF 1.12–1.77 por ano; publicado em `backtest/resultados/rompimento_1hora_wdo.txt`.
+- Referência do módulo: `python rompimento_orquestrador.py --selftest`.
+
+## Novos arquivos
+| Arquivo | Papel |
+|---|---|
+| `rompimento_orquestrador.py` | Faixa 1 em produção — `OrquestradorRompimento(fn_executar, symbol="WDO$")`, magic **7008**, lote 5 CC. Autossuficiente: offset de fuso por dia, trava de frescor (≤12 min), estado/CSV idempotentes em `logs/rompimento/`. |
+| `tests/teste_orquestrador_rompimento.py` | 15 verificações determinísticas OFF-LINE (mock MT5): gatilho C/V, EOD 17:30, S/TRADE, ordem rejeitada, idempotência, SL antes do TP, frescor. |
+
+## Integração no `monstro_unificado_v22.py` (patches aplicados)
+- Imports: `from rompimento_orquestrador import OrquestradorRompimento` (removeu os módulos 7 Velas).
+- Globals: `ROMP_CFG / ROMPIMENTO_ATIVO / MAGIC_ROMPIMENTO=7008 / ROMPIMENTO_INICIO_HORA=9.0 / ROMPIMENTO_FIM_HORA=11.0 / ESTADO_SISTEMA`.
+- `_atualizar_estado_sistema()` → `ROMPIMENTO_EXCLUSIVO` se janela de gatilho **OU** posição da Faixa 1 aberta (`_tem_posicao_rompimento()` por magic) — a pausa persiste até o trade terminar.
+- Gate em `executar_ordem(...)` (L5320): durante exclusivo só passa magic 7008 (`[GATE ROMPIMENTO]`).
+- CB2: `_cb2_ignore = ROMPIMENTO_EXCLUSIVO and ROMP_CFG.cb2_ignore_max_loss`.
+- Instanciação `_orq` com wrapper `sniper=True, shadow=False`; loop chama `_orq.orquestrar()` **sempre** (S/TRADE e EOD fora da janela também são geridos).
+- `fechar_todas_posicoes()` inclui magic 7008 quando `robo_rompimento.ativo` (backstop do EOD).
+
+## Config (`config.json` → `rompimento`, substitui `sete_velas`)
+`ativo:true lote:5.0 sl_mode:"lo" tp_k:1.5 janela_min:60 magic:7008 hora_inicio:9.0 hora_fim:11.0 hora_eod:"17:30" stale_max_min:12 no_night_bars:true cb2_ignore_max_loss:true datas_bloqueadas:[]`
+
+## Remoções (backup completo em `backup_pre_rompimento_20260910/`)
+- `sete_velas_orquestrador.py`, `sete_velas_util.py`, `shadow_sete_velas_wdo.py`
+- `tests/teste_orquestrador_7velas.py`
+- `backtest/backtest_sete_velas.py`, `backtest/backtest_sete_velas_invertido.py`
+- `backtest/backtest_arthur777.py`: funções `_carregar_custos`/`calcular_custo_trade` embutidas (independência do módulo removido).
+
+## Operacional
+- Dashboard: métricas "Romp 1h / Lote / Próx. / P&L" (`d.rompimento`), estado `ROMPIMENTO_EXCLUSIVO`, P&L em R$ (pts × R$10 × 5 CC).
+- Tarefas: removidas `Monstro-Pausa` e `Rompimento-FT`; mantidas `Monstro-Start` (09:00), `Monstro-Watchdog` (09:05), `Monstro-Fecho` (17:35) e o backup diário 08:50.
+- CI (`.github/workflows/monstro-ci.yml`): `rompimento_orquestrador.py` no py_compile + suíte `teste_orquestrador_rompimento.py` na esteira.
+- Snapshot do diff estrutural do agente regenerado (`agente_snapshot_v22.py`).
+
+## Decisões e pendências
+- Interação mão/feed: terminais defasados (>12 min) → Faixa 1 não decide; reconciliar ao fim do dia.
+- Sem trade na janela → registrado `S/TRADE` (1 linha/dia).
+- Repositório: mudanças comitadas nesta revisão; **não** commitar `backup_pre_rompimento_20260910/` (pasta de backup no disco, fora do git).
+- Próxima verificação: 1º pregão ao vivo com a Faixa 1 (monitorar `logs/rompimento/rompimento_trades.csv`, gateway e EOD 17:30).
