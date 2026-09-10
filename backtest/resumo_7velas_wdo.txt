@@ -1,0 +1,47 @@
+# RESUMO 7 VELAS INVERTIDO | WDO (M15) - por ano e combinado 2022-2026
+# Fonte per-ano: saida do backtest_sete_velas_invertido.py (WDO{ano})
+# Colunas R$ rotuladas '(script WIN-1cc R$)' usam VALOR_PONTO=0.20/pt do script (nao significa R$/pt do WDO).
+# Custo usado pelo script: R$ 0.75 por trade.
+
+=== ANO 2021 (dias validos: 76) ===
+  [BASE (invertido)] n=  55  WR= 50.9%  (28W/27L)  PF= 0.82  net=    -213 pts  R$liquido(script WIN-1cc R$):    -83.79
+  [CLASSIC (espelho)] n=  55  WR= 49.1%  (27W/28L)  PF= 1.22  net=    +213 pts  R$liquido(script WIN-1cc R$):     +1.29
+
+=== ANO 2022 (dias validos: 249) ===
+  [BASE (invertido)] n= 182  WR= 55.5%  (101W/81L)  PF= 0.93  net=    -251 pts  R$liquido(script WIN-1cc R$):   -186.64
+  [CLASSIC (espelho)] n= 182  WR= 44.0%  (80W/102L)  PF= 1.08  net=    +251 pts  R$liquido(script WIN-1cc R$):    -86.36
+
+=== ANO 2023 (dias validos: 247) ===
+  [BASE (invertido)] n= 185  WR= 56.8%  (105W/80L)  PF= 1.01  net=     +18 pts  R$liquido(script WIN-1cc R$):   -135.21
+  [CLASSIC (espelho)] n= 185  WR= 42.7%  (79W/106L)  PF= 0.99  net=     -18 pts  R$liquido(script WIN-1cc R$):   -142.29
+
+=== ANO 2024 (dias validos: 250) ===
+  [BASE (invertido)] n= 175  WR= 50.9%  (89W/86L)  PF= 0.76  net=    -576 pts  R$liquido(script WIN-1cc R$):   -246.47
+  [CLASSIC (espelho)] n= 175  WR= 48.0%  (84W/91L)  PF= 1.32  net=    +576 pts  R$liquido(script WIN-1cc R$):    -16.03
+
+=== ANO 2025 (dias validos: 249) ===
+  [BASE (invertido)] n= 181  WR= 54.7%  (99W/82L)  PF= 0.97  net=     -65 pts  R$liquido(script WIN-1cc R$):   -148.71
+  [CLASSIC (espelho)] n= 181  WR= 43.6%  (79W/102L)  PF= 1.03  net=     +65 pts  R$liquido(script WIN-1cc R$):   -122.79
+
+=== ANO 2026 (dias validos: 169) ===
+  [BASE (invertido)] n= 130  WR= 51.5%  (67W/63L)  PF= 0.72  net=    -362 pts  R$liquido(script WIN-1cc R$):   -170.00
+  [CLASSIC (espelho)] n= 130  WR= 47.7%  (62W/68L)  PF= 1.39  net=    +362 pts  R$liquido(script WIN-1cc R$):    -25.00
+
+# COMBINADO 2022-2026 (agregado dos CSVs de resultado, trade a trade)
+  [BASE (invertido)] n= 853  WR= 54.0%  (461W/392L)  PF= 0.89  net=   -1236 pts
+  [CLASSIC (espelho)] n= 853  WR= 45.0%  (384W/469L)  PF= 1.12  net=   +1236 pts
+
+# ESPELHO verificado por ano (max |BASE.pts + CLASSIC.pts_c| deve ser 0.0)
+  2021: 0.0 pts  [OK]
+  2022: 0.0 pts  [OK]
+  2023: 0.0 pts  [OK]
+  2024: 0.0 pts  [OK]
+  2025: 0.0 pts  [OK]
+  2026: 0.0 pts  [OK]
+
+# === NOTA DE CONVERSAO (adicionada) ===
+# Symbol info WDO$ no terminal: tick_size=0.001, tick_value=0.01 -> 1 ponto = R$ 10,00.
+# CLASSIC (espelho, nao invertida) 2022-26: +1236 pts -> ~+R$ 12.360,00 BRUTO (sem custos reais, pois o custo de GTD WDO difere de R$0,75 usado no script).
+# INVERTIDA 2022-26: -1236 pts. Espelho exato 0,0 em todos os anos.
+# Veredito: PF ~0,72-1,39 por ano e ~0,9-1,1 no combinado = mesma 'moeda lanca-roupa' vista no WIN; o lado que ganha troca por regime de mercado.
+# Obs: a regra transplantada (SL=300 pts, TP=extremidade, entrada 10:30) foi desenhada para WIN; no WDO SL=300 pts e desproporcional.
