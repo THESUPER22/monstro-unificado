@@ -966,3 +966,38 @@ python -c "from tensorflow.keras.models import load_model; m=load_model('modelo_
 - Sem trade na janela → registrado `S/TRADE` (1 linha/dia).
 - Repositório: mudanças comitadas nesta revisão; **não** commitar `backup_pre_rompimento_20260910/` (pasta de backup no disco, fora do git).
 - Próxima verificação: 1º pregão ao vivo com a Faixa 1 (monitorar `logs/rompimento/rompimento_trades.csv`, gateway e EOD 17:30).
+
+---
+
+# 🧪 GAVETA — SETE VELAS CRUA NO WDO (11/09/2026, backtest depósito)
+
+> Depositado para "talvez um dia usar". NÃO reativa nada no robô (respeita a quarentena/con gelamento — "mexe no que mede, não no que decide").
+
+## Achado
+Primeiro backtest de WDO com **sessão completa real (09:00–18:00)**: `barras_1min_wdo.csv` (149.765 barras, 2025-07-14 → 2026-07-31, derivado do export de ticks `WDO$_202507141229_2026073118299.csv` — 2,4 GB). O feed atual do terminal trunca em ~15:30; os CSVs locais de WIN/WDO são igualmente truncados. Esta é a única base FULL-DAY disponível hoje.
+
+## Config testada (Sete Velas CRUA — módulo removido na v22.2)
+- 7 velas M15 09:00–10:30; entrada no **fecho da 7ª vela**; maioria verde→COMPRA / vermelha→VENDA.
+- **SL = 10 pts WDO** (≈R$100 em 1cc; R$10/pt). **TP = extremidade oposta das 7 velas**.
+- Custo R$0,75/trade, EOD 18:00, 1 CC. Mesmo motor de `backtest_frankenstein_win.py`.
+
+## Resultados (SL fatorado por ADR — WIN 2.826 pts ↔ WDO 51 pts; "300 pts WIN" ≈ "5 pts WDO")
+| SL pts WDO | n | WR | PF | net R$ (1cc) | MaxDD |
+|---|---|---|---|---|---|
+| 5 | 223 | 42,6% | 1,11 | +527,75 | −1.024,50 |
+| **10** | **223** | **58,7%** | **1,15** | **+1.157,75** | **−1.108,50** |
+| 20 | 223 | 67,3% | 1,04 | +282,75 | −1.728,25 |
+| 40 | 223 | 71,7% | 1,11 | +1.142,75 | −1.977,50 |
+| 60 | 223 | 71,7% | 1,01 | −37,25 | −2.307,50 |
+
+Frankenstein (antecipação do rompimento com filtro da metade) no WDO: **n=33** — amostra destruída, inviável. Descartado.
+
+## Interpretação
+WDO **respeita S/R matinais (reversão à média)**; WIN **rompe topos/fundos (momentum)**. É por isso que a SeteV crua perde feio no WIN (PF 0,92 / −R$3,8K em 5 anos) mas vira lucrativa no WDO. O Rompimento 1ª Hora vence nos dois (WDO PF 1,38 / WIN PF 1,54).
+
+## Gatilho de reativação (só se TODOS os critérios)
+1. Obter WDO 2021–2024 completo (export/internet — corrige o truncamento 15:30 do feed atual) e validar **fora-da-amostra**: n≥150 por período, PF≥1,15, MaxDD≤R$1.500.
+2. Se passar → incubação isolada (shadow/simulador, NUNCA junto do Core em quarentena).
+3. Decisão do Mestre para qualquer uso em produção.
+
+Scripts: `C:\AIOFEN\backtest\backtest_frankenstein_wdo.py` (aceita SLs por argv) · resultados em `backtest/resultados/frankenstein_wdo_2025_2026.csv`.
