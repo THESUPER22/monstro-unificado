@@ -5330,7 +5330,7 @@ def executar_ordem(action, lots=VOLUME_PADRAO, symbol=None, modo_operacional=Non
         logging.warning(f"[GATE ROMPIMENTO] Ordem bloqueada para {symbol or SYMBOL} (apenas Magic 7008 na Faixa 1)")
         return None
 
-    # magic efetivo: override (7 Velas) ou padrao do robo
+    # magic efetivo: override (Rompimento) ou padrao do robo
     magic_final = magic_override if magic_override is not None else MAGIC_NUMBER
     # SniperSupermo pula esta verificaÃÂ§ÃÂ£o (opera 09:00-17:30)
     if not sniper and not horario_permitido():

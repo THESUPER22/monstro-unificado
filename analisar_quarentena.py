@@ -6,13 +6,13 @@ analisar_quarentena.py
 Monitoramento READ-ONLY do Protocolo de Quarentena (Blindagem 04/09/2026).
 
 Nao altera NENHUM arquivo. Apenas le:
-  - logs/modelo_a_shadow.csv          (Shadow Mode / Modelo A)
-  - logs/sete_velas_trades.csv        (incubacao 7 Velas)
+  - logs/modelo_a_shadow.csv           (Shadow Mode / Modelo A)
+  - logs/rompimento/rompimento_trades.csv   (Faixa 1 - Rompimento 1a Hora)
 
 Calcula o progresso rumo as 3 metas do protocolo:
   1. Core v22: n >= 100 trades com PnL fechado APOS 04/09/2026.
   2. Modelo A : correlacao Pearson prob_modelo_a x resultado >= 0.15.
-  3. 7 Velas  : n >= 30, WR >= 45%, PF >= 1.1, MaxDD <= R$ 3.600.
+  3. Rompimento: n >= 30, WR >= 45%, PF >= 1.1, MaxDD <= R$ 3.600.
 
 Uso: python analisar_quarentena.py
 """
@@ -23,19 +23,19 @@ import sys
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 SHADOW_CSV = os.path.join(BASE, "logs", "modelo_a_shadow.csv")
-SETE_VELAS_CSV = os.path.join(BASE, "logs", "sete_velas_trades.csv")
+ROMPIMENTO_CSV = os.path.join(BASE, "logs", "rompimento", "rompimento_trades.csv")
 
 CUTOFF_CORE = "2026-09-04"          # marcador de quarentena
 META_N_CORE = 100
 META_CORR = 0.15
-META_N_SV = 30
-META_WR_SV = 0.45
-META_PF_SV = 1.1
-META_MAXDD_SV = 3600.0
+META_N_RP = 30
+META_WR_RP = 0.45
+META_PF_RP = 1.1
+META_MAXDD_RP = 3600.0
 # Valor do ponto WDO (R$/ponto por contrato) para projecoes de PnL
 R_POR_PONTO = 10.0
-# Lote padrao do orquestrador 7 Velas (5 contratos WDO)
-LOTE_SETE_VELAS = 5.0
+# Lote padrao da Faixa 1 - Rompimento 1H (5 contratos WDO)
+LOTE_ROMPIMENTO = 5.0
 
 # Tickets da anomalia 03/09 (nao cabe na contagem de trades do Core)
 ANOMALIA_INICIO = "2026-09-03 11:15"
@@ -125,36 +125,35 @@ def analisar_shadow():
               f"PF {pf if pf != float('inf') else 'inf':.2f} | net R$ {net:+.2f}")
 
 
-def analisar_sete_velas():
-    if not os.path.exists(SETE_VELAS_CSV):
-        print("  (sete_velas_trades.csv nao encontrado)")
+def analisar_rompimento():
+    if not os.path.exists(ROMPIMENTO_CSV):
+        print("  (rompimento_trades.csv nao encontrado)")
         return
     linhas = []
-    with open(SETE_VELAS_CSV, encoding="utf-8-sig") as f:
+    with open(ROMPIMENTO_CSV, encoding="utf-8-sig") as f:
         for r in csv.DictReader(f):
             linhas.append(r)
 
-    # Filtra linhas de veto (nao sao trades)
-    trades_sv = []
+    # Filtra registros sem trade efetivo (S/TRADE = caixa sem gatilho)
+    trades_rp = []
     for r in linhas:
-        motivo = _col(r.get("motivo", ""))
-        if "vetado" in motivo or "macro" in motivo or "sem_dados" in motivo:
+        saida = _col(r.get("saida", ""))
+        if saida in ("s/trade", ""):
             continue
-        trades_sv.append(r)
+        trades_rp.append(r)
 
-    # Projeta PnL em R$ a partir de 'pts' (se preenchido), senao reporta vazio
+    # Projeta PnL em R$ a partir de 'pts': 1 pt = R$10/conta; lote = 5 contratos
     resultados = []
-    for r in trades_sv:
+    for r in trades_rp:
         pts = _to_float(r.get("pts"))
         if pts is None:
             continue
-        # pts em pontos WDO: 1 pt = R$10/conta; lote 7 Velas = 5 contratos
-        resultados.append(pts * LOTE_SETE_VELAS * R_POR_PONTO)
+        resultados.append(pts * LOTE_ROMPIMENTO * R_POR_PONTO)
 
-    print("== INCUBACAO SETE VELAS ==")
-    print(f"  linhas no CSV (com v0 abertas/vetos inclusos): {len(linhas)}")
-    print(f"  trades validos (sem veto) no CSV: {len(trades_sv)}")
-    print(f"  trades com 'pts' preenchido: {len(resultados)}  [meta n>={META_N_SV}]")
+    print("== FAIXA 1 - ROMPIMENTO 1H (magic 7008) ==")
+    print(f"  linhas no CSV (inclui S/TRADE): {len(linhas)}")
+    print(f"  trades validos no CSV: {len(trades_rp)}")
+    print(f"  trades com 'pts' preenchido: {len(resultados)}  [meta n>={META_N_RP}]")
 
     if resultados:
         wins = sum(1 for x in resultados if x > 0)
@@ -171,9 +170,9 @@ def analisar_sete_velas():
             dd = min(dd, eq - pico)
         wr = wins / len(resultados) if resultados else 0.0
         pf_txt = f"{pf:.2f}" if pf != float("inf") else "inf"
-        print(f"  WR: {wins}/{len(resultados)} = {wr*100:.1f}%  [>= {META_WR_SV*100:.0f}%]")
-        print(f"  PF: {pf_txt}  [>= {META_PF_SV}]")
-        print(f"  MaxDD (R$): {dd:.2f}  [>= -{META_MAXDD_SV:.0f}]")
+        print(f"  WR: {wins}/{len(resultados)} = {wr*100:.1f}%  [>= {META_WR_RP*100:.0f}%]")
+        print(f"  PF: {pf_txt}  [>= {META_PF_RP}]")
+        print(f"  MaxDD (R$): {dd:.2f}  [>= -{META_MAXDD_RP:.0f}]")
         print(f"  Net (R$): {sum(resultados):+.2f}")
     else:
         print("  (sem trades validos com PnL ainda)")
@@ -186,9 +185,9 @@ def main():
     print("=" * 62)
     analisar_shadow()
     print()
-    analisar_sete_velas()
+    analisar_rompimento()
     print()
-    print("Metas: Core n>=100 | corr>=0.15 | 7Velas n>=30, WR>=45%, PF>=1.1, MaxDD<=R$3.600")
+    print("Metas: Core n>=100 | corr>=0.15 | Rompimento n>=30, WR>=45%, PF>=1.1, MaxDD<=R$3.600")
     return 0
 
 

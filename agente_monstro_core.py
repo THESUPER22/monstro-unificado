@@ -385,6 +385,25 @@ def parse_decisions():
     }
 
 
+def resumo_rompimento_dia():
+    """Faixa 1 - Rompimento da 1a Hora (magic 7008): linha do dia em
+    logs/rompimento/rompimento_trades.csv (1 linha/dia, idempotente)."""
+    csv_path = os.path.join(BASE_DIR, "logs", "rompimento", "rompimento_trades.csv")
+    hoje = datetime.now().strftime("%Y-%m-%d")
+    if not os.path.exists(csv_path):
+        return None
+    try:
+        import csv as _csv
+        with open(csv_path, encoding="utf-8") as f:
+            for r in _csv.DictReader(f):
+                if r.get("dia") == hoje:
+                    return r
+        return None
+    except Exception as e:
+        log.error(f"erro ao ler rompimento_trades.csv: {e}")
+        return None
+
+
 def contar_executados_hoje():
     """Trades FECHADOS hoje (marcador 'processada e resetada' do v22).
     Corresponde aos appends de historico_lucro (= total_operacoes do dashboard).
@@ -683,6 +702,24 @@ def gerar_relatorio_diario(info_diff=None):
     linhas.append(f"win% (historico reward!=0): {w if w is not None else 'sem amostra'}")
     linhas.append(f"Entropia med: {stats.get('entropia_med')} | ATR med: {stats.get('atr_med')} | Spread med: {stats.get('spread_med')}")
     linhas.append(f"Book ratio med: {stats.get('book_ratio_med')}")
+    linhas.append("")
+    rp = resumo_rompimento_dia()
+    linhas.append("FAIXA 1 - ROMPIMENTO 1H (magic 7008):")
+    if rp:
+        side = {"C": "BUY", "V": "SELL"}.get((rp.get("side") or "").strip().upper(),
+                                             rp.get("side") or "-")
+        pts_raw = rp.get("pts")
+        try:
+            pts = float(pts_raw)
+            pnl = pts * 5.0 * 10.0
+        except (TypeError, ValueError):
+            pts, pnl = None, 0.0
+        linhas.append(f"  {side} | entrada={rp.get('entrada')} | SL={rp.get('sl')} "
+                      f"| TP={rp.get('tp')} | saida={rp.get('saida')} | pts={pts_raw} | R$ {pnl:+.2f}")
+        if rp.get("obs"):
+            linhas.append(f"  obs: {rp.get('obs')}")
+    else:
+        linhas.append("  (sem trade/registro hoje)")
     linhas.append("")
     linhas.append("MAPA DE VETOS (bloqueios do dia):")
     for k, v in sorted(counts.items(), key=lambda x: -x[1]):
