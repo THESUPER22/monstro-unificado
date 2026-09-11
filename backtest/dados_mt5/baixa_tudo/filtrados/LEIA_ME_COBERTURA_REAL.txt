@@ -1,0 +1,26 @@
+AVISO DE COBERTURA - gerado 11/09/2026 por extracao mt5.copy_rates_range
+Arquivos WIN_FULL_M5_2021_2026.csv / WDO_FULL_M5_2021_2026.csv representam o
+MAXIMO que o terminal/corretora deste PC serve. O feed truncou em ~15:30 BRT
+em TODOS os anos/ativos: NAO ha barras de tarde. Nao usar para EOD 17:55/18:00.
+
+Cobertura gravada (filtro 09:00-18:00 aplicado; mesmo schema dos WING/WDG):
+
+WDO$:
+  2021: n=  5683  horas 06:00..15:59
+  2022: n= 18505  horas 06:00..15:59
+  2023: n= 18355  horas 06:00..15:59
+  2024: n= 19555  horas 06:00..15:59
+  2025: n= 19489  horas 06:00..15:59
+  2026: n= 13398  horas 06:00..15:59
+
+WIN$:
+  2021: n=  5618  horas 06:00..15:59
+  2022: n= 18255  horas 06:00..15:59
+  2023: n= 18108  horas 06:00..15:59
+  2024: n= 19315  horas 06:00..15:59
+  2025: n= 19239  horas 06:00..15:59
+  2026: n= 13305  horas 06:00..15:59
+
+Unica base genuine FULL-DAY existente: C:\AIOFEN\barras_1min_wdo.csv
+(WDO 1-min 2025-07-14..2026-07-31 ate 18:29, derivado do export de ticks).
+WIN full-day e WDO 2021-2024 full-day exigem export de outra fonte (Profit/B3).
