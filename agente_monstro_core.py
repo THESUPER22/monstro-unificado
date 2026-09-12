@@ -849,6 +849,81 @@ def verificar_kill_switch():
     return False
 
 
+# ------------------------------------------------ feed watchdog (fix 11/09) -----
+def mt5_processo_vivo():
+    try:
+        return any("terminal64" in (pr.info.get("name") or "").lower()
+                   for pr in psutil.process_iter(["name"]))
+    except Exception:
+        return False
+
+
+def _front_month_dynamic(mt5_mod, prefix="WDO"):
+    """Mesmo criterio do robo (get_front_month_symbol_dynamic): contrato prefixado
+    com trade_mode FULL e vencimento mais proximo no futuro. Fallback prefixo$.
+    NAO use WDO$ como probe: e sintetico e congelou no XPMT5-DEMO (10/09/2026)."""
+    try:
+        simbolos = mt5_mod.symbols_get()
+        agora_ts = datetime.now().timestamp()
+        candidatos = [s for s in (simbolos or [])
+                      if re.fullmatch(rf"{prefix}[A-Z]\d{{2}}", s.name)
+                      and getattr(s, "trade_mode", None) == mt5_mod.SYMBOL_TRADE_MODE_FULL
+                      and getattr(s, "expiration_time", None)
+                      and s.expiration_time > agora_ts]
+        if candidatos:
+            return min(candidatos, key=lambda s: s.expiration_time).name
+    except Exception as e:
+        log.error(f"front-month probe falhou: {e}")
+    return f"{prefix}$"
+
+
+def feed_spot_stale_s():
+    """Probe direto no terminal: ha quantos segundos foi o ultimo tick do front.
+    Um coletor congelado (terminal que dormiu aberto) devolve tick OLD mesmo para
+    uma conexao nova - que e exatamente o sintoma a medir. Epoch absoluto:
+    time.time() - tk.time vale em qualquer fuso.
+    Retorna None se nao conseguiu anexar/ler (terminal fora do ar ou sem tick)."""
+    try:
+        import MetaTrader5 as mt5_mod
+        if not mt5_mod.initialize(path=P["mt5_exe"], timeout=8000):
+            log.error(f"probe mt5: initialize falhou ({mt5_mod.last_error()})")
+            return None
+        try:
+            sim = _front_month_dynamic(mt5_mod, prefix="WDO")
+            tk = mt5_mod.symbol_info_tick(sim)
+            if tk is None:
+                return None
+            return time.time() - float(tk.time)
+        finally:
+            try:
+                mt5_mod.shutdown()
+            except Exception:
+                pass
+    except Exception as e:
+        log.error(f"probe mt5 falhou: {e}")
+        return None
+
+
+def reiniciar_mt5_processo():
+    """Mata e reabre o terminal64.exe. Unico caminho comprovado de destravar o
+    coletor congelado do terminal que "dormiu aberto" (11/09). Posicao aberta
+    e segura: SL/TP vivem no servidor da corretora."""
+    try:
+        subprocess.run(["taskkill", "/F", "/IM", "terminal64.exe"],
+                       capture_output=True, timeout=30)
+    except Exception as e:
+        log.error(f"watchdog: taskkill terminal falhou (segue): {e}")
+    time.sleep(6)
+    try:
+        subprocess.Popen([P["mt5_exe"]], cwd=os.path.dirname(P["mt5_exe"]))
+        log.info("watchdog: terminal64 reiniciado (coletor destravado)")
+    except Exception as e:
+        log.error(f"watchdog: falha ao reabrir terminal64: {e}")
+        return False
+    time.sleep(15)
+    return True
+
+
 def run_watchdog():
     if not dentro_do_expediente():
         log.info("watchdog: fora do expediente (seg-sex 09:00-17:40) - sem acao")
@@ -865,6 +940,24 @@ def run_watchdog():
             log.warning("watchdog: encerrando processo orfao remanescente do kill-switch")
             parar_forcado()
         return
+    # FIX 11/09/2026: o feed pode congelar com o robo VIVO (terminal que "dormiu
+    # aberto" -> coletor congelado). O robo age por dentro (resgate soft + escalada
+    # de restart do PROCESSO); este agente e a 2a CAMADA: se em expediente o tick
+    # do front estagna alem do limite com o robo vivo, reinicia o PROCESSO do
+    # terminal. Eh conservador: nao mata o robo (posicao fica protegida no
+    # servidor) e respeita o backoff compartilhado.
+    if R.get("feed_watchdog_enabled", True) and pids_robo() and not em_backoff():
+        idade = feed_spot_stale_s()
+        limite = float(R.get("feed_estagnado_max_s", 900))
+        if idade is None and not mt5_processo_vivo():
+            log.warning("watchdog: terminal64 fora do ar com robo vivo - reiniciando terminal")
+            start_mt5()
+        elif idade is not None and idade > limite:
+            log.warning(f"watchdog: FEED ESTAGNADO {idade:.0f}s no expediente "
+                        "com robo vivo - reiniciando PROCESSO do terminal (2a camada)")
+            reiniciar_mt5_processo()
+            _backoff_salvar(time.time())
+            return
     if not pids_robo():
         if em_backoff():
             return

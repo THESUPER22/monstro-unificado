@@ -24,6 +24,8 @@
     "smoke_test_s": 25,
     "porta_fallback": 5001,
     "watchdog_enabled": true,
+    "feed_watchdog_enabled": true,
+    "feed_estagnado_max_s": 900,
     "janela_inicio": "12:30",
     "janela_fim": "14:30",
     "expediente_inicio": "09:00",

@@ -21,6 +21,7 @@ import random
 import re
 import shutil
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -447,7 +448,19 @@ def reconectar_mt5() -> bool:
 # Escopo: processo/resgate/observabilidade - NENHUMA logica de gatilho,
 # entrada, saida ou estrategia do Core foi alterada.
 _WATCHDOG_DLL_TICK_TIMEOUT = 10.0
-_estado_watchdog_dll = {"ultimo_tick": time.time()}
+# Escalonamento (fix 11/09/2026): apos varios resgates 'soft' (shutdown + initialize)
+# sem o feed voltar, o padrao era repetir indefinidamente (11/09: 2.553x) porque o
+# initialize re-anexa ao MESMO terminal com o coletor congelado. So o restart do
+# PROCESSO terminal64 destrava o terminal que "dormiu aberto".
+_WATCHDOG_ESCALADA_APOS_RESGATES = 5    # n de resgates soft seguidos -> restart do processo
+_WATCHDOG_ESCALADA_COOLDOWN_S = 300.0   # no maximo 1 restart de processo a cada 5 min
+_WATCHDOG_ESCALADA_MAX_DIA = 4          # teto seguro de restarts de processo por dia
+_estado_watchdog_dll = {
+    "ultimo_tick": time.time(),
+    "resgates_consec": 0,       # resgates seguidos sem o feed voltar
+    "reinicios_processo": 0,    # restarts de processo hoje (teto diario)
+    "ultimo_reinicio": 0.0,     # epoch do ultimo restart (cooldown)
+}
 
 
 def horario_expediente(agora=None):
@@ -480,9 +493,53 @@ def hard_reset_mt5() -> bool:
     return reconectar_mt5()
 
 
+def _escalar_para_processo(estado, agora):
+    """True quando a sequencia de resgates 'soft' seguidos nao destravou o feed
+    e ainda ha folga de cooldown/teto para reiniciar o PROCESSO do terminal.
+    Reiniciar o processo e o unico caminho que destrava o coletor de dados do
+    terminal que ficou com a ponte congelada (MT5 "dormiu aberto", 11/09/2026)."""
+    if estado.get("resgates_consec", 0) < _WATCHDOG_ESCALADA_APOS_RESGATES:
+        return False
+    if (agora - estado.get("ultimo_reinicio", 0.0)) < _WATCHDOG_ESCALADA_COOLDOWN_S:
+        return False
+    if estado.get("reinicios_processo", 0) >= _WATCHDOG_ESCALADA_MAX_DIA:
+        return False
+    return True
+
+
+def _restart_terminal_processo(estado, agora):
+    """Mata o processo terminal64.exe (coletor congelado), sobe instancia nova
+    e re-anexa a DLL (reconectar_mt5). Posicao aberta e segura: SL/TP vivem no
+    servidor da corretora. Atualiza os contadores do estado em caso de sucesso."""
+    try:
+        subprocess.run(["taskkill", "/F", "/IM", "terminal64.exe"],
+                       capture_output=True, timeout=30)
+    except Exception as e:
+        logging.error(f"[WATCHDOG-DLL] taskkill falhou (segue): {e}")
+    time.sleep(6)
+    try:
+        subprocess.Popen([MT5_PATH], cwd=os.path.dirname(MT5_PATH))
+    except Exception as e:
+        logging.error(f"[WATCHDOG-DLL] falha ao reabrir terminal64: {e}")
+        return False
+    time.sleep(18)
+    try:
+        mt5.shutdown()
+    except Exception as e:
+        logging.error(f"[WATCHDOG-DLL] shutdown apos relaunch falhou: {e}")
+    ok = reconectar_mt5()
+    if ok:
+        estado["reinicios_processo"] = estado.get("reinicios_processo", 0) + 1
+        estado["ultimo_reinicio"] = agora
+    return ok
+
+
 def executar_resgate_dll(estado=None, agora=None,
                          timeout=_WATCHDOG_DLL_TICK_TIMEOUT):
-    """Se o tick congelou >timeout durante o expediente, destrava a DLL do MT5.
+    """Se o tick congelou >timeout durante o expediente, tenta destravar a DLL
+    do MT5. Resgates 'soft' (shutdown+initialize) repetidos sem recuperacao
+    escalam para o restart do PROCESSO terminal64 - unico caminho que destrava
+    o coletor congelado do terminal que "dormiu aberto" (fix 11/09/2026).
     Retorna True se o resgate foi acionado. Reset do tick evita cascata."""
     if estado is None:
         estado = _estado_watchdog_dll
@@ -490,12 +547,21 @@ def executar_resgate_dll(estado=None, agora=None,
         agora = time.time()
     if not watchdog_dll_decidir(agora, estado["ultimo_tick"],
                                 horario_expediente(), timeout):
+        estado["resgates_consec"] = 0
         return False
+    estado["resgates_consec"] = estado.get("resgates_consec", 0) + 1
     try:
-        ok = hard_reset_mt5()
-        logging.error(
-            f"[WATCHDOG-DLL] Tick estagnado >{timeout:.0f}s durante o "
-            f"expediente - reconexao forcada (ok={ok}). Fluxo destravado.")
+        if _escalar_para_processo(estado, agora):
+            ok = _restart_terminal_processo(estado, agora)
+            logging.error(
+                f"[WATCHDOG-DLL] FEED CONGELADO: {estado['resgates_consec']}x "
+                f"resgates sem recuperacao - reiniciando o PROCESSO terminal64 "
+                f"(ok={ok}, reinicios hoje={estado['reinicios_processo']}).")
+        else:
+            ok = hard_reset_mt5()
+            logging.error(
+                f"[WATCHDOG-DLL] Tick estagnado >{timeout:.0f}s durante o "
+                f"expediente - reconexao forcada (ok={ok}). Fluxo destravado.")
     except Exception as e:
         logging.error(f"[WATCHDOG-DLL] Falha no resgate de emergencia: {e}")
     finally:

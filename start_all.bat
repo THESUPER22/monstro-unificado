@@ -12,9 +12,13 @@ if %errorlevel% equ 1 (
     exit /b 0
 )
 
-REM Inicia o MetaTrader 5
+REM RESET MT5 ANTES DO PREGAO - evita o coletor de dados congelado do terminal que "dormiu aberto" a noite.
+REM Bug 11/09/2026: 2553x tick estagnado + Faixa 1 S/TRADE com feed ~180 min velho. Reinicio limpo resolve.
+taskkill /f /im terminal64.exe >nul 2>&1
+timeout /t 5 /nobreak >nul
+REM Inicia o MetaTrader 5 com sessao nova
 start "" "C:\Program Files\MetaTrader 5 Terminal\terminal64.exe"
-timeout /t 10 /nobreak >nul
+timeout /t 15 /nobreak >nul
 
 REM Inicia o Monstro V22 (WDO) em propria janela
 start "Monstro V22 - WDO" cmd /k "cd /d C:\AIOFEN && call venv310\Scripts\activate && python monstro_unificado_v22.py"

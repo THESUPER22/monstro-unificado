@@ -16,13 +16,15 @@ if exist parar.txt (
     echo ℹ️ Arquivo parar.txt não encontrado - Sistema já liberado
 )
 
-echo 🔄 Iniciando MetaTrader 5...
+echo 🔄 Reiniciando MetaTrader 5 (reset do coletor de dados - evita feed congelado do terminal "dormiu aberto")...
+taskkill /f /im terminal64.exe >nul 2>&1
+timeout /t 5 /nobreak >nul
 REM Inicia o MetaTrader 5
 start "" "C:\Program Files\MetaTrader 5 Terminal\terminal64.exe"
 
 REM Aguarda MT5 inicializar
-echo ⏳ Aguardando MT5 inicializar (10 segundos)...
-timeout /t 10 /nobreak >nul
+echo ⏳ Aguardando MT5 inicializar (15 segundos)...
+timeout /t 15 /nobreak >nul
 
 echo 🤖 Iniciando Monstro V22 (WDO)...
 REM Inicia apenas o Monstro V22 em sua própria janela
