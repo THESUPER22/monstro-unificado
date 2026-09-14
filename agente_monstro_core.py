@@ -953,10 +953,47 @@ def run_watchdog():
             log.warning("watchdog: terminal64 fora do ar com robo vivo - reiniciando terminal")
             start_mt5()
         elif idade is not None and idade > limite:
-            log.warning(f"watchdog: FEED ESTAGNADO {idade:.0f}s no expediente "
-                        "com robo vivo - reiniciando PROCESSO do terminal (2a camada)")
-            reiniciar_mt5_processo()
-            _backoff_salvar(time.time())
+            st = carregar_estado()
+            fw = st.setdefault("feed_watchdog", {})
+            hoje = datetime.now().strftime("%Y-%m-%d")
+            d = fw.setdefault(hoje, {"term_restarts": 0, "robo_restarts": 0})
+            term_max = int(R.get("feed_restart_terminal_max_dia", 6))
+            robo_max = (int(R.get("feed_robo_restart_max_dia", 2))
+                        if R.get("feed_escalar_robo", True) else 0)
+            if d["term_restarts"] < term_max:
+                d["term_restarts"] += 1
+                salvar_estado(st)
+                log.warning(f"watchdog: FEED ESTAGNADO {idade:.0f}s no expediente "
+                            f"com robo vivo - reiniciando PROCESSO do terminal "
+                            f"(2a camada, restart #{d['term_restarts']}/dia)")
+                reiniciar_mt5_processo()
+                _backoff_salvar(time.time())
+            elif pids_robo() and d["robo_restarts"] < robo_max:
+                d["robo_restarts"] += 1
+                salvar_estado(st)
+                log.error(f"watchdog: FEED ESTAGNADO alem dos restarts de terminal "
+                          f"({idade:.0f}s) - reiniciando PROCESSO do ROBO "
+                          f"(#{d['robo_restarts']}/dia) p/ anexar limpo ao terminal")
+                parar_forcado()
+                start_robot()
+                ok_r, m_r = health_check(R["health_timeout_s"])
+                _backoff_salvar(time.time())
+                log.info(f"watchdog: robo reiniciado por feed: {ok_r} ({m_r})")
+            else:
+                marker = os.path.join(BASE_DIR, f"FEED_INDISPONIVEL_{hoje}.txt")
+                try:
+                    with open(marker, "w", encoding="utf-8") as f:
+                        f.write("FEED DO BROKER INDISPONIVEL/DEFASADO - "
+                                f"{datetime.now():%d/%m/%Y %H:%M:%S}\n"
+                                f"idade do ultimo tick: {idade:.0f}s\n"
+                                f"terminal restarts hoje: {d['term_restarts']} | "
+                                f"robo restarts hoje: {d['robo_restarts']}\n"
+                                "ACAO NECESSARIA: verificar XPMT5-DEMO/corretora. "
+                                "Nenhuma operacao no dia.")
+                except Exception as e:
+                    log.error(f"watchdog: falha ao gravar marker de feed: {e}")
+                log.error(f"watchdog: FEED INDISPONIVEL o dia todo - encerrando "
+                          f"ciclo de restart (marker: {marker})")
             return
     if not pids_robo():
         if em_backoff():

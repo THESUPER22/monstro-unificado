@@ -534,12 +534,36 @@ def _restart_terminal_processo(estado, agora):
     return ok
 
 
+# Em dados frescos, o heartbeat parado e apenas um blip do loop (MT5 chama demorou
+# <10s); episodio de FEED congelado exige a ultima M5 (ou tick) envelhecida de fato.
+_WATCHDOG_REAL_FRESCO_MIN = 2.0
+
+
+def _stale_real_min(symbol=None):
+    """Idade real (min) dos dados do simbolo: ultima M5, fallback tick.
+    Fuso-independente (epoch absoluto em ambas as pontas). None se nao der
+    para LER nada (sem conexao/dados) - nesse caso trata como episodio."""
+    try:
+        s = symbol or SYMBOL
+        r = mt5.copy_rates_from_pos(s, mt5.TIMEFRAME_M5, 0, 1)
+        if r is not None and len(r):
+            return (time.time() - int(r[0]["time"])) / 60.0
+        t = mt5.symbol_info_tick(s)
+        if t is not None and getattr(t, "time", 0):
+            return (time.time() - t.time) / 60.0
+        return None
+    except Exception:
+        return None
+
+
 def executar_resgate_dll(estado=None, agora=None,
                          timeout=_WATCHDOG_DLL_TICK_TIMEOUT):
     """Se o tick congelou >timeout durante o expediente, tenta destravar a DLL
     do MT5. Resgates 'soft' (shutdown+initialize) repetidos sem recuperacao
     escalam para o restart do PROCESSO terminal64 - unico caminho que destrava
     o coletor congelado do terminal que "dormiu aberto" (fix 11/09/2026).
+    A escalada usa a idade REAL dos dados (M5/tick), e nao o heartbeat do loop
+    (que o proprio loop re-arma e mascarava os episodios - 11 e 14/09/2026).
     Retorna True se o resgate foi acionado. Reset do tick evita cascata."""
     if estado is None:
         estado = _estado_watchdog_dll
@@ -547,6 +571,15 @@ def executar_resgate_dll(estado=None, agora=None,
         agora = time.time()
     if not watchdog_dll_decidir(agora, estado["ultimo_tick"],
                                 horario_expediente(), timeout):
+        estado["resgates_consec"] = 0
+        return False
+    try:
+        stale_min = _stale_real_min()
+    except Exception:
+        stale_min = None
+    if stale_min is not None and stale_min <= _WATCHDOG_REAL_FRESCO_MIN:
+        # heartbeat parado mas dados realmente frescos = blip do loop, nao
+        # episodio de feed congelado: zera a marcha de escalada
         estado["resgates_consec"] = 0
         return False
     estado["resgates_consec"] = estado.get("resgates_consec", 0) + 1
