@@ -101,12 +101,44 @@ def detectar_shift(mt5mod, symbol, n=3000):
     return _SHIFT
 
 
+_OFFSET_MEDICAO = None  # offset (s) do fuso-servidor usado so p/ MEDIR frescor
+
+
+def _offset_medicao(mt5mod, symbol):
+    """Deslocamento (s) que o servidor aplica aos epochs (ex.: XPMT5-DEMO grava a
+    hora BRT como se fosse UTC => +10800). Detecta uma vez e cacheia.
+    Normaliza APENAS a medida de frescor; nao altera as janelas de decisao
+    ('_SHIFT' continua intocado = calibrado). Retorna 0 se nao conseguir medir."""
+    global _OFFSET_MEDICAO
+    if _OFFSET_MEDICAO is not None:
+        return _OFFSET_MEDICAO
+    _OFFSET_MEDICAO = 0
+    try:
+        rates = mt5mod.copy_rates_from_pos(symbol, mt5mod.TIMEFRAME_M5, 0, 3000)
+        if rates is not None and len(rates) >= 300:
+            melhor = (0, -1)
+            for cand in (-25200, -21600, -18000, -14400, -10800, -7200, -3600, 0,
+                         3600, 7200, 10800, 14400, 18000, 21600):
+                cnt = 0
+                for r in rates[-1500:]:
+                    dt = datetime.fromtimestamp(int(r["time"]) + cand)
+                    if 9 <= dt.hour <= 17 and dt.weekday() < 5:
+                        cnt += 1
+                if cnt > melhor[1]:
+                    melhor = (cand, cnt)
+            _OFFSET_MEDICAO = melhor[0]
+    except Exception:
+        pass
+    return _OFFSET_MEDICAO
+
+
 def dfasagem_min(mt5mod, symbol):
-    """Defasagem (min) da ultima M5 em relacao a hora real (fuso-independente)."""
+    """Defasagem (min) da ultima M5 em relacao a hora real. Remove o offset de
+    fuso do servidor (senao o XPMT5-DEMO acusa ~180 min fixas em feed saudavel)."""
     r = mt5mod.copy_rates_from_pos(symbol, mt5mod.TIMEFRAME_M5, 0, 1)
     if r is None or len(r) == 0:
         return 10 ** 9
-    return (time.time() - int(r[0]["time"])) / 60.0
+    return (time.time() - (int(r[0]["time"]) + _offset_medicao(mt5mod, symbol))) / 60.0
 
 
 def barras_do_dia(mt5mod, symbol, hoje, no_night=True):
@@ -256,6 +288,10 @@ class OrquestradorRompimento:
         self.ativo = ativo
         self.cfg = _carga_cfg()
         self.mt5 = mt5mod or mt5
+        try:
+            detectar_shift(self.mt5, self.symbol)
+        except Exception:
+            pass  # sem dados suficientes -> _SHIFT permanece 0 (janela calibrada)
         self.clock = clock or (lambda: datetime.now())
         self.bars_fn = bars_fn   # (mt5mod, symbol, data) -> barras do dia
         self.tick_fn = tick_fn   # () -> preco ou None

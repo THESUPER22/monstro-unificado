@@ -877,11 +877,40 @@ def _front_month_dynamic(mt5_mod, prefix="WDO"):
     return f"{prefix}$"
 
 
+_OFFSET_TZ = None  # offset (s) de fuso do servidor p/ medir frescor (cache)
+
+
+def _offset_tz_probe(mt5_mod, symbol):
+    """Mesmo detector do orquestrador (auto-contido): offset que o servidor
+    aplica aos epochs (XPMT5 grava hora BRT como UTC => +10800). Cacheia."""
+    global _OFFSET_TZ
+    if _OFFSET_TZ is not None:
+        return _OFFSET_TZ
+    _OFFSET_TZ = 0
+    try:
+        rates = mt5_mod.copy_rates_from_pos(symbol, mt5_mod.TIMEFRAME_M5, 0, 3000)
+        if rates is not None and len(rates) >= 300:
+            melhor = (0, -1)
+            for cand in (-25200, -21600, -18000, -14400, -10800, -7200, -3600, 0,
+                         3600, 7200, 10800, 14400, 18000, 21600):
+                cnt = 0
+                for r in rates[-1500:]:
+                    dt = datetime.fromtimestamp(int(r["time"]) + cand)
+                    if 9 <= dt.hour <= 17 and dt.weekday() < 5:
+                        cnt += 1
+                if cnt > melhor[1]:
+                    melhor = (cand, cnt)
+            _OFFSET_TZ = melhor[0]
+    except Exception:
+        pass
+    return _OFFSET_TZ
+
+
 def feed_spot_stale_s():
     """Probe direto no terminal: ha quantos segundos foi o ultimo tick do front.
     Um coletor congelado (terminal que dormiu aberto) devolve tick OLD mesmo para
-    uma conexao nova - que e exatamente o sintoma a medir. Epoch absoluto:
-    time.time() - tk.time vale em qualquer fuso.
+    uma conexao nova - que e exatamente o sintoma a medir. Remove o offset de
+    fuso do servidor (senao XPMT5 acusa ~3h fixas com feed saudavel).
     Retorna None se nao conseguiu anexar/ler (terminal fora do ar ou sem tick)."""
     try:
         import MetaTrader5 as mt5_mod
@@ -893,7 +922,7 @@ def feed_spot_stale_s():
             tk = mt5_mod.symbol_info_tick(sim)
             if tk is None:
                 return None
-            return time.time() - float(tk.time)
+            return time.time() - (float(tk.time) + _offset_tz_probe(mt5_mod, sim))
         finally:
             try:
                 mt5_mod.shutdown()

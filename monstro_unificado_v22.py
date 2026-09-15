@@ -60,7 +60,10 @@ from tensorflow.keras.optimizers import Adam
 import sentinela_fluxo
 from dashboard_routes import dashboard_bp, register_main_module
 from diagnostico_monstro import checar_arquivos_essenciais
-from rompimento_orquestrador import OrquestradorRompimento
+from rompimento_orquestrador import (
+    OrquestradorRompimento,
+    _offset_medicao,
+)
 
 # Reduz warnings do TensorFlow
 tf.config.experimental.enable_op_determinism()
@@ -536,7 +539,10 @@ def _restart_terminal_processo(estado, agora):
 
 # Em dados frescos, o heartbeat parado e apenas um blip do loop (MT5 chama demorou
 # <10s); episodio de FEED congelado exige a ultima M5 (ou tick) envelhecida de fato.
-_WATCHDOG_REAL_FRESCO_MIN = 2.0
+# M5 tem granularidade de 5min: em feed saudavel a ultima vela tem 0..5min de
+# idade; acima disso (ou tick congelado) e episodio real de feed. O offset de
+# fuso do servidor e removido dentro de _stale_real_min.
+_WATCHDOG_REAL_FRESCO_MIN = 6.0
 
 
 def _stale_real_min(symbol=None):
@@ -547,10 +553,10 @@ def _stale_real_min(symbol=None):
         s = symbol or SYMBOL
         r = mt5.copy_rates_from_pos(s, mt5.TIMEFRAME_M5, 0, 1)
         if r is not None and len(r):
-            return (time.time() - int(r[0]["time"])) / 60.0
+            return (time.time() - (int(r[0]["time"]) + _offset_medicao(mt5, s))) / 60.0
         t = mt5.symbol_info_tick(s)
         if t is not None and getattr(t, "time", 0):
-            return (time.time() - t.time) / 60.0
+            return (time.time() - (t.time + _offset_medicao(mt5, s))) / 60.0
         return None
     except Exception:
         return None
