@@ -6990,7 +6990,8 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
 
                 current_positions = retry_positions_get(SYMBOL)
                 monstro_position_active = any(
-                    p.volume > 0 for p in current_positions or []
+                    p.volume > 0 and p.magic == MAGIC_NUMBER
+                    for p in current_positions or []
                 )
 
                 # ===== SINCRONIZAÃâ¡ÃÆO AUTOMÃÂTICA DA POSIÃâ¡ÃÆO ATUAL =====
