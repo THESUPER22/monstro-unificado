@@ -6696,6 +6696,69 @@ def verificar_parada_gracil():
     return False
 
 
+def alimentar_experiencia_rompimento():
+    """PLUG P4 - conecta a Faixa 1 (magic 7008) ao feed de experiencias do v22.
+
+    Le o estado real do orquestrador de rompimento (state.json). Se o trade do
+    dia fechou com resultado REAL (final=True e saida != S/TRADE), alimenta os
+    mesmos canais que o v22 usa (memoria_experiencias.adicionar +
+    salvar_experiencia_csv, que ja incrementa contador_experiencias_novas).
+    Idempotente por dia: alimenta apenas 1x por dia fechado.
+
+    NAO altera a captura do v22 (magic 123456): adicao puramente aditiva.
+    """
+    global _ultimo_dia_feed_rompimento
+    try:
+        sp = _carregar_state_rompimento_faixa1()
+        if not sp or sp.get("final") is not True:
+            return
+        if sp.get("saida") in (None, "", "S/TRADE"):
+            return
+        dia = sp.get("dia")
+        if dia == _ultimo_dia_feed_rompimento:
+            return
+        _ultimo_dia_feed_rompimento = dia
+        acao = "BUY" if str(sp.get("side") or "").strip().upper() == "C" else "SELL"
+        try:
+            lucro = float(sp.get("pts") or 0.0)
+        except Exception:
+            lucro = 0.0
+        # Replica o padrao do v22 (linhas 7343-7346) com contexto minimo seguro
+        if memoria_experiencias is not None:
+            memoria_experiencias.adicionar(_CONTEXTO_ROMPIMENTO.copy(), acao, lucro, 0.0)
+        salvar_experiencia_csv(_CONTEXTO_ROMPIMENTO.copy(), acao, lucro, 0.0)
+        logging.info(f"[ROMPIMENTO] plug P4: feed experiencia {dia} {acao} pts={lucro} "
+                     f"contador={contador_experiencias_novas}/{LIMITE_EXPERIENCIAS_PARA_TREINO}")
+    except Exception as e:
+        logging.error(f"[ROMPIMENTO] plug P4 falhou ao alimentar experiencia: {e}")
+
+
+def _carregar_state_rompimento_faixa1():
+    """Le rompimento_state.json (mesmo schema do orquestrador). Read-only."""
+    try:
+        p = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "logs", "rompimento", "rompimento_state.json")
+        if not os.path.exists(p):
+            return None
+        with open(p, encoding="utf-8") as f:
+            st = json.load(f)
+        return st if isinstance(st, dict) else None
+    except Exception:
+        return None
+
+
+_CONTEXTO_ROMPIMENTO = dict(
+    bid_qty=0, ask_qty=0, spread=0, volatility=0, entropia_book=0.5,
+    rsi_14=50, volume_tick=0, is_in_trade=1, floating_profit=0,
+    tempo_em_trade=0, preco_maior_escora_bid=0, volume_maior_escora_bid=0,
+    distancia_maior_escora_bid=0, preco_maior_escora_ask=0,
+    volume_maior_escora_ask=0, distancia_maior_escora_ask=0,
+    liquidez_top5_bid=0, liquidez_top5_ask=0, dolar_casado=0,
+    em_janela_ptax=0, minutos_para_ptax=0, dia_ptax=0,
+)
+_ultimo_dia_feed_rompimento = None
+
+
 def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
     """Loop principal do sistema de trading."""
     global thread_ativo, mt5_ativo, posicao_aberta, lucro_acumulado
@@ -6815,6 +6878,10 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                         _orq.orquestrar()
                     except Exception as e:
                         logging.error(f"[ROMPIMENTO] Erro no orquestrar(): {e}")
+                    try:
+                        alimentar_experiencia_rompimento()
+                    except Exception as e:
+                        logging.error(f"[ROMPIMENTO] Erro no plug P4: {e}")
 
                 # ===== VERIFICAÃâ¡ÃÆO DE SEGURANÃâ¡A DA VARIÃÂVEL POSICAO_ATUAL =====
                 # Garante que posicao_atual sempre exista (inicializada como None se necessÃÂ¡rio)
