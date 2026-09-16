@@ -51,9 +51,14 @@ class _Pos:
         self.price_open = price_open
 
 
-class _Deal(dict):
+class _Deal:
+    """Emula o TradeDeal do MT5 (namedtuple): atributo .entry/.price, mas SEM
+    indexacao por string (d['entry'] levanta TypeError - bug real corrigido)."""
     def __init__(self, entry, price):
-        super().__init__(entry=entry, price=price)
+        self.entry = entry
+        self.price = price
+    def __getitem__(self, key):
+        raise TypeError("tuple indices must be integers or slices, not str")
 
 
 class FakeMT5:

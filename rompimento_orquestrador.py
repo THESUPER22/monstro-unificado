@@ -315,10 +315,10 @@ class OrquestradorRompimento:
             return None
         if not deals:
             return None
-        outs = [d for d in deals if d["entry"] == self.mt5.DEAL_ENTRY_OUT]
+        outs = [d for d in deals if d.entry == self.mt5.DEAL_ENTRY_OUT]
         if not outs:
             return None
-        return float(outs[-1]["price"])
+        return float(outs[-1].price)
 
     def _fechar_market(self, ticket):
         try:
@@ -344,6 +344,10 @@ class OrquestradorRompimento:
         if h < 10.0:
             return
         st = _carregar_state()
+        if st.get("dia") and st.get("dia") != dia:
+            # dia anterior: limpa o ciclo (ticket/saida/final) para liberar a
+            # janela operacional do novo pregão (correção B - caso ABERTA presa)
+            st = {}
         if st.get("dia") == dia and st.get("final"):
             return
 
