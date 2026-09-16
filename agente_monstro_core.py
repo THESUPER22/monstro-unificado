@@ -405,7 +405,7 @@ def resumo_rompimento_dia():
 
 
 def contar_executados_hoje():
-    """Trades FECHADOS hoje (marcador 'processada e resetada' do v22).
+    """Trades FECHADOS hoje (marcador 'processada e resetada do v22').
     Corresponde aos appends de historico_lucro (= total_operacoes do dashboard).
     Sinais BUY/SELL em decisions_wdo.csv NAO sao execucao: muitos sao vetados
     por gates pos-decisao (Williams/protecao) antes de virar ordem."""
@@ -417,6 +417,27 @@ def contar_executados_hoje():
                 if line.startswith(hoje) and "processada e resetada" in line:
                     n += 1
     return n
+
+
+def contar_executados_rompimento_hoje():
+    """Trades FECHADOS hoje pela Faixa 1 (rompimento 1H, magic 7008).
+    Le logs/rompimento/rompimento_trades.csv (row do dia). saida != S/TRADE
+    => houve execucao real (SL/TP/EOD/fechada)."""
+    rp = resumo_rompimento_dia()
+    if not rp:
+        return 0
+    saida = (rp.get("saida") or "").strip().upper()
+    if saida and saida != "S/TRADE":
+        return 1
+    return 0
+
+
+def contar_executados_consolidado_hoje():
+    """Total REAL de operacoes fechadas hoje, somando o v22 e a Faixa 1
+    (rompimento 1H, magic 7008). O relatorio isolado ('contar_executados_hoje')
+    so enxerga o v22; sem isso o fecho reportava 'Trades executados: 0' mesmo
+    com 1 trade real do rompimento no dia."""
+    return contar_executados_hoje() + contar_executados_rompimento_hoje()
 
 
 def winpct_historico():
@@ -698,7 +719,10 @@ def gerar_relatorio_diario(info_diff=None):
     linhas.append("=" * 66)
     linhas.append(f"RELATORIO DIARIO MONSTRO - {datetime.now():%d/%m/%Y}")
     linhas.append("=" * 66)
-    linhas.append(f"Decisoes hoje: {stats.get('n_decisoes', 0)} | Sinais BUY/SELL: {stats.get('sinais', 0)} | Trades executados: {contar_executados_hoje()}")
+    n_v22 = contar_executados_hoje()
+    n_romp = contar_executados_rompimento_hoje()
+    linhas.append(f"Decisoes hoje: {stats.get('n_decisoes', 0)} | Sinais BUY/SELL: {stats.get('sinais', 0)} "
+                  f"| Trades executados: {n_v22 + n_romp} (v22={n_v22} + Faixa1={n_romp})")
     linhas.append(f"win% (historico reward!=0): {w if w is not None else 'sem amostra'}")
     linhas.append(f"Entropia med: {stats.get('entropia_med')} | ATR med: {stats.get('atr_med')} | Spread med: {stats.get('spread_med')}")
     linhas.append(f"Book ratio med: {stats.get('book_ratio_med')}")
