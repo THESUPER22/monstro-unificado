@@ -1,0 +1,1015 @@
+155
++1.01%
+SENTINELA
+NEUTRO
+Score 1 (DXY +1.23% | US10Y +1.25% | USDJPY +1.82%) | Atualizado: 17:34:06
+Todos
+Trades
+Alertas
+Sniper
+Contexto WDO
+Decisions WDO
+Experiências JSON
+Williams %R
+Multi TF
+Auto
+Limpar
+2026-09-16 17:05:26,780 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:05:26,887 - WARNING - ðŸŽ¯ CONFLU�\x83ŠNCIA SOBRESCREVE: IA=SELL (conf:0.61) â�\x80��\x80\x99 CONFLU�\x83ŠNCIA=BUY
+2026-09-16 17:05:26,887 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.34 lado=BUY �\x89� BUY) -> conf �\x970.70=0.24 (ADVISORY, sem veto)
+2026-09-16 17:05:26,887 - WARNING - �\x9a��\x8f Book ratio baixo (1.17x < 1.3) -> conf �\x970.85=0.21 (ADVISORY, sem veto)
+2026-09-16 17:05:28,896 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:05:28,909 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:05:28,933 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:05:28,936 - WARNING - WILLIAMS %R VETO BUY: WR=-0 (sobrecomprado)
+2026-09-16 17:05:28,936 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:05:29,044 - WARNING - ðŸŽ¯ CONFLU�\x83ŠNCIA SOBRESCREVE: IA=SELL (conf:0.61) â�\x80��\x80\x99 CONFLU�\x83ŠNCIA=BUY
+2026-09-16 17:05:29,044 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.35 lado=BUY �\x89� BUY) -> conf �\x970.70=0.24 (ADVISORY, sem veto)
+2026-09-16 17:05:29,044 - WARNING - �\x9a��\x8f Book ratio baixo (1.17x < 1.3) -> conf �\x970.85=0.21 (ADVISORY, sem veto)
+2026-09-16 17:05:31,059 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:05:31,074 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:05:31,096 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:05:31,098 - WARNING - WILLIAMS %R VETO BUY: WR=-11 (sobrecomprado)
+2026-09-16 17:05:31,098 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:05:31,205 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:05:31,205 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:05:33,221 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:05:33,235 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:05:33,259 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:05:33,261 - WARNING - WILLIAMS %R VETO BUY: WR=-0 (sobrecomprado)
+2026-09-16 17:05:33,261 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:05:33,368 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:05:33,368 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:05:35,378 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:05:35,393 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:05:35,417 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:05:35,421 - WARNING - WILLIAMS %R VETO BUY: WR=-0 (sobrecomprado)
+2026-09-16 17:05:35,421 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:05:35,552 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:05:35,552 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:05:37,571 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:05:37,585 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:05:37,608 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:05:37,610 - WARNING - WILLIAMS %R VETO BUY: WR=-0 (sobrecomprado)
+2026-09-16 17:05:37,610 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:05:37,721 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:05:37,721 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:05:39,731 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:05:39,746 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:05:39,770 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:05:39,772 - WARNING - WILLIAMS %R VETO BUY: WR=-11 (sobrecomprado)
+2026-09-16 17:05:39,773 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:05:39,928 - WARNING - ðŸŽ¯ CONFLU�\x83ŠNCIA SOBRESCREVE: IA=SELL (conf:0.73) â�\x80��\x80\x99 CONFLU�\x83ŠNCIA=BUY
+2026-09-16 17:05:39,928 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.34 lado=SELL �\x89� BUY) -> conf �\x970.70=0.35 (ADVISORY, sem veto)
+2026-09-16 17:05:39,928 - WARNING - �\x9a��\x8f Book ratio baixo (1.27x < 1.3) -> conf �\x970.85=0.30 (ADVISORY, sem veto)
+2026-09-16 17:05:41,945 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:06:05,949 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:06:05,963 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:06:05,989 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:06:05,991 - WARNING - WILLIAMS %R VETO BUY: WR=-0 (sobrecomprado)
+2026-09-16 17:06:05,991 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:06:06,101 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:06:06,101 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:06:08,123 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:06:08,125 - INFO - ðŸ�\x80\x9cŠ WDOV26 | Pre�\x83§o: 5171 | Spread: 0.5pts | BID: 7496 / ASK: 7653 | Desequil�\x83­brio: 1.02x ðŸ�\x80\x9d´VENDA
+2026-09-16 17:06:08,138 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:06:08,161 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:06:08,163 - WARNING - WILLIAMS %R VETO BUY: WR=-0 (sobrecomprado)
+2026-09-16 17:06:08,164 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:06:08,268 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:06:08,268 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:06:10,286 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:06:10,300 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:06:10,323 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:06:12,499 - WARNING - WILLIAMS %R VETO BUY: WR=-0 (sobrecomprado)
+2026-09-16 17:06:12,499 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:06:12,754 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:06:12,755 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:06:14,766 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:06:14,779 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:06:14,804 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:06:14,806 - WARNING - WILLIAMS %R VETO BUY: WR=-10 (sobrecomprado)
+2026-09-16 17:06:14,806 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:06:14,913 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:06:14,913 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:06:16,931 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:06:16,945 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:06:16,971 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:06:16,974 - WARNING - WILLIAMS %R VETO BUY: WR=-10 (sobrecomprado)
+2026-09-16 17:06:16,974 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:06:17,081 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:06:17,081 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:06:17,083 - INFO - SNIPER %R | wr=-10 | zona=-1 | score=2 | standby | %R=-10(SEC) | SL=8.0pt TP=4.8pt
+2026-09-16 17:06:19,102 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:06:19,116 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:06:19,146 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:06:19,148 - WARNING - WILLIAMS %R VETO BUY: WR=-10 (sobrecomprado)
+2026-09-16 17:06:19,148 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:06:19,259 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:06:19,259 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:06:21,271 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:06:21,286 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:06:21,310 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:06:21,312 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:06:21,313 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:06:21,417 - WARNING - ðŸŽ¯ CONFLU�\x83ŠNCIA SOBRESCREVE: IA=SELL (conf:0.74) â�\x80��\x80\x99 CONFLU�\x83ŠNCIA=BUY
+2026-09-16 17:06:21,417 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.37 lado=SELL �\x89� BUY) -> conf �\x970.70=0.32 (ADVISORY, sem veto)
+2026-09-16 17:06:21,417 - WARNING - �\x9a��\x8f Book ratio baixo (1.25x < 1.3) -> conf �\x970.85=0.27 (ADVISORY, sem veto)
+2026-09-16 17:06:23,439 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:06:23,453 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:06:23,479 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:06:23,481 - WARNING - WILLIAMS %R VETO BUY: WR=-10 (sobrecomprado)
+2026-09-16 17:06:23,481 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:06:23,591 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:06:23,591 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:06:25,608 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:06:25,626 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:06:25,655 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:06:25,657 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:06:25,657 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:06:25,769 - WARNING - ðŸŽ¯ CONFLU�\x83ŠNCIA SOBRESCREVE: IA=SELL (conf:0.76) â�\x80��\x80\x99 CONFLU�\x83ŠNCIA=BUY
+2026-09-16 17:06:25,769 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.38 lado=SELL �\x89� BUY) -> conf �\x970.70=0.39 (ADVISORY, sem veto)
+2026-09-16 17:06:25,769 - WARNING - �\x9a��\x8f Book ratio baixo (1.27x < 1.3) -> conf �\x970.85=0.33 (ADVISORY, sem veto)
+2026-09-16 17:06:27,779 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:06:27,794 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:06:27,816 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:06:27,817 - WARNING - WILLIAMS %R VETO BUY: WR=-10 (sobrecomprado)
+2026-09-16 17:06:27,818 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:06:27,924 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:06:27,924 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:06:29,939 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:06:29,953 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:06:29,976 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:06:29,978 - WARNING - WILLIAMS %R VETO BUY: WR=-10 (sobrecomprado)
+2026-09-16 17:06:29,978 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:06:30,084 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:06:30,085 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:06:32,100 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:06:32,115 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:06:32,141 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:06:32,143 - WARNING - WILLIAMS %R VETO BUY: WR=-10 (sobrecomprado)
+2026-09-16 17:06:32,143 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:06:32,248 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:06:32,248 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:06:34,263 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:06:34,277 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:06:34,299 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:06:34,301 - WARNING - WILLIAMS %R VETO BUY: WR=-10 (sobrecomprado)
+2026-09-16 17:06:34,301 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:06:34,408 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:06:34,408 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:06:36,421 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:06:36,436 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:06:36,460 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:06:36,462 - WARNING - WILLIAMS %R VETO BUY: WR=-0 (sobrecomprado)
+2026-09-16 17:06:36,462 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:07:04,827 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:07:06,565 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:07:06,612 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:07:06,622 - WARNING - WILLIAMS %R VETO BUY: WR=-9 (sobrecomprado)
+2026-09-16 17:07:06,623 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:07:06,769 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:07:06,769 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:07:08,777 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:07:08,792 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:07:08,815 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:07:08,817 - WARNING - WILLIAMS %R VETO BUY: WR=-9 (sobrecomprado)
+2026-09-16 17:07:08,817 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:07:08,923 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:07:08,923 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:07:10,936 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:07:10,951 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:07:10,974 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:07:12,985 - WARNING - WILLIAMS %R VETO BUY: WR=-9 (sobrecomprado)
+2026-09-16 17:07:12,985 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:07:13,096 - WARNING - ðŸŽ¯ CONFLU�\x83ŠNCIA SOBRESCREVE: IA=SELL (conf:0.68) â�\x80��\x80\x99 CONFLU�\x83ŠNCIA=BUY
+2026-09-16 17:07:13,096 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.37 lado=SELL �\x89� BUY) -> conf �\x970.70=0.24 (ADVISORY, sem veto)
+2026-09-16 17:07:13,096 - WARNING - �\x9a��\x8f Book ratio baixo (1.02x < 1.3) -> conf �\x970.85=0.21 (ADVISORY, sem veto)
+2026-09-16 17:07:15,119 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:07:15,134 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:07:15,160 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:07:15,163 - WARNING - WILLIAMS %R VETO BUY: WR=-18 (sobrecomprado)
+2026-09-16 17:07:15,163 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:07:15,271 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:07:15,271 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:07:17,293 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:07:17,308 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:07:17,331 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:07:17,333 - WARNING - WILLIAMS %R VETO BUY: WR=-18 (sobrecomprado)
+2026-09-16 17:07:17,333 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:07:17,463 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:07:17,463 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:07:17,466 - INFO - SNIPER %R | wr=-18 | zona=-1 | score=2 | standby | %R=-18(SEC) | SL=8.0pt TP=4.8pt
+2026-09-16 17:07:19,481 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:07:19,484 - INFO - ðŸ�\x80\x9cŠ DOL DOLV26: ratio=1.09 lado=SELL conf=0.36 vol=2235
+2026-09-16 17:07:19,497 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:07:19,522 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:07:19,525 - WARNING - WILLIAMS %R VETO BUY: WR=-18 (sobrecomprado)
+2026-09-16 17:07:19,525 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:07:19,631 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:07:19,631 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:07:21,651 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:07:21,666 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:07:21,688 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:07:21,690 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:07:21,691 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:07:21,795 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:07:21,795 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:07:23,811 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:07:23,826 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:07:23,848 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:07:23,850 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:07:23,851 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:07:23,957 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:07:23,957 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:07:25,970 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:07:25,989 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:07:26,015 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:07:26,017 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:07:26,017 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:07:26,129 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:07:26,130 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:07:28,147 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:07:28,163 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:07:28,186 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:07:28,188 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:07:28,188 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:07:28,292 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:07:28,292 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:07:28,295 - INFO - TENDENCIA: Preco=5170.2 | SMA=5168.2 | Diff=+2.1pts | Momentum=+2.0pts(NEUTRO) | LATERAL
+2026-09-16 17:07:30,306 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:07:30,320 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:07:30,343 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:07:30,345 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:07:30,345 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:07:30,449 - WARNING - ðŸŽ¯ CONFLU�\x83ŠNCIA SOBRESCREVE: IA=SELL (conf:0.70) â�\x80��\x80\x99 CONFLU�\x83ŠNCIA=BUY
+2026-09-16 17:07:30,449 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.36 lado=SELL �\x89� BUY) -> conf �\x970.70=0.32 (ADVISORY, sem veto)
+2026-09-16 17:07:30,449 - WARNING - �\x9a��\x8f Book ratio baixo (1.19x < 1.3) -> conf �\x970.85=0.27 (ADVISORY, sem veto)
+2026-09-16 17:07:32,467 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:07:32,484 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:07:32,509 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:07:32,511 - WARNING - WILLIAMS %R VETO BUY: WR=-18 (sobrecomprado)
+2026-09-16 17:07:32,511 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:07:32,615 - WARNING - ðŸŽ¯ CONFLU�\x83ŠNCIA SOBRESCREVE: IA=SELL (conf:0.66) â�\x80��\x80\x99 CONFLU�\x83ŠNCIA=BUY
+2026-09-16 17:07:32,615 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.36 lado=SELL �\x89� BUY) -> conf �\x970.70=0.24 (ADVISORY, sem veto)
+2026-09-16 17:07:32,616 - WARNING - �\x9a��\x8f Book ratio baixo (1.14x < 1.3) -> conf �\x970.85=0.21 (ADVISORY, sem veto)
+2026-09-16 17:07:32,618 - INFO -
+======================= ====================================
+�\x9a� SNIPER %R ATIVAD  �\x9a�
+DIRE�\x87�\x83O: SELL | %R=-18
+CONDI�\x87�\x95ES: %R=- 8(SEC) | SELL
+SL=8.0pt (max(1.5xATR,8 ) | TP=4.9pt (2R)
+======================= ====================================
+2026-09-16 17:07:32,635 - INFO - �\x9a� SNIPER %R INICIA SELL �\x80\x94 sobrepondo IA, pulando filtros normais
+2026-09-16 17:07:32,635 - WARNING - [GATE ROMPIMENTO] Ordem bloqueada para WDOV26 (apenas Magic 7008 na Faixa 1)
+2026-09-16 17:07:32,635 - INFO - �\x9a� SNIPER %R: ordem enviada com 1.0cc, SL/TP por ATR
+2026-09-16 17:08:05,065 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:08:05,081 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:08:05,105 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:08:05,107 - WARNING - WILLIAMS %R VETO BUY: WR=-18 (sobrecomprado)
+2026-09-16 17:08:05,107 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:08:05,213 - WARNING - ðŸŽ¯ CONFLU�\x83ŠNCIA SOBRESCREVE: IA=SELL (conf:0.65) â�\x80��\x80\x99 CONFLU�\x83ŠNCIA=BUY
+2026-09-16 17:08:05,213 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.33 lado=SELL �\x89� BUY) -> conf �\x970.70=0.24 (ADVISORY, sem veto)
+2026-09-16 17:08:05,213 - WARNING - �\x9a��\x8f Book ratio baixo (1.14x < 1.3) -> conf �\x970.85=0.21 (ADVISORY, sem veto)
+2026-09-16 17:08:07,235 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:08:07,251 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:08:07,273 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:08:07,275 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:08:07,276 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:08:07,382 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:08:07,383 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:08:09,404 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:08:09,420 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:08:09,444 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:08:09,446 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:08:09,446 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:08:09,553 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:08:09,553 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:08:11,565 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:08:11,580 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:08:11,604 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:08:13,958 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:08:13,958 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:08:14,067 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:08:14,067 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:08:14,069 - INFO - TENDENCIA: Preco=5170.2 | SMA=5168.5 | Diff=+1.8pts | Momentum=+3.0pts(NEUTRO) | LATERAL
+2026-09-16 17:08:16,091 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:08:16,108 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:08:16,134 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:08:16,136 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:08:16,136 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:08:16,242 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:08:16,242 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:08:18,250 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:08:18,265 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:08:18,288 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:08:18,290 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:08:18,290 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:08:18,412 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:08:18,413 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:08:20,427 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:08:20,443 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:08:20,468 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:08:20,470 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:08:20,470 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:08:20,578 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:08:20,578 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:08:22,597 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:08:22,613 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:08:22,636 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:08:22,638 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:08:22,639 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:08:22,744 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:08:22,744 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:08:24,766 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:08:24,781 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:08:24,806 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:08:24,808 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:08:24,808 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:08:24,913 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:08:24,913 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:08:26,927 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:08:26,945 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:08:26,967 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:08:26,969 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:08:26,969 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:08:27,075 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:08:27,075 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:08:29,083 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:08:29,099 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:08:29,123 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:08:29,125 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:08:29,125 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:08:29,232 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:08:29,232 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:08:31,251 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:08:31,268 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:08:31,295 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:08:31,298 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:08:31,298 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:08:31,406 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:08:31,406 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:08:33,418 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:08:33,433 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:08:33,459 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:08:33,461 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:08:33,461 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:08:33,566 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:08:33,566 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:08:35,583 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:08:35,599 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:08:35,627 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:08:35,630 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:08:35,630 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:08:35,738 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:08:35,738 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:09:03,727 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:09:03,746 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:09:03,770 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:09:03,772 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:09:03,772 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:09:03,878 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:09:03,878 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:09:05,894 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:09:05,910 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:09:05,934 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:09:05,936 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:09:05,936 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:09:06,044 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:09:06,044 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:09:08,068 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:09:08,083 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:09:08,108 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:09:08,110 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:09:08,110 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:09:08,216 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:09:08,216 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:09:10,233 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:09:10,248 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:09:10,275 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:09:10,277 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:09:10,278 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:09:10,384 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:09:10,384 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:09:12,401 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:09:12,416 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:09:12,441 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:09:12,996 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:09:12,996 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:09:13,100 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:09:13,100 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:09:15,107 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:09:15,124 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:09:15,147 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:09:15,795 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:09:15,795 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:09:15,914 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:09:15,914 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:09:17,930 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:09:17,946 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:09:17,969 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:09:17,971 - WARNING - WILLIAMS %R VETO BUY: WR=-10 (sobrecomprado)
+2026-09-16 17:09:17,971 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:09:18,079 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:09:18,079 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:09:20,087 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:09:20,090 - INFO - ðŸ�\x80\x9cŠ DOL DOLV26: ratio=1.05 lado=SELL conf=0.35 vol=2130
+2026-09-16 17:09:20,103 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:09:20,129 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:09:20,131 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:09:20,131 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:09:20,238 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:09:20,238 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:09:22,261 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:09:22,276 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:09:22,302 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:09:22,304 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:09:22,304 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:09:22,431 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=1 (m�\x83­nimo 2 sinais)
+2026-09-16 17:09:22,432 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:09:24,441 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:09:24,456 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:09:24,481 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:09:24,483 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:09:24,483 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:09:24,588 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:09:24,588 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:09:26,599 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:09:26,615 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:09:26,639 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:09:26,641 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:09:26,642 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:09:26,748 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:09:26,748 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:09:28,757 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:09:28,775 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:09:28,799 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:09:28,801 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:09:28,801 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:09:28,909 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=1, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:09:28,909 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:09:30,926 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:09:30,942 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:09:30,965 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:09:30,967 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:09:30,967 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:09:31,076 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:09:31,076 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:09:33,096 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:09:33,111 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:09:33,135 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:09:33,137 - WARNING - MULTI-TF VETO BUY: M5_RSI=47.1 M15_RSI=32.6 M30_RSI=43.4 (todos < 50)
+2026-09-16 17:09:33,137 - INFO - FORCA SELL: Sem hist�\x83³rico suficiente
+2026-09-16 17:09:33,243 - WARNING - âš ï¸�\x8f CONFLU�\x83ŠNCIA INSUFICIENTE: BUY=0, SELL=0 (m�\x83­nimo 2 sinais)
+2026-09-16 17:09:33,243 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA BLOQUEIA: Menos de 2 sinais t�\x83©cnicos (m�\x83­nimo exigido)
+2026-09-16 17:09:33,245 - INFO - SNIPER %R | wr=-20 | zona=-1 | score=2 | standby | %R=-20(SEC) | SL=8.0pt TP=4.7pt
+2026-09-16 17:10:04,318 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:10:04,319 - INFO - ðŸ�\x80\x98�\x81ï¸�\x8f Monstro ativo | Modo: NORMAL
+2026-09-16 17:10:04,321 - INFO - ðŸ�\x80\x9d�\x8d Verificando integridade do modelo: modelo_monstro_wdo.h5
+2026-09-16 17:10:04,515 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-09-16 17:10:04,534 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:10:04,559 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:10:04,562 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14899.0 | Entropia: 2.935 | ATR: 1.6 | RSI: 44.9
+2026-09-16 17:10:04,675 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.567, RSI: 0.5
+2026-09-16 17:10:04,676 - INFO - â�\x8f¸ï¸�\x8f Sinal NEUTRO (confian�\x83§a 0.067 < 0.15) | Prob: 0.567 | Ignorado
+2026-09-16 17:10:06,696 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:10:06,705 - INFO - [MultiTF] M5 RSI=50.0 ATR=4.3 WR=-73.5 | M15 RSI=32.6 ATR=7.3 WR=-44.6 | M30 RSI=43.4 ATR=9.5 WR=-41.7
+2026-09-16 17:10:06,712 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:10:06,738 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:10:06,741 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14899.0 | Entropia: 2.935 | ATR: 1.6 | RSI: 44.9
+2026-09-16 17:10:06,851 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.567, RSI: 0.5
+2026-09-16 17:10:06,851 - INFO - â�\x8f¸ï¸�\x8f Sinal NEUTRO (confian�\x83§a 0.067 < 0.15) | Prob: 0.567 | Ignorado
+2026-09-16 17:10:08,869 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:10:08,885 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:10:08,907 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:10:08,910 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15194.0 | Entropia: 2.945 | ATR: 1.6 | RSI: 44.9
+2026-09-16 17:10:09,014 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.561, RSI: 0.5
+2026-09-16 17:10:09,015 - INFO - â�\x8f¸ï¸�\x8f Sinal NEUTRO (confian�\x83§a 0.061 < 0.15) | Prob: 0.561 | Ignorado
+2026-09-16 17:10:11,029 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:10:11,045 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:10:11,070 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:10:11,072 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15194.0 | Entropia: 2.945 | ATR: 1.6 | RSI: 44.9
+2026-09-16 17:10:11,180 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.561, RSI: 0.5
+2026-09-16 17:10:11,180 - INFO - â�\x8f¸ï¸�\x8f Sinal NEUTRO (confian�\x83§a 0.061 < 0.15) | Prob: 0.561 | Ignorado
+2026-09-16 17:10:13,188 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:10:13,203 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:10:13,226 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:10:13,924 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15056.0 | Entropia: 2.918 | ATR: 1.6 | RSI: 44.9
+2026-09-16 17:10:14,051 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.409, RSI: 0.5
+2026-09-16 17:10:14,052 - INFO - â�\x8f¸ï¸�\x8f Sinal NEUTRO (confian�\x83§a 0.091 < 0.15) | Prob: 0.409 | Ignorado
+2026-09-16 17:10:14,054 - INFO - TENDENCIA: Preco=5169.2 | SMA=5169.0 | Diff=+0.2pts | Momentum=-1.5pts(NEUTRO) | LATERAL
+2026-09-16 17:10:16,063 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:10:16,079 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:10:16,102 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:10:16,889 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14469.0 | Entropia: 2.913 | ATR: 1.6 | RSI: 44.9
+2026-09-16 17:10:16,995 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.380, RSI: 0.5
+2026-09-16 17:10:16,996 - INFO - â�\x8f¸ï¸�\x8f Sinal NEUTRO (confian�\x83§a 0.120 < 0.15) | Prob: 0.380 | Ignorado
+2026-09-16 17:10:19,010 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:10:19,026 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:10:19,050 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:10:19,052 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14684.0 | Entropia: 2.943 | ATR: 1.6 | RSI: 44.9
+2026-09-16 17:10:19,156 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.424, RSI: 0.5
+2026-09-16 17:10:19,156 - INFO - â�\x8f¸ï¸�\x8f Sinal NEUTRO (confian�\x83§a 0.076 < 0.15) | Prob: 0.424 | Ignorado
+2026-09-16 17:10:21,169 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:10:21,186 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:10:21,210 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:10:21,213 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14684.0 | Entropia: 2.943 | ATR: 1.6 | RSI: 44.9
+2026-09-16 17:10:21,320 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.424, RSI: 0.5
+2026-09-16 17:10:21,320 - INFO - â�\x8f¸ï¸�\x8f Sinal NEUTRO (confian�\x83§a 0.076 < 0.15) | Prob: 0.424 | Ignorado
+2026-09-16 17:10:23,340 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:10:23,355 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:10:23,380 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:10:23,384 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14810.0 | Entropia: 2.945 | ATR: 1.6 | RSI: 44.9
+2026-09-16 17:10:23,492 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.457, RSI: 0.5
+2026-09-16 17:10:23,492 - INFO - â�\x8f¸ï¸�\x8f Sinal NEUTRO (confian�\x83§a 0.043 < 0.15) | Prob: 0.457 | Ignorado
+2026-09-16 17:10:25,509 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:10:25,524 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:10:25,549 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:10:25,551 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14742.0 | Entropia: 2.941 | ATR: 1.6 | RSI: 44.9
+2026-09-16 17:10:25,659 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.480, RSI: 0.5
+2026-09-16 17:10:25,659 - INFO - â�\x8f¸ï¸�\x8f Sinal NEUTRO (confian�\x83§a 0.020 < 0.15) | Prob: 0.480 | Ignorado
+2026-09-16 17:10:27,667 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:10:27,682 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:10:27,705 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:10:27,707 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14741.0 | Entropia: 2.941 | ATR: 1.6 | RSI: 44.9
+2026-09-16 17:10:27,814 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.480, RSI: 0.5
+2026-09-16 17:10:27,814 - INFO - â�\x8f¸ï¸�\x8f Sinal NEUTRO (confian�\x83§a 0.020 < 0.15) | Prob: 0.480 | Ignorado
+2026-09-16 17:10:29,827 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:10:29,844 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:10:29,869 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:10:29,871 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14762.0 | Entropia: 2.942 | ATR: 1.6 | RSI: 44.9
+2026-09-16 17:10:29,979 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.479, RSI: 0.5
+2026-09-16 17:10:29,979 - INFO - â�\x8f¸ï¸�\x8f Sinal NEUTRO (confian�\x83§a 0.021 < 0.15) | Prob: 0.479 | Ignorado
+2026-09-16 17:10:32,001 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:10:32,017 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:10:32,040 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:10:32,043 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14762.0 | Entropia: 2.942 | ATR: 1.6 | RSI: 44.9
+2026-09-16 17:10:32,150 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.479, RSI: 0.5
+2026-09-16 17:10:32,150 - INFO - â�\x8f¸ï¸�\x8f Sinal NEUTRO (confian�\x83§a 0.021 < 0.15) | Prob: 0.479 | Ignorado
+2026-09-16 17:10:34,161 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:10:34,176 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:10:34,198 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:10:34,200 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14682.0 | Entropia: 2.943 | ATR: 1.6 | RSI: 44.9
+2026-09-16 17:10:34,308 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.451, RSI: 0.5
+2026-09-16 17:10:34,308 - INFO - â�\x8f¸ï¸�\x8f Sinal NEUTRO (confian�\x83§a 0.049 < 0.15) | Prob: 0.451 | Ignorado
+2026-09-16 17:10:34,311 - INFO - SNIPER %R | wr=-20 | zona=-1 | score=2 | standby | %R=-20(SEC) | SL=8.0pt TP=4.9pt
+2026-09-16 17:10:36,319 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:10:36,334 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:10:36,358 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:10:36,360 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14604.0 | Entropia: 2.932 | ATR: 1.6 | RSI: 44.9
+2026-09-16 17:10:36,464 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.415, RSI: 0.5
+2026-09-16 17:10:36,464 - INFO - â�\x8f¸ï¸�\x8f Sinal NEUTRO (confian�\x83§a 0.085 < 0.15) | Prob: 0.415 | Ignorado
+2026-09-16 17:10:36,467 - INFO - TENDENCIA: Preco=5170.2 | SMA=5169.1 | Diff=+1.2pts | Momentum=+0.0pts(NEUTRO) | LATERAL
+2026-09-16 17:10:38,476 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:10:38,493 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:10:38,517 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:11:05,124 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:11:05,140 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:11:05,164 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:11:05,166 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15610.0 | Entropia: 2.920 | ATR: 1.6 | RSI: 42.0
+2026-09-16 17:11:05,277 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.836, RSI: 0.5
+2026-09-16 17:11:05,277 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.836 | Confian�\x83§a: 0.336 | Threshold: 0.450
+2026-09-16 17:11:05,277 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:11:05,277 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:11:05,277 - INFO - ðŸ�\x80\x9cŠ MR: RSI=48.5(NEUTRO) | Z=-0.92 | ADX=1.0(LATERAL) | Veto: BUY=False SELL=False
+2026-09-16 17:11:05,277 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:11:05,277 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.836 | Threshold: 0.450
+2026-09-16 17:11:05,385 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.37 lado=BUY �\x89� BUY) -> conf �\x970.70=0.67 (ADVISORY, sem veto)
+2026-09-16 17:11:07,405 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:11:07,421 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:11:07,445 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:11:07,448 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14825.0 | Entropia: 2.913 | ATR: 1.6 | RSI: 42.0
+2026-09-16 17:11:07,554 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.856, RSI: 0.5
+2026-09-16 17:11:07,555 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.856 | Confian�\x83§a: 0.356 | Threshold: 0.450
+2026-09-16 17:11:07,555 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:11:07,555 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:11:07,555 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:11:07,555 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.856 | Threshold: 0.450
+2026-09-16 17:11:07,661 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.37 lado=BUY �\x89� BUY) -> conf �\x970.70=0.69 (ADVISORY, sem veto)
+2026-09-16 17:11:09,683 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:11:09,699 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:11:09,721 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:11:09,724 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14741.0 | Entropia: 2.926 | ATR: 1.6 | RSI: 42.0
+2026-09-16 17:11:09,834 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.757, RSI: 0.5
+2026-09-16 17:11:09,834 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.757 | Confian�\x83§a: 0.257 | Threshold: 0.450
+2026-09-16 17:11:09,834 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:11:09,834 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:11:09,835 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:11:09,835 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.757 | Threshold: 0.450
+2026-09-16 17:11:09,835 - INFO - ðŸ�\x80\x9cŠ MR: RSI=48.5(NEUTRO) | Z=+0.52 | ADX=1.0(LATERAL) | Veto: BUY=False SELL=False
+2026-09-16 17:11:09,942 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA CONFIRMA: BUY | Confian�\x83§a aumentada: 1.00
+2026-09-16 17:11:09,942 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.37 lado=BUY �\x89� BUY) -> conf �\x970.70=0.70 (ADVISORY, sem veto)
+2026-09-16 17:11:11,963 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:11:11,965 - INFO - ðŸ�\x80\x9cŠ WDOV26 | Pre�\x83§o: 5169 | Spread: 0.5pts | BID: 8361 / ASK: 6215 | Desequil�\x83­brio: 1.35x ðŸŸ¢COMPRA
+2026-09-16 17:11:11,980 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:11:12,003 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:11:12,006 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14576.0 | Entropia: 2.924 | ATR: 1.6 | RSI: 42.0
+2026-09-16 17:11:12,111 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.768, RSI: 0.5
+2026-09-16 17:11:12,111 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.768 | Confian�\x83§a: 0.268 | Threshold: 0.450
+2026-09-16 17:11:12,111 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:11:12,112 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:11:12,112 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:11:12,112 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.768 | Threshold: 0.450
+2026-09-16 17:11:12,220 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA CONFIRMA: BUY | Confian�\x83§a aumentada: 1.00
+2026-09-16 17:11:12,220 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.35 lado=BUY �\x89� BUY) -> conf �\x970.70=0.70 (ADVISORY, sem veto)
+2026-09-16 17:11:14,239 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:11:14,254 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:11:14,279 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:11:15,117 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14576.0 | Entropia: 2.924 | ATR: 1.6 | RSI: 42.0
+2026-09-16 17:11:15,224 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.768, RSI: 0.5
+2026-09-16 17:11:15,225 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.768 | Confian�\x83§a: 0.268 | Threshold: 0.450
+2026-09-16 17:11:15,225 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:11:15,225 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:11:15,225 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:11:15,225 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.768 | Threshold: 0.450
+2026-09-16 17:11:15,333 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA CONFIRMA: BUY | Confian�\x83§a aumentada: 1.00
+2026-09-16 17:11:15,333 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.37 lado=BUY �\x89� BUY) -> conf �\x970.70=0.70 (ADVISORY, sem veto)
+2026-09-16 17:11:17,340 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:11:17,357 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:11:17,381 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:11:18,152 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14478.0 | Entropia: 2.927 | ATR: 1.6 | RSI: 42.0
+2026-09-16 17:11:18,262 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.790, RSI: 0.5
+2026-09-16 17:11:18,262 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.790 | Confian�\x83§a: 0.290 | Threshold: 0.450
+2026-09-16 17:11:18,262 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:11:18,262 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:11:18,263 - INFO - ðŸ�\x80\x9cŠ MR: RSI=48.5(NEUTRO) | Z=+0.60 | ADX=0.8(LATERAL) | Veto: BUY=False SELL=False
+2026-09-16 17:11:18,263 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:11:18,263 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.790 | Threshold: 0.450
+2026-09-16 17:11:18,369 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA CONFIRMA: BUY | Confian�\x83§a aumentada: 1.00
+2026-09-16 17:11:18,369 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.36 lado=BUY �\x89� BUY) -> conf �\x970.70=0.70 (ADVISORY, sem veto)
+2026-09-16 17:11:20,390 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:11:20,393 - INFO - ðŸ�\x80\x9cŠ DOL DOLV26: ratio=1.08 lado=SELL conf=0.36 vol=2175
+2026-09-16 17:11:20,406 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:11:20,429 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:11:20,432 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15404.0 | Entropia: 2.935 | ATR: 1.6 | RSI: 42.0
+2026-09-16 17:11:20,537 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.834, RSI: 0.5
+2026-09-16 17:11:20,538 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.834 | Confian�\x83§a: 0.334 | Threshold: 0.450
+2026-09-16 17:11:20,538 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:11:20,538 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:11:20,538 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:11:20,538 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.834 | Threshold: 0.450
+2026-09-16 17:11:20,646 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.36 lado=SELL �\x89� BUY) -> conf �\x970.70=0.67 (ADVISORY, sem veto)
+2026-09-16 17:11:22,661 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:11:22,677 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:11:22,701 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:11:22,703 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15293.0 | Entropia: 2.911 | ATR: 1.6 | RSI: 42.0
+2026-09-16 17:11:22,808 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.856, RSI: 0.5
+2026-09-16 17:11:22,809 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.856 | Confian�\x83§a: 0.356 | Threshold: 0.450
+2026-09-16 17:11:22,809 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:11:22,809 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:11:22,810 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:11:22,810 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.856 | Threshold: 0.450
+2026-09-16 17:11:22,810 - INFO - ðŸ�\x80\x9cŠ MR: RSI=48.5(NEUTRO) | Z=-0.80 | ADX=0.5(LATERAL) | Veto: BUY=False SELL=False
+2026-09-16 17:11:22,927 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.38 lado=SELL �\x89� BUY) -> conf �\x970.70=0.69 (ADVISORY, sem veto)
+2026-09-16 17:11:22,929 - INFO - TENDENCIA: Preco=5168.2 | SMA=5169.1 | Diff=-0.9pts | Momentum=-2.0pts(NEUTRO) | LATERAL
+2026-09-16 17:11:24,948 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:12:03,574 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.829, RSI: 0.5
+2026-09-16 17:12:03,574 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.829 | Confian�\x83§a: 0.329 | Threshold: 0.450
+2026-09-16 17:12:03,574 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:12:03,575 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:12:03,575 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:12:03,575 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.829 | Threshold: 0.450
+2026-09-16 17:12:03,691 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.35 lado=BUY �\x89� BUY) -> conf �\x970.70=0.67 (ADVISORY, sem veto)
+2026-09-16 17:12:05,705 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:12:05,722 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:12:05,752 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:12:05,757 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15182.0 | Entropia: 2.932 | ATR: 1.6 | RSI: 43.6
+2026-09-16 17:12:05,862 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.819, RSI: 0.5
+2026-09-16 17:12:05,862 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.819 | Confian�\x83§a: 0.319 | Threshold: 0.450
+2026-09-16 17:12:05,862 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:12:05,862 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:12:05,862 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:12:05,862 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.819 | Threshold: 0.450
+2026-09-16 17:12:05,965 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.37 lado=BUY �\x89� BUY) -> conf �\x970.70=0.66 (ADVISORY, sem veto)
+2026-09-16 17:12:07,985 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:12:08,000 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:12:08,022 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:12:08,025 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15191.0 | Entropia: 2.932 | ATR: 1.6 | RSI: 43.6
+2026-09-16 17:12:08,133 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.822, RSI: 0.5
+2026-09-16 17:12:08,133 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.822 | Confian�\x83§a: 0.322 | Threshold: 0.450
+2026-09-16 17:12:08,133 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:12:08,133 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:12:08,133 - INFO - ðŸ�\x80\x9cŠ MR: RSI=50.9(NEUTRO) | Z=+0.00 | ADX=0.0(LATERAL) | Veto: BUY=False SELL=False
+2026-09-16 17:12:08,133 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:12:08,133 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.822 | Threshold: 0.450
+2026-09-16 17:12:08,238 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.37 lado=BUY �\x89� BUY) -> conf �\x970.70=0.66 (ADVISORY, sem veto)
+2026-09-16 17:12:08,241 - INFO - TENDENCIA: Preco=5168.8 | SMA=5169.2 | Diff=-0.4pts | Momentum=-2.0pts(NEUTRO) | LATERAL
+2026-09-16 17:12:10,257 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:12:10,275 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:12:10,300 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:12:10,302 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15166.0 | Entropia: 2.930 | ATR: 1.6 | RSI: 43.6
+2026-09-16 17:12:10,409 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.816, RSI: 0.5
+2026-09-16 17:12:10,409 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.816 | Confian�\x83§a: 0.316 | Threshold: 0.450
+2026-09-16 17:12:10,409 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:12:10,409 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:12:10,409 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:12:10,409 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.816 | Threshold: 0.450
+2026-09-16 17:12:10,515 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.36 lado=BUY �\x89� BUY) -> conf �\x970.70=0.66 (ADVISORY, sem veto)
+2026-09-16 17:12:12,525 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:12:12,541 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:12:12,572 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:12:12,576 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15166.0 | Entropia: 2.930 | ATR: 1.6 | RSI: 43.6
+2026-09-16 17:12:12,700 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.816, RSI: 0.5
+2026-09-16 17:12:12,700 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.816 | Confian�\x83§a: 0.316 | Threshold: 0.450
+2026-09-16 17:12:12,701 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:12:12,701 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:12:12,701 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:12:12,701 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.816 | Threshold: 0.450
+2026-09-16 17:12:12,701 - INFO - ðŸ�\x80\x9cŠ MR: RSI=50.9(NEUTRO) | Z=+0.00 | ADX=0.0(LATERAL) | Veto: BUY=False SELL=False
+2026-09-16 17:12:12,808 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.36 lado=BUY �\x89� BUY) -> conf �\x970.70=0.66 (ADVISORY, sem veto)
+2026-09-16 17:12:14,825 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:12:14,841 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:12:14,864 - WARNING - [normalizar_dados] �\x9a��\x8f 3 valores fora de [0,1] foram clipped
+2026-09-16 17:12:15,468 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15647.0 | Entropia: 2.932 | ATR: 1.6 | RSI: 43.6
+2026-09-16 17:12:15,573 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.736, RSI: 0.5
+2026-09-16 17:12:15,574 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.736 | Confian�\x83§a: 0.236 | Threshold: 0.450
+2026-09-16 17:12:15,574 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:12:15,574 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:12:15,574 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:12:15,574 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.736 | Threshold: 0.450
+2026-09-16 17:12:15,680 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA CONFIRMA: BUY | Confian�\x83§a aumentada: 1.00
+2026-09-16 17:12:15,680 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.37 lado=BUY �\x89� BUY) -> conf �\x970.70=0.70 (ADVISORY, sem veto)
+2026-09-16 17:12:17,696 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:12:17,716 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:12:17,751 - WARNING - [normalizar_dados] �\x9a��\x8f 3 valores fora de [0,1] foram clipped
+2026-09-16 17:12:19,154 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15661.0 | Entropia: 2.933 | ATR: 1.6 | RSI: 43.6
+2026-09-16 17:12:19,262 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.736, RSI: 0.5
+2026-09-16 17:12:19,262 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.736 | Confian�\x83§a: 0.236 | Threshold: 0.450
+2026-09-16 17:12:19,262 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:12:19,262 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:12:19,263 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:12:19,263 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.736 | Threshold: 0.450
+2026-09-16 17:12:19,370 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA CONFIRMA: BUY | Confian�\x83§a aumentada: 1.00
+2026-09-16 17:12:19,370 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.38 lado=BUY �\x89� BUY) -> conf �\x970.70=0.70 (ADVISORY, sem veto)
+2026-09-16 17:12:21,381 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:12:21,397 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:12:21,420 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:12:21,422 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15643.0 | Entropia: 2.931 | ATR: 1.6 | RSI: 43.6
+2026-09-16 17:12:21,528 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.845, RSI: 0.5
+2026-09-16 17:12:21,529 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.845 | Confian�\x83§a: 0.345 | Threshold: 0.450
+2026-09-16 17:12:21,529 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:12:21,529 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:12:21,529 - INFO - ðŸ�\x80\x9cŠ MR: RSI=50.9(NEUTRO+Z_ESTICADO) | Z=-1.69 | ADX=0.3(LATERAL) | Veto: BUY=False SELL=True
+2026-09-16 17:12:21,529 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:12:21,529 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.845 | Threshold: 0.450
+2026-09-16 17:12:21,638 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.36 lado=BUY �\x89� BUY) -> conf �\x970.70=0.68 (ADVISORY, sem veto)
+2026-09-16 17:12:23,661 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:12:23,676 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:12:23,698 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:12:23,700 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15641.0 | Entropia: 2.931 | ATR: 1.6 | RSI: 43.6
+2026-09-16 17:12:23,806 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.845, RSI: 0.5
+2026-09-16 17:12:23,806 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.845 | Confian�\x83§a: 0.345 | Threshold: 0.450
+2026-09-16 17:12:23,806 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:12:23,806 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:12:23,806 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:12:23,806 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.845 | Threshold: 0.450
+2026-09-16 17:13:04,734 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:13:04,751 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:13:04,776 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:13:04,780 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15425.0 | Entropia: 2.911 | ATR: 1.5 | RSI: 46.3
+2026-09-16 17:13:04,890 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.853, RSI: 0.5
+2026-09-16 17:13:04,891 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.853 | Confian�\x83§a: 0.353 | Threshold: 0.450
+2026-09-16 17:13:04,891 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:13:04,891 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:13:04,891 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:13:04,891 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.853 | Threshold: 0.450
+2026-09-16 17:13:04,998 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.39 lado=BUY �\x89� BUY) -> conf �\x970.70=0.69 (ADVISORY, sem veto)
+2026-09-16 17:13:07,009 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:13:07,027 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:13:07,049 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:13:07,052 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15450.0 | Entropia: 2.912 | ATR: 1.5 | RSI: 46.3
+2026-09-16 17:13:07,158 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.852, RSI: 0.5
+2026-09-16 17:13:07,158 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.852 | Confian�\x83§a: 0.352 | Threshold: 0.450
+2026-09-16 17:13:07,158 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:13:07,158 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:13:07,159 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:13:07,159 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.852 | Threshold: 0.450
+2026-09-16 17:13:07,159 - INFO - ðŸ�\x80\x9cŠ MR: RSI=55.1(NEUTRO) | Z=+0.00 | ADX=0.0(LATERAL) | Veto: BUY=False SELL=False
+2026-09-16 17:13:07,266 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.35 lado=BUY �\x89� BUY) -> conf �\x970.70=0.69 (ADVISORY, sem veto)
+2026-09-16 17:13:09,279 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:13:09,296 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:13:09,321 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:13:09,323 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15450.0 | Entropia: 2.912 | ATR: 1.5 | RSI: 46.3
+2026-09-16 17:13:09,427 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.852, RSI: 0.5
+2026-09-16 17:13:09,427 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.852 | Confian�\x83§a: 0.352 | Threshold: 0.450
+2026-09-16 17:13:09,427 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:13:09,428 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:13:09,428 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:13:09,428 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.852 | Threshold: 0.450
+2026-09-16 17:13:09,534 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.35 lado=BUY �\x89� BUY) -> conf �\x970.70=0.69 (ADVISORY, sem veto)
+2026-09-16 17:13:11,551 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:13:11,567 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:13:11,592 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:13:11,595 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15524.0 | Entropia: 2.924 | ATR: 1.5 | RSI: 46.3
+2026-09-16 17:13:11,704 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.845, RSI: 0.5
+2026-09-16 17:13:11,705 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.845 | Confian�\x83§a: 0.345 | Threshold: 0.450
+2026-09-16 17:13:11,705 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:13:11,705 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:13:11,705 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:13:11,705 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.845 | Threshold: 0.450
+2026-09-16 17:13:11,811 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.38 lado=BUY �\x89� BUY) -> conf �\x970.70=0.68 (ADVISORY, sem veto)
+2026-09-16 17:13:13,828 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:13:13,845 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:13:13,869 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:13:13,872 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15393.0 | Entropia: 2.901 | ATR: 1.5 | RSI: 46.3
+2026-09-16 17:13:13,984 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.856, RSI: 0.5
+2026-09-16 17:13:13,984 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.856 | Confian�\x83§a: 0.356 | Threshold: 0.450
+2026-09-16 17:13:13,985 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:13:13,985 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:13:13,985 - INFO - ðŸ�\x80\x9cŠ MR: RSI=55.1(NEUTRO) | Z=+0.00 | ADX=0.0(LATERAL) | Veto: BUY=False SELL=False
+2026-09-16 17:13:13,985 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:13:13,985 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.856 | Threshold: 0.450
+2026-09-16 17:13:14,091 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.35 lado=BUY �\x89� BUY) -> conf �\x970.70=0.69 (ADVISORY, sem veto)
+2026-09-16 17:13:16,106 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:13:16,121 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:13:16,146 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:13:16,971 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15398.0 | Entropia: 2.902 | ATR: 1.5 | RSI: 46.3
+2026-09-16 17:13:17,080 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.856, RSI: 0.5
+2026-09-16 17:13:17,080 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.856 | Confian�\x83§a: 0.356 | Threshold: 0.450
+2026-09-16 17:13:17,080 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:13:17,080 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:13:17,080 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:13:17,081 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.856 | Threshold: 0.450
+2026-09-16 17:13:17,186 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.35 lado=BUY �\x89� BUY) -> conf �\x970.70=0.69 (ADVISORY, sem veto)
+2026-09-16 17:13:19,201 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:13:19,216 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:13:19,241 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:13:20,560 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15398.0 | Entropia: 2.902 | ATR: 1.5 | RSI: 46.3
+2026-09-16 17:13:20,674 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.856, RSI: 0.5
+2026-09-16 17:13:20,674 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.856 | Confian�\x83§a: 0.356 | Threshold: 0.450
+2026-09-16 17:13:20,675 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:13:20,675 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:13:20,675 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:13:20,675 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.856 | Threshold: 0.450
+2026-09-16 17:13:20,675 - INFO - ðŸ�\x80\x9cŠ MR: RSI=55.1(NEUTRO) | Z=+0.00 | ADX=0.0(LATERAL) | Veto: BUY=False SELL=False
+2026-09-16 17:13:20,781 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.35 lado=BUY �\x89� BUY) -> conf �\x970.70=0.69 (ADVISORY, sem veto)
+2026-09-16 17:13:20,784 - INFO - TENDENCIA: Preco=5168.2 | SMA=5169.2 | Diff=-1.0pts | Momentum=-2.0pts(NEUTRO) | LATERAL
+2026-09-16 17:13:22,793 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:13:22,796 - INFO - ðŸ�\x80\x9cŠ DOL DOLV26: ratio=1.11 lado=BUY conf=0.37 vol=2025
+2026-09-16 17:13:22,813 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:13:22,837 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:13:22,840 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15310.0 | Entropia: 2.931 | ATR: 1.6 | RSI: 46.3
+2026-09-16 17:13:22,955 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.820, RSI: 0.5
+2026-09-16 17:13:22,955 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.820 | Confian�\x83§a: 0.320 | Threshold: 0.450
+2026-09-16 17:13:22,955 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:13:22,955 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:13:22,955 - WARNING - ðŸš« MR VETO BUY: RSI=55.1(NEUTRO+Z_ESTICADO) | Z=+4.25 | ADX=0.3(LATERAL)
+2026-09-16 17:13:24,969 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:13:24,986 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:13:25,008 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:13:25,010 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15162.0 | Entropia: 2.918 | ATR: 1.6 | RSI: 46.3
+2026-09-16 17:13:25,119 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.810, RSI: 0.5
+2026-09-16 17:13:25,119 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.810 | Confian�\x83§a: 0.310 | Threshold: 0.450
+2026-09-16 17:13:25,119 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:13:25,119 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:13:25,120 - WARNING - ðŸš« MR VETO BUY: RSI=55.1(NEUTRO+Z_ESTICADO) | Z=+2.92 | ADX=0.3(LATERAL)
+2026-09-16 17:14:03,399 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:14:03,460 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:14:03,463 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15375.0 | Entropia: 2.921 | ATR: 1.6 | RSI: 46.3
+2026-09-16 17:14:03,613 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.845, RSI: 0.5
+2026-09-16 17:14:03,614 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.845 | Confian�\x83§a: 0.345 | Threshold: 0.450
+2026-09-16 17:14:03,614 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:14:03,614 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:14:03,614 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:14:03,614 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.845 | Threshold: 0.450
+2026-09-16 17:14:03,738 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.38 lado=BUY �\x89� BUY) -> conf �\x970.70=0.68 (ADVISORY, sem veto)
+2026-09-16 17:14:05,760 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:14:05,777 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:14:05,801 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:14:05,803 - INFO - BLOQUEIO: Mercado lateral demais: ATR 1.5 < 1.5
+2026-09-16 17:14:05,806 - INFO - TENDENCIA: Preco=5168.8 | SMA=5169.3 | Diff=-0.5pts | Momentum=-2.0pts(NEUTRO) | LATERAL
+2026-09-16 17:14:07,821 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:14:07,837 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:14:07,860 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:14:07,862 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14993.0 | Entropia: 2.921 | ATR: 1.5 | RSI: 43.6
+2026-09-16 17:14:07,967 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.808, RSI: 0.5
+2026-09-16 17:14:07,967 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.808 | Confian�\x83§a: 0.308 | Threshold: 0.450
+2026-09-16 17:14:07,967 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:14:07,967 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:14:07,967 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:14:07,967 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.808 | Threshold: 0.450
+2026-09-16 17:14:07,968 - INFO - ðŸ�\x80\x9cŠ MR: RSI=50.9(NEUTRO) | Z=+0.32 | ADX=0.5(LATERAL) | Veto: BUY=False SELL=False
+2026-09-16 17:14:08,075 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.38 lado=BUY �\x89� BUY) -> conf �\x970.70=0.65 (ADVISORY, sem veto)
+2026-09-16 17:14:10,085 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:14:10,101 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:14:10,125 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:14:10,127 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14909.0 | Entropia: 2.914 | ATR: 1.5 | RSI: 43.6
+2026-09-16 17:14:10,238 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.802, RSI: 0.5
+2026-09-16 17:14:10,238 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.802 | Confian�\x83§a: 0.302 | Threshold: 0.450
+2026-09-16 17:14:10,238 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:14:10,238 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:14:10,238 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:14:10,238 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.802 | Threshold: 0.450
+2026-09-16 17:14:10,359 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.36 lado=BUY �\x89� BUY) -> conf �\x970.70=0.65 (ADVISORY, sem veto)
+2026-09-16 17:14:12,373 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:14:12,394 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:14:12,430 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:14:12,434 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14895.0 | Entropia: 2.912 | ATR: 1.5 | RSI: 43.6
+2026-09-16 17:14:12,554 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.801, RSI: 0.5
+2026-09-16 17:14:12,554 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.801 | Confian�\x83§a: 0.301 | Threshold: 0.450
+2026-09-16 17:14:12,554 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:14:12,554 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:14:12,554 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:14:12,554 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.801 | Threshold: 0.450
+2026-09-16 17:14:12,662 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.36 lado=BUY �\x89� BUY) -> conf �\x970.70=0.64 (ADVISORY, sem veto)
+2026-09-16 17:14:14,671 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:14:14,687 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:14:14,710 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:14:14,713 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14944.0 | Entropia: 2.912 | ATR: 1.5 | RSI: 43.6
+2026-09-16 17:14:14,831 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.798, RSI: 0.5
+2026-09-16 17:14:14,831 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.798 | Confian�\x83§a: 0.298 | Threshold: 0.450
+2026-09-16 17:14:14,831 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:14:14,831 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:14:14,831 - INFO - ðŸ�\x80\x9cŠ MR: RSI=50.9(NEUTRO) | Z=+0.32 | ADX=0.5(LATERAL) | Veto: BUY=False SELL=False
+2026-09-16 17:14:14,832 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:14:14,832 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.798 | Threshold: 0.450
+2026-09-16 17:14:14,943 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA CONFIRMA: BUY | Confian�\x83§a aumentada: 1.00
+2026-09-16 17:14:14,943 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.35 lado=BUY �\x89� BUY) -> conf �\x970.70=0.70 (ADVISORY, sem veto)
+2026-09-16 17:14:16,963 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:14:16,980 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:14:17,002 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:14:17,703 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14691.0 | Entropia: 2.918 | ATR: 1.5 | RSI: 43.6
+2026-09-16 17:14:17,814 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.796, RSI: 0.5
+2026-09-16 17:14:17,814 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.796 | Confian�\x83§a: 0.296 | Threshold: 0.450
+2026-09-16 17:14:17,814 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:14:17,814 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:14:17,814 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:14:17,814 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.796 | Threshold: 0.450
+2026-09-16 17:14:17,924 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA CONFIRMA: BUY | Confian�\x83§a aumentada: 1.00
+2026-09-16 17:14:17,924 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.36 lado=BUY �\x89� BUY) -> conf �\x970.70=0.70 (ADVISORY, sem veto)
+2026-09-16 17:14:19,947 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:14:19,964 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:14:19,987 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:14:21,545 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 14625.0 | Entropia: 2.898 | ATR: 1.5 | RSI: 43.6
+2026-09-16 17:14:21,654 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.793, RSI: 0.5
+2026-09-16 17:14:21,654 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.793 | Confian�\x83§a: 0.293 | Threshold: 0.450
+2026-09-16 17:14:21,654 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:14:21,654 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:14:21,654 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:14:21,654 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.793 | Threshold: 0.450
+2026-09-16 17:14:21,655 - INFO - ðŸ�\x80\x9cŠ MR: RSI=50.9(NEUTRO) | Z=+0.32 | ADX=0.5(LATERAL) | Veto: BUY=False SELL=False
+2026-09-16 17:14:21,763 - INFO - ðŸŽ¯ CONFLU�\x83ŠNCIA CONFIRMA: BUY | Confian�\x83§a aumentada: 1.00
+2026-09-16 17:14:21,763 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.34 lado=BUY �\x89� BUY) -> conf �\x970.70=0.70 (ADVISORY, sem veto)
+2026-09-16 17:14:23,782 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:14:23,798 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:14:23,823 - WARNING - [normalizar_dados] �\x9a��\x8f 2 valores fora de [0,1] foram clipped
+2026-09-16 17:14:23,825 - INFO - â�\x93�\x80� C10: SETUP APROVADO! Score: 6/11 | Vol: 15172.0 | Entropia: 2.930 | ATR: 1.5 | RSI: 43.6
+2026-09-16 17:14:23,929 - INFO - ðŸ�\x80\x9cŠ Estado atual - Prob. compra: 0.818, RSI: 0.5
+2026-09-16 17:14:23,930 - INFO - ðŸ�\x80\x9cŠ Decis�\x83£o por probabilidade: BUY | Prob: 0.818 | Confian�\x83§a: 0.318 | Threshold: 0.450
+2026-09-16 17:14:23,930 - INFO - â­�\x90 SETUP PREMIUM (score 6/11) - Alta confian�\x83§a
+2026-09-16 17:14:23,930 - INFO - ðŸŽ¯ DECIS�\x83�\x92O FINAL normal: BUY
+2026-09-16 17:14:23,930 - INFO - ðŸ�\x80\x9d�\x80\x9e Balanceamento - BUY: 0.0% | SELL: 0.0%
+2026-09-16 17:14:23,930 - INFO - ðŸ�\x80\x9c�\x86 Decis�\x83£o normal: BUY | Prob: 0.818 | Threshold: 0.450
+2026-09-16 17:14:24,037 - WARNING - �\x9a��\x8f DOL fraco/desalinhado (conf=0.35 lado=BUY �\x89� BUY) -> conf �\x970.70=0.66 (ADVISORY, sem veto)
+2026-09-16 17:14:26,050 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:14:26,066 - INFO - â�\x93�\x80� Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json
+2026-09-16 17:15:30,207 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:15:30,209 - INFO - ðŸ�\x80\x9d�\x8d Verificando integridade do modelo: modelo_monstro_wdo.h5
+2026-09-16 17:15:30,364 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-09-16 17:16:00,382 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:16:30,390 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:17:00,393 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:17:30,399 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:18:00,416 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:18:30,434 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:19:00,449 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:19:30,459 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:20:00,469 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:20:00,470 - INFO - ðŸš« Fora do hor�\x83¡rio PA1 (17:20) â�\x82��\x80\x9d aguardando pr�\x83³xima janela (09:15-12:30 / 14:30-17:15)
+2026-09-16 17:20:30,482 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:20:30,486 - INFO - ðŸ�\x80\x9d�\x8d Verificando integridade do modelo: modelo_monstro_wdo.h5
+2026-09-16 17:20:40,742 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-09-16 17:21:10,759 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:21:40,776 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:22:10,787 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:22:40,801 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:23:10,809 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:23:40,817 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:24:10,825 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:24:40,833 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:25:10,849 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:25:10,850 - INFO - ðŸš« Fora do hor�\x83¡rio PA1 (17:25) â�\x82��\x80\x9d aguardando pr�\x83³xima janela (09:15-12:30 / 14:30-17:15)
+2026-09-16 17:25:40,857 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:25:40,860 - INFO - ðŸ�\x80\x9d�\x8d Verificando integridade do modelo: modelo_monstro_wdo.h5
+2026-09-16 17:25:41,422 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-09-16 17:26:11,441 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:26:41,457 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:27:11,461 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:27:41,473 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:28:11,488 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:28:41,493 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:29:11,502 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:29:41,508 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:30:11,511 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:30:11,512 - INFO - ðŸ§  TREINO DA TARDE: Iniciando treino antes do encerramento...
+2026-09-16 17:30:11,512 - INFO - â�\x93�\x80� TREINO DA TARDE CONCLU�\x83�\x8dDO. Aguardando encerramento �\x83 s 17:35...
+2026-09-16 17:31:11,525 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:31:11,528 - INFO - ðŸ�\x80\x9d�\x8d Verificando integridade do modelo: modelo_monstro_wdo.h5
+2026-09-16 17:31:11,720 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2026-09-16 17:31:11,722 - INFO - ðŸš« Fora do hor�\x83¡rio PA1 (17:31) â�\x82��\x80\x9d aguardando pr�\x83³xima janela (09:15-12:30 / 14:30-17:15)
+2026-09-16 17:31:41,735 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:32:11,752 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:32:41,761 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:33:11,769 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:33:41,774 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
+2026-09-16 17:34:11,791 - ERROR - [ROMPIMENTO] Erro no orquestrar(): tuple indices must be integers or slices, not str
