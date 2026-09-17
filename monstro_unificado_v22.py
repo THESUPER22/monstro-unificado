@@ -6699,52 +6699,92 @@ def verificar_parada_gracil():
 def alimentar_experiencia_rompimento():
     """PLUG P4 - conecta a Faixa 1 (magic 7008) ao feed de experiencias do v22.
 
-    Le o estado real do orquestrador de rompimento (state.json). Se o trade do
-    dia fechou com resultado REAL (final=True e saida != S/TRADE), alimenta os
-    mesmos canais que o v22 usa (memoria_experiencias.adicionar +
-    salvar_experiencia_csv, que ja incrementa contador_experiencias_novas).
-    Idempotente por dia: alimenta apenas 1x por dia fechado.
+    Fonte DURAVEL: rompimento_trades.csv (append-only do orquestrador). Cada
+    dia com saida REAL (nao S/TRADE) e alimentado UMA vez nos mesmos canais do
+    v22 (memoria_experiencias.adicionar + salvar_experiencia_csv, que ja
+    incrementa contador_experiencias_novas). Dedup PERSISTENTE em
+    p4_feed_pendentes.json: sobrevive a restart e a virada de dia (o state e o
+    proprio CSV de trades sao dropados/zerados quando o orquestrador inicia o
+    novo pregão). Deve ser chamado ANTES de _orq.orquestrar() no loop.
 
     NAO altera a captura do v22 (magic 123456): adicao puramente aditiva.
     """
     global _ultimo_dia_feed_rompimento
     try:
-        sp = _carregar_state_rompimento_faixa1()
-        if not sp or sp.get("final") is not True:
-            return
-        if sp.get("saida") in (None, "", "S/TRADE"):
-            return
-        dia = sp.get("dia")
-        if dia == _ultimo_dia_feed_rompimento:
-            return
-        _ultimo_dia_feed_rompimento = dia
-        acao = "BUY" if str(sp.get("side") or "").strip().upper() == "C" else "SELL"
-        try:
-            lucro = float(sp.get("pts") or 0.0)
-        except Exception:
-            lucro = 0.0
-        # Replica o padrao do v22 (linhas 7343-7346) com contexto minimo seguro
-        if memoria_experiencias is not None:
-            memoria_experiencias.adicionar(_CONTEXTO_ROMPIMENTO.copy(), acao, lucro, 0.0)
-        salvar_experiencia_csv(_CONTEXTO_ROMPIMENTO.copy(), acao, lucro, 0.0)
-        logging.info(f"[ROMPIMENTO] plug P4: feed experiencia {dia} {acao} pts={lucro} "
-                     f"contador={contador_experiencias_novas}/{LIMITE_EXPERIENCIAS_PARA_TREINO}")
+        rows = _carregar_trades_faixa1()
+        for rec in rows:
+            if rec.get("saida") in (None, "", "S/TRADE"):
+                continue
+            dia = rec.get("dia")
+            if not dia:
+                continue
+            if _dia_faixa1_ja_alimentado(dia):
+                continue
+            _marcar_dia_faixa1_alimentado(dia)
+            _ultimo_dia_feed_rompimento = dia
+            acao = "BUY" if str(rec.get("side") or "").strip().upper() == "C" else "SELL"
+            try:
+                lucro = float(rec.get("pts") or 0.0)
+            except Exception:
+                lucro = 0.0
+            # Replica o padrao do v22 (linhas 7343-7346) com contexto minimo seguro
+            if memoria_experiencias is not None:
+                memoria_experiencias.adicionar(_CONTEXTO_ROMPIMENTO.copy(), acao, lucro, 0.0)
+            salvar_experiencia_csv(_CONTEXTO_ROMPIMENTO.copy(), acao, lucro, 0.0)
+            logging.info(f"[ROMPIMENTO] plug P4: feed experiencia {dia} {acao} pts={lucro} "
+                         f"contador={contador_experiencias_novas}/{LIMITE_EXPERIENCIAS_PARA_TREINO}")
     except Exception as e:
         logging.error(f"[ROMPIMENTO] plug P4 falhou ao alimentar experiencia: {e}")
 
 
-def _carregar_state_rompimento_faixa1():
-    """Le rompimento_state.json (mesmo schema do orquestrador). Read-only."""
+def _carregar_trades_faixa1():
+    """Le rompimento_trades.csv (schema do orquestrador). Read-only."""
     try:
         p = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                         "logs", "rompimento", "rompimento_state.json")
+                         "logs", "rompimento", "rompimento_trades.csv")
         if not os.path.exists(p):
-            return None
-        with open(p, encoding="utf-8") as f:
-            st = json.load(f)
-        return st if isinstance(st, dict) else None
+            return []
+        with open(p, encoding="utf-8-sig") as f:
+            import csv as _csv
+            return list(_csv.DictReader(f))
     except Exception:
-        return None
+        return []
+
+
+def _arquivo_dedup_faixa1():
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "logs", "rompimento", "p4_feed_pendentes.json")
+
+
+def _dia_faixa1_ja_alimentado(dia):
+    try:
+        p = _arquivo_dedup_faixa1()
+        if not os.path.exists(p):
+            return False
+        with open(p, encoding="utf-8") as f:
+            data = json.load(f)
+        return dia in data if isinstance(data, list) else False
+    except Exception:
+        return False
+
+
+def _marcar_dia_faixa1_alimentado(dia):
+    try:
+        p = _arquivo_dedup_faixa1()
+        data = []
+        if os.path.exists(p):
+            try:
+                with open(p, encoding="utf-8") as f:
+                    data = json.load(f)
+                data = data if isinstance(data, list) else []
+            except Exception:
+                data = []
+        if dia not in data:
+            data.append(dia)
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+    except Exception as e:
+        logging.error(f"[ROMPIMENTO] plug P4: falha ao marcar dedup {dia}: {e}")
 
 
 _CONTEXTO_ROMPIMENTO = dict(
@@ -6873,15 +6913,17 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
             try:
                 # ===== v22.2: estado multi-estrategia + orquestrador Rompimento =====
                 _atualizar_estado_sistema()
+                # Plug P4 roda ANTES do orquestrar() para capturar trades do dia
+                # anterior (state/CSV ainda nao dropados pelo novo pregão)
                 if _orq is not None:
-                    try:
-                        _orq.orquestrar()
-                    except Exception as e:
-                        logging.error(f"[ROMPIMENTO] Erro no orquestrar(): {e}")
                     try:
                         alimentar_experiencia_rompimento()
                     except Exception as e:
                         logging.error(f"[ROMPIMENTO] Erro no plug P4: {e}")
+                    try:
+                        _orq.orquestrar()
+                    except Exception as e:
+                        logging.error(f"[ROMPIMENTO] Erro no orquestrar(): {e}")
 
                 # ===== VERIFICAÃâ¡ÃÆO DE SEGURANÃâ¡A DA VARIÃÂVEL POSICAO_ATUAL =====
                 # Garante que posicao_atual sempre exista (inicializada como None se necessÃÂ¡rio)
