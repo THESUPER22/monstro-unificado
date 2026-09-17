@@ -1,8 +1,8 @@
 # 🚀 ROADMAP OFICIAL — MONSTRO TRADER V2
-**Última atualização:** 10/09/2026
-**Versão:** Monstro Unificado V22 (Engine v22.2 — Faixa 1: Rompimento da 1ª Hora substitui Sete Velas)
+**Última atualização:** 16/09/2026
+**Versão:** Monstro Unificado V22 (Engine v22.4 — Faixa 1: Rompimento da 1ª Hora + autópsia P1–P5)
 **Arquivo principal:** `monstro_unificado_v22.py`
-**Status geral:** Fase 10 concluída; v22.2 (Fase 3) implementada — Rompimento da 1ª Hora em produção (WDO 5 CC), Sete Velas removido por completo (10/09/2026)
+**Status geral:** v22.4 em produção; Faixa 1 (Rompimento 1ª Hora, magic 7008) com janela REAL 09–11h ativa desde 16/09/2026; autópsia de 16/09 concluída (P1–P5 commitados)
 
 ---
 
@@ -971,6 +971,50 @@ python -c "from tensorflow.keras.models import load_model; m=load_model('modelo_
 - Sem trade na janela → registrado `S/TRADE` (1 linha/dia).
 - Repositório: mudanças comitadas nesta revisão; **não** commitar `backup_pre_rompimento_20260910/` (pasta de backup no disco, fora do git).
 - Próxima verificação: **16/09 — 1º pregão ao vivo com a Faixa 1 na janela REAL 09–11h** (monitorar `logs/rompimento/rompimento_trades.csv`, gateway e EOD 17:30).
+
+---
+
+# 🔬 AUTÓPSIA 16/09/2026 — PRIORIDADES P1–P5 (CICLO ENCERRADO)
+
+> Primeiro pregão ao vivo da Faixa 1 na janela **REAL 09–11h** (v22.4, fuso corrigido). Resultado do dia: 1 trade real da Faixa 1 encerrado (SL) + relatório do fecho (17:35) corrigido. Planejamento em `plano_20260916.txt`; autópsia detalhada em `Autopsia_16_09_2026.md`.
+
+## 📊 Pregão 16/09/2026 — fatos verificados
+- **Faixa 1 (rompimento 1ª hora, magic 7008):** 1 trade real — `side=C (BUY), saida=SL, pts=-19.5` (posição fechada no servidor). Registrado em `logs/rompimento/rompimento_trades.csv` e `rompimento_state.json` (`final=true`).
+- **v22 Core (magic 123456):** 0 trades no dia (nenhuma operação real). `historico_contexto_wdo.csv` = 740 linhas `NAO_AGIU` (contextos sem trade) — nominal.
+- **Relatório do fecho (17:35):** integração P3 passou a somar `n_v22 + n_romp` no cabeçalho (antes reportava "Trades executados: 0" apesar do trade de rompimento — visão cega).
+
+## 🚀 Prioridades executadas (autópsia pós-sessão)
+### P1 — Tracking e Posição Nula (`268981c`)
+O rastreador do v22 passou a **ignorar o magic 7008** — eliminou o *fallback* de ~1.484 tentativas de fechamento/estado desativado quando a Faixa 1 estava posicionada (lógica multi-magic isolada por magic). Magic 123456 (Core) e 7008 (rompimento) nunca mais se confundem.
+
+### P2 — Sequenciador Sniper vs. Rompimento (PROPOSTA — arquivada)
+Mapeados os 25 disparos bloqueados do Sniper no dia: o gate `ROMPIMENTO_EXCLUSIVO` pausa todo o Core enquanto a Faixa 1 decide/segura posição (proteção por design). Proposta de sequenciador para liberar o Core em dias **sem trade** do rompimento, mantendo a trava de proteção. **Sem deploy** — reservada para validação em simulação/backtest antes de qualquer mudança.
+
+### P3 — Observabilidade no fecho (`f28ed55`)
+`agente_monstro_core.py` ajustado: `contar_executados_hoje()` (v22 core), `contar_executados_rompimento_hoje()` (ler `rompimento_trades.csv`, `saida != S/TRADE`) e `contar_executados_consolidado_hoje()` — cabeçalho do relatório das 17:35 soma as duas fontes. Validado: compila, `hoje=0`, `romp=1`, `consol=1`.
+
+### P4 — Memória de treino (`5f8474d`)
+Conectou a Faixa 1 ao buffer de experiências (`memoria_experiencias.adicionar` + `salvar_experiencia_csv`, que incrementa `contador_experiencias_novas`). O módulo de rompimento **nunca alimentava** o aprendizado → modelo congelado (`experiencias_wdo.json` vazio). Agora trades reais da Faixa 1 contam para o gate `LIMITE_EXPERIENCIAS_PARA_TREINO=3` → destravam o retreino.
+
+### P5 — Integridade pós-restart + correção de persistência (`a900501`)
+- **Validação:** `historico_contexto_wdo.csv` íntegro (740 linhas, 21 colunas, 0 não-numéricos); tuple-indices pós-boot 200/200 sem fora-de-limites/sobreposição; contador pós-load correto.
+- **Bug crítico (persistência):** o plug P4 original lia `rompimento_state.json`, **zerado na virada do dia** pelo orquestrador (`st = {}`) — trades fechados na noite anterior seriam perdidos antes de virar aprendizado.
+- **Correção:** plug reescrito para ler a **fonte durável** `rompimento_trades.csv` (append-only) com **dedup persistente** (`p4_feed_pendentes.json` — sobrevive a restart e virada de dia). Ordem invertida no loop: o plug roda **antes** de `_orq.orquestrar()`.
+- **Backfill:** SL real de 16/09 (`BUY, reward=-19.5`) gravado direto no `historico_contexto_wdo.csv` (fonte recarregada no boot), com backup `.bak_p4`. No próximo boot: contador = 1/3; retreino dispara ao consolidar 3 trades reais (v22 + Faixa 1).
+
+## ✅ Estado do sistema pós-autópsia
+| Item | Valor |
+|---|---|
+| Commit da cadeia | `e32d816` → `268981c` → `f28ed55` → `5f8474d` → `a900501` |
+| Magic v22 Core / Rompimento | 123456 / 7008 (isolados via tracker P1) |
+| `experiencias_wdo.json` | `[]` (nominal — será alimentado no boot via backfill) |
+| `rompimento_trades.csv` | dias 11/14/15 `S/TRADE`; **16/09 `SL -19.5`** |
+| Working tree | limpo (fora do escopo: `Novo Documento de Texto.txt`, não commitado) |
+
+## 👉 Próximas verificações
+- **17/09 (quinta):** dia 2 da Faixa 1 na janela real — conferir boot (backfill → contador 1/3), fecho consolidado P3 e, se consolidar 3 trades reais, primeiro retreino com aprendizado da Faixa 1.
+- **P2 (sequenciador):** validação em simulação/backtest antes de qualquer decisão.
+- **Homologação Faixa 1:** aguarda amostra out-of-sample (parâmetros congelados — protocolo 04/09).
 
 ---
 
