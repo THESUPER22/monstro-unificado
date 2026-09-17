@@ -390,10 +390,15 @@ ESTADO_SISTEMA = "PADRAO_MONSTRO"
 
 
 def _tem_posicao_rompimento():
-    """True enquanto houver posicao aberta do Rompimento (magic 7008)."""
+    """True enquanto houver posicao aberta do Rompimento (magic 7008).
+
+    NOTA: mt5.positions_get NAO aceita filtro por magic (so symbol/ticket/
+    group) - passar magic=... e ignorado silenciosamente e retorna TODAS as
+    posicoes, travando o estado em ROMPIMENTO_EXCLUSIVO. Filtramos em Python
+    (mesmo padrao de fechar_todas_posicoes)."""
     try:
-        pos = mt5.positions_get(magic=MAGIC_ROMPIMENTO)
-        return bool(pos)
+        pos = mt5.positions_get()
+        return any(p.magic == MAGIC_ROMPIMENTO for p in (pos or []))
     except Exception:
         return False
 

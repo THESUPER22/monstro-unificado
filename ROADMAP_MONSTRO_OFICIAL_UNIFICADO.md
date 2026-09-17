@@ -1,8 +1,8 @@
 # 🚀 ROADMAP OFICIAL — MONSTRO TRADER V2
-**Última atualização:** 16/09/2026
-**Versão:** Monstro Unificado V22 (Engine v22.4 — Faixa 1: Rompimento da 1ª Hora + autópsia P1–P5)
+**Última atualização:** 17/09/2026
+**Versão:** Monstro Unificado V22 (Engine v22.4 — Faixa 1: Rompimento da 1ª Hora + autópsia P1–P6)
 **Arquivo principal:** `monstro_unificado_v22.py`
-**Status geral:** v22.4 em produção; Faixa 1 (Rompimento 1ª Hora, magic 7008) com janela REAL 09–11h ativa desde 16/09/2026; autópsia de 16/09 concluída (P1–P5 commitados)
+**Status geral:** v22.4 em produção; Faixa 1 (Rompimento 1ª Hora, magic 7008) com janela REAL 09–11h ativa desde 16/09/2026; autópsias de 16/09 (P1–P5) e 17/09 (P6 — bug crítico `positions_get(magic=...)` + posição fantasma) concluídas
 
 ---
 
@@ -1015,6 +1015,50 @@ Conectou a Faixa 1 ao buffer de experiências (`memoria_experiencias.adicionar` 
 - **17/09 (quinta):** dia 2 da Faixa 1 na janela real — conferir boot (backfill → contador 1/3), fecho consolidado P3 e, se consolidar 3 trades reais, primeiro retreino com aprendizado da Faixa 1.
 - **P2 (sequenciador):** validação em simulação/backtest antes de qualquer decisão.
 - **Homologação Faixa 1:** aguarda amostra out-of-sample (parâmetros congelados — protocolo 04/09).
+
+---
+
+# 🔬 AUTÓPSIA 17/09/2026 — BUG CRÍTICO: `positions_get(magic=...)` + POSIÇÃO FANTASMA (P6)
+
+> Segundo pregão da Faixa 1 na janela **REAL 09–11h**. **Achado cirúrgico:** o Core v22 passou o dia inteiro travado em `ROMPIMENTO_EXCLUSIVO` (20 ordens Sniper do Core bloqueadas entre 09:33 e 12:08) **apesar** do trade da Faixa 1 ter encerrado às 10:33. Não era falta de entradas boas — era um bug de API MetaTrader5 acoplado a uma posição legada e vencida.
+
+## 📊 Pregão 17/09/2026 — fatos verificados
+- **Faixa 1 (rompimento 1ª hora, magic 7008):** 1 trade real — `side=C (BUY), entrada=5154.0 (10:05:18), saida=FECHADA (TP), pts=+19.0` (+R$950,00 em 5 CC). Slippage de 0,5 pt (TP teórico 19,5 pts). Fecha do dia preservado: `pnl_hoje = R$ 950,00`.
+- **v22 Core (magic 123456):** 0 trades no dia — mas **4.361 decisões** geradas (199 com confiança ≥0,60; 110 ≥0,70) que morreram todas no gate.
+
+## 🚨 P6 — Causa raiz do bloqueio (corrigido em produção em 17/09)
+
+### 1. A pegadinha silenciosa da API MT5
+`mt5.positions_get()` **NÃO aceita filtro por magic**. A assinatura oficial é `positions_get([symbol], [ticket], [group])` ("can be filtered by symbol, group or ticket"). Passar `magic=7008` é **ignorado silenciosamente** e retorna **TODAS** as posições — sem erro, sem warning. Teste real na conta: `positions_get(magic=7008)`, `magic=123456`, `magic=123457` e `positions_get()` retornaram a mesma única posição.
+- **Lições:** (a) nunca filtrar posições por `magic` na chamada; (b) usar filtro explícito em Python: `[p for p in mt5.positions_get() if p.magic == X]`; (c) `fechar_todas_posicoes()` já usava o padrão correto (filtro Python L10618) — o bug era isolado em `_tem_posicao_rompimento()`.
+
+### 2. Posição fantasma / contrato vencido (retcode 10013)
+Posição legada na conta demo: `ticket=2243200971, magic=123457, symbol=WINV25, vol=5.0, SELL, profit=+5.00`, aberta em **15/10/2025** — contrato WINV25 vencido, sem tick/preço atual.
+- Tentativa de fechamento via `order_send` devolveu **retcode 10013 (`Invalid request`)** — símbolo não existe mais no servidor, negociação impossível.
+- **Tratamento correto (aplicado):** NÃO forçar fechamento de ativo expirado — isolar o problema na lógica. O filtro por Magic Number em Python garante que ordens legadas/vencidas (qualquer magic residual) **nunca** interfiram na máquina de estados do robô. Posição fantasma fica inerte na conta demo; ao reiniciar o terminal/MT5 a corretora não a relistou, e ela não travava mais nada.
+
+### 3. Efeito encadeado no estado
+`_tem_posicao_rompimento()` (L395) usava `positions_get(magic=7008)` → sempre `True` (retornava a fantasma) → `_atualizar_estado_sistema()` mantinha `ESTADO_SISTEMA="ROMPIMENTO_EXCLUSIVO"` mesmo com `rompimento_state.json` `final=true` e faixa encerrada → gate `ROMPIMENTO_EXCLUSIVO` (L5434) barrava **toda** ordem do Core (magic ≠ 7008) → 20 Sniper %R bloqueados (`[GATE ROMPIMENTO] Ordem bloqueada para WDOV26 (apenas Magic 7008 na Faixa 1)` + `Ordem não enviada (executar_ordem falhou)`).
+
+## ✅ Correção aplicada (P6)
+- `_tem_posicao_rompimento()` reescrito: `any(p.magic == MAGIC_ROMPIMENTO for p in (mt5.positions_get() or []))` — filtro em Python, mesmo padrão de `fechar_todas_posicoes()` (L10618).
+- Validado: `magic 7008 → False`, `py_compile OK`, boot limpo às 12:39:30.
+- Reinício do robô com o FIX em memória (processo único sob watchdog; a dupla de PIDs era o redirector do venv Windows `venv310\Scripts\python.exe` → python real, comportamento normal, não duplicidade).
+
+## ✅ Estado do sistema pós-correção (17/09, 12:41)
+| Item | Valor |
+|---|---|
+| `modo_operacional` | **NORMAL** (Core/Sniper liberado; antes: ROMPIMENTO_EXCLUSIVO) |
+| `sniper_bloqueado` | **False** (sem gate bloqueando) |
+| `rompimento.estado_faixa` | INATIVO, `na_janela=False`, `pnl_hoje=R$ 950,00` preservado |
+| `thread_ativo` | True |
+| Posição fantasma WINV25 123457 | mantida inerte (não interfere — filtro por magic em Python) |
+
+## 👉 Próximas verificações
+- **17/09 14:30 (reabertura):** confirmar se o Sniper dispara normalmente com o Core liberado fora das posições ativas da Faixa 1.
+- **P2 (sequenciador Faixa 1 vs. Core):** continua reservada — só em simulação/backtest (protocolo 04/09). O fix P6 resolve o travamento indevido; a proteção de posição 7008 aberta permanece por design.
+- **Homologação Faixa 1:** aguarda amostra out-of-sample maior (parâmetros congelados).
+- **Auditoria de robustez (recomendada):** varrer outras chamadas de `positions_get(` no código do robô para garantir que nenhum outro call-site dependa de filtragem inexistente (auditoria executada em 17/09: demais call-sites usam `ticket`/`symbol`, válidos).
 
 ---
 
