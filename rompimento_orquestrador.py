@@ -45,7 +45,9 @@ DEFAULT_CFG = dict(
     sl_atr_factor=2.5, sl_piso=8.0,
     # Sub-Trader do Corpo de 1H (item 6): entrada no rompimento do CORPO do
     # candle 09:00-10:00, saida nos PAVIOS. Fecha antes/Faixa 1 ira esperar.
-    sub_ativo=True,
+    # sub_rr_min: filtro estrutural de R/R minimo na entrada (calibracao
+    # backtest 264 pregoes, 29/09/2026). 1.0 => so opera R/R>=1:1.
+    sub_ativo=True, sub_rr_min=1.0,
 )
 
 ROOT = r"C:\AIOFEN"
@@ -607,6 +609,17 @@ class OrquestradorRompimento:
         if dist_tp <= 0.3 or dist_sl <= 0.3:
             log("[ROMPIMENTO] sub: pavio colado no corpo - sem folga (tp=%.2f sl=%.2f)" %
                 (dist_tp, dist_sl))
+            return
+        # Filtro estrutural de R/R (calibracao backtest 264 pregoes): o desenho
+        # original (TP=Pavio a favor / SL=Pavio oposto) tem R/R medio 0,39 e
+        # expectancy NEGATIVA (-1,00 pt/trade) apesar do winrate 67%. O filtro
+        # rejeita rompimentos cuja relacao risco/retorno inicial fica abaixo de
+        # sub_rr_min (default 1.0): so opera quando o pavio a favor sera >= o
+        # pavio oposto. Variaveis D (R/R>=1): E=+2,36 pts, P(E>0)=88,6%.
+        rr_min = float(self.cfg.get("sub_rr_min", 1.0))
+        if rr_min > 0 and (dist_tp / dist_sl) < rr_min:
+            log("[ROMPIMENTO] sub: R/R desfavoravel %.2f < %.2f (tp=%.2f sl=%.2f) - sem entrada" %
+                (dist_tp / dist_sl, rr_min, dist_tp, dist_sl))
             return
         action = "BUY" if side == "C" else "SELL"
         cfg = self.cfg

@@ -72,6 +72,10 @@ class FakeMT5:
         self.deals = {}
         self.fechamentos = []
         self.liquida = 0.0
+        self.tick_preco = 0.0
+
+    def symbol_info_tick(self, symbol):
+        return mock.Mock(bid=self.tick_preco, ask=self.tick_preco)
 
     def positions_get(self, ticket=None):
         if ticket is not None:
@@ -179,6 +183,31 @@ def _ler_csv(tmp):
     return rows
 
 
+def gerar_barras_sub(pavio_topo, pavio_fundo):
+    """Barras p/ Sub-Trader: candle 1H da hora 9 com corpo (open=100, close=101)
+    e pavios controlados. Pavio_Topo/Maxima = pavio_topo (v 09:30),
+    Pavio_Fundo/Minima = pavio_fundo (v 09:45). Retorna (bars, cl=[10:00]).
+    Entrada BUY esperada: corpo_topo=101, corpo_fundo=100; com tick 101.5:
+      dist_tp = pavio_topo - 101.5 ; dist_sl = 101.5 - pavio_fundo
+    """
+    t = datetime.combine(DIA.date(), datetime.min.time())
+    bars = []
+    minutos = [m for m in range(0, 60, 5)]
+    for m in minutos:
+        dt = t.replace(hour=9, minute=m)
+        if m == 30:
+            bars.append((dt, 100.0, pavio_topo, 100.0, 100.0, 200))
+        elif m == 45:
+            bars.append((dt, 100.0, 100.0, pavio_fundo, 100.0, 200))
+        elif m == 55:
+            bars.append((dt, 101.0, 101.0, 101.0, 101.0, 200))
+        else:
+            bars.append((dt, 100.0, 100.0, 100.0, 100.0, 200))
+    dt = t.replace(hour=10, minute=0)
+    bars.append((dt, 100.5, 101.0, 100.0, 100.5, 200))  # dentro do corpo: sem gatilho Faixa 1
+    return bars
+
+
 # ---------------------------------------------------------------------------
 def test_gatilho_buy():
     bars = gerar_barras(rompe="cima")
@@ -229,6 +258,39 @@ def test_sem_gatilho():
     rows = _ler_csv(tmp)
     checar("RG4 S/TRADE final", st.get("final") is True and st.get("saida") == "S/TRADE")
     checar("RG4 registro S/TRADE", len(rows) == 1 and rows[0]["saida"] == "S/TRADE")
+
+
+def test_sub_rr_rejeita():
+    """RG10: rompimento com R/R<1.0 (pavio a favor curto x oposto longo)
+    e REJEITADO pelo filtro estrutural -> nenhum ticket de sub aberto."""
+    bars = gerar_barras_sub(pavio_topo=102.0, pavio_fundo=96.0)
+    tick = {"preco": 101.5}
+    orq, tmp, f, _ = montar_fixture(bars, [DIA.replace(hour=10, minute=6)], tick)
+    f.tick_preco = 101.5  # ask rompe corpo_topo=101 => BUY candidato
+    orq.orquestrar()
+    st = mod._carregar_state()
+    sub = st.get("sub") or {}
+    checar("RG10 R/R<1 rejeitado (sem ticket sub)",
+           sub.get("ticket") is None and not sub.get("final"))
+    checar("RG10 Faixa 1 nao abriu", st.get("ticket") is None)
+
+
+def test_sub_rr_aceita():
+    """RG11: rompimento com R/R>=1.0 (pavio a favor >= oposto) e ACEITO ->
+    sub abre BUY e bloqueia a Faixa 1."""
+    bars = gerar_barras_sub(pavio_topo=103.5, pavio_fundo=99.5)
+    # dist_tp = 103.5-101.5 = 2.0 ; dist_sl = 101.5-99.5 = 2.0 => R/R = 1.0
+    tick = {"preco": 101.5}
+    orq, tmp, f, _ = montar_fixture(bars, [DIA.replace(hour=10, minute=6)], tick)
+    f.tick_preco = 101.5
+    orq.orquestrar()
+    st = mod._carregar_state()
+    sub = st.get("sub") or {}
+    checar("RG11 R/R>=1 abre BUY sub", sub.get("side") == "C" and sub.get("ticket") == 1001)
+    checar("RG11 sub ainda aberto (bloqueia Faixa 1)",
+           sub.get("final") is False and st.get("ticket") is None)
+    rows = _ler_csv(tmp)
+    checar("RG11 sem registro Faixa 1", len(rows) == 0)
 
 
 def test_ordem_rejeitada():
@@ -298,6 +360,8 @@ if __name__ == "__main__":
     test_gatilho_sell()
     test_eod_fecha_market()
     test_sem_gatilho()
+    test_sub_rr_rejeita()
+    test_sub_rr_aceita()
     test_ordem_rejeitada()
     test_idempotencia()
     test_sl_antes_do_tp()
