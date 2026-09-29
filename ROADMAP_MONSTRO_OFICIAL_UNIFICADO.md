@@ -1656,3 +1656,113 @@ inexistente.
 
 Nenhum item entra no status como entregue sem `Test-Path`, `git log` ou execucao
 que o comprove. Especificacao aprovada != artefato entregue.
+
+---
+
+# SESSAO 29/09/2026 (18:00) — FECHO, FALSO ALARME E RUIDO DE ROTULO
+
+## 15. Causa raiz do falso alarme "+221/-13"
+
+O fecho de 17:35 reportou `MUDANCA ESTRUTURAL +221/-13`. **Nao houve violacao
+da quarentena.** O conteudo do diff era o bloco `MEMORIA UNIFICADA`, commitado
+as 01:48 em `78c6459` — trabalho do proprio dia, ja revisado.
+
+| evidencia | resultado |
+|---|---|
+| `git rev-parse HEAD:monstro_unificado_v22.py` | blob `58624fd` — Core versionado |
+| `git diff HEAD -- monstro_unificado_v22.py` | vazio — nada nao commitado |
+| `agente_snapshot_v22.py` == Core (SHA256) | identicos (o fecho sobrescreve no fim) |
+
+**Causa raiz:** `verificar_mudanca_codigo()` comparava o Core com
+`agente_snapshot_v22.py`, um baseline **rotativo local**, sobrescrito a cada
+fecho. O agente nao tem como saber que a diferenca ja foi commitada e
+aprovada, entao reabre "PROPOSTA p/ revisao humana" sobre codigo revisado.
+Historico do ruido: **16 diffs arquivados**, um deles de 589 KB, zero mudancas
+reais — o alerta dispara em quase todo pregao.
+
+**Correcao (`ea54765`):** a fonte da verdade passa a ser `git diff HEAD`. Só
+vira alarme o que esta no disco e **nao** foi commitado. Testado nos dois
+sentidos: commitado -> `None`; nao commitado -> `+2/-0` com diff gravado.
+Nova linha de rastreabilidade: `ultimo_commit_robo()` imprime hash, data, autor
+e assunto do ultimo commit que tocou o .py de producao.
+
+## 16. Duas metricas com o mesmo nome: `win%`
+
+O relatorio daily imprimia, lado a lado:
+
+- `win% (historico reward!=0): 66.67%`  (`agente_monstro_core.py:449`)
+- `[PRIORIDADE 3] Win rate abaixo de 35%`  (`tools/autopsia_automatizada.py:283`)
+
+Nao sao a mesma coisa:
+
+| metrica | fonte | populacao |
+|---|---|---|
+| `winpct_historico()` | coluna `reward` do CSV | linhas do dataset |
+| `win_rate` | deals do MT5 | trades executados |
+
+**Verificado: o 66,67% vinha de n = 3.** Um percentual sem denominador, com tres
+amostras, apresentado como se fosse desempenho. Quem lesse so o primeiro numero
+concluiria que o Core esta saudavel — o oposto do diagnostico (WR real 39%).
+
+**Correcao (`ea54765`):** renomeado para `dataset_reward_fill%`, a funcao agora
+retorna `(pct, n)` e o denominador e impresso, e o relatorio remete o win rate
+de trade para a autopsia. Os dois numeros nunca mais aparecem sob o mesmo nome.
+
+## 17. Proposta do fecho REJEITADA (decisao do Mestre)
+
+O fecho 29/09 proposing `TRAILING_GATILHO 5 -> 7` na PRIORIDADE 4.
+**Rejeitada durante a quarentena.** Alteracao de gerenciamento/execucao do Core
+exige aprovacao explicita do Mestre; nenhuma regra de execucao muda por
+sugestao automatica de plano diario. O agente ja marca como proposta (Fase 1) —
+a trava correta.
+
+## 18. ERRO PROPRIO A REGISTRAR: artefato destruido
+
+Ao testar o novo alarme de diff, o teste usou o **nome de arquivo de producao**
+`diff_estrutural_20260929.txt` e o **sobrescreveu**, apagando em seguida o diff
+real do fecho. O arquivo nao estava no git: **nao recuperavel.**
+
+Perda: o artefato bruto. Preservado: a conclusao, que esta acima e verificada
+por `git rev-parse` e `git diff`. Licao: teste que escreve em diretorio de
+producao precisa de nome de fixture, nao do padrao `YYYYMMDD` real.
+
+## 19. Auditoria das afirmacoes do assistente (29/09)
+
+Verificacao completa antes de fechar a sessao:
+
+| afirmacao | status |
+|---|---|
+| Core congelado, nao alterado | CONFIRMADO (`git diff HEAD` vazio) |
+| `prever_acao` em :9410 | CONFIRMADO (exato) |
+| chamada em :8083 | CONFIRMADO (exato) |
+| save do CSV em :8267 | CONFIRMADO (exato) |
+| `sniper_apenas` em :8332 | CONFIRMADO (exato) |
+| GATE ROMPIMENTO em :5621 | CONFIRMADO (exato) |
+| `_atualizar_estado_sistema` em :406 | CONFIRMADO (exato) |
+| CSV 29/07 a 29/09 | CONFIRMADO (`2026.07.29 09:41:10` -> `2026.09.29 17:14:58`) |
+| Core perdeu R$ 2.185 em 180 trades | CONFIRMADO |
+| "Core NAO esta versionado no git" | **REFUTADO** — erro proprio, ja retractado |
+
+**Erros meus na sessao: 2.** (1) alarme falso de "Core nao versionado", por
+mixagem de stderr do PowerShell; (2) destruicao do `diff_estrutural_20260929.txt`
+pelo teste. Ambos registrados aqui em vez de silenciados.
+
+## 20. Agente do fecho — proveniencia
+
+Quem enviou a mensagem e' `agente_monstro_core.py` rodando no modo `fecho`
+(17:35, impressao em stdout, nao gravada em arquivo). Historico completo desde
+a criacao: **15 commits, 03/08/2026 -> 29/09/2026**.
+
+| quando | o que |
+|---|---|
+| 03/08 | agente autonomo Fase 1: autotuner por whitelist, decisao por sinais vs executados |
+| 04/08 | watchdog + CI + kill-switch por loss diario + autopsia EOD |
+| 06/08 | relatorio/plano geridos antes do shutdown (sobrevive a abort) |
+| 15/08 | watchdog detecta processo orfao + cooldown sniper |
+| 10/09 | relatorio integra trades do modulo rompimento |
+| 11-16/09 | protecao contra feed podre/defasado; correcao do offset BRT/UTC do XPMT5 |
+| **29/09** | `ea54765` — baseline de diff vai para o git; `win%` renomeado |
+
+O agente roda em modo **Fase 1**: reporta e propoe, nunca altera logica de
+decisao. Confirmado nesta sessao — o proprio fecho classificou a mudanca de
+trailing como "PROPOSTA p/ revisao humana" em vez de aplica-la.
