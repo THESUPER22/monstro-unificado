@@ -1225,3 +1225,108 @@ sao as que o preco consegue respeitar.
 3. Decisão do Mestre para qualquer uso em produção.
 
 Scripts: `C:\AIOFEN\backtest\backtest_frankenstein_wdo.py` (aceita SLs por argv) · resultados em `backtest/resultados/frankenstein_wdo_2025_2026.csv`.
+═══════════════════════════════════════════════════════════════════════
+SESSÃO 29/09/2026 — LEITURA DE QUARENTENA + AUDITORIA DO CANDIDATO
+"MARKOV TENDÊNCIA WDO" (somente medição; nenhum código de decisão tocado)
+═══════════════════════════════════════════════════════════════════════
+
+## 1. Estado da régua (`analisar_quarentena.py`, read-only)
+
+| régua              | meta  | atual   | estado |
+|---|---|---|---|
+| Core WDO — n válido| n≥100 | **22**  | 22% (34 linhas no CSV; 12 pré-marcador/sem P&L) |
+| Correlação Mod. A  | ≥0,15 | **0,2386** |ATINGIDA — porém ver alerta abaixo |
+| Rompimento 1H — n  | ≥30   | 9        | 30% |
+| Rompimento 1H — WR | ≥45%  | **33,3%**| REPROVADO |
+| Rompimento 1H — PF | ≥1,1  | **0,43** | REPROVADO |
+| Rompimento 1H — DD | ≥-3600| **-4825**| REPROVADO |
+| Rompimento 1H — net| —     | **-3500**| — |
+
+⚠️ ALERTA DE LEITURA: a correlação do Modelo A subiu de ~0,005 para 0,2386 e
+bateu a meta de 0,15 — porém os trades que ela explica estão com WR 36,4% e
+PF 0,54 (n=22). Correlação positiva sobre PnL negativo é ruído de amostra
+pequena, NÃO sinal. Não é destrave de veto; é motivo para manter o veto desligado
+e continuar coletando.
+
+## 2. Pregão 29/09 — Faixa 1 (leitura do diário)
+
+- SELL 5 CC @ 5211,50 (10:00:13) → STOP 5215,50 (10:14:23) = **-R$200 / -4,0 pts**
+- BUY  5 CC @ 5213,50 (10:15:01) → ALVO 5240,00 (12:26:52) = **+R$1.325 / +26,5 pts**
+- **Net do dia: +R$1.125,00**
+
+Observação estrutural: o SL do SELL foi 0,50×ATR contra ATR 7,96 (post-mortem
+já tratado por `sub_sl_min_atr=1.0`, commit `3cbfb8b`). O BUY que o siguió
+capturou o topo do canal — é o MESMO padrão de "venda em topping + compra em
+pivot" que caracterizou a semana de 04/09 (10W/3L, +R$155). Reforça que a
+primeira hora do WDO tem valor de borda, não de ruído — ao contrário do que
+sugere o agregado do Faixa 1 reprovado.
+
+## 3. AUDITORIA DO CANDIDATO "MARKOV TENDÊNCIA WDO" (o item em espera)
+
+Roadmap dizia: *"PF 1,47 ano / 1,88 OOS (+R$3.214, 161 trades). Ainda não
+conectado ao robô."* **Reprodução de 29/09 (read-only, script temporário):**
+
+    n = 166 trades | net R$ +2.836,85 | PF 1,40 | WR 46,4%
+    (config: só-tendência, breakout_ratio=1.0, stop EMERGÊNCIA, 1 contrato)
+
+O número NÃO é o do roadmap (161 → 166 trades; PF 1,47 → 1,40; +R$3.214 →
++R$2.836). Motivo: o `WDO$` só ficou com histórico populado quando o terminal
+baixou as barras; a execução anterior do `backtest_markov_4estados.py` retornou
+"sem dados para WDO" e rodou SÓ o WIN. **O PF 1,88 "OOS" não reproduziu.**
+
+### 3.1 O "OOS 1,88" é escolha de corte, não propriedade estável
+| corte IS | IS PF | OOS PF | OOS R$ |
+|---|---|---|---|
+| 30% | 1.49 | 1.36 | +1.734 |
+| 40% | 1.19 | **1.60** | +2.196 |
+| 50% | 1.47 | 1.30 | +867 |
+| 60% | 1.59 | **1.01** | +17 |
+| 70% | 1.44 | 1.26 | +401 |
+
+O PF out-of-sample varia de 1,01 a 1,60 conforme ONDE você corta. Um número de
+"OOS" isolado (1,88) sem o corte declarado não é evidência.
+
+### 3.2 Concentração (o achado que decide a questão)
+- **Top 3 meses = R$ +3.119,57 = 110% do lucro total.**
+- **Sem os top 3 meses: n=101, PF 0,93, R$ -282,72 (NEGATIVO).**
+- Dias operados: 126 | dias positivos: 64 (**51%** — moeda ao ar no dia).
+- 5 meses negativos em 13 (2025-11, 2026-04, 2026-07, 2026-09, 2025-09).
+- Maior mês (2026-03, n=40) = R$ +1.609,94, 57% do lucro total.
+
+Isto é EXATAMENTE a "Lição Registrada #1" da Fase 13 ("Modelo C de abertura:
+77,8% WR em 9 dias e −R$9 mil em 250 dias"), com 5 meses de distância. O edge
+não é estável no tempo; ele é concentrado em 3 janelas.
+
+### 3.3 O que o bootstrap diz (10.000 sorteios, blocos por dia)
+- P(net > 0) = **96,3%** — o sinal tem Probabilidade de ser positivo.
+- Mas intervalo 5%–95%: **R$ +195 a R$ +5.607** (faixa de 28×).
+- P(PF > 1) = 96,3% | mediana PF = 1,39.
+
+Ou seja: o edge provavelmente EXISTE, mas a magnitude é incerta demais para
+dimensionar capital. E o PF>1 com 96% de confiança convive com 51% de dias
+positivos — é um edge de cauda, não de consistência.
+
+### 3.4 Conclusão da auditoria
+O candidato **não é falso** (é o único item com sinal positivo estatisticamente
+sustentado no inventário), **mas está superdimensionado no roadmap**. PF honesto
+≈ 1,40, não 1,88. E ele é frágil: sem 3 meses, é negativo.
+
+→ **NÃO é "deixar dinheiro na mesa"** no sentido deedge validado e descartado.
+→ É **uma aposta de tamanho desconhecido** que precisa de measurement, não de
+  ejeção em produção.
+
+## 4. Encaminhamento Mantido (sem alterar código)
+
+1. **Core WDO congelado** (diretriz "mexe no que mede, não no que decide").
+2. **Markov Tendência WDO → SHADOW MODE primeiro** (não real, não junto do Core
+   em quarentena). Já é o passo 2 do roadmap ("shadow ou real com 1 contrato").
+   Critério de leitura: ≥30 sinais gravados, então repetir o §3.1 (múltiplos
+   cortes) e o §3.2 (concentração) sobre os sinais REAIS.
+3. **Veto do Modelo A continua desligado** apesar da correlação 0,2386 (ver §1).
+4. **Faixa 1/Rompimento:** reprovado em 3/4 métricas com MaxDD estourado — não
+   expandir; manter a trava ATR e deixar produzir amostra.
+5. Rodar `analisar_quarentena.py` semanalmente; destravar Core só em n≥100.
+
+Fontes: `analisar_quarentena.py`; `backtest_markov_4estados.py`; análise temp
+read-only (bootstrap + sensibilidade de corte + concentração mensal). Nenhuma
+linha de decisão foi alterada nesta sessão.
