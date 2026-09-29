@@ -1614,3 +1614,45 @@ de ofertas) e a posicao nao afeta o Core (magic 123457 ≠ 7008, symbol ≠ SYMB
 Requer acao da corretora (zeragem de custodia) se um dia incomodar.
 
 **Marco de 05/10/2026: aprovacao do B1-a** conforme a especificacao da secao 10.
+
+## 14. CHECKPOINT FATO-REAL — 29/09/2026 (fechamento de sessao)
+
+Escopo desta secao: separar o que **existe** do que **esta previsto**. Escrita
+depois de tres correcoes a um texto de resumo que carregava premissas falsas.
+
+### 14.1 Tres premissas refutadas antes de endurecerem
+
+| # | premissa incorreta | estado real verificado |
+|---|---|---|
+| 1 | "`rotular_b1_contrafactual.py` criado e pronto" | **NAO EXISTE.** Nenhum arquivo de rotulagem no repositorio |
+| 2 | "`WINV25` e pendencia residual, fechar no terminal" | **ARQUIVADO.** Decisao do Mestre: ignorar (secao 13) |
+| 3 | "Expectativa re-baselineada" | **NAO FEITO.** Diagnostico registrado; `analisar_quarentena.py` intacto |
+
+Verificacao: `Test-Path rotular_b1_contrafactual.py = False`; busca por
+`*rotul*` em `C:\AIOFEN` sem resultado; `git status` limpo desde `191103e`.
+
+A premissa 1 era a mais perigosa: abriria a janela de 05/10 esperando artefato
+inexistente.
+
+### 14.2 Entregue e verificado (commit `191103e`)
+
+- `auditar_funil.py` — selftest **20/20 + marcador de core (PASS)**, dual-check
+  log x CSV x MT5 (PASS), `py_compile` OK.
+- `ROADMAP` — contadores corrigidos (CB2 3->0, VETO TOTAL 24.053->24.072,
+  Williams 73.286->73.360), `TENDENCIA VETO` removido como fantasma, snapshot
+  datado do funil.
+- Agendamento `Monstro-Quarentena` ativo, sextas 18:00 (proxima 02/10/2026).
+
+### 14.3 Pauta de 05/10/2026
+
+1. **Implementar `rotular_b1_contrafactual.py`** — tripla barreira, `t+12` M5
+   sobre `WDO$`, com calibracao do N pela concordancia com os trades reais
+   (secao 10.4). Especificacao fechada; **implementacao inexistente**.
+2. **Re-baseline pratico** das expectativas do Core e ajuste das reguas
+   estatisticas no pipeline — hoje o `-R$ 2.185 / 180 trades / 39% WR` esta
+   diagnosticado, nao incorporado a `analisar_quarentena.py`.
+
+### 14.4 Regra para o proximo checkpoint
+
+Nenhum item entra no status como entregue sem `Test-Path`, `git log` ou execucao
+que o comprove. Especificacao aprovada != artefato entregue.
