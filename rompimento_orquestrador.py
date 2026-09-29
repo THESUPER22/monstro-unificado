@@ -639,8 +639,9 @@ class OrquestradorRompimento:
         # ---- entrada do sub-trade (rompimento do CORPO do candle 1H) ----
         if not self._fresco()[0]:
             return
+        bars_dia = self._barras_dia(a.date())
         cand1h = None
-        bars9 = [b for b in barras_fechadas(self._barras_dia(a.date()), a)
+        bars9 = [b for b in barras_fechadas(bars_dia, a)
                  if b[0].hour == 9]
         h1 = _agrega_h1(bars9)
         if h1:
@@ -684,6 +685,24 @@ class OrquestradorRompimento:
             log("[ROMPIMENTO] sub: R/R desfavoravel %.2f < %.2f (tp=%.2f sl=%.2f) - sem entrada" %
                 (dist_tp / dist_sl, rr_min, dist_tp, dist_sl))
             return
+        # Filtro de ruido por ATR (29/09): o R/R acima e cego a escala - um
+        # R/R alto e alcancavel simplesmente APROXIMANDO o SL, e o pavio oposto
+        # fica colado no preco quando o candle de referencia tem pavio curto.
+        # Em 29/09 isso autorizou um SELL com sl=4,0 pts contra ATR 7,96
+        # (0,50x ATR): nota maxima no R/R e stop dentro do ruido, que o proprio
+        # mercado estourou em ~14 min. A Faixa 1 usa sl_atr_factor=2.50; o Sub
+        # ficava com 1/5 do stop do Core sem nenhuma trava. Aqui exigimos que o
+        # SL cubra ao menos sub_sl_min_atr x ATR, mantendo o pavio como alvo.
+        sl_min_atr = float(self.cfg.get("sub_sl_min_atr", 0.0) or 0.0)
+        if sl_min_atr > 0:
+            atr_ref = _atr14(barras_fechadas(bars_dia, a))
+            if atr_ref > 0:
+                sl_piso = sl_min_atr * atr_ref
+                if dist_sl < sl_piso:
+                    log("[ROMPIMENTO] sub: SL dentro do ruido %.2f < %.2fx ATR "
+                        "(sl=%.2f atr=%.2f min=%.2f) - sem entrada" %
+                        (dist_sl, sl_min_atr, dist_sl, atr_ref, sl_piso))
+                    return
         action = "BUY" if side == "C" else "SELL"
         cfg = self.cfg
         try:

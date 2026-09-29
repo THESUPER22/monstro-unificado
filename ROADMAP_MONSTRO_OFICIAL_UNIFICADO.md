@@ -1173,6 +1173,52 @@ Frankenstein (antecipação do rompimento com filtro da metade) no WDO: **n=33**
 ## Interpretação
 WDO **respeita S/R matinais (reversão à média)**; WIN **rompe topos/fundos (momentum)**. É por isso que a SeteV crua perde feio no WIN (PF 0,92 / −R$3,8K em 5 anos) mas vira lucrativa no WDO. O Rompimento 1ª Hora vence nos dois (WDO PF 1,38 / WIN PF 1,54).
 
+## Post-mortem: SELL do Sub em 29/09 (primeiro trade real da Memoria Unificada)
+
+**Trade:** `ticket=2540488355` | SELL 5 lotes @ 5211.5 | SL 5215.5 | TP 5198.0
+| saida=SL as 10:14:24 | `pts=-4.0` | `lucro_rs=-200.00` | `modulo=sub`
+
+**O que aconteceu.** O candle 1H das 09:00 foi de BAIXA (abertura 5214.50,
+fechamento 5212.00; corpo 5212.00-5214.50, pavio 5198.00-5215.50). O preco rompeu
+o corpo para baixo (bid 5211.5 <= corpo_fundo 5212.00) e o Sub vendeu, coerente
+com a logica de MOMENTUM que o backtest de 264 pregoes calibrou. Em ~14 min o
+mercado deu um balancer de alta e estourou o SL.
+
+**Duas hipoteses que o proprio trade refuta:**
+
+1. *"Vendera quando deveria ter comprado (compra no corpo, saida no topo)"* -
+   REFUTADO. O candle era de baixa e a SELL seguia a cor do candle. Uma regra
+   "SELL so se fechamento < abertura" AUTORIZARIA esta venda, nao a vetaria.
+   Alem disso, "compra no corpo e saida no topo" e mean-reversion, o oposto do
+   momentum validado - inverter exigiria refazer o backtest inteiro.
+2. *"Faltava o filtro R/R >= 1.0"* - REFUTADO. O filtro existe desde 2546706 e
+   ja havia disparado 16 s antes, as 10:00:01
+   (`R/R desfavoravel 0.06 < 1.00 (tp=1.00 sl=16.50) - sem entrada`).
+   Este trade passou com folga: R/R = 13.5/4.0 = **3.375**.
+
+**Causa-raiz real: o filtro R/R e cego a escala.** Um R/R alto e alcancavel
+simplesmente APROXIMANDO o stop. Aqui o SL ficou a 4.0 pts do preco contra ATR
+7.96 - **0.50x ATR**, dentro da banda de ruido. A Faixa 1 usa `sl_atr_factor
+2.50`; o Sub operava com 1/5 do stop do proprio Core, sem trava nenhuma, e ainda
+recebia "nota maxima" no R/R. O filtro selecionava justamente os trades com stop
+minusculo, que sao os mais provaveis de serem estopados por ruido.
+
+**Correcao (29/09):** `sub_sl_min_atr` no `config.json` (default 1.0), aplicado
+em `_sub_gerenciar` logo apos o filtro R/R. O SL precisa cobrir ao menos
+`sub_sl_min_atr x ATR`; o TP continua cravado na extremidade do pavio. Sem
+alterar a logica de momentum, sem tocar no backtest.
+
+| cenario | so filtro R/R | R/R + ATR |
+|---|---|---|
+| SELL 5211.5 (trade real) | PERMITIDO R/R=3.38, sl=0.50x ATR | **BLOQUEADO** (sl 4.00 < 7.96) |
+| SELL 5214.5 (corpo inteiro) | PERMITIDO R/R=16.50, sl=0.13x ATR | **BLOQUEADO** (sl 1.00 < 7.96) |
+| BUY 5212.0 | BLOQUEADO R/R=0.25 | BLOQUEADO R/R=0.25 |
+
+Custo esperado: o Sub passa a operar menos dias (exige pavio oposto com
+amplitude >= 1x ATR), em troca de stops que o preco respeita. O numero de
+operacoes do Sub cai; a qualidade do dataset sobe, porque as amostras restantes
+sao as que o preco consegue respeitar.
+
 ## Gatilho de reativação (só se TODOS os critérios)
 1. Obter WDO 2021–2024 completo (export/internet — corrige o truncamento 15:30 do feed atual) e validar **fora-da-amostra**: n≥150 por período, PF≥1,15, MaxDD≤R$1.500.
 2. Se passar → incubação isolada (shadow/simulador, NUNCA junto do Core em quarentena).

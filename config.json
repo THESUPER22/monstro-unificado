@@ -124,6 +124,7 @@
     "no_night_bars": true,
     "sub_ativo": true,
     "sub_rr_min": 1.0,
+    "sub_sl_min_atr": 1.0,
     "cb2_ignore_max_loss": true,
     "datas_bloqueadas": []
   },
