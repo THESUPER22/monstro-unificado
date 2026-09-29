@@ -1330,3 +1330,147 @@ sustentado no inventário), **mas está superdimensionado no roadmap**. PF hones
 Fontes: `analisar_quarentena.py`; `backtest_markov_4estados.py`; análise temp
 read-only (bootstrap + sensibilidade de corte + concentração mensal). Nenhuma
 linha de decisão foi alterada nesta sessão.
+
+═══════════════════════════════════════════════════════════════════════
+SESSÃO 29/09/2026 (tarde) — AUDITORIA DE FUNIL + VEREDITO DO B1
+═══════════════════════════════════════════════════════════════════════
+
+Ferramenta: `C:\AIOFEN\auditar_funil.py` (READ-ONLY, nao importa o monstro,
+nao escreve nada). Roda tambem no agendamento semanal.
+
+## 1. O que `decisions_wdo.csv` realmente e'
+
+`monstro_unificado_v22.py:8266` — *"Salva a decisao ANTES de qualquer filtro
+que possa impedir a execucao da ordem"*.
+
+`decisions_wdo.csv` (07/07 a 29/09): 131.335 linhas
+- NADA 91.153 | **BUY 17.734 | SELL 22.448** (40.182 direcionais)
+- Ordens realmente executadas no mesmo periodo: **232**
+
+**Os 40.182 NAO sao ordens. Sao candidatos.**
+
+## 2. Etapa A - vetoes INTERNOS do `prever_acao()` (ja voltam NADA no CSV)
+
+`prever_acao()` e definido em :9410 e chamado em :8083, ANTES do save em :8267.
+Logo Williams/Multi-TF/Sentinela/MR tem poder causal: definem QUEM sobrevive.
+
+| veto (dentro do prever_acao) | ocorrencias (todos os logs) |
+|---|---|
+| Williams %R | 73.286 |
+| FORCA BUY/SELL (so um lado viavel) | 35.584 |
+| VETO TOTAL (nenhum lado viavel) | 24.053 |
+| Multi-TF (M5/M15/M30) | 18.491 |
+| Sentinela | 10.468 |
+| MR (mean reversion) | 4.715 |
+| **C10 score baixo** | **0 — NUNCA ATIVOU** |
+| **Tendencia veto total** | **0 — NUNCA ATIVOU** |
+| **Spread alto** | **0 — NUNCA ATIVOU** |
+| **Aprendizado forcado** | **0 — NUNCA ATIVOU** |
+
+## 3. Etapa B - portoes DEPOIS do CSV (a decisao estava BUY/SELL)
+
+| portao | ocorrencias |
+|---|---|
+| **GATE ROMPIMENTO (Faixa 1)** | **320** |
+| >>> ORDEM EXECUTADA | 232 |
+| Volume muito baixo | 6 |
+| Circuit Breaker CB1 | 3 |
+| Circuit Breaker CB2 | 3 |
+| Dados invalidos | 0 — NUNCA ATIVOU |
+| Bloqueio de lado (inversao) | 0 — NUNCA ATIVOU |
+| Horario limite de ordens | 0 — NUNCA ATIVOU |
+| Veto seguir os bigs | 0 — NUNCA ATIVOU |
+| Piso de confianca | 0 — NUNCA ATIVOU |
+
+**Seis portoes de dez nunca dispararam em nenhum log do periodo.**
+
+## 4. A PORTA UNICA: `sniper_apenas = true`
+
+`monstro_unificado_v22.py:8332-8333`:
+```python
+if SNIPER_APENAS:
+    acao_para_executar = "NADA"
+```
+E logo acima (:8323-8327), quando o Sniper dispara, ele **SOBREPOE** a decisao
+da IA ("sobrepondo IA, pulando filtros normais").
+
+Conclusao: nos dois ramos a decisao do modelo e descartada —
+- Sniper inativo -> NADA (modelo descartado)
+- Sniper ativo  -> direcao do Sniper (modelo sobrescrito)
+
+**As 40.182 decisoes direcionais do CSV nao tem poder causal sobre nenhuma
+ordem.** O unico produtor de ordem e o Sniper %R.
+
+## 5. O que realmente derrubou a taxa de trades: o gate da Faixa 1
+
+`executar_ordem` (:5621) bloqueia tudo que nao for magic 7008 enquanto
+`ESTADO_SISTEMA == "ROMPIMENTO_EXCLUSIVO"`. E `_atualizar_estado_sistema()`
+(:406) mantem esse estado **enquanto houver posicao 7008 aberta**, nao so
+durante a janela 09:00-11:00.
+
+| periodo | pregões | Core fechou posicao | media/dia |
+|---|---|---|---|
+| 14/08 a 27/08 (Faixa 1 = 7 Velas) | 10 | 53 | **5,3** |
+| 01/09 a 10/09 (pos-v22.2) | 6 | 17 | **2,4** |
+| **11/09 a 28/09 (Faixa 1 magic 7008)** | 12 | 13 | **0,7** |
+
+Dias com 100% dos disparos do Sniper bloqueados, com o gate cobrindo o
+**pregao inteiro**: 11/09 (09:17-17:14), 15/09 (10:50-17:12), 16/09
+(09:15-17:07), 18/09 (09:15-16:34), 21/09 (09:34-17:07), 22/09 (09:32-17:13),
+28/09 (09:19-15:17) e 29/09 (09:24-12:02).
+
+Hoje: o BUY da Faixa 1 (10:15) so foi fechado no TP as **12:26** — o Core ficou
+pausado ate la porque a regra e "pausar ate o trade do rompimento terminar".
+
+**A queda de ~5,3 para ~0,7 trades/dia NAO e seletividade. E acoplamento de
+projeto: enquanto a Faixa 1 segura posicao, o Core nao opera.**
+
+## 6. VEREDITO DO B1 — INVIÁVEL COMO ESCOPO
+
+B1 (agenda 05/10): *"Popular `experiencias_wdo.json` a partir de
+`decisions_wdo.csv` + `historico_contexto_wdo.csv` (feats = contexto,
+label = resultado real do trade) | GO: >100 registros validos"*.
+
+- As 40.182 linhas de `decisions_wdo.csv` foram vetadas **antes** de executar.
+  Por construcao elas **nao tem `pnl_real`**.
+- O unico rótulo verdadeiro (PnL de trade executado) vem do Core, a
+  **0,7 trades/dia**.
+- Meta ">100 registros" é aritmeticamente iinalcançável nesse regime.
+
+Projeção da regua do Core (n>=100, hoje n=22):
+**78 trades restantes ÷ 0,7/dia ≈ 111 pregoes (≈ marco/2027)**.
+No ritmo de agosto (5,3/dia) seriam ~15 pregoes. O gate da Faixa 1 e,
+portanto, o responsavel direto pelo atraso de ~4 meses da meta.
+
+Opcoes para o B1 (todas exigem decisao do Mestre — NÃO implementadas):
+- **B1-a Contrafactual:** rotular as 40k decisoes com retorno futuro
+  `t+N` via M1 do WDO$ (ha 136.699 barras M1 de 29/09/2025 a 29/09/2026, cobre
+  toda a janela do CSV). Viabilidade: ALTA. Risco: muda a semantica do rotulo
+  de "PnL executado" para "PnL teorico"; passa a medir cenario, nao resultado.
+  Nao substitui amostra real.
+- **B1-b Reconciliar o gate:** resolver o acoplamento da Faixa 1 (Core nao
+  pode conviver com uma posicao 7008 aberta) e voltar a 5/dia. A meta vira
+  alcancavel, mas isso **e** mudanca de logica de decisao do Core congelado.
+- **B1-c Abandonar o B1** e manter a coleta real, aceitando mar/2027.
+
+## 7. Achado colateral: POSICAO FANTASMA na conta
+
+Aberta em **15/10/2025**, `WINV25` (contrato VENCIDO), magic **123457**,
+SELL 5 lotes @ 142.605, SL/TP 142.615/142.550, PnL R$ 5,00, margem R$ 0.
+
+- Nao bloqueia o Core (magic 123457 ≠ 7008, e o symbol ≠ SYMBOL, entao
+  `positions_get(symbol=SYMBOL)` nao a enxerga).
+- Mas e exatamente a classe do bug P6 (posicao fantasma): `fechar_todas_posicoes`
+  nao consegue fechar contrato vencido, entao persiste para sempre, suja
+  `positions_get()` sem filtro e distorce leitura de equity/posicoes.
+- **Higiene de conta — nao e mexer no Core.** Requer close manual pelo terminal
+  (ou o swap/roll do contrato).
+
+## 8. Pendencia de decisao (Mestre)
+
+1. O gate da Faixa 1 esta dentro do Core congelado. Ele e a unica coisa que
+   impede `n>=100`. Nao ha solucao dentro do congelamento.
+2. B1 precisa de uma das tres opcoes da secao 6. O escopo original e
+   aritmeticamente impossivel.
+3. Enquanto isso,, 6 portoes do Core estao comprovadamente mortos (secao 3) e o
+   C10 nunca reprovou um unico setup em todo o historico de logs.
