@@ -22,9 +22,19 @@
 
 ### 📅 PRÓXIMA FASE — Expurgo de Código Legado e Limpeza de Backups (AGENDADA)
 - [ ] **Critério de início:** após os **primeiros 5 pregões** de validação em produção do Sub-Trader + SL ATR (sem exceções nos logs).
-- [ ] Remover funções mortas confirmadas por `pyflakes`/busca cruzada no `monstro_unificado_v22.py` (~lista abaixo).
-- [ ] Limpar backups `.vazio_2809`, `.before_reconcile_28`, `.sem_timestamp.bak`, `.pre_reinj_1609` após o período de rollback.
-- [ ] Descarte de cópias antigas (`monstro_backup*.py`, `monstro_unificado_v2*.py`, `mostro*.py`) após consolidação em git.
+
+### 🚨 ALERTA — AGENDA PÓS-VALIDAÇÃO: 05/10/2026 (NÃO ESQUECER)
+> **Decisão do Mestre 29/09/2026:** ambiente CONGELADO durante 28/09–02/10 (5 pregões). As 5 falhas legadas (RG1/RG2/RG3) ficam **deixadas para depois** dos 5 pregões. **NÃO mexer em testes/Engine agora** — foco é estabilidade em tempo real (execução, reconexão, logs, memórias).
+
+**Ações obrigatórias em 05/10/2026 (pós-validação):**
+- [ ] **A1 — Expurgo:** remover os ~18 métodos mortos em `monstro_unificado_v22.py` + fix do bloco inalcançável `alertas` (L2485-2499, em `pode_operar`).
+- [ ] **A2 — Testes legados:** corrigir as 5 falhas pré-existentes da suíte `tests/teste_orquestrador_rompimento.py` (RG1 SL=lo caixa / RG2 SL=hi caixa / RG3 final EOD + pts + CSV). **Confirmado pré-existente no commit 73e02ca** (via `git stash`) — NÃO é regressão do filtro R/R.
+- [ ] **A3 — Fiação Keras→gate (Opção "b"):** desenhar e implementar para que `pode_operar` consulte **ativamente** as inferências da rede. Sub-tarefas: (i) registrar Faixa 1 / Sub-Trader como experiências do Keras; (ii) transformar o `shadow_registrar_entrada` (hoje **passivo**) em gate de veto; (iii) validar que a rede tem poder preditivo (critério: correlação ≥ 0.15 sustained, ver §Quarentena 04/09) antes de virar veto real.
+
+> **Base factual do filtro R/R (backtest 264 pregões, 48.7M ticks — commit 2546706):** desenho original (TP/SL nos pavios) tinha E = **-1.00 pt/trade**, R/R médio 0.39, P(E>0) = **7.4%**; com filtro `sub_rr_min=1.0` (só opera R/R ≥ 1:1): E = **+2.36 pts**, P(E>0) = **88.6%**, ~33 trades/ano. Sub com filtro opera em ~12,5% dos pregões (1 a cada ~8 dias).
+
+- [ ] **A4 — Backups:** limpar `.vazio_2809`, `.before_reconcile_28`, `.sem_timestamp.bak`, `.pre_reinj_1609` após período de rollback.
+- [ ] **A5 — Cópias antigas:** descarte de `monstro_backup*.py`, `monstro_unificado_v2*.py`, `mostro*.py` após consolidação em git (backups já movidos p/ `_arquivo_morto/` no commit 73e02ca).
 
 ---
 
