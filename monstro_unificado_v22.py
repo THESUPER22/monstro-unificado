@@ -6910,6 +6910,16 @@ def alimentar_experiencia_rompimento():
                 continue
             _marcar_dia_faixa1_alimentado(dia)
             _ultimo_dia_feed_rompimento = dia
+            # D1/D3 (29/09): a Memoria Unificada ja grava a linha AO VIVO, na
+            # saida da operacao, com o snapshot real do book e o reward em R$
+            # (memoria_registrar_saida). Este plug existe apenas como rede de
+            # seguranca para registros que nao passaram por esse caminho (ex.:
+            # processo reiniciado entre entrada e saida, perdendo o snapshot em
+            # memoria). Pular linhas com ticket evita a segunda tentativa.
+            if rec.get("ticket"):
+                logging.debug("[ROMPIMENTO] plug P4: %s ja tratado pela memoria "
+                              "unificada (ticket %s)" % (dia, rec.get("ticket")))
+                continue
             acao = "BUY" if str(rec.get("side") or "").strip().upper() == "C" else "SELL"
             # D2 (05/10): a coluna 'reward' do dataset e em R$. O plug antigo
             # gravava 'pts' (pontos de preco), escalando o alvo por um fator
@@ -6923,19 +6933,18 @@ def alimentar_experiencia_rompimento():
                     "[ROMPIMENTO] plug P4: sem 'lucro_rs' para %s %s - linha "
                     "descartada (reward exige escala unica em R$)" % (dia, acao))
                 continue
+            # Sem ticket nao ha como recuperar o snapshot do book da entrada:
+            # gravar aqui exigiria um placeholder, que e exatamente o que o
+            # D1 eliminou. A amostra e descartada de proposito.
+            logging.warning(
+                "[ROMPIMENTO] plug P4: %s sem ticket de entrada - linha NAO "
+                "gravada (nao ha como recuperar o book real do gatilho)" % dia)
             # D1 (05/10): o contexto real agora e fixado na ENTRADA por
             # memoria_fixar_entrada e consumido na SAIDA por
-            # memoria_registrar_saida. Este plug nao deve mais gravar linhas:
-            # aqui resta apenas o book do dia-a-dia, sem fotografia do book no
+            # memoria_registrar_saida. Este plug nao grava mais linhas: aqui
+            # resta apenas o book do dia-a-dia, sem fotografia do book no
             # instante do gatilho. Gravar _CONTEXTO_ROMPIMENTO (vetor
             # CONSTANTE) envenenava o treino com ruido ativo.
-            if memoria_registrar_saida is not None and rec.get("ticket"):
-                memoria_registrar_saida(int(rec["ticket"]), lucro, None,
-                                        rec.get("saida"))
-                continue
-            logging.warning(
-                "[ROMPIMENTO] plug P4: %s sem ticket de entrada associated - "
-                "linha NAO gravada (memoria unificada usa o snapshot real)" % dia)
     except Exception as e:
         logging.error(f"[ROMPIMENTO] plug P4 falhou ao alimentar experiencia: {e}")
 
