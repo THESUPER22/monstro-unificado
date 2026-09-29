@@ -1,8 +1,30 @@
 # 🚀 ROADMAP OFICIAL — MONSTRO TRADER V2
-**Última atualização:** 17/09/2026
-**Versão:** Monstro Unificado V22 (Engine v22.4 — Faixa 1: Rompimento da 1ª Hora + autópsia P1–P6)
+**Última atualização:** 28/09/2026
+**Versão:** Monstro Unificado V22 (Engine v22.4 — Faixa 1: Rompimento da 1ª Hora + Sub-Trader Corpo 1H + autópsia P1–P6)
 **Arquivo principal:** `monstro_unificado_v22.py`
 **Status geral:** v22.4 em produção; Faixa 1 (Rompimento 1ª Hora, magic 7008) com janela REAL 09–11h ativa desde 16/09/2026; autópsias de 16/09 (P1–P5) e 17/09 (P6 — bug crítico `positions_get(magic=...)` + posição fantasma) concluídas
+
+---
+
+## ✅ 28/09/2026 — ETAPA DE CORREÇÃO E RECONCILIAÇÃO 100% CONCLUÍDA E ENTREGUE
+
+> **Pacote de 6 correções autorizado e validado (py_compile OK + 39 checks de teste, 0 erros).**
+> Commit: **aguardando ordem explícita do Mestre (protocolo 04/09).**
+
+### 🛠️ Entregues
+- [x] **Correção 1 — Bug `mt5.position_close`**: `_fechar_market` reescrito com `order_send(TRADE_ACTION_DEAL)` em direção inversa (AttributeError 31× entre 18–28/09 eliminado; deixa de travar trades da Faixa 1 em `ABERTA`).
+- [x] **Correção 2 — Reconciliação**: ticket `2539033591` (28/09) finalizado como **TP +6,5 pts** no `rompimento_state.json`; `rompimento_trades.csv` atualizado (linha 28/09 + invisíveis 18/09 −24 e 21/09 −27); backup `.before_reconcile_28`.
+- [x] **Correção 3 — Memória de treino restaurada**: `historico_contexto_wdo.csv` recomposto (9.118 linhas = 9.108 NAO_AGIU + 10 trades reais no fim) e `experiencias_wdo.json` com 5 experiências positivas; estado vazio preservado em `.vazio_2809`.
+- [x] **Correção 4 — `LIMITE_EXPERIENCIAS_PARA_TREINO = 4`**: ativado em `monstro_unificado_v22.py` (constante + branch APRENDIZADO ACELERADO alinhado).
+- [x] **Correção 5 — SL da Faixa 1 com ATR**: `sl_atr_factor=2.5` + `sl_piso=8.0` (`config`/`DEFAULT_CFG`); `SL_efetivo = max(piso, min(SL_caixa, fator × ATR14 manhã))` aplicado em `_abrir` e `resolve` (paridade backtest↔produção); calibração ATR real (mediana 6,21 pts, 169 dias).
+- [x] **Correção 6 — Sub-Trader do Corpo 1H**: candle 09:00–10:00 agregado das 12 M5 (`_agrega_h1`), entrada no rompimento do Corpo (BUY ask ≥ Corpo_Topo / SELL bid ≤ Corpo_Fundo), SL/TP no Pavio, **bloqueia a Faixa 1 enquanto aberto** e **libera o gatilho imediatamente ao encerrar**; EOD fecha a mercado; folga mínima 0,3 pts; bug de fallback `precobid` corrigido.
+- [x] **Validação**: `py_compile` OK (orquestrador + monstro) e testes `test_rompimento_sub.py` (24 checks) + `test_rompimento_integracao.py` (15 checks) — **0 erros**.
+
+### 📅 PRÓXIMA FASE — Expurgo de Código Legado e Limpeza de Backups (AGENDADA)
+- [ ] **Critério de início:** após os **primeiros 5 pregões** de validação em produção do Sub-Trader + SL ATR (sem exceções nos logs).
+- [ ] Remover funções mortas confirmadas por `pyflakes`/busca cruzada no `monstro_unificado_v22.py` (~lista abaixo).
+- [ ] Limpar backups `.vazio_2809`, `.before_reconcile_28`, `.sem_timestamp.bak`, `.pre_reinj_1609` após o período de rollback.
+- [ ] Descarte de cópias antigas (`monstro_backup*.py`, `monstro_unificado_v2*.py`, `mostro*.py`) após consolidação em git.
 
 ---
 

@@ -6570,7 +6570,7 @@ historico_loss = []  # HistÃÂ³rico de loss do modelo
 # Controle de treinamento inteligente
 contador_experiencias_novas = 0
 # Ã°Å¸Å¡Â¨ CORREÃâ¡ÃÆO C3: Treina a cada 3 experiÃÂªncias novas (era 10) - APRENDIZADO ACELERADO
-LIMITE_EXPERIENCIAS_PARA_TREINO = 3
+LIMITE_EXPERIENCIAS_PARA_TREINO = 4
 
 # Dashboard V2 Ã¢â¬â VariÃÂ¡veis de estado para o dashboard
 spread_atual = 0.0
@@ -8863,9 +8863,9 @@ def deve_treinar_modelo() -> bool:
     global contador_experiencias_novas, MODO_APRENDIZADO_FORCADO
 
     # APRENDIZADO ACELERADO: Treina mais frequentemente quando em modo forÃÂ§ado
-    if MODO_APRENDIZADO_FORCADO and contador_experiencias_novas >= 3:
+    if MODO_APRENDIZADO_FORCADO and contador_experiencias_novas >= LIMITE_EXPERIENCIAS_PARA_TREINO:
         logging.info(
-            "Ã°Å¸Å¡â¬ APRENDIZADO ACELERADO: Treinando com apenas 3 experiÃÂªncias")
+            f"ðŸš€ APRENDIZADO ACELERADO: Treinando com apenas {LIMITE_EXPERIENCIAS_PARA_TREINO} experiências")
         return True
 
     # MODO TESTE DESATIVADO Ã¢â¬â causava loop de spam a cada 2s (colunas faltantes no CSV)

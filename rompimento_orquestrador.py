@@ -38,6 +38,14 @@ DEFAULT_CFG = dict(
     ativo=True, lote=5.0, sl_mode="lo", tp_k=1.5, janela_min=60,
     magic=7008, hora_inicio=9.0, hora_fim=11.0, hora_eod="17:30",
     stale_max_min=12, no_night_bars=True,
+    # Ajuste do SL da Faixa 1 (correcao 5):
+    # SL_efetivo = max(sl_piso, min(SL_da_caixa, sl_atr_factor * ATR14_da_manha)).
+    # Dias calmos (ATR baixo) deixam de gerar SLs desproporcionais de 23-27 pts;
+    # o piso anti-ruido evita stops por oscilacao de ticks.
+    sl_atr_factor=2.5, sl_piso=8.0,
+    # Sub-Trader do Corpo de 1H (item 6): entrada no rompimento do CORPO do
+    # candle 09:00-10:00, saida nos PAVIOS. Fecha antes/Faixa 1 ira esperar.
+    sub_ativo=True,
 )
 
 ROOT = r"C:\AIOFEN"
@@ -164,6 +172,61 @@ def barras_fechadas(bars, agora):
     return [b for b in bars if b[0] + timedelta(minutes=5) <= agora]
 
 
+# ---------------- ATR E NIVEL CRU DE 1H ----------------
+def _atr14(bars, periodo=14):
+    """ATR de Wilder sobre barras (dt,o,h,l,c,v). Retorna 0 se dados insuficientes."""
+    trs = []
+    prev_c = None
+    for _dt, op, hi, lo, cl, _v in bars:
+        if prev_c is None:
+            prev_c = cl
+            continue
+        trs.append(max(hi - lo, abs(hi - prev_c), abs(lo - prev_c)))
+        prev_c = cl
+    if not trs:
+        return 0.0
+    p = min(periodo, len(trs))
+    atr = trs[0]
+    for tr in trs[1:]:
+        atr = ((p - 1) * atr + tr) / p
+    return atr
+
+
+def _nivel_corpo_pavio(candle):
+    """Do candle 1H (dt,o,h,l,c,v) extrai os niveis do Sub-Trader:
+    Corpo_Topo=max(abertura,fechamento), Corpo_Fundo=min(abertura,fechamento),
+    Pavio_Topo=maxima, Pavio_Fundo=minima. Retorna dict ou None."""
+    try:
+        op, hi, lo, cl = float(candle[1]), float(candle[2]), float(candle[3]), float(candle[4])
+    except Exception:
+        return None
+    corpo_topo = max(op, cl)
+    corpo_fundo = min(op, cl)
+    pavio_topo = hi
+    pavio_fundo = lo
+    if pavio_topo <= pavio_fundo or corpo_topo <= corpo_fundo:
+        return None
+    return dict(corpo_topo=corpo_topo, corpo_fundo=corpo_fundo,
+                pavio_topo=pavio_topo, pavio_fundo=pavio_fundo)
+
+
+def _agrega_h1(bars9):
+    """Agrega as M5 da hora 9 em um candle 1H (open 1a, high=max, low=min,
+    close ultima, vol soma). Retorna tupla (dt,o,h,l,c,v) ou None.
+    Exige as 12 M5 da hora (09:00-09:55) para o candle estar fechado."""
+    if not bars9:
+        return None
+    horas = {b[0].minute for b in bars9}
+    if len(horas) < 12:
+        return None  # candle 1H ainda nao fechou
+    o = bars9[0][1]
+    h = max(b[2] for b in bars9)
+    lo = min(b[3] for b in bars9)
+    cl = bars9[-1][4]
+    v = sum(b[5] for b in bars9)
+    return (bars9[0][0].replace(minute=0, second=0), o, h, lo, cl, v)
+
+
 # ---------------- NUCLEO (identico ao backtest) ----------------
 def prep(bars):
     """Caixa 09:00-10:00. Retorna dict(hi, lo, rr, mvol, bars, fim) ou None."""
@@ -180,7 +243,8 @@ def prep(bars):
         return None
     fim = trigb[-1][0]
     return dict(hi=hi, lo=lo, rr=rr, mvol=sum(b[5] for b in morning),
-                bars=trigb, fim=(fim.hour * 3600 + fim.minute * 60))
+                bars=trigb, fim=(fim.hour * 3600 + fim.minute * 60),
+                atr=_atr14(morning))
 
 
 def trig(t, window_min):
@@ -198,9 +262,14 @@ def trig(t, window_min):
     return None
 
 
-def resolve(t, side, idx, e, sl_mode, tp_k):
-    """SL conferido antes do TP (intrabarra); EOD no ultimo bar da sessao."""
+def resolve(t, side, idx, e, sl_mode, tp_k, sl_atr_factor=0.0, sl_piso=0.0):
+    """SL conferido antes do TP (intrabarra); EOD no ultimo bar da sessao.
+
+    Aplica o MESMO ajuste da correcao 5 da producao:
+    sl_dist_efetivo = max(sl_piso, min(SL_da_caixa, sl_atr_factor * ATR_manha)).
+    Paridade backtest <> orquestrador."""
     bars = t["bars"]
+    atr = float(t.get("atr") or 0.0)
     if side == "C":
         sl_lvl = {"mid": (t["hi"] + t["lo"]) / 2, "lo": t["lo"],
                   "lo_half": t["lo"] - 0.5 * t["rr"]}[sl_mode]
@@ -212,15 +281,18 @@ def resolve(t, side, idx, e, sl_mode, tp_k):
                   "hi_half": t["hi"] + 0.5 * t["rr"]}[sms]
         sl_dist = sl_lvl - e
         tp = e - tp_k * t["rr"] if tp_k else None
+    sl_ef = sl_dist
+    if atr > 0 and sl_atr_factor > 0:
+        sl_ef = max(sl_piso, min(sl_dist, sl_atr_factor * atr))
     for b in bars[idx:]:
         if side == "C":
-            if b[3] <= sl_lvl:
-                return -sl_dist, "SL"
+            if b[3] <= e - sl_ef:
+                return -sl_ef, "SL"
             if tp is not None and b[2] >= tp:
                 return tp - e, "TP"
         else:
-            if b[2] >= sl_lvl:
-                return -sl_dist, "SL"
+            if b[2] >= e + sl_ef:
+                return -sl_ef, "SL"
             if tp is not None and b[3] <= tp:
                 return e - tp, "TP"
     fec = bars[-1][4]
@@ -282,7 +354,7 @@ def _registrar_trade(rec):
 # ---------------- ORQUESTRADOR ----------------
 class OrquestradorRompimento:
     def __init__(self, fn_executar, symbol="WDO$", ativo=True, mt5mod=None,
-                 clock=None, bars_fn=None, tick_fn=None):
+                 clock=None, bars_fn=None, tick_fn=None, fresco_fn=None):
         self.fn_executar = fn_executar
         self.symbol = symbol
         self.ativo = ativo
@@ -295,6 +367,7 @@ class OrquestradorRompimento:
         self.clock = clock or (lambda: datetime.now())
         self.bars_fn = bars_fn   # (mt5mod, symbol, data) -> barras do dia
         self.tick_fn = tick_fn   # () -> preco ou None
+        self.fresco_fn = fresco_fn  # () -> bool (override do frescor p/ teste)
 
     # -- helpers --
     def _pos_aberta(self, ticket):
@@ -305,6 +378,8 @@ class OrquestradorRompimento:
             return None
 
     def _fresco(self):
+        if self.fresco_fn is not None:
+            return self.fresco_fn(), 0.0
         stale = dfasagem_min(self.mt5, self.symbol)
         return stale <= float(self.cfg["stale_max_min"]), stale
 
@@ -321,8 +396,41 @@ class OrquestradorRompimento:
         return float(outs[-1].price)
 
     def _fechar_market(self, ticket):
+        """Fecha a posicao do rompimento por ordem inversa (TRADE_ACTION_DEAL).
+
+        mt5.position_close NAO existe na API do MetaTrader5 Python (AttributeError
+        registrado 31x entre 18-28/09/2026, o que deixava o estado em ABERTA). O
+        fechamento correto envia um DEAL na direcao oposta apontando o ticket."""
         try:
-            self.mt5.position_close(ticket)
+            pos = self._pos_aberta(ticket)
+            if pos is None:
+                return True  # ja nao existe; deal de saida lancara a finalizacao
+            tipo = (self.mt5.ORDER_TYPE_SELL if pos.type == self.mt5.POSITION_TYPE_BUY
+                    else self.mt5.ORDER_TYPE_BUY)
+            tick = self.mt5.symbol_info_tick(pos.symbol)
+            if tick is None:
+                log("[ROMPIMENTO] sem tick para fechar %s" % ticket)
+                return False
+            preco = tick.bid if pos.type == self.mt5.POSITION_TYPE_BUY else tick.ask
+            req = {
+                "action": self.mt5.TRADE_ACTION_DEAL,
+                "position": int(ticket),
+                "symbol": pos.symbol,
+                "volume": float(pos.volume),
+                "type": tipo,
+                "price": float(preco),
+                "deviation": 20,
+                "magic": int(self.cfg.get("magic") or 7008),
+                "comment": "Rompimento1H close EOD",
+                "type_time": self.mt5.ORDER_TIME_GTC,
+                "type_filling": self.mt5.ORDER_FILLING_IOC,
+            }
+            res = self.mt5.order_send(req)
+            if res is None or res.retcode != self.mt5.TRADE_RETCODE_DONE:
+                log("[ROMPIMENTO] ERRO ao fechar %s: retcode=%s %s" %
+                    (ticket, None if res is None else res.retcode,
+                     None if res is None else res.comment))
+                return False
         except Exception as e:
             log("[ROMPIMENTO] ERRO ao fechar %s: %s" % (ticket, e))
             return False
@@ -351,40 +459,18 @@ class OrquestradorRompimento:
         if st.get("dia") == dia and st.get("final"):
             return
 
+        # ---- AGENDA do dia: niveis do candle 1H da manha (Sub-Trader) ----
+        sub_cfg = st.get("sub") or {}
+        if not sub_cfg.get("final") and not st.get("ticket"):
+            self._sub_gerenciar(st, a, dia)
+
         # ---- fase gatilho (10:00-11:06): sem posicao, pode abrir ----
-        if not st.get("ticket"):
-            if self._janela_fechada(a):
-                if st.get("dia") != dia:
-                    st = self._cria_estado(dia)
-                    st["final"] = True
-                    st["saida"] = "S/TRADE"
-                    st["obs"] = "sem gatilho na janela"
-                    self._grava_final(st)
-                    _salvar_state(st)
-                elif not st.get("final"):
-                    st["final"] = True
-                    st["saida"] = st.get("saida") or "S/TRADE"
-                    self._grava_final(st)
-                    _salvar_state(st)
-                return
-            fresh, diff = self._fresco()
-            if not fresh:
-                log("[ROMPIMENTO] feed defasado %.0f min - sem decisao" % diff)
-                return
-            bars = barras_fechadas(self._barras_dia(a.date()), a)
-            t = prep_safe(bars)
-            if t is None:
-                if a.hour >= 10 and a.minute >= 30:
-                    log("[ROMPIMENTO] sem caixa 09-10h (dados incompletos) %s" % dia)
-                return
-            tr = trig(t, int(self.cfg["janela_min"]))
-            if tr is None:
-                return
-            if st.get("dia") != dia:
-                st = self._cria_estado(dia)
-            self._abrir(st, t, tr)
-            if st.get("final"):
-                return
+        # (apenas se o Sub-Trader NAO estiver pendente/bloqueando;
+        # se ja FINALIZOU, o gatilho da Faixa 1 fica liberado imediatamente)
+        sub = st.get("sub") or {}
+        if sub.get("ticket") and not sub.get("final"):
+            return  # sub aberto: bloqueia Faixa 1
+        self._fase_gatilho(st, a, dia)
 
         # ---- gestao de posicao: SL/TP no servidor; EOD fecha a mercado ----
         st = _carregar_state()
@@ -420,6 +506,178 @@ class OrquestradorRompimento:
                     return
                 self._finaliza(st, exit_p, "EOD", "EOD")
 
+    def _sub_gerenciar(self, st, a, dia):
+        """Sub-Trader do Corpo de 1H (item 6).
+
+        Niveis no fechamento do candle 09:00-10:00 (ja em 10:00): entrada a
+        mercado no rompimento do CORPO (Corpo_Topo para BUY / Corpo_Fundo para
+        SELL), saida dinamica na direcao do PAVIO (BUY: TP=Pavio_Topo, SL=
+        Pavio_Fundo; SELL: TP=Pavio_Fundo, SL=Pavio_Topo). Enquanto o sub-trade
+        estiver aberto, a Faixa 1 Raiz fica BLOQUEADA; ao encerrar, libera o
+        gatilho de rompimento do Pavio_Topo/Fundo imediatamente.
+        """
+        if not self.cfg.get("sub_ativo"):
+            return
+        sub = st.get("sub") or {}
+        if sub.get("final"):
+            return
+
+        # ---- gestao de posicao do sub-trade (se aberto) ----
+        if sub.get("ticket"):
+            pos = self._pos_aberta(sub["ticket"])
+            if pos is None:
+                exit_p = self._exit_deal(sub["ticket"])
+                if exit_p is None:
+                    if self._hora_eod_excedida(a):
+                        sub["final"] = True
+                        sub["saida"] = "FECHADA"
+                        sub["pts"] = ""
+                        sub["obs"] = "sub fechado sem preco de saida"
+                        st["sub"] = sub
+                        _salvar_state(st)
+                    else:
+                        log("[ROMPIMENTO] sub: aguardando confirmacao (ticket %s)" % sub["ticket"])
+                    return
+                dirv = 1 if sub["side"] == "C" else -1
+                try:
+                    sub["pts"] = round(dirv * (float(exit_p) - float(sub["entry"])), 3)
+                except Exception:
+                    sub["pts"] = ""
+                sub["saida"] = self._classifica_saida(sub, exit_p) or "FECHADA"
+                sub["obs"] = "sub fechado no servidor"
+                sub["final"] = True
+                st["sub"] = sub
+                _salvar_state(st)
+                log("[ROMPIMENTO] SUB %s saida=%s pts=%s (libera Faixa 1)" %
+                    (sub["side"], sub["saida"], sub["pts"]))
+                return
+            if self._hora_eod_excedida(a):
+                if self._fechar_market(sub["ticket"]):
+                    exit_p = self._exit_deal(sub["ticket"])
+                    if exit_p is None:
+                        exit_p = self._coleta_price()
+                    if exit_p is None:
+                        sub["final"] = True; sub["saida"] = "EOD"; sub["pts"] = ""
+                    else:
+                        dirv = 1 if sub["side"] == "C" else -1
+                        try:
+                            sub["pts"] = round(dirv * (float(exit_p) - float(sub["entry"])), 3)
+                        except Exception:
+                            sub["pts"] = ""
+                        sub["saida"] = "EOD"; sub["obs"] = "sub EOD"
+                        sub["final"] = True
+                    st["sub"] = sub
+                    _salvar_state(st)
+                return
+            return  # sub aberto: bloqueia Faixa 1
+
+        # ---- entrada do sub-trade (rompimento do CORPO do candle 1H) ----
+        if not self._fresco()[0]:
+            return
+        cand1h = None
+        bars9 = [b for b in barras_fechadas(self._barras_dia(a.date()), a)
+                 if b[0].hour == 9]
+        h1 = _agrega_h1(bars9)
+        if h1:
+            cand1h = h1
+        if cand1h is None:
+            return
+        niv = _nivel_corpo_pavio(cand1h)
+        if niv is None:
+            return
+        # so opera no rompimento do corpo DENTRO da janela 10:00-11:06
+        if self._janela_fechada(a):
+            return
+        tick = self.mt5.symbol_info_tick(self.symbol)
+        if tick is None:
+            return
+        preco_bid, preco_ask = float(tick.bid), float(tick.ask)
+        # gatilho: preco rompe o Corpo (saiu do corpo na direcao do pavio)
+        if preco_ask >= niv["corpo_topo"]:
+            side, entry = "C", preco_ask
+            tp_lvl, sl_lvl = niv["pavio_topo"], niv["pavio_fundo"]
+        elif preco_bid <= niv["corpo_fundo"]:
+            side, entry = "V", preco_bid
+            tp_lvl, sl_lvl = niv["pavio_fundo"], niv["pavio_topo"]
+        else:
+            return
+        # folga minima para o pavio (senao o sub-trade sofre com tick a tick)
+        dist_tp = abs(tp_lvl - entry)
+        dist_sl = abs(entry - sl_lvl)
+        if dist_tp <= 0.3 or dist_sl <= 0.3:
+            log("[ROMPIMENTO] sub: pavio colado no corpo - sem folga (tp=%.2f sl=%.2f)" %
+                (dist_tp, dist_sl))
+            return
+        action = "BUY" if side == "C" else "SELL"
+        cfg = self.cfg
+        try:
+            ticket = self.fn_executar(
+                action, lots=cfg["lote"], symbol=self.symbol,
+                sl=round(dist_sl, 3), tp=round(dist_tp, 3),
+                magic_override=int(cfg["magic"]), comment="Rompimento1H SUB %s" % side)
+        except Exception as e:
+            log("[ROMPIMENTO] sub ERRO ao executar %s: %s" % (action, e))
+            return
+        if ticket is None:
+            log("[ROMPIMENTO] sub ordem rejeitada/nao enviada (%s)" % action)
+            return
+        entry = None
+        for _ in range(4):
+            time.sleep(0.3)
+            pos = self._pos_aberta(ticket)
+            if pos is not None:
+                entry = float(pos.price_open)
+                break
+        if entry is None:
+            entry = preco_bid if side == "V" else preco_ask
+        sub = dict(side=side, entry=entry, sl_lvl=sl_lvl, tp_lvl=tp_lvl,
+                   ticket=ticket, final=False, saida="ABERTA", pts=None,
+                   obs=None, nv=niv)
+        st["dia"] = st.get("dia") or dia
+        st["sub"] = sub
+        _salvar_state(st)
+        log("[ROMPIMENTO] SUB %s %s entrada=%s SL=%s TP=%s ticket=%s (corpo_topo=%.2f corpo_fundo=%.2f pavio_topo=%.2f pavio_fundo=%.2f)" %
+            (action, self.symbol, entry, sl_lvl, tp_lvl, ticket,
+             niv["corpo_topo"], niv["corpo_fundo"],
+             niv["pavio_topo"], niv["pavio_fundo"]))
+
+    def _fase_gatilho(self, st, a, dia):
+        """Fase gatilho da Faixa 1 (10:00-11:06): abre sem posicao."""
+        if not st.get("ticket"):
+            if self._janela_fechada(a):
+                if st.get("dia") != dia:
+                    st = self._cria_estado(dia)
+                    st["final"] = True
+                    st["saida"] = "S/TRADE"
+                    st["obs"] = "sem gatilho na janela"
+                    self._grava_final(st)
+                    _salvar_state(st)
+                elif not st.get("final"):
+                    st["final"] = True
+                    st["saida"] = st.get("saida") or "S/TRADE"
+                    self._grava_final(st)
+                    _salvar_state(st)
+                return
+            fresh, diff = self._fresco()
+            if not fresh:
+                log("[ROMPIMENTO] feed defasado %.0f min - sem decisao" % diff)
+                return
+            bars = barras_fechadas(self._barras_dia(a.date()), a)
+            t = prep_safe(bars)
+            if t is None:
+                if a.hour >= 10 and a.minute >= 30:
+                    log("[ROMPIMENTO] sem caixa 09-10h (dados incompletos) %s" % dia)
+                return
+            tr = trig(t, int(self.cfg["janela_min"]))
+            if tr is None:
+                return
+            if st.get("dia") != dia:
+                sub_ant = st.get("sub")
+                st = self._cria_estado(dia)
+                if sub_ant:
+                    st["sub"] = sub_ant  # preserva registro do sub do MESMO dia
+            self._abrir(st, t, tr)
+
     # -- auxiliares de fase --
     def _janela_fechada(self, a):
         return _hora_float(a) >= 11.0 + 0.1 or a.time() >= datetime.strptime(
@@ -446,7 +704,7 @@ class OrquestradorRompimento:
     def _cria_estado(self, dia):
         return dict(dia=dia, side=None, entry=None, sl_lvl=None, tp_lvl=None,
                     ticket=None, lote=float(self.cfg["lote"]), final=False,
-                    saida=None, pts=None, obs=None)
+                    saida=None, pts=None, obs=None, sub=None)
 
     def _classifica_saida(self, st, exit_p):
         try:
@@ -478,6 +736,14 @@ class OrquestradorRompimento:
             log("[ROMPIMENTO] sem tick para %s - adiando" % action)
             return
         sl_dist = max(0.0, (e_atual - sl_lvl) if side == "C" else (sl_lvl - e_atual))
+        # Correcao 5: SL_efetivo = max(piso, min(SL_da_caixa, fator * ATR14 manha)).
+        # ATR baixo => SL menor (sem stops desproporcionais de 23-27 pts);
+        # piso garante folga anti-ruido (default 8.0 pts).
+        atr = float(t.get("atr") or 0.0)
+        fator = float(cfg.get("sl_atr_factor") or 0.0)
+        piso = float(cfg.get("sl_piso") or 0.0)
+        if atr > 0 and fator > 0:
+            sl_dist = max(piso, min(sl_dist, fator * atr))
         tp_dist = cfg["tp_k"] * t["rr"] if cfg.get("tp_k") else 0.0
         try:
             ticket = self.fn_executar(
@@ -504,13 +770,15 @@ class OrquestradorRompimento:
                 break
         if entry is None:
             entry = e_atual
+        # SL_lvl efetivo ALINHADO com o sl_dist enviado a corretora (nao o da caixa)
+        sl_lvl = entry - sl_dist if side == "C" else entry + sl_dist
         st.update(dict(side=side, entry=entry, sl_lvl=sl_lvl,
                        tp_lvl=self._alvo_tp(entry, side, tp_dist),
                        ticket=ticket, final=False, saida="ABERTA", pts=None))
         _salvar_state(st)
-        log("[ROMPIMENTO] %s %s (lote %s) entrada=%s SL~%s TP=%s ticket=%s" %
-            (action, self.symbol, cfg["lote"], entry, sl_lvl,
-             st["tp_lvl"], ticket))
+        log("[ROMPIMENTO] %s %s (lote %s) entrada=%s SL~%s TP=%s ticket=%s atr=%.2f factor=%.2f"
+            % (action, self.symbol, cfg["lote"], entry, sl_lvl,
+               st["tp_lvl"], ticket, atr, fator))
 
     def _finaliza(self, st, exit_p, saida, obs):
         dirv = 1 if st["side"] == "C" else -1
@@ -574,7 +842,10 @@ def rodar_referencia(path):
             tr = trig(t, int(cfg["janela_min"]))
             if tr is None:
                 continue
-            pts, saida = resolve(t, tr[0], tr[1], tr[2], cfg["sl_mode"], cfg.get("tp_k"))
+            pts, saida = resolve(t, tr[0], tr[1], tr[2], cfg["sl_mode"],
+                                 cfg.get("tp_k"),
+                                 float(cfg.get("sl_atr_factor") or 0.0),
+                                 float(cfg.get("sl_piso") or 0.0))
             n += 1
             net += pts
             wins += max(pts, 0)
@@ -589,8 +860,9 @@ def rodar_referencia(path):
             pf = wins / guts if guts else 0.0
             print("%s: n=%4.d WR=%5.1f%% PF=%5.2f net=%+8.0f maxseq=%d" %
                   (ano, n, wr, pf, net, max_seq))
-    print("TOTAL trades=%d (sl_mode=%s tp_k=%s janela=%dmin, sem noturnos)" %
-          (tot, cfg["sl_mode"], cfg.get("tp_k"), int(cfg["janela_min"])))
+    print("TOTAL trades=%d (sl_mode=%s tp_k=%s janela=%dmin, factor_atr=%s piso=%s, sem noturnos)" %
+          (tot, cfg["sl_mode"], cfg.get("tp_k"), int(cfg["janela_min"]),
+           cfg.get("sl_atr_factor"), cfg.get("sl_piso")))
     return tot > 0
 
 
