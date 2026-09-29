@@ -55,7 +55,10 @@ LOG_DIR = os.path.join(ROOT, "logs", "rompimento")
 LOG_FILE = os.path.join(LOG_DIR, "rompimento.log")
 STATE_JSON = os.path.join(LOG_DIR, "rompimento_state.json")
 TRADES_CSV = os.path.join(LOG_DIR, "rompimento_trades.csv")
-HEADER_TRADES = ["dia", "side", "entrada", "sl", "tp", "saida", "pts", "obs"]
+# D3 (05/10): ticket/modulo/lucro_rs allow the unified memory to resolve the real
+# book snapshot (by ticket) and the reward in R$ (from the MT5 deals).
+HEADER_TRADES = ["dia", "side", "entrada", "sl", "tp", "saida", "pts", "obs",
+                 "ticket", "modulo", "lucro_rs"]
 
 os.makedirs(LOG_DIR, exist_ok=True)
 
@@ -330,12 +333,16 @@ def _salvar_state(state):
     os.replace(tmp, STATE_JSON)
 
 
-def _rewrite_csv_drop_day(p, header, dia):
+def _rewrite_csv_drop_day(p, header, dia, modulo=None):
+    """Remove a linha do dia. Quando modulo e informado, so remove a linha do
+    mesmo modulo (um sub NAO pode apagar o registro da Faixa 1 do mesmo dia)."""
     rows = []
     if os.path.exists(p) and os.path.getsize(p) > 0:
         with open(p, encoding="utf-8") as f:
             for r in csv.DictReader(f):
                 if r.get("dia") != dia:
+                    rows.append(r)
+                elif modulo and (r.get("modulo") or "faixa1") != modulo:
                     rows.append(r)
     with open(p, "w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=header)
@@ -345,7 +352,8 @@ def _rewrite_csv_drop_day(p, header, dia):
 
 
 def _registrar_trade(rec):
-    _rewrite_csv_drop_day(TRADES_CSV, HEADER_TRADES, rec["dia"])
+    _rewrite_csv_drop_day(TRADES_CSV, HEADER_TRADES, rec["dia"],
+                          rec.get("modulo") or None)
     with open(TRADES_CSV, "a", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=HEADER_TRADES)
         if os.path.getsize(TRADES_CSV) == 0:
@@ -356,7 +364,8 @@ def _registrar_trade(rec):
 # ---------------- ORQUESTRADOR ----------------
 class OrquestradorRompimento:
     def __init__(self, fn_executar, symbol="WDO$", ativo=True, mt5mod=None,
-                 clock=None, bars_fn=None, tick_fn=None, fresco_fn=None):
+                 clock=None, bars_fn=None, tick_fn=None, fresco_fn=None,
+                 mem_entrada=None, mem_saida=None):
         self.fn_executar = fn_executar
         self.symbol = symbol
         self.ativo = ativo
@@ -370,6 +379,28 @@ class OrquestradorRompimento:
         self.bars_fn = bars_fn   # (mt5mod, symbol, data) -> barras do dia
         self.tick_fn = tick_fn   # () -> preco ou None
         self.fresco_fn = fresco_fn  # () -> bool (override do frescor p/ teste)
+        # Memoria unificada (05/10): injetados pelo monstro para evitar
+        # dependencia circular entre os dois modulos.
+        self.mem_entrada = mem_entrada  # (ticket, modulo, side) -> fixa snapshot
+        self.mem_saida = mem_saida      # (ticket, lucro_rs, side, saida) -> grava
+
+    def _mem_fixar(self, ticket, modulo, side):
+        """D1: fixa o snapshot real do book no instante da entrada."""
+        if self.mem_entrada is None or not ticket:
+            return
+        try:
+            self.mem_entrada(ticket, self.symbol, modulo, side)
+        except Exception as e:
+            log("[ROMPIMENTO] MEM entrada falhou (%s): %s" % (ticket, e))
+
+    def _mem_gravar(self, ticket, side, saida):
+        """D1+D2+D3: grava a operacao com contexto real e reward em R$."""
+        if self.mem_saida is None or not ticket:
+            return
+        try:
+            self.mem_saida(ticket, self._lucro_real_rs(ticket), side, saida)
+        except Exception as e:
+            log("[ROMPIMENTO] MEM saida falhou (%s): %s" % (ticket, e))
 
     # -- helpers --
     def _pos_aberta(self, ticket):
@@ -396,6 +427,35 @@ class OrquestradorRompimento:
         if not outs:
             return None
         return float(outs[-1].price)
+
+    def _lucro_real_rs(self, ticket):
+        """D2: resolve o resultado financeiro REAL em R$ a partir dos deals.
+
+        O orquestrador so conhecia 'pts' (pontos de preco), que nao e compativel
+        com a coluna 'reward' do historico_contexto_wdo.csv -- que o Core grava
+        em R$. Misturar as duas escalas contaminava o alvo do treino. A fonte
+        autoritativa e o proprio MT5 (profit + commission + swap dos deals de
+        saida). Retorna None quando o deal ainda nao existe, para o chamador
+        nao gravar um chute.
+        """
+        if not ticket:
+            return None
+        try:
+            deals = self.mt5.history_deals_get(position=int(ticket))
+        except Exception:
+            return None
+        if not deals:
+            return None
+        total = 0.0
+        achou = False
+        for d in deals:
+            if d.entry != self.mt5.DEAL_ENTRY_OUT:
+                continue
+            achou = True
+            total += float(getattr(d, "profit", 0.0) or 0.0)
+            total += float(getattr(d, "commission", 0.0) or 0.0)
+            total += float(getattr(d, "swap", 0.0) or 0.0)
+        return round(total, 2) if achou else None
 
     def _fechar_market(self, ticket):
         """Fecha a posicao do rompimento por ordem inversa (TRADE_ACTION_DEAL).
@@ -537,6 +597,7 @@ class OrquestradorRompimento:
                         sub["obs"] = "sub fechado sem preco de saida"
                         st["sub"] = sub
                         _salvar_state(st)
+                        self._grava_final_sub(st)
                     else:
                         log("[ROMPIMENTO] sub: aguardando confirmacao (ticket %s)" % sub["ticket"])
                     return
@@ -550,6 +611,7 @@ class OrquestradorRompimento:
                 sub["final"] = True
                 st["sub"] = sub
                 _salvar_state(st)
+                self._grava_final_sub(st)
                 log("[ROMPIMENTO] SUB %s saida=%s pts=%s (libera Faixa 1)" %
                     (sub["side"], sub["saida"], sub["pts"]))
                 return
@@ -570,6 +632,7 @@ class OrquestradorRompimento:
                         sub["final"] = True
                     st["sub"] = sub
                     _salvar_state(st)
+                    self._grava_final_sub(st)
                 return
             return  # sub aberto: bloqueia Faixa 1
 
@@ -649,6 +712,7 @@ class OrquestradorRompimento:
         st["dia"] = st.get("dia") or dia
         st["sub"] = sub
         _salvar_state(st)
+        self._mem_fixar(ticket, "sub", side)
         log("[ROMPIMENTO] SUB %s %s entrada=%s SL=%s TP=%s ticket=%s (corpo_topo=%.2f corpo_fundo=%.2f pavio_topo=%.2f pavio_fundo=%.2f)" %
             (action, self.symbol, entry, sl_lvl, tp_lvl, ticket,
              niv["corpo_topo"], niv["corpo_fundo"],
@@ -792,6 +856,7 @@ class OrquestradorRompimento:
         log("[ROMPIMENTO] %s %s (lote %s) entrada=%s SL~%s TP=%s ticket=%s atr=%.2f factor=%.2f"
             % (action, self.symbol, cfg["lote"], entry, sl_lvl,
                st["tp_lvl"], ticket, atr, fator))
+        self._mem_fixar(ticket, "faixa1", st.get("side"))
 
     def _finaliza(self, st, exit_p, saida, obs):
         dirv = 1 if st["side"] == "C" else -1
@@ -804,16 +869,37 @@ class OrquestradorRompimento:
         st["obs"] = obs
         st["final"] = True
         _salvar_state(st)
+        self._mem_gravar(st.get("ticket"), st.get("side"), saida)
         self._grava_final(st)
 
     def _grava_final(self, st):
         rec = dict(dia=st["dia"], side=st.get("side"), entrada=st.get("entry"),
                    sl=st.get("sl_lvl"), tp=st.get("tp_lvl"),
                    saida=st.get("saida"), pts=st.get("pts"),
-                   obs=st.get("obs") or (st.get("saida") or ""))
+                   obs=st.get("obs") or (st.get("saida") or ""),
+                   ticket=st.get("ticket") or "", modulo="faixa1",
+                   lucro_rs=self._lucro_real_rs(st.get("ticket")))
         _registrar_trade(rec)
-        log("[ROMPIMENTO] REGISTRO %s side=%s saida=%s pts=%s obs=%s" %
-            (rec["dia"], rec["side"], rec["saida"], rec["pts"], rec["obs"]))
+        log("[ROMPIMENTO] REGISTRO %s side=%s saida=%s pts=%s lucro_rs=%s obs=%s" %
+            (rec["dia"], rec["side"], rec["saida"], rec["pts"],
+             rec["lucro_rs"], rec["obs"]))
+
+    def _grava_final_sub(self, st):
+        """D3: o Sub-Trader passa a alimentar a mesma trilha de memoria da
+        Faixa 1. Sem isso o sub era um ponto cego para o dataset."""
+        sub = st.get("sub") or {}
+        if not sub or not sub.get("ticket"):
+            return
+        rec = dict(dia=st.get("dia"), side=sub.get("side"),
+                   entrada=sub.get("entry"), sl=sub.get("sl_lvl"),
+                   tp=sub.get("tp_lvl"), saida=sub.get("saida"),
+                   pts=sub.get("pts"), obs=sub.get("obs") or "sub",
+                   ticket=sub.get("ticket"), modulo="sub",
+                   lucro_rs=self._lucro_real_rs(sub.get("ticket")))
+        _registrar_trade(rec)
+        self._mem_gravar(sub.get("ticket"), sub.get("side"), sub.get("saida"))
+        log("[ROMPIMENTO] REGISTRO SUB %s side=%s saida=%s pts=%s lucro_rs=%s" %
+            (rec["dia"], rec["side"], rec["saida"], rec["pts"], rec["lucro_rs"]))
 
 
 # ---------------- SELFTEST (referencia estatística, sem barras noturnas) -------

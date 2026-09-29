@@ -899,6 +899,117 @@ def shadow_registrar_resultado(ticket, lucro):
                      f"lucro={lucro:.2f}")
     except Exception as e:
         logging.warning(f"SHADOW: falha ao registrar resultado ({e})")
+
+# ========== MEMORIA UNIFICADA (05/10) ==========
+# D1: no instante da entrada de QUALQUER modulo (Core / Faixa 1 / Sub) e feito
+# um snapshot REAL do book. Antes, o plug P4 usava _CONTEXTO_ROMPIMENTO, um
+# vetor CONSTANTE (bid_qty=0, entropia=0.5, rsi=50, escoras=0): a rede recebia
+# 22 features identicas em 100% dos trades, ou seja, ruido ativo -- nao havia
+# nenhuma informacao de mercado para aprender.
+# D2: o resultado e gravado em R$ (vindo dos deals do MT5), nao em pontos. O
+# Core ja gravava 'reward' em R$, e o plug gravava 'pts'. Misturar as escalas
+# no mesmo dataset corrompia o alvo do treino.
+# D3: o Sub-Trader tambem passa por aqui, dejando de ser um ponto cego.
+#
+# Chave: ticket MT5. Dedup por ticket (nao por dia) para que multiplos
+# trades no mesmo pregão virem amostras independentes.
+_MEM_CTX_ENTRADA = {}
+
+
+def _fmt_num(v):
+    """Formatacao defensiva: o book pode devolver None/NaN e um log nao pode
+    derrubar a captura do contexto."""
+    try:
+        f = float(v)
+        if f != f:  # NaN
+            return "nan"
+        return "%.3f" % f
+    except (TypeError, ValueError):
+        return str(v)
+
+
+def memoria_fixar_entrada(ticket, symbol, modulo, side=None, pts=None,
+                          sl=None, tp=None):
+    """D1: fixa o snapshot REAL do book no instante exato da entrada.
+
+    Se o book nao estiver disponivel, NAO grava placeholder: e preferivel
+    perder uma amostra a alimentar o treino com vetor constante.
+    """
+    if ticket is None:
+        return None
+    try:
+        ctx = obter_contexto_completo()
+        if not ctx:
+            logging.warning("MEM: book indisponivel na entrada do ticket %s "
+                            "(amostra descartada em vez de gravar placeholder)" % ticket)
+            return None
+        # Enriquece com as 8 features de escora/liquidez do book
+        try:
+            bd = ler_book_nativo()
+            tk = mt5.symbol_info_tick(symbol)
+            if bd and tk:
+                esc = analisar_profundidade_book(bd, float(tk.bid))
+                if isinstance(esc, dict):
+                    ctx.update(esc)
+        except Exception as e:
+            logging.debug(f"MEM: escoras indisponiveis ({e})")
+        ctx = dict(ctx)
+        ctx["candle_type"] = str(ctx.get("candle_type") or "rompimento")
+        ctx["is_in_trade"] = 1
+        ctx["floating_profit"] = 0.0
+        ctx["tempo_em_trade"] = 0
+        _MEM_CTX_ENTRADA[int(ticket)] = {
+            "contexto": ctx, "modulo": modulo, "side": side,
+            "pts": pts, "sl": sl, "tp": tp,
+            "ts": datetime.now(),
+        }
+        # Defesa: nunca deixa o dicionario crescer sem limite caso algum trade
+        # nao registre saida (posicao travada / processo longo).
+        if len(_MEM_CTX_ENTRADA) > 500:
+            for k in sorted(_MEM_CTX_ENTRADA,
+                            key=lambda x: _MEM_CTX_ENTRADA[x]["ts"])[:100]:
+                _MEM_CTX_ENTRADA.pop(k, None)
+        logging.info(f"MEM: snapshot real fixado ticket={ticket} modulo={modulo} "
+                     f"bid_qty={ctx.get('bid_qty')} ask_qty={ctx.get('ask_qty')} "
+                     f"entropia={_fmt_num(ctx.get('entropia_book'))} "
+                     f"rsi={_fmt_num(ctx.get('rsi_14'))}")
+        return ctx
+    except Exception as e:
+        logging.warning(f"MEM: falha ao fixar contexto de entrada ({e})")
+        return None
+
+
+def memoria_registrar_saida(ticket, lucro_rs, side=None, saida=None):
+    """D1+D2+D3: grava a operacao na memoria unificada usando o contexto real
+    da entrada e o resultado em R$. Sem contexto de entrada, nao grava
+    placeholder: a amostra e descartada para nao envenenar o treino."""
+    if ticket is None:
+        return False
+    reg = _MEM_CTX_ENTRADA.pop(int(ticket), None)
+    if reg is None:
+        logging.warning(f"MEM: sem snapshot de entrada para o ticket {ticket} "
+                        f"- linha NAO gravada (evita poisonar o dataset)")
+        return False
+    if lucro_rs is None:
+        logging.warning(f"MEM: sem lucro em R$ para o ticket {ticket} "
+                        f"- linha NAO gravada (reward precisa de escala unica)")
+        return False
+    acao = "BUY" if (side or reg.get("side")) in ("C", "BUY", "buy") else "SELL"
+    ctx = reg["contexto"]
+    ctx["is_in_trade"] = 0
+    score = 0.0
+    try:
+        if memoria_experiencias is not None:
+            memoria_experiencias.adicionar(dict(ctx), acao, float(lucro_rs), score)
+        salvar_experiencia_csv(dict(ctx), acao, float(lucro_rs), score)
+        logging.info(f"MEM UNIFICADA: module={reg.get('modulo')} acao={acao} "
+                     f"ticket={ticket} reward=R$ {float(lucro_rs):.2f} "
+                     f"saida={saida} -> dataset limpo")
+        return True
+    except Exception as e:
+        logging.warning(f"MEM: falha ao registrar saida ({e})")
+        return False
+# ========== FIM MEMORIA UNIFICADA ==========
 # ========== FIM SHADOW MODE ==========
 
 
@@ -6728,16 +6839,31 @@ def alimentar_experiencia_rompimento():
             _marcar_dia_faixa1_alimentado(dia)
             _ultimo_dia_feed_rompimento = dia
             acao = "BUY" if str(rec.get("side") or "").strip().upper() == "C" else "SELL"
+            # D2 (05/10): a coluna 'reward' do dataset e em R$. O plug antigo
+            # gravava 'pts' (pontos de preco), escalando o alvo por um fator
+            # ~10x e corrompendo o treino. Sem lucro em R$ a linha e descartada.
             try:
-                lucro = float(rec.get("pts") or 0.0)
-            except Exception:
-                lucro = 0.0
-            # Replica o padrao do v22 (linhas 7343-7346) com contexto minimo seguro
-            if memoria_experiencias is not None:
-                memoria_experiencias.adicionar(_CONTEXTO_ROMPIMENTO.copy(), acao, lucro, 0.0)
-            salvar_experiencia_csv(_CONTEXTO_ROMPIMENTO.copy(), acao, lucro, 0.0)
-            logging.info(f"[ROMPIMENTO] plug P4: feed experiencia {dia} {acao} pts={lucro} "
-                         f"contador={contador_experiencias_novas}/{LIMITE_EXPERIENCIAS_PARA_TREINO}")
+                lucro = float(rec.get("lucro_rs"))
+            except (TypeError, ValueError):
+                lucro = None
+            if lucro is None:
+                logging.warning(
+                    "[ROMPIMENTO] plug P4: sem 'lucro_rs' para %s %s - linha "
+                    "descartada (reward exige escala unica em R$)" % (dia, acao))
+                continue
+            # D1 (05/10): o contexto real agora e fixado na ENTRADA por
+            # memoria_fixar_entrada e consumido na SAIDA por
+            # memoria_registrar_saida. Este plug nao deve mais gravar linhas:
+            # aqui resta apenas o book do dia-a-dia, sem fotografia do book no
+            # instante do gatilho. Gravar _CONTEXTO_ROMPIMENTO (vetor
+            # CONSTANTE) envenenava o treino com ruido ativo.
+            if memoria_registrar_saida is not None and rec.get("ticket"):
+                memoria_registrar_saida(int(rec["ticket"]), lucro, None,
+                                        rec.get("saida"))
+                continue
+            logging.warning(
+                "[ROMPIMENTO] plug P4: %s sem ticket de entrada associated - "
+                "linha NAO gravada (memoria unificada usa o snapshot real)" % dia)
     except Exception as e:
         logging.error(f"[ROMPIMENTO] plug P4 falhou ao alimentar experiencia: {e}")
 
@@ -6858,7 +6984,8 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     shadow=False)
             try:
                 _orq = OrquestradorRompimento(
-                    fn_executar=_romp_fn_executar, symbol=SYMBOL, ativo=ROMPIMENTO_ATIVO)
+                    fn_executar=_romp_fn_executar, symbol=SYMBOL, ativo=ROMPIMENTO_ATIVO,
+                    mem_entrada=memoria_fixar_entrada, mem_saida=memoria_registrar_saida)
                 logging.info("[ROMPIMENTO] Orquestrador instanciado (magic %s) - Faixa 1 armada", MAGIC_ROMPIMENTO)
             except Exception as e:
                 logging.error(f"[ROMPIMENTO] Falha ao instanciar orquestrador: {e}")

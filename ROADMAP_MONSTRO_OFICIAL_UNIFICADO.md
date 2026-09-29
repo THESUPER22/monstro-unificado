@@ -29,12 +29,55 @@
 **Ações obrigatórias em 05/10/2026 (pós-validação):**
 - [ ] **A1 — Expurgo:** remover os ~18 métodos mortos em `monstro_unificado_v22.py` + fix do bloco inalcançável `alertas` (L2485-2499, em `pode_operar`).
 - [ ] **A2 — Testes legados:** corrigir as 5 falhas pré-existentes da suíte `tests/teste_orquestrador_rompimento.py` (RG1 SL=lo caixa / RG2 SL=hi caixa / RG3 final EOD + pts + CSV). **Confirmado pré-existente no commit 73e02ca** (via `git stash`) — NÃO é regressão do filtro R/R.
-- [ ] **A3 — Fiação Keras→gate (Opção "b"):** desenhar e implementar para que `pode_operar` consulte **ativamente** as inferências da rede. Sub-tarefas: (i) registrar Faixa 1 / Sub-Trader como experiências do Keras; (ii) transformar o `shadow_registrar_entrada` (hoje **passivo**) em gate de veto; (iii) validar que a rede tem poder preditivo (critério: correlação ≥ 0.15 sustained, ver §Quarentena 04/09) antes de virar veto real.
+- [ ] **A3 — Fiação Keras→gate (Opção "b"):** desenhar e implementar para que `pode_operar` consulte **ativamente** as inferências da rede. Sub-tarefas: (i) registrar Faixa 1 / Sub-Trader como experiências do Keras — **CONCLUÍDO em 29/09 (D1/D2/D3, ver seção abaixo)**; (ii) transformar o `shadow_registrar_entrada` (hoje **passivo**) em gate de veto — **BLOQUEADO**: pesos do Monstro WDO são sintéticos; (iii) validar que a rede tem poder preditivo (critério: correlação ≥ 0.15 sustained, ver §Quarentena 04/09) antes de virar veto real.
 
 > **Base factual do filtro R/R (backtest 264 pregões, 48.7M ticks — commit 2546706):** desenho original (TP/SL nos pavios) tinha E = **-1.00 pt/trade**, R/R médio 0.39, P(E>0) = **7.4%**; com filtro `sub_rr_min=1.0` (só opera R/R ≥ 1:1): E = **+2.36 pts**, P(E>0) = **88.6%**, ~33 trades/ano. Sub com filtro opera em ~12,5% dos pregões (1 a cada ~8 dias).
 
 - [ ] **A4 — Backups:** limpar `.vazio_2809`, `.before_reconcile_28`, `.sem_timestamp.bak`, `.pre_reinj_1609` após período de rollback.
 - [ ] **A5 — Cópias antigas:** descarte de `monstro_backup*.py`, `monstro_unificado_v2*.py`, `mostro*.py` após consolidação em git (backups já movidos p/ `_arquivo_morto/` no commit 73e02ca).
+
+---
+
+## 🧠 CAUSA-RAIZ DA CORRELAÇÃO ≈ 0 DO KERAS (auditoria 29/09/2026)
+
+**Constatação principal:** o problema NÃO é a arquitetura da rede. É um **data pipeline bug** com duas camadas.
+
+### Camada 1 — Os pesos do Monstro WDO são SINTÉTICOS
+`treinar_monstro_offline.py` (L59-116) e `treinar_monstro_offline_v2.py` treinam com `gerar_precos_wdo()` + `gerar_book_sintetico()` sobre `np.random.RandomState(seed)`. **Nenhum dos dois lê `historico_contexto_wdo.csv` nem `decisions_wdo.csv`.**
+`retreinar_scaler_real.py` reconstrói apenas o **scaler** (a partir de dados reais), **não os pesos**.
+→ Resultado: **pesos sintéticos + scaler real**. A rede recebe entradas em unidades/domínio que nunca viu no treino. Isso explica a correlação ≈ 0.
+
+> ⚠️ **O gate permanece DESLIGADO até retreino com dados reais + correlação ≥ 0.15.** Ativar veto com pesos sintéticos geraria supressões aleatórias, destruindo a amostragem do simulador e criando uma falsa sensação de "IA filtrando".
+
+### Camada 2 — O plug P4 alimentava o dataset com vetor CONSTANTE
+`_CONTEXTO_ROMPIMENTO` (L6887) gravava `bid_qty=0, ask_qty=0, entropia_book=0.5, rsi_14=50, escoras=0` — 22 features **idênticas em 100% dos trades** da Faixa 1. Não era dado faltando: era **ruído ativo**.
+
+### Confusão entre os DOIS modelos (origem do erro de projeto)
+| Modelo | Features | Base | Uso |
+|---|---|---|---|
+| **Modelo A** (`modelo_a_filtro_wdo.keras`) | 22 MTF/M1 (`atr_ratio`, `slope`, `estado_*`, `sessao_*`) | **REAL** (preço) | shadow passivo |
+| **Monstro WDO** (`modelo_monstro_wdo.h5`) | 22 book (`bid_qty`, `escoras`, `entropia`) | **SINTÉTICA** | memória / futuro gate |
+
+O Modelo A **não usa book** e é o único com base real. O dataset `historico_contexto_wdo.csv` alimenta o Monstro WDO, cujas features de book estão zeradas (`bid_qty/ask_qty/volume_tick = 0` em todas as linhas — confirmado no docstring de `retreinar_scaler_real.py`).
+
+### ✅ D1/D2/D3 — CORRIGIDOS em 29/09/2026 (pipeline limpo, gate ainda desligado)
+Sequência: **pipeline limpo → coleta real → retreino → medir correlência → gate.**
+
+- [x] **D1 — Snapshot real do book na entrada.** `memoria_fixar_entrada()` fixa `obter_contexto_completo()` + `analisar_profundidade_book()` (8 features de escora) no instante exato do gatilho, chaveado por **ticket MT5**. Se o book estiver indisponível, a amostra é **descartada** — nunca grava placeholder.
+- [x] **D2 — Reward em R$ (escala única).** `_lucro_real_rs()` resolve `profit + commission + swap` direto dos **deals do MT5**. O plug P4 deixou de gravar `pts` (pontos). Sem `lucro_rs` válido a linha é descartada. Coluna `reward` do dataset agora é 100% R$.
+- [x] **D3 — Sub-Trader no dataset.** `_grava_final_sub()` grava o sub em `rompimento_trades.csv` com `modulo="sub"`. Corrigido bug onde `_rewrite_csv_drop_day` **apagava** o registro da Faixa 1 quando o sub fechava no mesmo dia (dedup agora é por `dia`+`modulo`).
+- [x] **Schema do CSV estendido:** `ticket`, `modulo`, `lucro_rs` (backward-compatible: linhas antigas sem as colunas continuam legíveis).
+- [x] **Plug P4 neutralizado:** não grava mais vetor constante; delega para `memoria_registrar_saida` (contexto real da entrada).
+- [x] **Testes:** RG12–RG16 (12 checks) + 5 cenários isolados de memória — **12/12 PASS, 0 regressão** (as 5 falhas legadas RG1/RG2/RG3 permanecem, A2).
+
+### 📌 Estimativa corrigida de volume
+`224` são **dias de gatilho** (rompimento da caixa), **não trades executados**. Trades reais estimados: **Faixa 1 ~50–100/ano + Sub ~33/ano ≈ 80–130/ano** (não +257). Sub com filtro opera em ~12,5% dos pregões (1 a cada ~8 dias), **não todo dia**.
+
+### 🔜 Sequência restante (gate)
+1. Coletar ≥ 200 trades com contexto real (`modulo`/`tipo_setup`/`faixa_horaria` como one-hot, retrocompatível com as 22 colunas).
+2. Retreinar o **Monstro WDO** com dados reais (não sintéticos).
+3. Medir correlação out-of-sample; **critério: ≥ 0.15 sustained**.
+4. Só então ligar `pode_operar` como veto ativo.
 
 ---
 

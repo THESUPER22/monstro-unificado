@@ -17,6 +17,13 @@ no padrao de teste_watchdog_e_fecho.py.
   RG8. prep sem caixa de 09h => None (dados incompletos).
   RG9. dfasagem_min real: ultima M5 recente => fresco; antiga => defasado.
 
+  MEMORIA UNIFICADA (05/10):
+  RG12. D2: reward vem dos deals do MT5 (profit+commission) em R$, nunca de pts.
+  RG13. D3: registro carrega modulo/ticket/lucro_rs.
+  RG14. D3: sub e Faixa 1 no mesmo dia nao se apagam.
+  RG15. D1: snapshot fixado na entrada, memoria gravada na saida.
+  RG16. D3: sub alimenta a memoria unificada.
+
 Execucao: python tests/teste_orquestrador_rompimento.py
 """
 import os
@@ -54,9 +61,12 @@ class _Pos:
 class _Deal:
     """Emula o TradeDeal do MT5 (namedtuple): atributo .entry/.price, mas SEM
     indexacao por string (d['entry'] levanta TypeError - bug real corrigido)."""
-    def __init__(self, entry, price):
+    def __init__(self, entry, price, profit=0.0, commission=0.0, swap=0.0):
         self.entry = entry
         self.price = price
+        self.profit = profit
+        self.commission = commission
+        self.swap = swap
     def __getitem__(self, key):
         raise TypeError("tuple indices must be integers or slices, not str")
 
@@ -107,7 +117,8 @@ CFG_FIXO = {
 }
 
 
-def montar_fixture(bars, clock_pontos, tick_holder, fn_executar=None, fake=None):
+def montar_fixture(bars, clock_pontos, tick_holder, fn_executar=None, fake=None,
+                  mem_entrada=None, mem_saida=None):
     """Monta um OrquestradorRompimento com dados/mt5/relogio injetados."""
     import json as _json
     tmp = tempfile.mkdtemp(prefix="romp_test_")
@@ -138,7 +149,8 @@ def montar_fixture(bars, clock_pontos, tick_holder, fn_executar=None, fake=None)
 
     orq = mod.OrquestradorRompimento(
         fn_executar=ordem, symbol="WDO$", ativo=True, mt5mod=f,
-        clock=relogio, bars_fn=bars_fn, tick_fn=sabe_preco)
+        clock=relogio, bars_fn=bars_fn, tick_fn=sabe_preco,
+        mem_entrada=mem_entrada, mem_saida=mem_saida)
     mod.dfasagem_min = mock.Mock(return_value=1.0)
     return orq, tmp, f, sabe_preco
 
@@ -354,6 +366,127 @@ def test_dfasagem_min():
     checar("RG9 barra 40min = defasado", _DFASAGEM_ORIG(f2, "WDO$") > 12.0)
 
 
+# =========================================================================
+# MEMORIA UNIFICADA (05/10) - D1 contexto real, D2 reward em R$, D3 sub
+# =========================================================================
+def test_lucro_real_rs_dos_deals():
+    """D2: o reward sai dos deals do MT5 (R$), nunca de 'pts'."""
+    bars = gerar_barras(rompe="cima")
+    tick = {"preco": 100.2}
+    orq, tmp, f, _ = montar_fixture(bars, [DIA.replace(hour=10, minute=6)], tick)
+    f.deals[1001] = [_Deal(f.DEAL_ENTRY_OUT, 100.9, profit=-80.0, commission=-4.0, swap=0.0)]
+    checar("RG12 lucro real = profit+commission",
+           orq._lucro_real_rs(1001) == -84.0, str(orq._lucro_real_rs(1001)))
+    checar("RG12 sem deal => None", orq._lucro_real_rs(9999) is None)
+    checar("RG12 sem ticket => None", orq._lucro_real_rs(None) is None)
+
+
+def test_csv_tem_modulo_e_lucro_rs():
+    """D3: o registro carrega modulo/lucro_rs/ticket na trilha unificada."""
+    bars = gerar_barras(rompe="cima")
+    tick = {"preco": 100.2}
+    orq, tmp, f, _ = montar_fixture(bars, [DIA.replace(hour=10, minute=6)], tick)
+    f.deals[1001] = [_Deal(f.DEAL_ENTRY_OUT, 100.9, profit=40.0)]
+    orq.orquestrar()
+    st = mod._carregar_state()
+    orq._finaliza(st, 100.9, "TP", "teste")
+    rows = _ler_csv(tmp)
+    checar("RG13 modulo=faixa1", len(rows) == 1 and rows[0].get("modulo") == "faixa1")
+    checar("RG13 ticket gravado", rows[0].get("ticket") == "1001")
+    checar("RG13 lucro_rs em R$", rows[0].get("lucro_rs") == "40.0")
+
+
+def test_faixa1_e_sub_nao_se_apagam():
+    """D3: o sub NAO pode apagar o registro da Faixa 1 no mesmo dia."""
+    _registrar = mod._registrar_trade
+    try:
+        mod.HEADER_TRADES = ["dia", "side", "entrada", "sl", "tp", "saida", "pts",
+                             "obs", "ticket", "modulo", "lucro_rs"]
+        mod.TRADES_CSV = os.path.join(tempfile.mkdtemp(prefix="mem_test_"), "t.csv")
+        mod._registrar_trade(dict(dia="2026-08-24", side="C", entrada=1, sl=0,
+                                  tp=0, saida="TP", pts=5, obs="", ticket=1,
+                                  modulo="faixa1", lucro_rs=50.0))
+        mod._registrar_trade(dict(dia="2026-08-24", side="V", entrada=1, sl=0,
+                                  tp=0, saida="TP", pts=3, obs="", ticket=2,
+                                  modulo="sub", lucro_rs=30.0))
+        with open(mod.TRADES_CSV, encoding="utf-8") as f:
+            import csv as _c
+            rows = list(_c.DictReader(f))
+        checar("RG14 dois registros no mesmo dia", len(rows) == 2, str(len(rows)))
+        checar("RG14 faixa1 preservada",
+               any(r["modulo"] == "faixa1" for r in rows))
+        checar("RG14 sub preservado",
+               any(r["modulo"] == "sub" for r in rows))
+    finally:
+        mod._registrar_trade = _registrar
+
+
+def test_memoria_callbacks_disparam():
+    """D1: o snapshot e fixado na entrada e o registro ocorre na saida."""
+    barras = gerar_barras(rompe="cima")
+    tick = {"preco": 100.2}
+    fixados, gravados = [], []
+
+    def mem_entrada(ticket, symbol, modulo, side=None):
+        fixados.append((ticket, modulo))
+
+    def mem_saida(ticket, lucro_rs, side=None, saida=None):
+        gravados.append((ticket, lucro_rs, side, saida))
+
+    import json as _json
+    tmp = tempfile.mkdtemp(prefix="mem_cb_")
+    cfg = os.path.join(tmp, "config.json")
+    _json.dump(CFG_FIXO, open(cfg, "w", encoding="utf-8"))
+    mod.CFG_PATH = cfg
+    mod.LOG_FILE = os.path.join(tmp, "r.log")
+    mod.STATE_JSON = os.path.join(tmp, "s.json")
+    mod.TRADES_CSV = os.path.join(tmp, "t.csv")
+
+    f = FakeMT5()
+
+    def bars_fn(mt5mod, symbol, data):
+        dia = data if isinstance(data, datetime) else datetime.combine(data, datetime.min.time())
+        return [b for b in barras if b[0].date() == dia.date()]
+
+    def ordem(action, lots, symbol, sl, tp, magic_override, comment):
+        t = 1001 if action == "BUY" else 2001
+        f.positions[t] = _Pos(t, float(tick["preco"]))
+        return t
+
+    orq = mod.OrquestradorRompimento(
+        fn_executar=ordem, symbol="WDO$", ativo=True, mt5mod=f,
+        clock=mock.Mock(return_value=DIA.replace(hour=10, minute=6)),
+        bars_fn=bars_fn, tick_fn=lambda: 100.2,
+        mem_entrada=mem_entrada, mem_saida=mem_saida)
+    mod.dfasagem_min = mock.Mock(return_value=1.0)
+    orq.orquestrar()
+    f.positions.pop(1001, None)
+    f.deals[1001] = [_Deal(f.DEAL_ENTRY_OUT, 100.9, profit=40.0)]
+    st = mod._carregar_state()
+    orq._finaliza(st, 100.9, "TP", "teste")
+    checar("RG15 snapshot fixado na entrada", fixados and fixados[0][1] == "faixa1", str(fixados))
+    checar("RG15 memoria gravada na saida", gravados and gravados[0][1] == 40.0, str(gravados))
+
+
+def test_sub_grava_na_memoria():
+    """D3: o sub tambem alimenta a memoria unificada."""
+    gravados = []
+    f = FakeMT5()
+    orq, tmp, _f, _ = montar_fixture(
+        gerar_barras(), [DIA.replace(hour=10, minute=6)], {"preco": 100.2},
+        fake=f, mem_entrada=lambda *a: None,
+        mem_saida=lambda t, l, s=None, d=None: gravados.append((t, l, s)))
+    st = orq._cria_estado("2026-08-24")
+    st["dia"] = "2026-08-24"
+    f.deals[555] = [_Deal(f.DEAL_ENTRY_OUT, 100.9, profit=25.0)]
+    st["sub"] = dict(side="C", entry=100.0, sl_lvl=99.0, tp_lvl=102.0,
+                     ticket=555, final=True, saida="TP", pts=0.9, obs="sub")
+    orq._grava_final_sub(st)
+    rows = _ler_csv(tmp)
+    checar("RG16 sub gravado no CSV", len(rows) == 1 and rows[0].get("modulo") == "sub")
+    checar("RG16 sub enviou memoria", gravados and gravados[0][1] == 25.0, str(gravados))
+
+
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     test_gatilho_buy()
@@ -367,5 +500,10 @@ if __name__ == "__main__":
     test_sl_antes_do_tp()
     test_prep_incompleto()
     test_dfasagem_min()
+    test_lucro_real_rs_dos_deals()
+    test_csv_tem_modulo_e_lucro_rs()
+    test_faixa1_e_sub_nao_se_apagam()
+    test_memoria_callbacks_disparam()
+    test_sub_grava_na_memoria()
     print("\n%d falha(s)" % len(FALHAS))
     sys.exit(1 if FALHAS else 0)
