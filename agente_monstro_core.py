@@ -441,16 +441,28 @@ def contar_executados_consolidado_hoje():
 
 
 def winpct_historico():
+    """Taxa de PREENCHIMENTO com sinal no dataset historico.
+
+    NAO e o win rate de trade. Mede: entre as linhas de
+    historico_contexto_wdo.csv que tem reward != 0, quantas tem reward > 0.
+    A populacao e o dataset (que inclui candidatos e trades), nao os deals
+    executados. O win rate de trade real vive em tools/autopsia_automatizada
+    (win_rate, sobre deals do MT5) - nunca misturar os dois.
+
+    29/09/2026: devolvia so a porcentagem, sem n. O fecho printava
+    "win% 66.67%" ao lado de "[PRIORIDADE 3] Win rate abaixo de 35%": mesma
+    palavra, metricas diferentes, leitura oposta. Por isso agora volta (pct, n).
+    """
     import pandas as pd
     hist = os.path.join(BASE_DIR, "historico_contexto_wdo.csv")
     if not os.path.exists(hist):
-        return None
+        return None, 0
     df = pd.read_csv(hist, on_bad_lines="skip")
     r = pd.to_numeric(df["reward"], errors="coerce").fillna(0)
     r = r[r != 0]
     if len(r) == 0:
-        return None
-    return float((r > 0).mean() * 100)
+        return None, 0
+    return float((r > 0).mean() * 100), int(len(r))
 
 
 # ------------------------------------------------------------------ decisao -
@@ -475,11 +487,12 @@ def decidir(stats, counts, last):
     # backtest. A whitelist esta vazia de proposito: NAO existe parametro seguro
     # de autotuning. O agente apenas vigia e reporta (kill-switch, watchdog, fecho).
     if not CFG["whitelist"]:
-        w = winpct_historico()
+        w, nw = winpct_historico()
         if exec > 0:
-            log.info(f"VIGILANCIA: {exec} trades executados hoje (sniper %R), win% hist {w}")
+            log.info(f"VIGILANCIA: {exec} trades executados hoje (sniper %R), "
+                     f"dataset_reward_fill {w}% (n={nw})")
         return None, (f"Whitelist vazia (sniper %R fixo desde 08/08) - sem autotuning. "
-                      f"{exec} trades executados hoje, win% hist {w}")
+                      f"{exec} trades executados hoje, dataset_reward_fill {w}% (n={nw})")
 
     if exec == 0:
         if sinais > 0:
@@ -500,11 +513,13 @@ def decidir(stats, counts, last):
         return None, f"0 executados; bloqueio atual '{b}' nao exige ajuste (mercado sem oportunidade ou protecao correta). Manter."
 
     if exec >= D["min_trades_para_winpct"]:
-        w = winpct_historico()
+        w, nw = winpct_historico()
         if w is not None and w < D["winpct_acaso"]:
-            return None, (f"win% {w:.1f}% < acaso {D['winpct_acaso']}% - NAO apertar sozinho "
-                          f"(risco). Notificar humano p/ analise.")
-        return None, f"Robo operou ({exec} trades executados, win% {w}). Sem ajuste automatico necessario."
+            return None, (f"dataset_reward_fill {w:.1f}% (n={nw}) < acaso "
+                          f"{D['winpct_acaso']}% - NAO apertar sozinho (risco). "
+                          f"NAO e win rate de trade. Notificar humano p/ analise.")
+        return None, (f"Robo operou ({exec} trades executados, "
+                      f"dataset_reward_fill {w}% n={nw}). Sem ajuste automatico necessario.")
     return None, f"Amostra insuficiente ({exec} trades executados). Manter."
 
 
@@ -621,52 +636,61 @@ def run_pausa():
         log.info(f"apos rollback, robo: {ok2} ({m2})")
 
 
+def _git(*args):
+    """git com path do repo fixado. Retorna (rc, stdout)."""
+    try:
+        p = subprocess.run(["git", "-C", BASE_DIR, *args],
+                           capture_output=True, text=True, timeout=60)
+        return p.returncode, p.stdout
+    except Exception as e:
+        log.error(f"git falhou ({' '.join(args)}): {e}")
+        return 1, ""
+
+
 def verificar_mudanca_codigo():
-    """Detecta alteracoes ESTRUTURAIS no codigo-fonte vs ultima versao conhecida.
-    Gera diff unificado em Python puro (difflib) e salva diff_estrutural_YYYYMMDD.txt.
-    Fase 1: apenas REPORTADA - o agente NUNCA altera o .py de producao sozinho."""
-    from difflib import unified_diff
-    robo = os.path.join(BASE_DIR, P["robo_script"])
-    snap = os.path.join(BASE_DIR, "agente_snapshot_v22.py")
-    if not os.path.exists(robo):
+    """Detecta alteracoes ESTRUTURAIS no codigo-fonte contra o GIT (HEAD).
+
+    29/09/2026 - POR QUE MUDOU: a versao anterior comparava contra o arquivo
+    local `agente_snapshot_v22.py`, um baseline rotativo sobrescrito a cada
+    fecho. Consequencia: o fecho de 29/09 reportou "+221/-13" para o bloco
+    MEMORIA UNIFICADA, que ja estava commitado as 01:48 (78c6459). O agente
+    nao tem como saber que aquilo foi revisado, entao reabre "PROPOSTA p/
+    revisao humana" sobre codigo ja aprovado - 16 diffs arquivados, um deles
+    de 589 KB, e zero mudancas reais.
+
+    Agora a fonte da verdade e `git diff HEAD`: so vira alarme o que esta
+    no disco e NAO foi commitado. Mudanca commitada e revisada deixa de
+    ser alarme e passa a ser linha de historico (ver ultimo commit)."""
+    if not os.path.exists(os.path.join(BASE_DIR, P["robo_script"])):
         return None
-    try:
-        atual = open(robo, encoding="utf-8-sig").read()
-    except Exception as e:
-        log.error(f"erro ao ler fonte p/ diff: {e}")
+    rc, diff = _git("diff", "HEAD", "--", P["robo_script"])
+    if rc != 0:
+        # arquivo fora do git: sem baseline confiavel, nao inventa alarme
+        log.warning("git diff indisponivel p/ %s - mudanca estrutural NAO avaliada",
+                    P["robo_script"])
         return None
-    if not os.path.exists(snap):
-        try:
-            with open(snap, "w", encoding="utf-8") as f:
-                f.write(atual)
-        except Exception as e:
-            log.error(f"erro ao criar snapshot inicial: {e}")
-        return None
-    try:
-        anterior = open(snap, encoding="utf-8-sig").read()
-    except Exception as e:
-        log.error(f"erro ao ler snapshot: {e}")
-        return None
-    if anterior == atual:
-        return None
-    diff = "\n".join(unified_diff(
-        anterior.splitlines(), atual.splitlines(),
-        fromfile="monstro_unificado_v22.py (ultima execucao)",
-        tofile="monstro_unificado_v22.py (atual)", lineterm=""))
     if not diff.strip():
         return None
     nome = os.path.join(BASE_DIR, f"diff_estrutural_{datetime.now():%Y%m%d}.txt")
     try:
         with open(nome, "w", encoding="utf-8") as f:
             f.write(diff)
-        with open(snap, "w", encoding="utf-8") as f:
-            f.write(atual)
     except Exception as e:
-        log.error(f"erro ao salvar diff/snapshot: {e}")
+        log.error(f"erro ao salvar diff: {e}")
         return None
     add = sum(1 for l in diff.splitlines() if l.startswith("+") and not l.startswith("+++"))
     rem = sum(1 for l in diff.splitlines() if l.startswith("-") and not l.startswith("---"))
     return {"nome": os.path.basename(nome), "add": add, "rem": rem}
+
+
+def ultimo_commit_robo():
+    """Ultimo commit que tocou o .py de producao. Linha de RASTREABILIDADE,
+    nao alarme: prova quem alterou o Core e quando (regra 14.4 do roadmap)."""
+    rc, out = _git("log", "-1", "--format=%h|%ad|%an|%s",
+                   "--date=format:%d/%m/%Y %H:%M", "--", P["robo_script"])
+    if rc != 0 or not out.strip():
+        return None
+    return out.strip().split("|", 3)
 
 
 def run_fecho():
@@ -679,10 +703,13 @@ def run_fecho():
     #    morto (ex: abort 0x8007042B no pregao 06/08).
     info_diff = verificar_mudanca_codigo()
     if info_diff:
-        log.info(f"MUDANCA ESTRUTURAL detectada no fonte: +{info_diff['add']}/-{info_diff['rem']} "
+        log.info(f"MUDANCA ESTRUTURAL NAO COMMITADA no fonte: +{info_diff['add']}/-{info_diff['rem']} "
                  f"(diff em {info_diff['nome']})")
     else:
-        log.info("codigo-fonte inalterado desde a ultima execucao")
+        log.info("codigo-fonte sem diff contra HEAD (git)")
+    ult = ultimo_commit_robo()
+    if ult:
+        log.info(f"ultimo commit no fonte: {ult[0]} {ult[1]} {ult[2]} - {ult[3]}")
     gerar_relatorio_diario(info_diff)
     autopsia_eod = CFG.get("autopsia_eod", {})
     if autopsia_eod.get("ativo", True):
@@ -713,7 +740,7 @@ def gerar_plano_dia_seguinte():
 def gerar_relatorio_diario(info_diff=None):
     stats = parse_decisions()
     counts, last = parse_vetos_log()
-    w = winpct_historico()
+    w, nw = winpct_historico()
     data = datetime.now().strftime("%Y%m%d")
     linhas = []
     linhas.append("=" * 66)
@@ -723,7 +750,9 @@ def gerar_relatorio_diario(info_diff=None):
     n_romp = contar_executados_rompimento_hoje()
     linhas.append(f"Decisoes hoje: {stats.get('n_decisoes', 0)} | Sinais BUY/SELL: {stats.get('sinais', 0)} "
                   f"| Trades executados: {n_v22 + n_romp} (v22={n_v22} + Faixa1={n_romp})")
-    linhas.append(f"win% (historico reward!=0): {w if w is not None else 'sem amostra'}")
+    linhas.append(f"dataset_reward_fill: {w if w is not None else 'sem amostra'}% (n={nw})"
+                  f"  [NAO e win rate de trade]")
+    linhas.append("  win rate de TRADE (deals MT5): ver plano_ do dia seguinte / autopsia")
     linhas.append(f"Entropia med: {stats.get('entropia_med')} | ATR med: {stats.get('atr_med')} | Spread med: {stats.get('spread_med')}")
     linhas.append(f"Book ratio med: {stats.get('book_ratio_med')}")
     linhas.append("")
