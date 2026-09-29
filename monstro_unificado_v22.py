@@ -999,10 +999,17 @@ def memoria_registrar_saida(ticket, lucro_rs, side=None, saida=None):
     ctx["is_in_trade"] = 0
     score = 0.0
     try:
+        # IMPORTANT: usa salvar_experiencia_dataset (escrita pura) e nao
+        # salvar_experiencia_csv. A latter dispara circuit_breaker +
+        # bloqueador_contexto + contador de retreino, que sao mecanismos de
+        # RISCO do Core: um loss do Sub (que o Core nao deu) poderia disparar
+        # parar.txt e desligar o robo, ou vetar o Core num contexto homonimo.
+        ok = salvar_experiencia_dataset(dict(ctx), acao, float(lucro_rs))
+        if not ok:
+            return False
         if memoria_experiencias is not None:
             memoria_experiencias.adicionar(dict(ctx), acao, float(lucro_rs), score)
-        salvar_experiencia_csv(dict(ctx), acao, float(lucro_rs), score)
-        logging.info(f"MEM UNIFICADA: module={reg.get('modulo')} acao={acao} "
+        logging.info(f"MEM UNIFICADA: modulo={reg.get('modulo')} acao={acao} "
                      f"ticket={ticket} reward=R$ {float(lucro_rs):.2f} "
                      f"saida={saida} -> dataset limpo")
         return True
@@ -3598,6 +3605,71 @@ def corrigir_csv_historico() -> None:
             backup_name = f"{HISTORICO_CSV}.corrompido.{int(time.time())}"
             os.rename(HISTORICO_CSV, backup_name)
             logging.info(f"Ã°Å¸âÂ¦ Arquivo corrompido movido para: {backup_name}")
+
+
+def _linha_experiencia(contexto: Dict[str, Any], acao: str, lucro: float) -> Dict[str, Any]:
+    """Monta a linha do dataset com o schema EXATO de historico_contexto_wdo.csv.
+
+    Isolado de salvar_experiencia_csv para que a Memoria Unificada (Faixa 1 /
+    Sub) possa escrever no dataset SEM disparar os efeitos colaterais de
+    trading daquela funcao (circuit breaker, bloqueador de contexto, contador
+    de retreino). Schema identico = retrocompatibilidade garantida.
+    """
+    return {
+        'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        'bid_qty': max(0, float(contexto.get('bid_qty', 0))),
+        'ask_qty': max(0, float(contexto.get('ask_qty', 0))),
+        'spread': max(0, float(contexto.get('spread', 0))),
+        'volatility': float(contexto.get('volatility', 0)),
+        'candle_type': str(contexto.get('candle_type', 'unknown'))[:50],
+        'entropia_book': max(0, float(contexto.get('entropia_book', 0))),
+        'rsi_14': max(0, min(100, float(contexto.get('rsi_14', 50)))),
+        'volume_tick': max(0, float(contexto.get('volume_tick', 0))),
+        'is_in_trade': int(bool(contexto.get('is_in_trade', 0))),
+        'floating_profit': float(contexto.get('floating_profit', 0.0)),
+        'tempo_em_trade': max(0, int(contexto.get('tempo_em_trade', 0))),
+        'preco_maior_escora_bid': float(contexto.get('preco_maior_escora_bid', 0.0)),
+        'volume_maior_escora_bid': max(0, float(contexto.get('volume_maior_escora_bid', 0.0))),
+        'distancia_maior_escora_bid': max(0, float(contexto.get('distancia_maior_escora_bid', 999.0))),
+        'preco_maior_escora_ask': float(contexto.get('preco_maior_escora_ask', 0.0)),
+        'volume_maior_escora_ask': max(0, float(contexto.get('volume_maior_escora_ask', 0.0))),
+        'distancia_maior_escora_ask': max(0, float(contexto.get('distancia_maior_escora_ask', 999.0))),
+        'liquidez_top5_bid': max(0, float(contexto.get('liquidez_top5_bid', 0.0))),
+        'liquidez_top5_ask': max(0, float(contexto.get('liquidez_top5_ask', 0.0))),
+        'action': acao,
+        'reward': float(lucro),
+    }
+
+
+def salvar_experiencia_dataset(contexto: Dict[str, Any], acao: str, lucro: float) -> bool:
+    """Escrita PURA no dataset de treino: NAO toca em nenhum mecanismo de
+    decisao/risco do robô.
+
+    Usado pela Memoria Unificada (Faixa 1 / Sub-Trader). Chamar
+    salvar_experiencia_csv() com operacoes desses modulos faria o
+    circuit_breaker contar losses que o Core nao deu, podendo criar parar.txt e
+    DESLIGAR o robo inteiro; e o bloqueador_contexto vetaria o Core em
+    contextos cujo hash colida com os de um breakout das 10h.
+    """
+    try:
+        if acao not in {"BUY", "SELL", "NAO_AGIU", "NADA"}:
+            raise ValueError(f"Ação inválida: {acao}")
+        if not isinstance(lucro, (int, float)):
+            raise ValueError("Lucro deve ser numérico")
+        df = pd.DataFrame([_linha_experiencia(contexto, acao, lucro)])
+        existe = os.path.exists(HISTORICO_CSV)
+        if existe and os.path.getsize(HISTORICO_CSV) / (1024 * 1024) > 50:
+            logging.warning("Dataset > 50MB - gravação ignorada (aguardando rotação)")
+            return False
+        # header=1 apenas quando o arquivo ainda nao existe (ou esta vazio):
+        # um CSV sem cabecalho quebraria a leitura do treino.
+        df.to_csv(HISTORICO_CSV, mode='a',
+                  header=(not existe) or os.path.getsize(HISTORICO_CSV) == 0,
+                  index=False)
+        return True
+    except Exception as e:
+        logging.error(f"[MEM] Erro ao gravar no dataset: {e}")
+        return False
 
 
 def salvar_experiencia_csv(contexto: Dict[str, Any], acao: str, lucro: float, score_dist: float) -> None:

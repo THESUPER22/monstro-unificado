@@ -68,7 +68,17 @@ Sequência: **pipeline limpo → coleta real → retreino → medir correlência
 - [x] **D3 — Sub-Trader no dataset.** `_grava_final_sub()` grava o sub em `rompimento_trades.csv` com `modulo="sub"`. Corrigido bug onde `_rewrite_csv_drop_day` **apagava** o registro da Faixa 1 quando o sub fechava no mesmo dia (dedup agora é por `dia`+`modulo`).
 - [x] **Schema do CSV estendido:** `ticket`, `modulo`, `lucro_rs` (backward-compatible: linhas antigas sem as colunas continuam legíveis).
 - [x] **Plug P4 neutralizado:** não grava mais vetor constante; delega para `memoria_registrar_saida` (contexto real da entrada).
-- [x] **Testes:** RG12–RG16 (12 checks) + 5 cenários isolados de memória — **12/12 PASS, 0 regressão** (as 5 falhas legadas RG1/RG2/RG3 permanecem, A2).
+- [x] **Testes:** RG12–RG18 (14 checks) + 11 cenários isolados — **14/14 PASS, 0 regressão** (as 5 falhas legadas RG1/RG2/RG3 permanecem, A2).
+
+### ⚠️ R4 — Regressão de risco encontrada e corrigida (29/09, pré-restart)
+`salvar_experiencia_csv()` **não é só um writer** — ela dispara 3 mecanismos de risco do Core:
+1. `circuit_breaker.registrar_resultado(lucro)` → se o loss diário ≤ `MAX_LOSS_DIARIO` (−R$500), **cria `parar.txt` e DESLIGA o robô inteiro**.
+2. `bloqueador_contexto.registrar_loss/win()` → pode **vetar o Core** em contextos cujo `_hash_contexto` (faixa 2h + volatilidade + RSI + candle_type + book_pressure) colida com os de um breakout das 10h.
+3. `contador_experiencias_novas` → dispara retreino.
+
+Encaminhar Faixa 1 / Sub por essa função faria **losses que o Core não deu** contarem para o limite diário e para o veto de contexto — com risco real de desligamento. Isso foi pego na revisão pré-restart.
+
+**Correção:** `salvar_experiencia_dataset()` — escrita **pura**, sem nenhum efeito de decisão/risco. `memoria_registrar_saida()` usa esta. `salvar_experiencia_csv()` permanece **inalterada** para o Core. Schema do dataset idêntico (retrocompatível), verificado por AST em RG17/RG18.
 
 ### 📌 Estimativa corrigida de volume
 `224` são **dias de gatilho** (rompimento da caixa), **não trades executados**. Trades reais estimados: **Faixa 1 ~50–100/ano + Sub ~33/ano ≈ 80–130/ano** (não +257). Sub com filtro opera em ~12,5% dos pregões (1 a cada ~8 dias), **não todo dia**.

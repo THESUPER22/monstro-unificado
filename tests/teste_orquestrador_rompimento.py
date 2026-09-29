@@ -487,6 +487,65 @@ def test_sub_grava_na_memoria():
     checar("RG16 sub enviou memoria", gravados and gravados[0][1] == 25.0, str(gravados))
 
 
+def test_writer_puro_sem_efeitos_de_risco():
+    """RG17: o writer da memoria unificada nao toca circuit_breaker,
+    bloqueador_contexto, contador de retreino nem parar.txt. Um loss do Sub
+    (que o Core nao deu) poderia, senao, desligar o robo inteiro."""
+    import ast
+    import io as _io
+    import re as _re
+    caminho = os.path.join(BASE, "monstro_unificado_v22.py")
+    with _io.open(caminho, encoding="utf-8") as f:
+        src = f.read()
+    bloco = _re.search(
+        r"(def _linha_experiencia.*?)def salvar_experiencia_csv", src, _re.S).group(1)
+    proibidos = {"circuit_breaker", "bloqueador_contexto",
+                 "contador_experiencias_novas", "MODO_APRENDIZADO_FORCADO",
+                 "parar.txt", "MAX_LOSS_DIARIO", "registrar_resultado",
+                 "registrar_loss", "registrar_win"}
+    refs = set()
+    for no in ast.walk(ast.parse(bloco)):
+        if isinstance(no, ast.Name):
+            refs.add(no.id)
+        elif isinstance(no, ast.Attribute):
+            refs.add(no.attr)
+        elif isinstance(no, ast.Constant) and isinstance(no.value, str):
+            refs.add(no.value)
+    checar("RG17 writer puro sem mecanismos de risco",
+           not (proibidos & refs), str(sorted(proibidos & refs)))
+    core = _re.search(r"def salvar_experiencia_csv.*?(?=\ndef |\nclass )",
+                      src, _re.S).group(0)
+    refs_core = set()
+    for no in ast.walk(ast.parse(core)):
+        if isinstance(no, ast.Name):
+            refs_core.add(no.id)
+        elif isinstance(no, ast.Attribute):
+            refs_core.add(no.attr)
+    checar("RG17 Core preserva circuit_breaker + bloqueador",
+           {"circuit_breaker", "bloqueador_contexto"} <= refs_core)
+
+
+def test_schema_dataset_inalterado():
+    """RG18: a linha gravada pela memoria mantem o schema de treino."""
+    import io as _io
+    import re as _re
+    with _io.open(os.path.join(BASE, "monstro_unificado_v22.py"),
+                  encoding="utf-8") as f:
+        src = f.read()
+    bloco = _re.search(
+        r"(def _linha_experiencia.*?)def salvar_experiencia_csv", src, _re.S).group(1)
+    esperado = ["timestamp", "bid_qty", "ask_qty", "spread", "volatility",
+                "candle_type", "entropia_book", "rsi_14", "volume_tick",
+                "is_in_trade", "floating_profit", "tempo_em_trade",
+                "preco_maior_escora_bid", "volume_maior_escora_bid",
+                "distancia_maior_escora_bid", "preco_maior_escora_ask",
+                "volume_maior_escora_ask", "distancia_maior_escora_ask",
+                "liquidez_top5_bid", "liquidez_top5_ask", "action", "reward"]
+    achou = all((("'%s':" % c) in bloco) or (('"%s":' % c) in bloco)
+                for c in esperado)
+    checar("RG18 schema com as 22 colunas + reward/action", achou)
+
+
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     test_gatilho_buy()
@@ -505,5 +564,7 @@ if __name__ == "__main__":
     test_faixa1_e_sub_nao_se_apagam()
     test_memoria_callbacks_disparam()
     test_sub_grava_na_memoria()
+    test_writer_puro_sem_efeitos_de_risco()
+    test_schema_dataset_inalterado()
     print("\n%d falha(s)" % len(FALHAS))
     sys.exit(1 if FALHAS else 0)
