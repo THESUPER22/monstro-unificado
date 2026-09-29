@@ -1356,26 +1356,30 @@ Logo Williams/Multi-TF/Sentinela/MR tem poder causal: definem QUEM sobrevive.
 
 | veto (dentro do prever_acao) | ocorrencias (todos os logs) |
 |---|---|
-| Williams %R | 73.286 |
+| Williams %R | 73.360 |
 | FORCA BUY/SELL (so um lado viavel) | 35.584 |
-| VETO TOTAL (nenhum lado viavel) | 24.053 |
+| VETO TOTAL (nenhum lado viavel) | 24.072 |
 | Multi-TF (M5/M15/M30) | 18.491 |
 | Sentinela | 10.468 |
 | MR (mean reversion) | 4.715 |
 | **C10 score baixo** | **0 — NUNCA ATIVOU** |
-| **Tendencia veto total** | **0 — NUNCA ATIVOU** |
 | **Spread alto** | **0 — NUNCA ATIVOU** |
 | **Aprendizado forcado** | **0 — NUNCA ATIVOU** |
+
+> **CORRIGIDO em 29/09 (Tríplice Regra).** A linha "Tendencia veto total" foi
+> **removida**: um grep em todos os `monstro_wdo*.log` nao encontra **nenhuma**
+> ocorrencia de `TENDENCIA VETO`. Era contador fantasma, nao um veto inativo.
+> Ver secao 9.
 
 ## 3. Etapa B - portoes DEPOIS do CSV (a decisao estava BUY/SELL)
 
 | portao | ocorrencias |
 |---|---|
 | **GATE ROMPIMENTO (Faixa 1)** | **320** |
-| >>> ORDEM EXECUTADA | 232 |
+| >>> ORDEM EXECUTADA | 233 |
 | Volume muito baixo | 6 |
 | Circuit Breaker CB1 | 3 |
-| Circuit Breaker CB2 | 3 |
+| **Circuit Breaker CB2** | **0 — NUNCA ATIVOU** (corrigido; era 3) |
 | Dados invalidos | 0 — NUNCA ATIVOU |
 | Bloqueio de lado (inversao) | 0 — NUNCA ATIVOU |
 | Horario limite de ordens | 0 — NUNCA ATIVOU |
@@ -1473,4 +1477,140 @@ SELL 5 lotes @ 142.605, SL/TP 142.615/142.550, PnL R$ 5,00, margem R$ 0.
 2. B1 precisa de uma das tres opcoes da secao 6. O escopo original e
    aritmeticamente impossivel.
 3. Enquanto isso,, 6 portoes do Core estao comprovadamente mortos (secao 3) e o
-   C10 nunca reprovou um unico setup em todo o historico de logs.
+    C10 nunca reprovou um unico setup em todo o historico de logs.
+
+---
+
+# SESSAO 29/09/2026 (noite) — TRIPLICE REGRA + B1-a APROVADO
+
+## 9. A Tríplice Regra de Validacao (implantada)
+
+Duas conclusoes desta mesma sessao estavam **erradas** por defeito de regex,
+antes de virarem premissa:
+
+1. "Sniper %R: 0 disparos / codigo morto" -> o padrao nao cobria a linha
+   `SNIPER %R INICIA`. Real: **474 disparos**.
+2. "o funil e' contraditorio entre Williams e Multi-TF" -> ambos rodam ANTES do
+   save do CSV; nao medem o funil pos-decisao. Nenhuma das duas sobreviveu ao
+   cruzamento de fontes.
+
+Regra vigente: **nenhum veredito sem passar pelos tres testes.**
+
+- **Teste 1 (selftest)** — cada regex casada contra a linha canonica real,
+  incluindo teste de colisao cruzada. Roda com `--selftest`.
+- **Teste 2 (dual-check)** — contagem do LOG cruzada com `decisions_wdo.csv`
+  e com o historico MT5. Roda com `--dualcheck`.
+- **Teste 3 (higiene)** — posicao/contrato vigente antes de agir.
+
+### 9.1 Os 4 bugs que o selftest pegou antes de virarem premissa
+
+| # | defeito | impacto |
+|---|---|---|
+| 1 | `VETO TOTAL` casava tambem `TENDENCIA VETO TOTAL` | contagem inflada |
+| 2 | `Circuit Breaker CB2` (re.I) casava as linhas do CB1 | **CB2 real = 0, nao 3** |
+| 3 | `Bloqueio de lado` e `Horario limite` nunca casariam a linha real | 0 por regex morta |
+| 4 | `TENDENCIA VETO` **nao existe em nenhum log** | contador fantasma |
+
+Resultado: `PASS` 20/20 + marcador de core. `auditar_funil.py` passa a ser a
+**versao oficial de leitura do funil**.
+
+## 10. B1-a APROVADO — especificacao calibrada
+
+Escolha do Mestre: **B1-a**. Duas restricoes fixas nao negociaveis:
+
+- o rotulo e' **contrafactual**: muda de "PnL executado" para "PnL teorico";
+  mede cenario, **nao resultado**;
+- nao aumenta o n real, nao vira gate, nao altera decisao do Core.
+
+### 10.1 Por que M5 e nao M1
+
+| serie | barras (29/07-29/09) | cobertura |
+|---|---|---|
+| `WDOV26` M1 | 18.210 | **86,2%** — esparso, enviesaria o rotulo |
+| `WDOV26` M5 | 4.538 | 107,4% |
+| **`WDO$` M1** | 24.653 | 116,7% |
+| **`WDO$` M5** | 4.932 | **116,8%** — completo |
+
+Escolha: **`WDO$` em M5**. M5 e o proprio timeframe do Core.
+
+### 10.2 Por que `WDO$` e nao o contrato do mes
+
+O Core opera WDOQ26 (jul) -> WDOU26 (ago) -> WDOV26 (set). Os dois primeiros ja
+venceram e **nao sao mais selecionaveis** (sem livro de ofertas). `WDO$` tem
+historico completo e hoje bate exatamente com o front: **5231,00** nos dois.
+Rotular no contrato do mes reintroduziria lacuna deExpiry e gap de rolagem.
+
+### 10.3 Por que `t+12` (60 min) e nao `t+1`/`t+3`
+
+Duracao real das 299 posicoes do Core (60 dias):
+
+| p10 | p25 | mediana | p75 | p90 | max |
+|---|---|---|---|---|---|
+| 1 min | 2 min | **7 min** | 17 min | **52 min** | 198 min |
+
+| N | trades que resolvem |
+|---|---|
+| t+1 (5 min) | 11,4% |
+| t+3 (15 min) | 70,9% |
+| **t+12 (60 min)** | **92,6%** |
+| t+24 (120 min) | 99,0% |
+
+`t+12` foi escolhido por ser a menor barreira que cobre a quasi-totalidade do
+holding time real observado — e nao por convencao.
+
+### 10.4 O N e derivado, nao arbitrado
+
+Para cada N candidato, medir a **concordancia entre o rotulo contrafactual e
+os 242 resultados reais do MT5**. O N com maior concordancia e o correto. Os
+dados decidem; a intucao nao arbitra.
+
+Barreiras: `−max(1,5×ATR, 8)` pontos (a regra real do Core), com superior em
+k× para k ∈ {1; 1,5; 2; 3}. Rotulo +1 / −1 / 0 (expirado). Registrar tambem
+MFE/MAE e o retorno em t+1,2,3,5,10,12.
+
+## 11. ACHADO REBASEATIVO: o Core perdeu dinheiro em 60 dias
+
+| mes | trades | winners | WR | PnL |
+|---|---|---|---|---|
+| 2026-08 | 146 | 54 | 37% | **−R$ 1.890,00** |
+| 2026-09 | 34 | 17 | 50% | **−R$ 295,00** |
+| **TOTAL** | **180** | **71** | **39%** | **−R$ 2.185,00** |
+
+A semana de 04/09 (10W/3L, +R$ 155) **nao e representativa**. O
+`quarentena_core_n` conta 22 trades, mas o registro de 60 dias mostra o Core em
+prejuizo. **A regua precisa ser re-baselineada, nao apenas contada.**
+
+### 11.1 Isso reconfigura o objetivo do B1
+
+A meta `n>=100` deixa de ser so "volume estatistico" e passa a responder uma
+pergunta binaria:
+
+> **O alpha da IA primaria e positivo e esta sendo DESTRUIDO pelos gates —
+> ou a perda e estrutural do sinal primario?**
+
+O B1-a responde comparando:
+
+- **Expectativa Matematica Teorica da IA** (rotulo t+12 sobre as 40.261 decisoes)
+- **Expectativa Matematica do Core Executado** (os 242 trades reais)
+
+Se teorica > executada, o valor esta no desacoplamento. Se teorica <= 0, nao ha
+alpha a resgatar e o gate nem e o culpado.
+
+## 12. SNAPSHOT DO FUNIL (29/09, pos-correcao)
+
+`decisions_wdo.csv` e um arquivo **vivo** (o Core esta rodando); os numeros
+abaixo sao o retrato no instante da medicao, nao um total fechado.
+
+- NADA 91.482 | BUY 17.813 | SELL 22.448 -> **40.261 direcionais**
+- MT5 deals fechados magic 123456 (desde 29/07): **242**
+- **Taxa de sobrevivencia: 0,6%** (242 / 40.261)
+
+E por isso que `pnl_real` nao existe para os 40k.
+
+## 13. Posicao fantasma `WINV25` — DECISAO DO MESTRE
+
+Decidido: **ignorar**. Nao ha ordem viavel (retcode 10013, contrato sem livro
+de ofertas) e a posicao nao afeta o Core (magic 123457 ≠ 7008, symbol ≠ SYMBOL).
+Requer acao da corretora (zeragem de custodia) se um dia incomodar.
+
+**Marco de 05/10/2026: aprovacao do B1-a** conforme a especificacao da secao 10.
