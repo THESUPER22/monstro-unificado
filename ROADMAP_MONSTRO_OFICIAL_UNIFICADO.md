@@ -1766,3 +1766,106 @@ a criacao: **15 commits, 03/08/2026 -> 29/09/2026**.
 O agente roda em modo **Fase 1**: reporta e propoe, nunca altera logica de
 decisao. Confirmado nesta sessao — o proprio fecho classificou a mudanca de
 trailing como "PROPOSTA p/ revisao humana" em vez de aplica-la.
+
+---
+
+## 21. [DIRETRIZ FIXA] Matriz de Parametrizacao e Custos da B3 (WIN vs WDO)
+
+> Valores oficiais do ecossistema. Conferidos no demo XPMT5 em 29/09/2026.
+> Custos de corretagem sao pressuposto do Mestre (ver nota de validacao).
+
+### 1. Mini Dolar (WDO)
+
+- **Valor por Ponto:** 1,0 ponto = R$ 10,00 por contrato (medido: tick do
+  contrato real = 0,5 ponto = R$ 5,00).
+- **Variacao Minima (Tick) do CONTRATO REAL (`WDOV26`):** 0,5 ponto = R$ 5,00.
+- **Tick do sintetico `WDO$`:** 0,001 ponto = R$ 0,01 — resolucao **500x mais
+  fina** que o real. Nunca usar o tick sintetico para justificar fills/paradas.
+- **Custo Operacional (Friction B3):** R$ 1,20 por contrato, ida e volta
+  (R$ 0,60 entrada + R$ 0,60 saida). PRENSUPOSTO — neste demo
+  `commission=0,00` e `fee=0,00`, logo NAO medido; validar com a corretora
+  antes de conta real.
+- **PnL Liquido (por lote):**
+  - Lucro = `pontos a favor x R$ 10,00 - R$ 1,20`;
+  - Prejuizo = `pontos contra x R$ 10,00 + R$ 1,20`.
+- **Break-even (higiene):** obrigatoriamente acima do custo (> 0,12 ponto);
+  sugestao de +1,5 a +2,0 pontos para sair no lucro real.
+- **Amplitude diaria medida** (M5, 01/10/2025-29/09/2026): p50 = 47,
+  p75 = 62, p90 = 84 pontos.
+
+### 2. Mini Indice (WIN)
+
+- **Valor por Ponto:** 1,0 ponto = R$ 0,20 por contrato (medido: tick do
+  contrato real = 5,0 pontos = R$ 1,00).
+- **Variacao Minima (Tick) do CONTRATO REAL (`WINV26`):** 5,0 pontos = R$ 1,00.
+- **Tick do sintetico `WIN$`:** 1,0 ponto = R$ 0,20 — resolucao **5x mais
+  fina** que o real.
+- **Custo Operacional (Friction B3):** R$ 0,50 por contrato, ida e volta
+  (R$ 0,25 entrada + R$ 0,25 saida). PRENSUPOSTO — mesma nota de validacao.
+- **PnL Liquido (por lote):**
+  - Lucro = `pontos a favor x R$ 0,20 - R$ 0,50`;
+  - Prejuizo = `pontos contra x R$ 0,20 + R$ 0,50`.
+- **Break-even (higiene):** acima do custo (> 2,5 pontos, derivado do
+  pressuposto de custo; nao validado em demo).
+- **Amplitude diaria medida** (M5, mesma base): p50 = 2.784, p75 = 3.784,
+  p90 = 4.733 pontos.
+
+### Regra de portabilidade de parametro
+
+- Ponto **NAO e portavel entre ativos**: stop de 10 pontos = 21,3% da
+  amplitude p50 diaria do WDO vs 0,4% do WIN (~59x de diferenca).
+- Parametro em pontos so se compara dentro do mesmo ativo; entre ativos,
+  normalizar por R$ ou por amplitude/ATR.
+- Amplitude de referencia = RANGE do dia (high-low), nao corpo — conflacao
+  range/corpo foi a origem do erro de escala corrigido no sandbox Triplo ATR.
+
+### [REGISTRO] Sandbox Triplo ATR — ENCERRADO
+
+- Parecer corrigido aceito pelo Mestre em 29/09/2026 (unidades desta matriz):
+  **REPROVADO** — n=23, PF 1,79, RF 2,66, lucro R$ 808,80, DD absoluto
+  R$ 303,60; bootstrap p=0,390; 23 sinais em 248 dias (n>=100 exigiria
+  ~1.078 dias); MaxDD% de 37,5% invalido porque a curva comecou em R$ 0.
+  Nenhuma integracao ao Core (ainda congelado).
+
+---
+
+## 22. [REGISTRO DE INCIDENTE & REGRA DE CONTA NETTING]
+
+### Incidente 03/09/2026 (Magic 7007 / 665 lotes) — retificacao da leitura de 29/09
+
+- **Evento:** 03/09, 11:15:03-11:29:58 — 133 ordens **SELL** de 5 CC =
+  665 lotes, comentario `7Velas V9`; PnL ~ -R$ 57.425 (SL fixo 5138,50;
+  preco subiu contra a posicao vendida).
+- **NOTA DE QUALIDADE:** o assistente relatou inicialmente entradas "BUY" e
+  causa "falta de `positions_get`". Os deals confirmam **133 DEAL_TYPE_SELL /
+  saida BUY 5138,50**, e a causa comprovada e a da secao abaixo. Registro
+  corrigido.
+- **Causa raiz COMPROVADA nos logs** (sec. "Auditoria da semana 01-04/09"):
+  1. commit `1b7aa3d` (01/09) incluiu `rec['ticket']` sem atualizar `campos`
+     em `_registrar_trade()` → `ValueError: dict contains fields not in
+     fieldnames: 'ticket'`;
+  2. `orquestrar()` grava o trade ANTES de persistir o state → state nunca
+     salvo (`chave not in state` fica sempre True);
+  3. `monstro_unificado_v22.py` L6630-6633 chama `orquestrar()` dentro de
+     `except Exception` que so loga e segue → a cada ~6s reexecuta
+     `avaliar()` e reenvia a ordem.
+  - A ausencia de `_tem_posicao_aberta()` foi **agravante** (reentrada em
+    conta Netting), NAO a causa disparadora.
+- **Reparo 04/09 (`8758b19`):** idempotencia restaurada (campos + filtro
+  `{c: rec.get(c, '')}`) + trava dupla (`_tem_posicao_aberta` e
+  `_acumulado_janela`) + `return` apos a 1a entrada da janela.
+- **Desativacao:** 10/09 v22.2 (`8bb4509`) — Faixa 1 substitui Sete Velas;
+  arquivo removido da raiz (backup: `backup_pre_rompimento_20260910/`).
+
+### Regra Institucional Permanente (Netting)
+
+- NENHUM modulo/sinal novo entra sem TODAS as guardas:
+  1. checagem de posicao aberta do MAGIC via `positions_get` (cobre a posicao
+     parcial pos-TP1);
+  2. teto de volume acumulado por janela temporal;
+  3. idempotencia cuja persistencia sobrevive a excecao (state gravado antes
+     de qualquer efeito colateral);
+  4. loop de execucao que jamais engole excecao e segue reenviando ordem.
+- Backtest/simulacao: ponto e tick sempre do CONTRATO REAL de referencia;
+  sinteticos (`WDO$`/`WIN$`) servem so para continuidade de historico, nunca
+  para justificar precisao de fill.
