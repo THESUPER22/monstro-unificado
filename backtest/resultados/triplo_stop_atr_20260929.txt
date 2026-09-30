@@ -1,0 +1,92 @@
+﻿================================================================================================
+BACKTEST TRIPLO STOP ATR (WDO) - EXPERIMENTO ISOLADO | WDO$ M5 | 2025-10-01
+================================================================================================
+  barras: 28182   de 2025-10-01 09:00:00 ate 2026-09-29 18:25:00
+  1 ponto B3 = 0.50 unidade = R$ 5.00 | custo 6.00 R$ por round trip
+  sinais: 3 canais ATR(10/1.5, 14/2.0, 20/2.5) | SL 10 pt | TP 20 pt | BE 6.0/+0.5 | TS 8.0/4.0/1.0
+  janela: 09:15 -> 16:30, zeragem 17:00 | magic 887001 (isolado)
+
+1) RESULTADO CENTRAL - os dois cenarios de intrabar (mesmos sinais)
+------------------------------------------------------------------------------------------------
+  sinais de entrada no periodo: 3516  (compra 3487 / venda 29) de 28182 barras elegiveis
+
+  pessimista (piso)          n=3516  WR  46.7%  PF   1.44  R$  34025.52  DD R$  1033.16 (  3.0%)  RF  32.93
+  otimista   (teto)          n=3516  WR  47.3%  PF   1.48  R$  36834.43  DD R$   995.53 (  2.7%)  RF  37.00
+  -> a verdade esta entre as duas linhas. A diferenca e o custo da
+     unknowable path de M5, e ela NAO desaparece com mais volume.
+
+2) IN-SAMPLE vs OUT-OF-SAMPLE (divisao 60/40 no tempo)
+------------------------------------------------------------------------------------------------
+  in-sample (60%)            n=2275  WR  47.0%  PF   1.43  R$  21683.64  DD R$  1033.16 (  4.7%)  RF  20.99
+  out-of-sample (40%)        n=1241  WR  46.2%  PF   1.46  R$  12372.75  DD R$   679.32 (  5.4%)  RF  18.21
+
+3) SENSIBILIDADE - o parametro central sobrevive a vizinhanca?
+------------------------------------------------------------------------------------------------
+  variacao                           n       WR         PF     R$ liq
+  periodos 7/10/14                3514    46.8%     1.45   34389.59
+  periodos 10/14/20 (base)        3516    46.7%     1.44   34025.52
+  periodos 14/20/28               3515    46.5%     1.43   33288.05
+  periodos 20/28/40               3526    46.3%     1.42   33086.55
+  mult 1.0/1.5/2.0                3453    46.8%     1.45   34179.97
+  mult 2.0/3.0/4.0                3552    46.3%     1.43   33469.59
+  linha como resistencia          3551    46.2%     1.42   33226.06
+  sem trailing                    4302    20.4%     0.80  -19494.04
+  sem break even                  3240    53.2%     1.39   32545.69
+  so divergencia (sem TP/SL)      5984     4.5%     0.91   -3295.96
+
+4) CUSTO - o setup sobrevive a slippage real?
+------------------------------------------------------------------------------------------------
+  custo R$  0.00 por round trip ->  n=3516  PF   1.82  R$ liq  55121.52
+  custo R$  3.00 por round trip ->  n=3516  PF   1.62  R$ liq  44573.52
+  custo R$  6.00 por round trip ->  n=3516  PF   1.44  R$ liq  34025.52
+  custo R$ 10.00 por round trip ->  n=3516  PF   1.24  R$ liq  19961.52
+  custo R$ 15.00 por round trip ->  n=3516  PF   1.03  R$ liq   2381.52
+
+5) CRITERIOS DE CORTE que voce prop├┤s
+------------------------------------------------------------------------------------------------
+  [pessimista] PF>1.30 OK | RF>3.0 OK | MaxDD<15% OK | N>=100 OK (3516)
+  [otimista] PF>1.30 OK | RF>3.0 OK | MaxDD<15% OK | N>=100 OK (3516)
+
+6) ONDE O DINHEIRO SAIU (pessimista) - motivo de saida
+------------------------------------------------------------------------------------------------
+  alvo(otimista)         n= 917   R$   86198.00
+  stop(pessimista)       n=2463   R$  -53483.48
+  zeragem                n= 136   R$    1311.00
+
+7) CONTROLE - o SINAL faz diferenca, ou so a geometria do stop?
+------------------------------------------------------------------------------------------------
+  Mesmas regras de saida (SL/TP/BE/trailing), so a entrada muda.
+  Se 'aleatorio' chegar perto do 'sinal', o Stop ATR nao contribute.
+  origem da entrada                        n       PF     R$ liq
+  sinal Stop ATR (o roteiro)            3516     1.44   34025.52
+  sorteio 10% so compra                 1320     1.45   12784.39
+  sorteio 10% compra e 10% venda        1956     1.48   19746.49
+  sempre compra, sem sinal              3566     1.42   33189.73
+
+8) VIES DE PERIODO - o resultado sobrevive a cada trimestre?
+------------------------------------------------------------------------------------------------
+  trimestre        n       PF     R$ liq WDO no periodo
+  2025-10        291     1.59    3464.00      81.1 pts
+  2025-11        218     1.18     939.97    -169.2 pts
+  2025-12        334     1.79    5297.33     224.4 pts
+  2026-01        329     1.30    2225.69    -524.3 pts
+  2026-02        274     1.45    2739.99    -304.6 pts
+  2026-03        500     1.34    4176.75     -34.6 pts
+  2026-04        247     1.43    2112.05    -517.4 pts
+  2026-05        241     1.10     631.25      80.4 pts
+  2026-06        326     1.53    3726.79     197.4 pts
+  2026-07        246     1.22    1243.18    -288.3 pts
+  2026-08        199     2.05    3630.87     171.3 pts
+  2026-09        269     1.65    3463.50     -49.0 pts
+  alta total do WDO na amostra: -1131.0 pontos
+
+9) VEREDITO
+------------------------------------------------------------------------------------------------
+  PF do sinal Stop ATR ............ 1.44
+  PF de entrada sorteada .......... 1.45  (mesmo preco de entrada, 10% de chance)
+  DIFFERENCA DE EDGE .............. -0.01 de PF
+  Com custo R$10 (slide realista), sinal = 1.24 vs sorteio = 1.24
+
+  >>> VEREDITO: o sinal Stop ATR NAO carrega edge. O lucro vem da
+      relacao alvo/stop 2:1 e do trailing stop, nao da leitura das
+      3 linhas. Nao ha estrategia nova aqui para integrar ao Core.
