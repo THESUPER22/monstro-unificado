@@ -2075,3 +2075,23 @@ de execucao (executada -9,36) nao se convertem em alpha ao "afinar gates" -
 nao ha o que destravar. Pauta 09/10 mantida: A1 (expurgo Core), A2 (risco/
 custos, trava financeira da Faixa, spam do Scaler) atacam PERDER MENOS, e a
 travada de decisao continua ate reguas com n>=100.
+
+### 23.11 PAUTA EXTERNA agendada — VALIDACAO DA COLETA SHADOW (HERMAN 6P/3P)
+
+> Lembrete de governanca registrado em 04/10: nao deixar a massa critica de
+> dados da coleta shadow se perder nas proximas semanas.
+
+- [ ] **Janela de acumulo:** 05/10/2026 a 23/10/2026 (~15 sessoes de pregao).
+- [ ] **Acao:** executar o harness `backtest_6p_herman.py` sobre os CSVs
+      consolidados em `logs/herman_6p/` (coletados pelo
+      `coletor_herman_6p_shadow.py`, track dupla 6P e 3P, read-only).
+- [ ] **Criterios de leitura:**
+      - Amostra real (n) em ambas as tracks (`--box 6` e `--box 3`).
+      - Auditar banda de execucao realista (LH vs. HL).
+      - Verificar edge/expectativa positiva estavel para decidir entre
+        descarte definitivo ou evolucao para modulo ativo.
+- [ ] **Contexto da geometria (04/10):** no WDO o box de 6 pts = 12 ticks de
+      corpo; com pavio >= 35% do range, o stop curto 2,5-4,0 pts e
+      MATEMATICAMENTE impossivel no 6P (minimo ~9,7 pts). A confusao classica
+      de nomenclatura (6 ticks = 3 pts como "6P") explica a inconsistencia;
+      por isso a coleta e dual, decisao empirica apos a massa critica.
