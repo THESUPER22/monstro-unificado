@@ -1919,8 +1919,10 @@ trailing como "PROPOSTA p/ revisao humana" em vez de aplica-la.
 
 ### 23.3 Logs dos agentes
 
-- Watchdog vivo o dia; kill-switch ok. Fechos 17:35 em 30/09, 01/10 e 02/10
-  sem diff contra HEAD (commits `1be4cf0`, `526997a`, `26f34e0`).
+- Watchdog: kill-switch ok; fechos 17:35 em 30/09, 01/10 e 02/10 sem diff
+   contra HEAD (commits `1be4cf0`, `526997a`, `26f34e0`). Autopsia profunda
+   (ver 23.8) CORRIGE a leitura inicial: houve 2 travamentos em 02/10 (09:06
+   e 15:21, este com posicao Faixa 1 aberta) + force kill 01/10 17:38 (fecho).
 - Plano 02/10: prioridade 3 "win rate < 35% -> nao ajustar nada
   automaticamente; aguardar mais amostra".
 
@@ -1966,4 +1968,64 @@ trailing como "PROPOSTA p/ revisao humana" em vez de aplica-la.
 - Decisao: congelar intervalo de decisoes para o B1-a ate **02/10 inclusive**
   (arquivo e vivo; decisoes futuras nao entram na amostra).
 - Implementacao: 05/10 (`rotular_b1_contrafactual.py`, tripla barreira t+12,
-  N pela concordancia com os 242 trades reais - secao 10.4).
+   N pela concordancia com os 242 trades reais - secao 10.4).
+
+### 23.8 PARECER OFICIAL DA AUTOPSIA SEMANAL (28/09-02/10)
+
+> Autopsia read-only: MT5 history (deals/orders) + logs + CSVs, cruzados em
+> fonte primaria. Numeros da narrativa sintetica que divergiram da telemetria
+> foram corrigidos (ver "O que encontramos"). Registrar aqui toda sexta.
+
+**Tabela de evolucao semanal (preencher a cada sexta):**
+
+| Semana | Bruto | Custos | Liquido | N | WR | PF | Payoff | Corr ModA (n) | Veto ModA |
+|---|---|---|---|---|---|---|---|---|---|
+| 28/09-02/10 | +R$ 2.000,00 | -R$ 25,60 | **+R$ 1.974,40** | 12 | 58,3% | 2,17 | 1,55 | 0,1867 (29) | OFF |
+| _proxima_ | | | | | | | | | |
+
+Notas da linha: Core 7 trades (+75 bruto / +69,40 liq) | Faixa 1 5 trades
+(+1.925 bruto / +1.905 liq) | slippage ZERO nos 12 encerramentos | saldo
+02/10: R$ 842.464,21 inclui (sem custos, sem orgaos).
+
+**O que encontramos nesta semana:**
+
+1. **Pausa 12:30: 0 ocorrencias** (nem agente_autonomo.log nem monstro_*.log).
+   Nenhuma DECISAO/AJUSTE na semana; whitelist intocada por construcao.
+2. **`SelecionadorRegime`: 0 referencias no `monstro_unificado_v22.py`.** A
+   classificacao EXPLOSAO/LATERAL/EXTREMO da narrativa nao vem do codigo.
+   Usar proxy de ATR (29/09 ~7,96; 02/10 ~10,69) e SENTINELA (30/09 RISK_OFF
+   o dia, DXY +0,54% / US10Y +2,54%, 0 trades).
+3. **Watchdog com 2 travamentos em 02/10** (09:06 porta morta, restart 09:08;
+   15:21 com posicao Faixa aberta, `ultimo_restart_falhou` 15:23:57). Seguranca
+   dada pelo SL broker-side (5.234,5 preenchido exato). + force kill 01/10 17:38.
+4. **Kill-switch so vigia o Core:** Faixa (cb2_ignore_max_loss=true) devolveu
+   -1.325 no dia 02/10 acima do teto geral -1.000 sem disparo.
+5. **Spam de boot:** 02/10 = 2.657 reloads do Scaler + 2.653 clips de
+   normalizacao (64.328 linhas). Sem duplicidade de ordens no MT5.
+6. **Memoria:** `experiencias_wdo.json` = `[]` (vazio); carga real via CSV no
+   boot (02/10: 203 positivas / 0 negativas - vies de memoria a acompanhar).
+7. **Deal OUT de 28/09 (Faixa +325) nao retorna mais** do history MT5 ->
+   necessidade de backup diario de deals/orders (JSON/CSV local).
+8. **Veto:** corte >=0,65 na amostra pos-04/09 (WR 66,7%, net +190) e
+   monotonicidade minerada sobre n=29 (data snooping); corr 0,1867 e ruido
+   (insignificante). Veto permanece OFF; pergunta binaria so o B1-a (05/10).
+
+**Parecer do Tech Lead:**
+
+- Execucao impecavel (0 slippage, SL/TP broker exatos, guardas do Sniper
+  ativas, sem loops). A semana +R$ 2.000/liq +1.974,40 veio 96,5% da Faixa 1
+  (2 TPs grandes), sobre n=12 - nao e evidencia de alfa.
+- Congelamento do Core confirmado como correto: amostra pos-04/09 em
+  -13,62 R$/trade, pior que a baseline 60d de -12,14 R$/trade.
+- Risco residual principal: Faixa 1 sem trava diaria financeira (achado 4).
+- Decisao (nao a execucao) permanece como a pergunta central -> B1-a 05/10.
+
+### 23.9 ROTINA DO PARECER SEMANAL (toda sexta, apos protocolo 18:00)
+
+1. Rodar `analisar_quarentena.py` (regua + re-baseline) e salvar log.
+2. Cruzar history_deals/orders do MT5 da semana (converter p/ BRT) vs
+   `rompimento_trades.csv`, `modelo_a_shadow.csv` e decisions.
+3. Preencher a linha da semana na tabela 23.8 e o bloco "O que encontramos".
+4. Anotar correcoes a qualquer narrativa que nao venha de fonte primaria.
+5. Backup diario de deals/orders em arquivo (rotina no fecho 17:35).
+6. Decisoes: manter congelamento do Core ate n>=100 p/ as reguas.
