@@ -23,10 +23,11 @@
 ### 📅 PRÓXIMA FASE — Expurgo de Código Legado e Limpeza de Backups (AGENDADA)
 - [ ] **Critério de início:** após os **primeiros 5 pregões** de validação em produção do Sub-Trader + SL ATR (sem exceções nos logs).
 
-### 🚨 ALERTA — AGENDA PÓS-VALIDAÇÃO: 05/10/2026 (NÃO ESQUECER)
+### 🚨 ALERTA — AGENDA PÓS-VALIDAÇÃO: 09/10/2026 (NÃO ESQUECER)
 > **Decisão do Mestre 29/09/2026:** ambiente CONGELADO durante 28/09–02/10 (5 pregões). As 5 falhas legadas (RG1/RG2/RG3) ficam **deixadas para depois** dos 5 pregões. **NÃO mexer em testes/Engine agora** — foco é estabilidade em tempo real (execução, reconexão, logs, memórias).
+> **ADIADA de 05/10 para 09/10 (Decisão 02/10):** pregão é dia de COLETA, não de ajuste — 05/10 (dia único) não comporta refatoração grande + teste. 09/10 (sexta) + fim de semana 10–11/10 dá 2 dias para implementar e testar. Vigência: salvo parecer do B1-a (Etapa I, fds 02–04/10, ver 23.10).
 
-**Ações obrigatórias em 05/10/2026 (pós-validação):**
+**Ações obrigatórias em 09/10/2026 (pós-validação):**
 - [ ] **A1 — Expurgo:** remover os ~18 métodos mortos em `monstro_unificado_v22.py` + fix do bloco inalcançável `alertas` (L2485-2499, em `pode_operar`).
 - [ ] **A2 — Testes legados:** corrigir as 5 falhas pré-existentes da suíte `tests/teste_orquestrador_rompimento.py` (RG1 SL=lo caixa / RG2 SL=hi caixa / RG3 final EOD + pts + CSV). **Confirmado pré-existente no commit 73e02ca** (via `git stash`) — NÃO é regressão do filtro R/R.
 - [ ] **A3 — Fiação Keras→gate (Opção "b"):** desenhar e implementar para que `pode_operar` consulte **ativamente** as inferências da rede. Sub-tarefas: (i) registrar Faixa 1 / Sub-Trader como experiências do Keras — **CONCLUÍDO em 29/09 (D1/D2/D3, ver seção abaixo)**; (ii) transformar o `shadow_registrar_entrada` (hoje **passivo**) em gate de veto — **BLOQUEADO**: pesos do Monstro WDO são sintéticos; (iii) validar que a rede tem poder preditivo (critério: correlação ≥ 0.15 sustained, ver §Quarentena 04/09) antes de virar veto real.
@@ -1613,7 +1614,9 @@ Decidido: **ignorar**. Nao ha ordem viavel (retcode 10013, contrato sem livro
 de ofertas) e a posicao nao afeta o Core (magic 123457 ≠ 7008, symbol ≠ SYMBOL).
 Requer acao da corretora (zeragem de custodia) se um dia incomodar.
 
-**Marco de 05/10/2026: aprovacao do B1-a** conforme a especificacao da secao 10.
+**Marco B1-a: aprovacao** conforme a especificacao da secao 10. Executado no
+fds 02-04/10 (Etapa I); adiamento da pauta A1/A2/A3 para **09/10** salvo
+parecer do B1-a (ver 23.10).
 
 ## 14. CHECKPOINT FATO-REAL — 29/09/2026 (fechamento de sessao)
 
@@ -1643,11 +1646,15 @@ inexistente.
   datado do funil.
 - Agendamento `Monstro-Quarentena` ativo, sextas 18:00 (proxima 02/10/2026).
 
-### 14.3 Pauta de 05/10/2026
+### 14.3 Pauta de 05/10/2026 — ADIADA para 09/10/2026
 
-1. **Implementar `rotular_b1_contrafactual.py`** — tripla barreira, `t+12` M5
-   sobre `WDO$`, com calibracao do N pela concordancia com os trades reais
-   (secao 10.4). Especificacao fechada; **implementacao inexistente**.
+> Adiamento aprovado (Decisão 02/10): pregão = coleta, não ajuste; janela
+> 09/10 (sexta) + fds 10-11/10 para implementar e testar. Vigência salvo
+> parecer do B1-a (Etapa I, fds 02-04/10, ver 23.10).
+
+1. **`rotular_b1_contrafactual.py`** — tripla barreira, `t+12` M5 sobre
+   `WDO$`, calibracao do N pela concordancia com os trades reais (secao 10.4).
+   **EXECUTADO no fds 02-04/10 (Etapa I) — resultado em 23.10.**
 2. **Re-baseline pratico** das expectativas do Core e ajuste das reguas
    estatisticas no pipeline — hoje o `-R$ 2.185 / 180 trades / 39% WR` esta
    diagnosticado, nao incorporado a `analisar_quarentena.py`.
@@ -1942,10 +1949,11 @@ trailing como "PROPOSTA p/ revisao humana" em vez de aplica-la.
 
 - Ciclo 28/09-02/10 (5 pregoes) ENCERRADO. Congelamento do Core mantido
   (diretriz-mestra).
-- Pauta 05/10 (secao 14.3) confirmada: A1 (expurgo de ~18 metodos mortos +
-  bloco inalcancavel `alertas` L2485-2499), A2 (5 falhas legadas RG1/RG2/RG3),
-  A3 (fiacao Keras ->gate), implementar `rotular_b1_contrafactual.py`,
-  re-baseline na regua (EXECUTADO nesta data, ver 23.6).
+- Pauta rebaseada: **adiada de 05/10 para 09/10** (secao 14.3; pregão =
+   coleta, nao ajuste), salvo parecer do B1-a (Etapa I fds 02-04/10, 23.10).
+   Conteudo: A1 (expurgo ~18 metodos mortos + bloco inalcancavel `alertas`
+   L2485-2499), A2 (5 falhas legadas RG1/RG2/RG3 + spam scaler + trava da
+   Faixa 1), A3 (fiacao Keras ->gate). Re-baseline EXECUTADO (23.6).
 - Friction: secao 21 RETIFICADA nesta data para o canonico do `config.json`
   (WDO R$ 0,80 / WIN R$ 0,25) -- sem conflito com config/A2.
 
@@ -1967,8 +1975,8 @@ trailing como "PROPOSTA p/ revisao humana" em vez de aplica-la.
 - `WDO$` M5: historico completo via MT5 (cobertura 116,8%, secao 10.1).
 - Decisao: congelar intervalo de decisoes para o B1-a ate **02/10 inclusive**
   (arquivo e vivo; decisoes futuras nao entram na amostra).
-- Implementacao: 05/10 (`rotular_b1_contrafactual.py`, tripla barreira t+12,
-   N pela concordancia com os 242 trades reais - secao 10.4).
+- Implementacao: **fds 02-04/10 (Etapa I)** — rotular (tripla barreira t+12,
+   N pela concordancia com os 242 trades reais, secao 10.4). Resultado em 23.10.
 
 ### 23.8 PARECER OFICIAL DA AUTOPSIA SEMANAL (28/09-02/10)
 
@@ -2008,7 +2016,7 @@ Notas da linha: Core 7 trades (+75 bruto / +69,40 liq) | Faixa 1 5 trades
    necessidade de backup diario de deals/orders (JSON/CSV local).
 8. **Veto:** corte >=0,65 na amostra pos-04/09 (WR 66,7%, net +190) e
    monotonicidade minerada sobre n=29 (data snooping); corr 0,1867 e ruido
-   (insignificante). Veto permanece OFF; pergunta binaria so o B1-a (05/10).
+   (insignificante). Veto permanece OFF; pergunta binaria so o B1-a (Etapa I).
 
 **Parecer do Tech Lead:**
 
@@ -2018,7 +2026,7 @@ Notas da linha: Core 7 trades (+75 bruto / +69,40 liq) | Faixa 1 5 trades
 - Congelamento do Core confirmado como correto: amostra pos-04/09 em
   -13,62 R$/trade, pior que a baseline 60d de -12,14 R$/trade.
 - Risco residual principal: Faixa 1 sem trava diaria financeira (achado 4).
-- Decisao (nao a execucao) permanece como a pergunta central -> B1-a 05/10.
+- Decisao (nao a execucao) permanece como a pergunta central -> B1-a (23.10).
 
 ### 23.9 ROTINA DO PARECER SEMANAL (toda sexta, apos protocolo 18:00)
 
@@ -2029,3 +2037,41 @@ Notas da linha: Core 7 trades (+75 bruto / +69,40 liq) | Faixa 1 5 trades
 4. Anotar correcoes a qualquer narrativa que nao venha de fonte primaria.
 5. Backup diario de deals/orders em arquivo (rotina no fecho 17:35).
 6. Decisoes: manter congelamento do Core ate n>=100 p/ as reguas.
+
+### 23.10 B1-a EXECUTADO (Etapa I, fds 02-04/10) — ROTULO CONTRAFACTUAL
+
+> `rotular_b1_contrafactual.py` (read-only). Tripla barreira t+12 em `WDO$`
+> M5 (29/07-02/10, 5.544 barras), lower = -max(1,5*ATR20, 8) pts, upper = k*lower,
+> entrada na abertura da barra seguinte a decisao. Alinhamento: barras e deals
+> em epoch UTC (mesmo eixo); decisao `timestamp` BRT -> `timestamp()` (UTC).
+> ATR M5 verificada (~4 pts; piso de 8 domina, stop real do Core ~8). Gerou
+> `logs/b1a_rotulos.csv` (42.165 rotulos) e `logs/b1a_resumo.json`.
+
+**Calibracao k pela concordancia com os 274 trades reais (magic 123456):**
+
+| k | n | Concordancia |
+|---|---|---|
+| 1,0 | 274 | 35,4% |
+| 1,5 | 274 | 35,0% |
+| 2,0 | 274 | 35,0% |
+| 3,0 | 274 | 35,0% |
+
+Concordancia ~35% = nivel de chance: a barreira (1,5xATR/8) NAO reproduz o
+resultado real em granularidade de barra (stops rapidos dentro da barra de
+entrada + TP deslizante do Core). Rotulo contrafactual NUNCA virar gate.
+
+**Pergunta binaria (secao 11):**
+
+- E_teorica IA = **-0,36 pts/trade** (42.165 decisoes direcionais) = R$ -3,57
+- E_executada = **-9,36 pts/trade** (274 trades) = R$ -93,61
+- WR teorica 46,0% | WR executada 35,4% | label 0 (expirado) 2,2%
+- E_teorica por mes: 07/07 -1,71 (n=66) | 08/08 -0,81 (n=7.764) | 09/09 -0,20
+  (n=32.598) | 10/10 -1,25 (n=1.737) -> SEMPRE <= 0.
+
+**VEREDITO: CENARIO B — SEM ALPHA A RESGATAR.** O sinal primario nunca teve
+expectativa teorica positiva sob o modelo tripla barreira; a perda (0,36+
+9,36 ~ 9,7 pts) e estrutural do SINAL, nao so de gates/execucao. Meses ruins
+de execucao (executada -9,36) nao se convertem em alpha ao "afinar gates" -
+nao ha o que destravar. Pauta 09/10 mantida: A1 (expurgo Core), A2 (risco/
+custos, trava financeira da Faixa, spam do Scaler) atacam PERDER MENOS, e a
+travada de decisao continua ate reguas com n>=100.
