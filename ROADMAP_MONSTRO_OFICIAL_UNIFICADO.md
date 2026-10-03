@@ -1771,8 +1771,11 @@ trailing como "PROPOSTA p/ revisao humana" em vez de aplica-la.
 
 ## 21. [DIRETRIZ FIXA] Matriz de Parametrizacao e Custos da B3 (WIN vs WDO)
 
-> Valores oficiais do ecossistema. Conferidos no demo XPMT5 em 29/09/2026.
-> Custos de corretagem sao pressuposto do Mestre (ver nota de validacao).
+> Valores oficiais do ecossistema. Custos operacionais RETIFICADOS em 02/10/2026
+> para os valores do `config.json` -> `custos_operacionais` (XP NOMOS, 5
+> contratos, emolumentos B3 + RLP, ZERO corretagem) — fonte canonica, reforcada
+> pela diretriz A2 (linha 836). A redacao inicial (R$ 1,20 / R$ 0,50 "Friction
+> B3") era pressuposto sem correspondencia no config — REVOGADA nesta data.
 
 ### 1. Mini Dolar (WDO)
 
@@ -1781,14 +1784,13 @@ trailing como "PROPOSTA p/ revisao humana" em vez de aplica-la.
 - **Variacao Minima (Tick) do CONTRATO REAL (`WDOV26`):** 0,5 ponto = R$ 5,00.
 - **Tick do sintetico `WDO$`:** 0,001 ponto = R$ 0,01 — resolucao **500x mais
   fina** que o real. Nunca usar o tick sintetico para justificar fills/paradas.
-- **Custo Operacional (Friction B3):** R$ 1,20 por contrato, ida e volta
-  (R$ 0,60 entrada + R$ 0,60 saida). PRENSUPOSTO — neste demo
-  `commission=0,00` e `fee=0,00`, logo NAO medido; validar com a corretora
-  antes de conta real.
+- **Custo Operacional (Friction B3):** R$ 0,80 por contrato, ida e volta
+  (= `custo_por_trade_5ct: 4,0` do `config.json`; emolumentos B3 + RLP, XP
+  NOMOS, zero corretagem). Canonico desde 02/10/2026.
 - **PnL Liquido (por lote):**
-  - Lucro = `pontos a favor x R$ 10,00 - R$ 1,20`;
-  - Prejuizo = `pontos contra x R$ 10,00 + R$ 1,20`.
-- **Break-even (higiene):** obrigatoriamente acima do custo (> 0,12 ponto);
+  - Lucro = `pontos a favor x R$ 10,00 - R$ 0,80`;
+  - Prejuizo = `pontos contra x R$ 10,00 + R$ 0,80`.
+- **Break-even (higiene):** obrigatoriamente acima do custo (> 0,08 ponto);
   sugestao de +1,5 a +2,0 pontos para sair no lucro real.
 - **Amplitude diaria medida** (M5, 01/10/2025-29/09/2026): p50 = 47,
   p75 = 62, p90 = 84 pontos.
@@ -1800,13 +1802,14 @@ trailing como "PROPOSTA p/ revisao humana" em vez de aplica-la.
 - **Variacao Minima (Tick) do CONTRATO REAL (`WINV26`):** 5,0 pontos = R$ 1,00.
 - **Tick do sintetico `WIN$`:** 1,0 ponto = R$ 0,20 — resolucao **5x mais
   fina** que o real.
-- **Custo Operacional (Friction B3):** R$ 0,50 por contrato, ida e volta
-  (R$ 0,25 entrada + R$ 0,25 saida). PRENSUPOSTO — mesma nota de validacao.
+- **Custo Operacional (Friction B3):** R$ 0,25 por contrato, ida e volta
+  (= `custo_por_trade_5ct: 1,25` do `config.json`; emolumentos B3 + RLP, XP
+  NOMOS, zero corretagem). Canonico desde 02/10/2026.
 - **PnL Liquido (por lote):**
-  - Lucro = `pontos a favor x R$ 0,20 - R$ 0,50`;
-  - Prejuizo = `pontos contra x R$ 0,20 + R$ 0,50`.
-- **Break-even (higiene):** acima do custo (> 2,5 pontos, derivado do
-  pressuposto de custo; nao validado em demo).
+  - Lucro = `pontos a favor x R$ 0,20 - R$ 0,25`;
+  - Prejuizo = `pontos contra x R$ 0,20 + R$ 0,25`.
+- **Break-even (higiene):** acima do custo (> 1,25 ponto, derivado do custo
+  canonico de R$ 0,25).
 - **Amplitude diaria medida** (M5, mesma base): p50 = 2.784, p75 = 3.784,
   p90 = 4.733 pontos.
 
@@ -1826,6 +1829,12 @@ trailing como "PROPOSTA p/ revisao humana" em vez de aplica-la.
   R$ 303,60; bootstrap p=0,390; 23 sinais em 248 dias (n>=100 exigiria
   ~1.078 dias); MaxDD% de 37,5% invalido porque a curva comecou em R$ 0.
   Nenhuma integracao ao Core (ainda congelado).
+- **RETIFICACAO 02/10 (custos):** os numeros do parecer acima (lucro
+  R$ 808,80, etc.) usaram o custo provisorio antigo de R$ 1,20/contrato.
+  Com o custo canonico R$ 0,80 (retificado acima), o lucro/PF seriam
+  marginalmente melhores (≈ +R$ 9), SEM alterar a reprovacao: os criterios
+  decisivos (n=23 vs n>=100 -> ~4,3 anos; RF 2,66 vs floor; MaxDD% invalido)
+  nao dependem do friction.
 
 ---
 
@@ -1869,3 +1878,92 @@ trailing como "PROPOSTA p/ revisao humana" em vez de aplica-la.
 - Backtest/simulacao: ponto e tick sempre do CONTRATO REAL de referencia;
   sinteticos (`WDO$`/`WIN$`) servem so para continuidade de historico, nunca
   para justificar precisao de fill.
+
+---
+
+## 23. CHECKPOINT SEMANAL - 02/10/2026 (fechamento do ciclo congelado 28/09-02/10)
+
+> Protocolo de quarentena ATIVADO em 02/10 (sexta, 18:00) via
+> `analisar_quarentena.py` (`logs/quarentena_semanal.log`, 2o bloco). Todos os
+> numeros conferidos contra `modelo_a_shadow.csv`, `rompimento_trades.csv` e
+> history_deals GET no MT5 nesta data.
+
+### 23.1 Regua 02/10 (nao mudou a regua; proposito: leitura)
+
+| regua | 29/09 | 02/10 | meta | estado |
+|---|---|---|---|---|
+| Core WDO n (P&L fechado pos-04/09) | 22 | **29** | >=100 | 29% |
+| Correlacao Mod. A (pos-04/09) | 0,2386 | **0,1867** | >=0,15 | atingida, mas ruido (ver abaixo) |
+| Rompimento n (pts preenchido) | 9 | **11** | >=30 | 37% |
+| Rompimento WR | 33,3% | **36,4%** | >=45% | REPROVADO |
+| Rompimento PF | 0,43 | **0,59** | >=1,1 | REPROVADO |
+| Rompimento MaxDD (R$) | -4825 | **-4825** | >=-3600 | REPROVADO |
+| Rompimento Net (R$) | -3500 | **-3025** | - | semana melhorou; dia 02/10 devolveu |
+
+- Core pos-04/09: 43 registros, 29 com P&L fechado. WR 41,4%, PF 0,67,
+  net -R$ 395,00. Correlacao 0,1867 de novo acima da meta, mas sobre PnL
+  negativo e n=29 -> ruido de amostra pequena, NAO sinal. Veto do Modelo A
+  permanece DESLIGADO.
+
+### 23.2 Semana em numeros (deals MT5, magic 123456 e 7008)
+
+- **Core (123456): 7 trades -> +R$ 75.** 29/09 (-80, -80, +65, +50);
+  01/10 (+75, +70, -25). Sem trades em 28/09, 30/09 e 02/10.
+- **Faixa 1 (7008): 5 trades -> +R$ 1.925.** 28/09 +325; 29/09 -200, +1.325;
+  01/10 +1.800; 02/10 **-1.325** (BUY 5261, SL ATR 10,69 x 2,5 = 5234,3,
+  fechou 17:14, -26,5 pts).
+- **Semana total: +R$ 2.000.**
+- Saldo MT5 842.464,21 = 841.869,21 (fecho 29/09) + 1.920 (01/10) - 1.325
+  (02/10) -- reconcile OK. Margem livre = saldo. Contrato front: **WDOX26**
+  (rolagem de WDOV26). WINV25 fantasma segue aberta/inerte (secao 13).
+
+### 23.3 Logs dos agentes
+
+- Watchdog vivo o dia; kill-switch ok. Fechos 17:35 em 30/09, 01/10 e 02/10
+  sem diff contra HEAD (commits `1be4cf0`, `526997a`, `26f34e0`).
+- Plano 02/10: prioridade 3 "win rate < 35% -> nao ajustar nada
+  automaticamente; aguardar mais amostra".
+
+### 23.4 Anomalias registradas (p/ 05/10)
+
+1. **Gap 30/09 da Faixa 1:** CSV sem linha (nem S/TRADE), 1 linha no
+   `rompimento.log`, 0 trades (Core teve 1.145 decisoes). Janela sem
+   pronunciamento do modulo -- verificar se a janela rodou em 30/09.
+2. **Spam de reconciliacao:** 01/10 = 641 linhas, 02/10 = 1.457 no
+   `rompimento.log`. O modulo re-registra o trade do dia anterior a cada ~2s
+   antes da janela (CSV nao duplica; log afoga). Candidato a expurgo/limpeza.
+3. **`cb2_ignore_max_loss=true`:** Faixa 1 fica fora do `max_loss_diario`
+   (design). Em 02/10 a perda de -1.325 passou do limite -1.000 sem disparo.
+   Manter sob vigilancia; decidir vigencia no 05/10.
+
+### 23.5 Decisoes do checkpoint
+
+- Ciclo 28/09-02/10 (5 pregoes) ENCERRADO. Congelamento do Core mantido
+  (diretriz-mestra).
+- Pauta 05/10 (secao 14.3) confirmada: A1 (expurgo de ~18 metodos mortos +
+  bloco inalcancavel `alertas` L2485-2499), A2 (5 falhas legadas RG1/RG2/RG3),
+  A3 (fiacao Keras ->gate), implementar `rotular_b1_contrafactual.py`,
+  re-baseline na regua (EXECUTADO nesta data, ver 23.6).
+- Friction: secao 21 RETIFICADA nesta data para o canonico do `config.json`
+  (WDO R$ 0,80 / WIN R$ 0,25) -- sem conflito com config/A2.
+
+### 23.6 Re-baseline implementado
+
+- `analisar_quarentena.py` agora reporta a EXPECTATIVA BASELINE de 60 dias
+  (secao 11): **180 trades | WR 39% | -R$ 2.185** = -R$ 12,14/trade, comparada
+  com a amostra pos-marcador corrente (ex.: 29 trades -> -R$ 13,62/trade).
+  A regua passa a medir contra a expectativa real, nao apenas contra o n.
+- Sem alteracao no marcador protocolar `CUTOFF_CORE = 2026-09-04` (integridade
+  da medicao n>=100 intacta).
+
+### 23.7 B1-a - validacao de fontes (preparacao 02/10, implementacao 05/10)
+
+- `decisions_wdo.csv`: vivo, 147.080 decisoes (NADA/BUY/SELL), ~40k
+  direcionais. **Sem coluna de preco** -> rotulo via caminho M5 do `WDO$`
+  (barra que contem o timestamp da decisao = barra 0; entrada na abertura).
+- `historico_contexto_wdo.csv`: vivo, 2.647 linhas (reward, escoras, action).
+- `WDO$` M5: historico completo via MT5 (cobertura 116,8%, secao 10.1).
+- Decisao: congelar intervalo de decisoes para o B1-a ate **02/10 inclusive**
+  (arquivo e vivo; decisoes futuras nao entram na amostra).
+- Implementacao: 05/10 (`rotular_b1_contrafactual.py`, tripla barreira t+12,
+  N pela concordancia com os 242 trades reais - secao 10.4).

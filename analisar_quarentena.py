@@ -34,6 +34,10 @@ META_PF_RP = 1.1
 META_MAXDD_RP = 3600.0
 # Valor do ponto WDO (R$/ponto por contrato) para projecoes de PnL
 R_POR_PONTO = 10.0
+# Baseline de expectativa do Core (diagnostico 60 dias, secao 11 do roadmap)
+BASELINE_N = 180
+BASELINE_WR = 0.39
+BASELINE_NET = -2185.0
 # Lote padrao da Faixa 1 - Rompimento 1H (5 contratos WDO)
 LOTE_ROMPIMENTO = 5.0
 
@@ -123,6 +127,11 @@ def analisar_shadow():
         net = sum(l["res"] for l in posy)
         print(f"  WR pos-{CUTOFF_CORE}: {wins}/{len(posy)} = {wins/len(posy)*100:.1f}% | "
               f"PF {pf if pf != float('inf') else 'inf':.2f} | net R$ {net:+.2f}")
+        b_pt = BASELINE_NET / BASELINE_N
+        print(f"  BASELINE 60d (secao 11): n={BASELINE_N} WR={BASELINE_WR*100:.0f}% "
+              f"net R$ {BASELINE_NET:,.2f} ({b_pt:+.2f}/trade)")
+        print(f"  pos-marcador vs baseline: {net/len(posy):+.2f}/trade (amostra) | "
+              f"{b_pt:+.2f}/trade (baseline)")
 
 
 def analisar_rompimento():

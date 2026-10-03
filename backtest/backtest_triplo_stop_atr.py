@@ -62,7 +62,9 @@ BE_TRIG, BE_OFF = 6.0, 0.5
 TS_TRIG, TS_DIST, TS_PASSO = 8.0, 4.0, 1.0
 H_INI, H_FIM, H_ZERA = 9 * 60 + 15, 16 * 60 + 30, 17 * 60
 INVERTER = True
-CUSTO_RR = 1.20         # R$ por ida e volta (R$0,60 abertura + R$0,60 fechamento)
+CUSTO_RR = 0.80         # R$ por ida e volta (canonico config/A2, secao 21 roadmap - emolumentos+RLP, zero corretagem)
+                         # atencao: numeros do parecer de 29/09 (lucro R$808,80) usaram o custo provisorio antigo R$1,20;
+                         # com R$0,80 o resultado seria marginalmente melhor, sem mudar a reprovacao (n=23, RF<floor, 4,3 anos).
 ANCHOR = 20             # barras do canal de referencia
 ALINHAMENTO = True      # exige as 3 linhas com a MESMA direcao (filtro de tendencia)
 
