@@ -1,0 +1,1684 @@
+
+
+
+Atue como Tech Lead, Arquiteto de Software, Desenvolvedor Python/Flask sênior, especialista em MetaTrader 5, dados de mercado em tempo real, observabilidade e sistemas de trading.
+
+Seu trabalho é implementar uma integração de leitura e visualização de fluxo/agressão no projeto Monstro das Negociações v22, conectado ao MetaTrader 5 e exibido no dashboard existente.
+
+Limite operacional obrigatório
+
+A primeira versão desta integração será somente de monitoramento e sugestão:
+
+•
+pode capturar, calcular, persistir e exibir dados;
+
+•
+pode gerar uma sugestão visual de viés, força e contexto;
+
+•
+pode mostrar alertas e explicações ao operador;
+
+•
+não pode criar, alterar, bloquear ou enviar ordens ao MetaTrader 5;
+
+•
+não pode alterar a lógica de entrada, saída, stop, take profit, lote, trailing stop ou filtros do robô;
+
+•
+o dashboard é uma interface de auditoria humana, não uma fonte de decisão automática.
+
+Qualquer possibilidade futura de execução deve ficar explicitamente isolada atrás de uma feature flag desativada e não deve ser implementada nesta fase.
+
+
+
+
+1. CONTEXTO REAL DO PROJETO
+
+Arquivos de referência entregues ao projeto:
+
+1.
+fluxoreal.txt — ideia funcional de transformar agressão/fluxo em indicadores visuais.
+
+2.
+promptparaia.txt — padrões de documentação, auditoria, testes, snapshots, agentes, dashboards e automações já usados no projeto.
+
+3.
+monstro_unificado_v22.py — robô principal real.
+
+O robô opera via MetaTrader 5, em Python, e contém, entre outros componentes:
+
+•
+MetaTrader5;
+
+•
+Flask;
+
+•
+IA/Keras/TensorFlow;
+
+•
+leitura de Book de Ofertas;
+
+•
+leitura de ticks e preços;
+
+•
+decisões, score, memória e experiências;
+
+•
+controle de posição, trailing stop, circuit breakers e watchdog;
+
+•
+logs e CSVs históricos;
+
+•
+módulo dashboard_routes com dashboard_bp;
+
+•
+thread principal monstro_thread;
+
+•
+diversas threads auxiliares;
+
+•
+rotinas com threading.Timer;
+
+•
+endpoints existentes de status, performance, aprendizado e sistemas.
+
+O dashboard é acessado pelo usuário em:
+
+Plain Text
+
+
+http://127.0.0.1:5001/
+
+
+
+Atenção: no código analisado existe uma configuração que usa config["web_dashboard"]["port"] e apresenta 5002 como valor padrão. Não assuma que 5001 ou 5002 é a porta efetiva. Descubra a porta real lendo config.json, verificando o processo em execução e consultando o endpoint de saúde.
+
+
+
+
+2. O QUE DEVE SER CONSTRUÍDO
+
+Construir uma camada de fluxo que:
+
+1.
+capture ticks do símbolo efetivamente operado pelo robô;
+
+2.
+identifique, quando o feed permitir, agressão compradora e vendedora;
+
+3.
+calcule delta de agressão e métricas derivadas;
+
+4.
+agregue os dados por janela temporal e, se viável, por faixa de preço;
+
+5.
+exponha os dados de forma segura para o dashboard;
+
+6.
+adicione uma seção visual ao dashboard atual;
+
+7.
+exiba qualidade, idade e limitações da fonte de dados;
+
+8.
+gere sugestões informativas, sem participar do caminho de execução de ordens;
+
+9.
+mantenha histórico suficiente para auditoria, sem crescer indefinidamente;
+
+10.
+permita desligar o módulo por configuração sem quebrar o robô.
+
+O nome interno sugerido para o módulo é fluxo_tempo_real, mas você pode escolher outro nome melhor após a inspeção do repositório. Não crie arquivos duplicados se já existir módulo equivalente.
+
+
+
+
+3. FASE 0 — AUTÓPSIA OBRIGATÓRIA ANTES DE EDITAR
+
+Antes de criar ou modificar qualquer arquivo, faça uma inspeção completa e apresente um relatório curto com evidências e linhas/arquivos:
+
+3.1 Estrutura
+
+•
+localizar o repositório raiz real;
+
+•
+localizar o monstro_unificado_v22.py real;
+
+•
+localizar dashboard_routes.py, templates, CSS e JavaScript;
+
+•
+localizar config.json, arquivos de estado, CSVs e logs;
+
+•
+localizar testes, scripts e wrappers de inicialização;
+
+•
+identificar se há mais de uma cópia do robô ou dashboard.
+
+3.2 Rotas e servidor
+
+•
+localizar a criação do Flask;
+
+•
+localizar todos os blueprints;
+
+•
+localizar todas as rotas existentes;
+
+•
+localizar como a porta é definida;
+
+•
+verificar se o dashboard em 5001 é o mesmo servidor do robô;
+
+•
+não criar um segundo servidor Flask sem justificativa técnica explícita;
+
+•
+não criar outro loop de MT5 se o loop principal já oferece um ponto seguro de leitura.
+
+3.3 MT5 e dados disponíveis
+
+Verificar empiricamente:
+
+•
+símbolo ativo e seleção dinâmica de contrato;
+
+•
+uso de symbol_info_tick;
+
+•
+uso de copy_ticks_*;
+
+•
+uso de market_book_get/funções equivalentes;
+
+•
+quais flags de tick estão disponíveis no ambiente;
+
+•
+se o broker/feed realmente fornece TICK_FLAG_BUY e TICK_FLAG_SELL;
+
+•
+unidade de volume: volume, volume_real, lote, contratos ou outra;
+
+•
+precisão, point, trade_tick_size e timezone;
+
+•
+existência de dados de Times & Trades reais ou apenas ticks de cotação.
+
+3.4 Concorrência
+
+Mapear todas as threads, timers e loops, principalmente:
+
+•
+monstro_thread;
+
+•
+iniciar_flask;
+
+•
+atualização de trailing;
+
+•
+monitoramento de spread;
+
+•
+sentinela;
+
+•
+watchdog;
+
+•
+rechecagem de fechamento;
+
+•
+qualquer agente ou tarefa autônoma.
+
+Definir como a nova camada lerá dados sem bloquear o caminho de decisão e sem acessar MT5 de forma concorrente de maneira insegura.
+
+3.5 Automações existentes — obrigatório
+
+Inspecionar as automações existentes no projeto e no ambiente de execução. Como o projeto utiliza caminhos Windows e MetaTrader 5, verificar também o Agendador de Tarefas do Windows:
+
+Plain Text
+
+
+schtasks /query /fo LIST /v
+
+
+
+Além disso, pesquisar:
+
+•
+arquivos .bat, .cmd, .ps1 e scripts de inicialização;
+
+•
+tarefas com nomes relacionados a Monstro, AIOFEN, agente, watchdog, dashboard, backup, snapshot, relatório, autotuning e MT5;
+
+•
+Task Scheduler, cron, APScheduler, schedule, threading.Timer e jobs persistentes;
+
+•
+duplicidade de execução do robô, dashboard ou coletor;
+
+•
+tarefas que reiniciam processos ou sobrescrevem arquivos;
+
+•
+agentes já existentes e seus horários/gatilhos;
+
+•
+arquivos agente_config.json, config.json, logs do agente e diretórios de estado.
+
+Não crie uma nova automação ainda sem verificar o que já existe. Se uma automação for necessária, primeiro documente:
+
+•
+objetivo;
+
+•
+frequência;
+
+•
+comando exato;
+
+•
+usuário de execução;
+
+•
+diretório de trabalho;
+
+•
+dependências;
+
+•
+política de logs;
+
+•
+prevenção contra duas instâncias;
+
+•
+tratamento de falha;
+
+•
+rollback;
+
+•
+impacto no MT5 e no robô.
+
+Se o coletor em tempo real precisar de execução contínua, prefira integrá-lo ao ciclo de vida do robô ou a um serviço controlado, em vez de criar tarefas agendadas que iniciem múltiplas instâncias. Agendador serve melhor para limpeza, snapshots, auditoria e relatórios periódicos, não para iniciar cópias concorrentes do coletor a cada intervalo.
+
+
+
+
+4. DECISÃO DE ARQUITETURA
+
+Depois da autópsia, escolha e justifique uma destas opções:
+
+Opção preferencial: módulo separado, integrado ao servidor existente
+
+Criar um módulo de domínio separado, por exemplo:
+
+Plain Text
+
+
+fluxo_tempo_real.py
+
+
+
+Responsabilidades:
+
+•
+captura e normalização dos ticks;
+
+•
+cálculo das métricas;
+
+•
+estado thread-safe;
+
+•
+persistência limitada;
+
+•
+funções de consulta;
+
+•
+health check;
+
+•
+serialização JSON;
+
+•
+testes unitários.
+
+Integrar esse módulo ao Flask/blueprint existente, sem iniciar outro servidor e sem duplicar o acesso ao MT5.
+
+Opção alternativa: integração no arquivo principal
+
+Só usar se a autópsia demonstrar que o projeto não possui fronteira modular segura. Mesmo assim:
+
+•
+não reescrever o arquivo inteiro;
+
+•
+fazer mudanças pequenas e localizadas;
+
+•
+não mover funções de trading sem necessidade;
+
+•
+manter compatibilidade com imports e execução atual;
+
+•
+registrar claramente todas as linhas alteradas;
+
+•
+criar testes de regressão.
+
+Critério de decisão
+
+A escolha deve priorizar, nesta ordem:
+
+1.
+não interferir em ordens e posições;
+
+2.
+não travar o loop principal;
+
+3.
+não duplicar conexão ou leitura MT5;
+
+4.
+facilitar testes e rollback;
+
+5.
+facilitar evolução futura;
+
+6.
+manter o dashboard compatível.
+
+
+
+
+5. CAPTURA E QUALIDADE DO FLUXO
+
+Não apresente uma estimativa como se fosse Times & Trades real. Diferencie claramente:
+
+•
+agressão identificada pelo feed;
+
+•
+inferência por tick/preço;
+
+•
+livro de ofertas observado;
+
+•
+volume sem direção confiável;
+
+•
+dado ausente, atrasado ou congelado.
+
+Regras de captura
+
+•
+usar o símbolo real selecionado pelo robô, nunca fixar WDOU26 sem validar;
+
+•
+usar cursor monotônico por time_msc e, em caso de empate, uma chave adicional estável;
+
+•
+não processar o mesmo tick duas vezes;
+
+•
+tratar reinício do terminal, mudança de contrato, salto de timestamp e relógio incorreto;
+
+•
+limitar a janela de consulta para não reprocessar todo o histórico a cada iteração;
+
+•
+evitar sleep agressivo que consuma CPU;
+
+•
+não deixar exceção do coletor derrubar o robô;
+
+•
+registrar taxa de ticks, atraso, último timestamp, duplicatas e erros;
+
+•
+aplicar lock ou estrutura thread-safe ao estado compartilhado;
+
+•
+não chamar operações de trading a partir do coletor.
+
+Flags e fallback
+
+A IA implementadora deve confirmar na documentação/ambiente as constantes do MetaTrader 5 e não inventar flags. Se as flags de agressão não forem confiáveis ou não estiverem disponíveis:
+
+•
+marcar o método como inferido ou indisponivel;
+
+•
+não chamar o resultado de “agressão real”;
+
+•
+exibir um aviso no dashboard;
+
+•
+preservar o último estado apenas com indicador de staleness;
+
+•
+não usar o dado como gatilho de ordem.
+
+Métricas mínimas
+
+Implementar somente métricas que tenham definição clara e teste:
+
+•
+volume comprador;
+
+•
+volume vendedor;
+
+•
+delta: comprador menos vendedor;
+
+•
+delta acumulado da janela;
+
+•
+volume total;
+
+•
+razão compradora/vendedora, com proteção para divisão por zero;
+
+•
+número de ticks processados;
+
+•
+preço último, bid e ask quando disponíveis;
+
+•
+spread;
+
+•
+direção dominante;
+
+•
+intensidade normalizada;
+
+•
+idade do dado;
+
+•
+estado de qualidade;
+
+•
+período da janela;
+
+•
+símbolo e contrato.
+
+As janelas devem ser configuráveis e, inicialmente, incluir:
+
+•
+janela curta;
+
+•
+janela do candle selecionado;
+
+•
+acumulado da sessão/dia;
+
+•
+opção de reset no início de candle ou sessão.
+
+Não impor uma janela de reset arbitrária sem ler o timeframe efetivamente usado pelo projeto e sem deixar o parâmetro configurável.
+
+
+
+
+6. SUGESTÃO VISUAL, NÃO ORDEM
+
+Criar um resultado informativo com estados explícitos, por exemplo:
+
+•
+COMPRA_FORTE;
+
+•
+COMPRA_MODERADA;
+
+•
+NEUTRO;
+
+•
+VENDA_MODERADA;
+
+•
+VENDA_FORTE;
+
+•
+DADO_INSUFICIENTE;
+
+•
+DADO_ATRASADO;
+
+•
+CONTRATO_INDISPONIVEL.
+
+A sugestão deve explicar os fatores observados, por exemplo:
+
+JSON
+
+
+{
+  "bias": "COMPRA_MODERADA",
+  "confidence": 0.0,
+  "reason_codes": ["DELTA_POSITIVO", "VOLUME_ACIMA_DA_MEDIA"],
+  "is_executable": false,
+  "source_quality": "INFERIDO",
+  "symbol": "WDO...",
+  "window": "M1",
+  "generated_at": "...",
+  "data_age_ms": 0
+}
+
+
+
+A confiança não pode ser apresentada como probabilidade estatística validada sem calibração. Exibir como força/score heurístico até existir estudo estatístico adequado.
+
+Nunca usar palavras como “garantia”, “entrada certa”, “lucro garantido” ou “sinal infalível”.
+
+
+
+
+7. API E DASHBOARD
+
+Adicionar ao dashboard existente, preferencialmente pelo blueprint já usado pelo projeto.
+
+Endpoint mínimo sugerido
+
+Plain Text
+
+
+GET /api/fluxo/status
+
+
+
+Deve retornar JSON estável, versionado ou documentado, contendo:
+
+•
+schema_version;
+
+•
+enabled;
+
+•
+symbol;
+
+•
+contract_source;
+
+•
+last_tick_time;
+
+•
+data_age_ms;
+
+•
+quality;
+
+•
+capture_method;
+
+•
+buy_volume;
+
+•
+sell_volume;
+
+•
+delta;
+
+•
+cumulative_delta;
+
+•
+total_volume;
+
+•
+buy_sell_ratio;
+
+•
+tick_count;
+
+•
+bid;
+
+•
+ask;
+
+•
+spread;
+
+•
+window;
+
+•
+suggestion;
+
+•
+reason_codes;
+
+•
+errors;
+
+•
+updated_at.
+
+Adicionar endpoint histórico somente se o repositório já tiver mecanismo seguro para isso ou se for necessário ao gráfico. Não carregar CSV enorme em cada request.
+
+Elementos visuais mínimos
+
+•
+card de saúde/qualidade do feed;
+
+•
+delta atual;
+
+•
+delta acumulado;
+
+•
+barra comprador x vendedor;
+
+•
+volume total;
+
+•
+spread e último preço;
+
+•
+idade do dado;
+
+•
+símbolo/contrato vigente;
+
+•
+janela selecionada;
+
+•
+estado da sugestão;
+
+•
+aviso de que é somente informativo;
+
+•
+indicação clara quando o resultado for inferido ou estiver atrasado;
+
+•
+atualização periódica sem recarregar a página inteira.
+
+Se o dashboard atual já usa polling, reutilizar o padrão existente. Não introduzir WebSocket apenas por preferência. Só escolher WebSocket/SSE se a autópsia provar que o benefício compensa a complexidade e houver teste de reconexão. A atualização visual nunca deve bloquear o loop de trading.
+
+Segurança e consistência
+
+•
+serializar números inválidos como null, nunca NaN/Infinity em JSON;
+
+•
+escapar valores ao montar HTML;
+
+•
+não exibir credenciais, caminhos sensíveis ou dados de conta;
+
+•
+tratar endpoint quando MT5 estiver desconectado;
+
+•
+evitar que /status ou o endpoint de fluxo faça chamadas lentas de MT5 em toda requisição;
+
+•
+servir snapshot em memória com lock e timestamp.
+
+
+
+
+8. CONFIGURAÇÃO E PERSISTÊNCIA
+
+Adicionar configuração compatível com o padrão real do projeto, sem quebrar config.json existente. Exemplo conceitual:
+
+JSON
+
+
+{
+  "fluxo_tempo_real": {
+    "ativo": true,
+    "modo": "monitoramento",
+    "janela_curta_segundos": 30,
+    "janela_candle": "M1",
+    "persistencia_ativa": true,
+    "intervalo_captura_ms": 100,
+    "retencao_dias": 7,
+    "limiar_volume": 0,
+    "limiar_delta": 0,
+    "usar_como_decisao": false
+  }
+}
+
+
+
+Não substituir o arquivo de configuração inteiro. Fazer merge compatível e fornecer defaults seguros.
+
+Persistência preferencial:
+
+•
+SQLite ou CSV rotacionado, conforme padrão existente;
+
+•
+escrita em lote ou append eficiente;
+
+•
+retenção configurável;
+
+•
+nenhuma escrita a cada request do navegador;
+
+•
+nenhum arquivo histórico gigantesco carregado integralmente na memória;
+
+•
+incluir timestamp UTC e timestamp local quando o projeto exigir.
+
+Se a persistência não for necessária para a primeira versão, começar com snapshot em memória e justificar.
+
+
+
+
+9. AGENTES, SUBTAREFAS E ORQUESTRAÇÃO
+
+Se a ferramenta permitir subagentes, dividir o trabalho em tarefas independentes, sem permitir que dois agentes editem o mesmo arquivo simultaneamente. Sugestão:
+
+Agente 1 — Auditoria
+
+Mapear arquivos, rotas, threads, MT5, configuração, automações e riscos. Não editar.
+
+Agente 2 — Núcleo de fluxo
+
+Implementar captura, normalização, agregação, estado thread-safe e health check em módulo isolado. Criar testes.
+
+Agente 3 — API/integração Flask
+
+Adicionar rotas usando o servidor/blueprint existente. Não criar servidor paralelo. Criar testes de contrato JSON.
+
+Agente 4 — Dashboard
+
+Adicionar cards, gráficos e indicadores usando o padrão visual existente. Não modificar dados regenerados automaticamente sem entender o pipeline.
+
+Agente 5 — Qualidade
+
+Executar testes, validar concorrência, validar reconexão, verificar regressão e inspecionar diffs.
+
+Agente 6 — Automação
+
+Somente auditar tarefas existentes e propor automação. Criar uma tarefa nova apenas se houver necessidade comprovada, documentação e controle de instância.
+
+Um agente líder deve revisar tudo antes da entrega. Caso não exista suporte real a agentes, executar as mesmas etapas sequencialmente com checkpoints.
+
+
+
+
+10. PROTEÇÃO DO ROBÔ E PROCEDIMENTO DE ALTERAÇÃO
+
+Antes de editar:
+
+1.
+criar snapshot/backup seguindo o mecanismo real do projeto;
+
+2.
+registrar commit ou cópia identificável;
+
+3.
+salvar a saída da autópsia;
+
+4.
+verificar que o MT5 não está em modo de execução real durante testes;
+
+5.
+utilizar conta demo/simulação quando houver conexão real;
+
+6.
+nunca apagar logs ou dados históricos.
+
+Durante a edição:
+
+•
+preservar todas as funcionalidades atuais, salvo se uma incompatibilidade for demonstrada;
+
+•
+não reformatar o arquivo gigante inteiro sem necessidade;
+
+•
+não substituir imports cegamente;
+
+•
+não remover watchdog, circuit breakers, trailing, reconciliação ou salvamento;
+
+•
+não alterar parâmetros de trading como efeito colateral;
+
+•
+não alterar order_send, executar_ordem, fechar_posicao_atual ou filtros de entrada para consumir o fluxo;
+
+•
+não deixar o HTML controlar a lógica do robô;
+
+•
+proteger contra dupla inicialização;
+
+•
+usar logs estruturados para o módulo novo;
+
+•
+se houver dúvida sobre um comportamento existente, parar e reportar, não inventar.
+
+
+
+
+11. TESTES OBRIGATÓRIOS
+
+Criar ou adaptar testes sem depender de MT5 real:
+
+Núcleo
+
+•
+tick de compra;
+
+•
+tick de venda;
+
+•
+tick sem direção;
+
+•
+volume zero;
+
+•
+timestamps duplicados;
+
+•
+timestamps fora de ordem;
+
+•
+troca de contrato;
+
+•
+reset de janela;
+
+•
+rollover de sessão;
+
+•
+dados atrasados;
+
+•
+feed vazio;
+
+•
+flags ausentes;
+
+•
+números NaN/Infinity;
+
+•
+alta taxa de ticks;
+
+•
+concorrência entre leitor e endpoint.
+
+MT5
+
+Usar mock/adapter, nunca exigir terminal conectado para rodar a suite. Testar erro de initialize, copy_ticks, symbol_info_tick, market_book_get e reconexão.
+
+API
+
+•
+schema JSON;
+
+•
+valores finitos;
+
+•
+status 200 quando o módulo está ativo;
+
+•
+resposta segura quando está desativado;
+
+•
+resposta segura quando o MT5 está desconectado;
+
+•
+não chamar operação de ordem;
+
+•
+não bloquear request.
+
+Dashboard
+
+•
+endpoint realmente acessível na porta efetiva;
+
+•
+card renderiza com dado normal;
+
+•
+card renderiza com dado indisponível;
+
+•
+aviso de atraso aparece;
+
+•
+reconexão/polling não cria timers duplicados;
+
+•
+nenhuma exceção JavaScript no console.
+
+Regressão
+
+Executar a suite existente antes e depois. Se o repositório declarar uma quantidade de testes, comparar o número e explicar toda diferença.
+
+
+
+
+12. VALIDAÇÃO DE ACEITAÇÃO
+
+A implementação só pode ser considerada concluída se todos os itens forem verdadeiros:
+
+
+
+
+o robô inicia como antes;
+
+
+
+
+o dashboard continua acessível no endereço/porta efetivos;
+
+
+
+
+a porta foi confirmada por configuração/processo, sem suposição;
+
+
+
+
+o MT5 não recebe nenhuma ordem pelo módulo novo;
+
+
+
+
+o módulo funciona com feed vazio ou desconectado;
+
+
+
+
+o dashboard identifica a qualidade da fonte;
+
+
+
+
+o símbolo mostrado é o símbolo real vigente;
+
+
+
+
+os ticks não são processados em duplicidade;
+
+
+
+
+o loop principal não fica bloqueado pelo dashboard;
+
+
+
+
+o endpoint não consulta operações lentas a cada request;
+
+
+
+
+não há segundo servidor ou segunda instância indevida;
+
+
+
+
+automações e tarefas existentes foram auditadas;
+
+
+
+
+nenhuma tarefa agendada duplicada foi criada;
+
+
+
+
+há snapshot/rollback;
+
+
+
+
+há testes automatizados;
+
+
+
+
+os testes antigos continuam passando ou as falhas estão explicadas;
+
+
+
+
+o diff foi revisado linha a linha;
+
+
+
+
+a documentação informa limitações e não promete lucro;
+
+
+
+
+is_executable permanece false.
+
+
+
+
+13. FORMATO OBRIGATÓRIO DA ENTREGA DA IA IMPLEMENTADORA
+
+Ao finalizar, responda em português do Brasil com esta estrutura:
+
+1.
+Resumo executivo — o que foi implementado.
+
+2.
+Autópsia do projeto — arquivos, rotas, threads, porta efetiva e automações encontradas.
+
+3.
+Decisão de arquitetura — módulo separado ou integração no principal, com justificativa.
+
+4.
+Arquivos criados/modificados — caminho, responsabilidade e resumo das alterações.
+
+5.
+Contrato da API — endpoints, exemplos JSON e estados de erro.
+
+6.
+Métricas e limitações do fluxo — distinguir dado real, inferido, indisponível e atrasado.
+
+7.
+Dashboard — componentes adicionados e como atualizar.
+
+8.
+Automação — o que já existia, o que foi preservado e, se aplicável, o que foi criado; incluir comando, frequência e proteção contra duplicidade.
+
+9.
+Testes executados — comandos e resultados reais.
+
+10.
+Regressão e segurança — confirmação de que não houve alteração na execução de ordens.
+
+11.
+Como iniciar/parar/desativar — comandos e configuração.
+
+12.
+Rollback — procedimento exato.
+
+13.
+Pendências e riscos — tudo que não puder ser confirmado.
+
+Não declare “pronto” se apenas criou arquivos sem executar os testes e sem validar o endpoint.
+
+
+
+
+14. COMANDOS DE VERIFICAÇÃO SUGERIDOS
+
+Adapte os comandos ao ambiente real, sem inventar caminhos:
+
+Bash
+
+
+python -m compileall .
+python -m pytest -q
+python -m unittest discover -v
+curl -i http://127.0.0.1:PORTA/api/fluxo/status
+curl -i http://127.0.0.1:PORTA/status
+
+
+
+No Windows, verificar tarefas:
+
+Plain Text
+
+
+schtasks /query /fo LIST /v
+
+
+
+Verificar processos/portas conforme as ferramentas disponíveis no ambiente.
+
+Se o projeto possui runner próprio, snapshot ou suite oficial, usar esses mecanismos antes dos comandos genéricos.
+
+
+
+
+15. REGRA DE PARADA E PERGUNTAS
+
+Se faltar algum arquivo essencial do dashboard, configuração, blueprint ou script de automação:
+
+1.
+não invente a estrutura;
+
+2.
+informe exatamente o arquivo ausente;
+
+3.
+continue apenas com tarefas que não dependam dele;
+
+4.
+peça o arquivo ou autorização explícita antes de modificar a parte afetada.
+
+Se houver conflito entre este prompt e o código real, o código real deve ser inspecionado e a divergência deve ser registrada. Não corrija silenciosamente premissas antigas.
+
+Resultado esperado: uma integração incremental, reversível, observável e segura, que transforma dados disponíveis do MT5 em informação visual de fluxo no dashboard, sem transformar essa primeira versão em um novo mecanismo de execução de ordens.
+
+
+
+- preservar o robô atual e não alterar a execução de ordens;
+- integrar o fluxo do MetaTrader 5 apenas para **monitoramento e sugestões**;
+- verificar se o dado é realmente agressão ou apenas inferência por tick;
+- reutilizar o Flask/dashboard existente, sem criar servidor duplicado;
+- investigar a divergência entre a porta informada `5001` e o padrão encontrado no código, `5002`;
+- mapear threads, timers, watchdogs, agentes e tarefas existentes;
+- consultar o Agendador de Tarefas do Windows com `schtasks`;
+- evitar duplicidade de robôs, coletores ou dashboards;
+- criar API, métricas, cards visuais, alertas de qualidade e histórico;
+- implementar testes, snapshot, rollback e validação de regressão;
+- manter `is_executable: false`, impedindo que o novo módulo envie ordens.
+
+## ORDEM FINAL — ROADMAP, COMMIT E SEGURANÇA DO REPOSITÓRIO
+
+Ao concluir toda a implementação, execute obrigatoriamente as etapas abaixo:
+
+1. Revise todos os arquivos alterados, criados e removidos.
+2. Execute a suíte de testes existente e os novos testes da integração.
+3. Confirme que:
+   - o robô inicia corretamente;
+   - o dashboard continua acessível;
+   - o módulo de fluxo não envia ordens;
+   - nenhuma lógica existente de entrada, saída, stop, take profit, lote, trailing stop ou risco foi alterada;
+   - não foram criadas tarefas agendadas duplicadas;
+   - não existem processos, threads ou servidores duplicados;
+   - os testes críticos passaram.
+4. Localize automaticamente o arquivo oficial do roadmap do projeto. Procure por arquivos como:
+   - `ROADMAP.md`;
+   - `roadmap.md`;
+   - `.edi_agent/CHECKPOINT.md`;
+   - `.edi_agent/workspace/SESSION_LOG.md`;
+   - `docs/ROADMAP.md`;
+   - ou outro arquivo equivalente identificado durante a autópsia.
+5. Atualize o roadmap somente com melhorias realmente identificadas, implementadas ou validadas. Não registre como concluída uma melhoria que ficou apenas como ideia.
+6. Organize as melhorias em categorias:
+   - implementado nesta versão;
+   - testes e validações realizados;
+   - melhorias futuras;
+   - riscos ou pendências;
+   - automações existentes preservadas;
+   - automações futuras recomendadas.
+7. Inclua no roadmap, no mínimo:
+   - integração de monitoramento de fluxo em tempo real;
+   - cálculo de delta e volume comprador/vendedor;
+   - qualidade e idade dos dados;
+   - integração com o dashboard;
+   - separação entre sugestão visual e execução de ordens;
+   - auditoria das threads, timers e automações existentes;
+   - testes, snapshot e procedimento de rollback;
+   - limitações do feed do MetaTrader 5;
+   - sugestões futuras que ainda não foram implementadas.
+8. Antes de criar o commit, mostre um resumo do roadmap atualizado e o resultado dos testes.
+9. Crie um commit Git local somente depois que os testes passarem e o diff for revisado.
+10. Use uma mensagem de commit clara, semelhante a:
+
+   `feat: integrar monitoramento de fluxo ao dashboard sem execução de ordens`
+
+11. O commit deve conter somente arquivos relacionados à implementação, testes, documentação e roadmap desta tarefa. Não incluir arquivos temporários, credenciais, dados sensíveis, logs pessoais ou arquivos gerados automaticamente sem necessidade.
+12. Verifique o resultado com:
+
+   `git status`
+
+   `git diff --stat HEAD~1`
+
+   `git show --stat --oneline HEAD`
+
+13. NÃO faça `git push`, não publique em repositório remoto e não altere configurações de acesso, autenticação ou integração externa sem autorização explícita do usuário.
+14. Ao final, informe:
+   - nome e hash do commit;
+   - arquivos incluídos;
+   - testes executados e resultados;
+   - arquivo do roadmap atualizado;
+   - melhorias implementadas;
+   - melhorias ainda pendentes;
+   - confirmação de que nenhum push foi realizado.
+
+
+O arquivo final possui **606 linhas**, com arquitetura, etapas de implementação, critérios de aceitação, testes e formato obrigatório de entrega:
+
+[Baixar o Prompt Mestre Técnico de Integração do Fluxo Real](</home/ubuntu/prompt_mestre_integracao_fluxo_real_monstro_v22.md>)O Fluxo Real é uma ferramenta e metodologia de day trade criada pelo trader Marcelo Carvalho e distribuída em parceria com a Gain Class. Trata-se de um software e indicador (frequentemente operando dentro de plataformas como o Profit/Nelogica) que converte ferramentas analíticas complexas, como o Times and Trades e o Book de Ofertas (análise de fluxo de ordens ou Tape Reading), diretamente em indicadores visuais no gráfico de preços. [1, 2, 3, 4, 5, 6, 7] 
+Abaixo estão os detalhes consolidados sobre o funcionamento, a proposta e as avaliações do produto:
+## 📋 O que é e Como Funciona?
+
+* O Conceito: No day trade tradicional, os traders analisam o fluxo através de planilhas dinâmicas rápidas e difíceis de acompanhar (Tape Reading). O algoritmo do [Fluxo Real](https://fluxoreal.com.br/) automatiza essa leitura. Ele compila as agressões dos grandes players (compradores e vendedores) e as plota diretamente no formato de gráficos intuitivos. [2, 7, 8] 
+* Pontos de Entrada: O sistema promete entregar pontos objetivos de compra e venda com base no rastro deixado por investidores institucionais. [2, 7] 
+* Automação (Robôs): Além do indicador visual, o ecossistema também oferece estratégias automatizadas (robôs de execução), onde o usuário pode contratar algoritmos para executar as ordens de forma 100% mecânica, eliminando o fator emocional. [4, 5] 
+
+------------------------------
+## 🔍 Funciona Mesmo? (Benefícios vs. Riscos)
+
+| Vantagens Prometidas | Riscos e Realidade do Mercado |
+|---|---|
+| Praticidade Visual: Transforma dados brutos e rápidos de leitura de fluxo em sinalizações gráficas fáceis de ler. | Não Existe Garantia: O mercado de day trade (especialmente mini-índice e minidólar) é altamente volátil e não há algoritmo que garanta 100% de ganho. |
+| Controle Emocional: Os robôs auxiliam traders que sofrem com a ansiedade de clicar na hora errada. | Overfitting e Ajustes: Algoritmos precisam de calibração constante. Estratégias que funcionam hoje podem falhar se a dinâmica do mercado mudar. |
+
+------------------------------
+## ⚠️ Reclamações e Reputação
+Ao analisar os canais de proteção ao consumidor como o [Reclame AQUI](https://www.reclameaqui.com.br/empresa/fluxoreal/), o cenário do produto apresenta os seguintes pontos de atenção:
+
+   1. Falta de Índice / Empresa Não Verificada: No perfil específico da marca Fluxo Real no Reclame AQUI, ela consta como Não Verificada e com poucas interações. Isso significa que a empresa não utiliza a plataforma ativamente para responder às dúvidas dos usuários cadastrados por lá. [9, 10] 
+   2. Problemas com Suporte e Reembolso: Existem queixas pontuais registradas por usuários (algumas vinculadas a intermediadores ou plataformas de suporte como a Nelogica) citando dificuldade no cancelamento de assinaturas de robôs e lentidão em canais de atendimento por e-mail ou chat para obter o reembolso dentro dos 7 dias garantidos por lei. [5] 
+   3. Instabilidade Técnica: Relatos de usuários indicam que atualizações de plataforma de terceiros ocasionalmente desconfiguram os indicadores customizados ou somem com as grades do gráfico, exigindo reinstalação. [6] 
+
+## 💡 Recomendações antes de adquirir
+Se você está avaliando assinar o serviço, lembre-se de:
+
+* Testar em conta simulada: Nunca coloque dinheiro real em um algoritmo de terceiros antes de testá-lo exaustivamente em um ambiente de simulação. [4] 
+* Direito de Arrependimento: Monitore rigorosamente o prazo legal de 7 dias para pedir reembolso caso o suporte ou o comportamento da ferramenta não condiga com suas expectativas. [5] 
+* Gestão de Risco: Trate qualquer ferramenta de trading como um otimizador de decisões, e nunca como uma promessa de lucro fácil. [11] 
+
+Para te ajudar a avaliar melhor, você gostaria de saber mais sobre os custos das assinaturas, o desempenho histórico desse tipo de ferramenta ou como funciona a integração dele com plataformas como o Profit?
+
+[1] [https://www.youtube.com](https://www.youtube.com/watch?v=yHcV8sBonOI&t=722)
+[2] https://fluxoreal.com.br
+[3] [https://www.youtube.com](https://www.youtube.com/watch?v=Ck5u1rmbQSI&t=231)
+[4] [https://www.youtube.com](https://www.youtube.com/watch?v=3ZgAljhsD9k&t=372)
+[5] [https://www.reclameaqui.com.br](https://www.reclameaqui.com.br/nelogica/solicitacao-de-cancelamento-e-reembolso-da-automacao-wdogrc-e-wdogrv_iYJchKb92pgMbwu7/)
+[6] [https://www.reclameaqui.com.br](https://www.reclameaqui.com.br/nelogica/as-atualizacoes-deveriam-ser-motivo-de-alegria-mas-sao-motivo-de-panico_mYA_0KXoNJDdHC8P/)
+[7] [https://www.youtube.com](https://www.youtube.com/watch?v=5lSNA5pxD-Q&t=27)
+[8] [https://www.youtube.com](https://www.youtube.com/watch?v=yPzXsYYPNK0&t=308)
+[9] [https://www.reclameaqui.com.br](https://www.reclameaqui.com.br/detector-site-confiavel/fluxoreal.com.br)
+[10] [https://www.reclameaqui.com.br](https://www.reclameaqui.com.br/empresa/fluxoreal/)
+[11] [https://www.youtube.com](https://www.youtube.com/watch?v=mQk7Nnls4vI&t=166)
+    
+
+
+
+
+Como você já tem uma estrutura com um robô em Python rodando e um dashboard local (no endereço http://127.0.0.1:5001/), replicar a lógica de um algoritmo de fluxo em tempo real é perfeitamente viável.
+A melhor abordagem técnica para o seu cenário é manter o Python como motor principal, utilizando a biblioteca oficial MetaTrader5 para extrair os dados brutos de agressão e o WebSockets para enviar esses dados instantaneamente para o seu dashboard, sem travar a execução do robô.
+Abaixo, detalho a arquitetura ideal e um exemplo prático de implementação:
+------------------------------
+## 🏛️ Arquitetura do Sistema
+Para processar o fluxo em tempo real (como agressão de compra/venda) sem atrasar as ordens do seu robô, o ideal é separar o sistema em três camadas:
+
+   1. Captura (Python + MQL5): Um script Python roda em paralelo ou integrado ao seu robô, monitorando o fluxo de negociações através da função MT5CopyTicksRange ou eventos de ticks.
+   2. Processamento (Cálculo do Fluxo): O Python calcula o saldo de agressão (Volume de Compra - Volume de Venda) a cada tick ou em janelas de tempo fixas.
+   3. Transmissão e Display (WebSockets + Dashboard): Em vez de fazer requisições HTTP tradicionais (que geram atraso), o Python "empurra" o saldo calculado via WebSocket direto para o front-end (seu dashboard em 5001), que atualiza os gráficos ou barras (verde/vermelho) instantaneamente.
+
+------------------------------
+## 💻 Exemplo Prático: Capturando e Calculando a Agressão
+O segredo para ler o "Fluxo Real" no minidólar (WDO) ou mini-índice (WIN) via Python é analisar a flag de agressão de cada tick. No MetaTrader 5, quando um tick ocorre, ele indica se a agressão foi de compra (TICK_FLAG_BUY) ou de venda (TICK_FLAG_SELL).
+Aqui está um exemplo de script Python que você pode rodar em paralelo ao seu robô para calcular o saldo acumulado de agressão e preparar os dados para o seu dashboard:
+
+import MetaTrader5 as mt5import pandas as pdimport time
+# 1. Conecta ao MetaTrader 5if not mt5.initialize():
+    print("Falha ao inicializar o MT5")
+    mt5.shutdown()
+symbol = "WDOU26"  # Substitua pelo contrato atual do minidólar ou WIN
+mt5.symbol_select(symbol, True)
+
+print(f"Monitorando fluxo real para {symbol}...")
+# Variáveis para acumular o fluxo do candle atualsaldo_agressao_acumulado = 0
+last_tick_time = 0
+try:
+    while True:
+        # Pega os últimos 100 ticks para garantir que não perdeu nenhum
+        ticks = mt5.copy_ticks_from(symbol, int(time.time()) - 5, 100, mt5.COPY_TICKS_ALL)
+        
+        if ticks is not None and len(ticks) > 0:
+            df_ticks = pd.DataFrame(ticks)
+            
+            # Filtra apenas os ticks novos desde a última checagem
+            df_ticks = df_ticks[df_ticks['time_msc'] > last_tick_time]
+            
+            if not df_ticks.empty:
+                for index, row in df_ticks.iterrows():
+                    flags = row['flags']
+                    volume = row['volume']
+                    
+                    # Verifica a direção da agressão usando as flags binárias do MT5
+                    is_buy = flags & mt5.TICK_FLAG_BUY
+                    is_sell = flags & mt5.TICK_FLAG_SELL
+                    
+                    if is_buy:
+                        saldo_agressao_acumulado += volume
+                    elif is_sell:
+                        saldo_agressao_acumulado -= volume
+                
+                # Atualiza o timestamp do último tick processado
+                last_tick_time = df_ticks['time_msc'].max()
+                
+                # -------------------------------------------------------------
+                # AQUI: Envie o 'saldo_agressao_acumulado' para o seu Dashboard
+                # Exemplo visual: Se positivo -> Barra Verde | Se negativo -> Barra Vermelha
+                # -------------------------------------------------------------
+                print(f"Saldo de Agressão Atual: {saldo_agressao_acumulado} contratos")
+                
+        time.sleep(0.05)  # Checa a cada 50ms para precisão de alta frequência
+except KeyboardInterrupt:
+    print("Monitoramento encerrado.")
+    mt5.shutdown()
+
+------------------------------
+## 🔗 Como integrar isso ao seu Dashboard (http://127.0.0.1:5001/)
+Como você mencionou que já possui um dashboard, a integração depende de como ele foi construído:
+
+* Se o seu dashboard atual for em Python (Flask / Dash / FastAPI):
+Você pode usar a biblioteca Flask-SocketIO ou os WebSockets nativos do FastAPI. O script de fluxo acima envia um evento websocket (ex: emit('atualiza_fluxo', {'saldo': saldo_agressao_acumulado})) e o seu front-end em HTML/JavaScript atualiza a largura e a cor de uma div na tela instantaneamente.
+* Se o seu dashboard for em Node.js / React / Outra linguagem:
+O seu script do robô em Python pode atuar como um cliente WebSocket, disparando um payload JSON para o servidor do seu dashboard a cada variação significativa de fluxo.
+
+## ⚠️ Pontos de Atenção para o Ambiente de Produção
+
+   1. Zerar o Acumulador: O mercado de fluxo costuma resetar o saldo acumulado a cada abertura de candle (por exemplo, a cada 5 ou 15 minutos dependendo do seu timeframe de decisão) para medir a força do candle atual. Você precisará adicionar uma lógica que detecte a mudança de minuto para zerar a variável saldo_agressao_acumulado.
+   2. Dados de VPS: Como você mencionou em análises anteriores rodar sistemas em VPS, certifique-se de que a conexão WebSocket entre a VPS (onde o MT5/Robô rodam) e a máquina onde o Dashboard está hospedado seja segura (usando wss://) e possua baixa latência.
+
+Para que eu possa te ajudar a estruturar o código exato de integração, me conte:
+
+* Qual tecnologia/framework você utilizou para construir o seu dashboard atual na porta 5001? (Ex: Flask, FastAPI, Node.js, HTML puro com JavaScript)
+* Você prefere que a barra de fluxo mostre o acumulado do dia inteiro, o acumulado do candle atual (ex: M5/M15) ou a força dos últimos segundos?     
+
+
+
+
+O **Fluxo Real** é uma metodologia desenvolvida por *Marcelo*, que combina conceitos de **análise de fluxo** com a **análise técnica** tradicional para facilitar a leitura do mercado (0:15:02 - 0:15:08). 
+
+Em vez de interpretar o fluxo da maneira tradicional e exaustiva — que exige monitorar constantemente o *Times and Trades* e o *Book de Ofertas* — *Marcelo* criou um sistema que "grafica" o fluxo (0:15:08 - 0:15:43). Isso permite:
+
+* **Identificar a entrada de capital:** O sistema mapeia os rastros deixados pelos grandes *players* institucionais, transformando o volume e as agressões em indicadores visuais no gráfico (0:15:43 - 0:15:54).
+* **Reduzir o ruído:** Ao aplicar algoritmos sobre o fluxo, o *Marcelo* defende que o dinheiro institucional é mais consistente que o preço puro, facilitando a identificação de movimentos direcionais e pontos de entrada (0:15:48 - 0:15:58).
+* **Simplificar a tomada de decisão:** O sistema não exige modelagens gráficas complexas; ele busca encontrar o *timing* ideal para entrar a favor do dinheiro, tornando a operação mais assertiva e objetiva (0:15:58 - 0:16:25).
+
+O objetivo principal do *Fluxo Real* é ajudar o *trader* a seguir o rastro do dinheiro institucional sem precisar prever o futuro, afastando o risco de decisões emocionais (como o "dia de fúria") ao proporcionar um mapa claro de como os grandes *players* estão montando suas posições (0:26:42 - 0:27:31).   
+
+
+Replicar o conceito de "Fluxo Real" — que transforma dados brutos de agressão e liquidez em indicadores visuais e gráficos — envolve um fluxo de trabalho estruturado em **captura, processamento e visualização**. O objetivo é transformar dados de *Times & Trades* (ordens executadas) em algo mais fácil de ler, como um indicador de tendência ou *footprint*.
+
+### 1. Estrutura do Pipeline em Python
+Para integrar isso ao seu dashboard (assumindo que utilize **Plotly Dash**), siga estes passos:
+
+*   **Captura de Dados:** Você precisará de uma fonte de dados de nível 2 (Tick data). Bibliotecas como `yfinance` não fornecem fluxo, então busque APIs profissionais ou conectores via corretoras (ex: *Profit* ou APIs de *Data Vendors* como *Pylivetrades*).
+*   **Processamento (Pandas/NumPy):** O "segredo" do Fluxo Real é filtrar o ruído. Você deve agregar as agressões (compras vs. vendas) por janela de tempo ou preço. Use o `pandas` para agrupar ordens e identificar o saldo de agressão.
+*   **Algoritmo de "Gráfico do Fluxo":** Em vez de olhar o book, calcule o **Delta de Fluxo** (Agressores Compra - Agressores Venda). Transforme esse delta em uma série temporal que possa ser plotada como barras ou indicadores sobrepostos ao preço.
+
+### 2. Visualização no Dashboard (Plotly Dash)
+Para integrar esse indicador ao seu painel, utilize o `plotly.graph_objects`:
+
+1.  **Criação do Componente:** No seu *layout* do Dash, adicione um `dcc.Graph`.
+2.  **Atualização em Tempo Real:** Utilize um componente `dcc.Interval` para disparar *callbacks* a cada poucos segundos, que buscam o saldo de agressão mais recente no banco de dados e atualizam o gráfico sem recarregar a página.
+3.  **Overlay de Indicadores:** Utilize subplots para colocar o gráfico de preço (candlestick) na parte superior e o indicador de fluxo (delta acumulado ou agressão líquida) na parte inferior, alinhados pelo mesmo eixo X (tempo).
+
+### 3. Bibliotecas Recomendadas
+*   **Dash:** Framework principal para o dashboard interativo.
+*   **Plotly:** Para gerar os gráficos financeiros (como o `candlestick` com *rangeslider*).
+*   **Pandas:** Essencial para manipular o histórico de ordens e criar o seu indicador personalizado.
+*   **NumPy:** Para cálculos matemáticos rápidos sobre as janelas de fluxo.
+
+**Atenção:** A complexidade não está na plotagem, mas na **qualidade da base de dados**. Certifique-se de que seu banco de dados (ex: *InfluxDB* ou *PostgreSQL*) consiga persistir os ticks para que seu dashboard exiba o histórico corretamente sem lentidão (0:11:42 - 0:11:56).
+
+
+
+A ideia de transformar o fluxo bruto (agressão de compra e venda) em indicadores visuais e dinâmicos diretamente no seu dashboard (e ao mesmo tempo disponibilizar essa métrica para os *gates* do seu robô) é **100% viável** e se encaixa perfeitamente na arquitetura desacoplada que estamos construindo.
+
+Em vez de poluir o código do Core v22, a melhor prática de engenharia é criar um **Módulo/Serviço Coletor de Fluxo Independente em Python** (em segundo plano), que consome os ticks em tempo real via API do MetaTrader 5, calcula o **Saldo de Agressão Acumulado (Delta de Fluxo)** e expõe esses dados tanto para o seu dashboard Flask quanto para a tomada de decisão do robô.
+
+---
+
+### 🏛️ Arquitetura Técnica do Módulo de Fluxo
+
+```
+      [ MetaTrader 5 ]
+             │ (Ticks de Agressão em Tempo Real)
+             ▼
+┌─────────────────────────────────────────────────────────┐
+│              servico_fluxo_real.py                      │
+│ 1. Filtra TICK_FLAG_BUY vs TICK_FLAG_SELL               │
+│ 2. Calcula Delta de Fluxo (Compra - Venda)              │
+│ 3. Atribui Cor/Pressão (Verde Forte, Verde, Vermelho...) │
+└────────────┬──────────────────────────────┬─────────────┘
+             │                              │
+             ▼ (WebSocket / API REST)       ▼ (Arquivo/In-Memory)
+  ┌──────────────────────┐      ┌──────────────────────┐
+  │ Dashboard Flask 5001 │      │  Robô / Gates Core   │
+  │ (Gauges e Cores)     │      │ (Ajuste de Entradas) │
+  └──────────────────────┘      └──────────────────────┘
+
+```
+
+---
+
+### 1. Script em Python Separado: Captura e Processamento do Fluxo
+
+Este script roda de forma independente em segundo plano. Ele captura os ticks brutos do WDO/WIN, identifica o lado agressor através das *flags* do MT5 (`TICK_FLAG_BUY` e `TICK_FLAG_SELL`) e calcula o **Saldo de Agressão (Delta)** a cada candle ou janela móvel de tempo.
+
+Crie o arquivo `servico_fluxo_real.py`:
+
+```python
+import MetaTrader5 as mt5
+import pandas as pd
+import time
+import json
+
+def inicializar_mt5(symbol):
+    if not mt5.initialize():
+        print("Erro ao inicializar MetaTrader5")
+        return False
+    mt5.symbol_select(symbol, True)
+    return True
+
+def classificar_pressao_fluxo(saldo_agressao, threshold_forte=500, threshold_fraco=100):
+    """
+    Mapeia o saldo numérico em cores e estados para o Dashboard e o Robô.
+    """
+    if saldo_agressao >= threshold_forte:
+        return {"cor": "#00FF00", "estado": "COMPRA_FORTE", "score": 1.0}  # Verde Claro / Neon
+    elif saldo_agressao >= threshold_fraco:
+        return {"cor": "#228B22", "estado": "COMPRA_MODERADA", "score": 0.5} # Verde Escuro
+    elif saldo_agressao <= -threshold_forte:
+        return {"cor": "#FF0000", "estado": "VENDA_FORTE", "score": -1.0}  # Vermelho Vivo
+    elif saldo_agressao <= -threshold_fraco:
+        return {"cor": "#8B0000", "estado": "VENDA_MODERADA", "score": -0.5} # Vermelho Escuro
+    else:
+        return {"cor": "#808080", "estado": "NEUTRO", "score": 0.0}       # Cinza
+
+def monitorar_fluxo(symbol="WDO$", janela_segundos=300):
+    """
+    Calcula o saldo de agressão nos últimos N segundos (ex: 300s = 5 min).
+    """
+    if not inicializar_mt5(symbol):
+        return
+
+    print(f"🚀 Monitor de Fluxo Real ativado para {symbol}")
+    last_processed_msc = 0
+
+    try:
+        while True:
+            agora_msc = int(time.time() * 1000)
+            inicio_janela_msc = agora_msc - (janela_segundos * 1000)
+
+            # Solicita os ticks da janela móvel
+            ticks = mt5.copy_ticks_range(symbol, inicio_janela_msc, agora_msc, mt5.COPY_TICKS_ALL)
+
+            if ticks is not None and len(ticks) > 0:
+                df = pd.DataFrame(ticks)
+
+                # Filtro de Agressão via Bitwise Flags do MT5
+                # TICK_FLAG_BUY = Agressão de Compra | TICK_FLAG_SELL = Agressão de Venda
+                df_buys = df[(df['flags'] & mt5.TICK_FLAG_BUY) != 0]
+                df_sells = df[(df['flags'] & mt5.TICK_FLAG_SELL) != 0]
+
+                vol_compra = df_buys['volume'].sum() if not df_buys.empty else 0
+                vol_venda = df_sells['volume'].sum() if not df_sells.empty else 0
+
+                saldo_agressao = vol_compra - vol_venda
+                classificacao = classificar_pressao_fluxo(saldo_agressao)
+
+                payload_fluxo = {
+                    "timestamp": time.strftime("%H:%M:%S"),
+                    "symbol": symbol,
+                    "vol_compra": int(vol_compra),
+                    "vol_venda": int(vol_venda),
+                    "saldo_agressao": int(saldo_agressao),
+                    "cor": classificacao["cor"],
+                    "estado": classificacao["estado"],
+                    "score_fluxo": classificacao["score"]
+                }
+
+                # 1. Salva estado atual em disco para leitura instantânea por outros módulos/robô
+                with open("logs/fluxo_real_state.json", "w") as f:
+                    json.dump(payload_fluxo, f, indent=2)
+
+                print(f"[{payload_fluxo['timestamp']}] Saldo: {saldo_agressao:+d} | Estado: {payload_fluxo['estado']}")
+
+            time.sleep(0.1) # Atualização a cada 100ms (Baixa Latência)
+
+    except KeyboardInterrupt:
+        print("Encerrando monitor de fluxo.")
+        mt5.shutdown()
+
+if __name__ == "__main__":
+    monitorar_fluxo("WDO$", janela_segundos=300)
+
+```
+
+---
+
+### 2. Como Integrar ao Dashboard em Flask (Porta 5001)
+
+No front-end do seu dashboard, você pode adicionar um **Card/Indicador Visual de Fluxo Real** que altera dinamicamente sua cor de fundo e exibe o saldo de agressão.
+
+#### A. Rota no Flask (`app.py` do Dashboard)
+
+Adicione um *endpoint* simples no Flask para entregar o estado atual do fluxo:
+
+```python
+from flask import Flask, jsonify
+import json
+import os
+
+@app.route('/api/fluxo_real')
+def get_fluxo_real():
+    path_fluxo = "logs/fluxo_real_state.json"
+    if os.path.exists(path_fluxo):
+        with open(path_fluxo, "r") as f:
+            data = json.load(f)
+        return jsonify(data)
+    return jsonify({"estado": "INDISPONIVEL", "cor": "#808080", "saldo_agressao": 0})
+
+```
+
+#### B. Componente HTML/JavaScript (No Template do Dashboard)
+
+Adicione o painel visual com atualização automática via JS:
+
+```html
+<!-- Painel Visual do Fluxo Real -->
+<div id="card-fluxo" style="padding: 15px; border-radius: 8px; color: white; background-color: #808080; text-align: center; font-family: sans-serif;">
+    <h3>FLUXO REAL (AGRESSÃO)</h3>
+    <h1 id="texto-saldo">0</h1>
+    <span id="texto-estado">CARREGANDO...</span>
+</div>
+
+<script>
+function atualizarFluxo() {
+    fetch('/api/fluxo_real')
+        .then(response => response.json())
+        .then(data => {
+            const card = document.getElementById('card-fluxo');
+            const textoSaldo = document.getElementById('texto-saldo');
+            const textoEstado = document.getElementById('texto-estado');
+
+            card.style.backgroundColor = data.cor;
+            textoSaldo.innerText = (data.saldo_agressao > 0 ? "+" : "") + data.saldo_agressao + " ctrs";
+            textoEstado.innerText = data.estado;
+        })
+        .catch(err => console.error("Erro ao carregar fluxo:", err));
+}
+
+// Atualiza a cada 500ms na tela
+setInterval(atualizarFluxo, 500);
+</script>
+
+```
+
+---
+
+### 3. Como usar o Fluxo para Ajustar Entradas e Saídas no Robô
+
+No seu robô principal, você pode consultar o arquivo `logs/fluxo_real_state.json` antes de tomar uma decisão de compra/venda ou para ajustar ordens em aberto:
+
+```python
+import json
+
+def obter_score_fluxo():
+    try:
+        with open("logs/fluxo_real_state.json", "r") as f:
+            data = json.load(f)
+            return data.get("score_fluxo", 0.0) # Retorna entre -1.0 e +1.0
+    except:
+        return 0.0 # Se falhar a leitura, assume neutro
+
+# --- EXEMPLO DE USO NOS GATES / ENTRADAS ---
+score_fluxo = obter_score_fluxo()
+
+# Filtro de Entrada: Só compra se o fluxo estiver ao menos moderadamente comprador
+if sinal_compra_modelo and score_fluxo >= 0.5:
+    executar_compra()
+elif sinal_compra_modelo and score_fluxo < 0.5:
+    print("⛔ COMPRA BLOQUEADA: Fluxo Real não confirma a agressão de compra!")
+
+# --- EXEMPLO DE USO PARA SAÍDAS (TRAILING STOP / EXIT) ---
+# Se estamos comprados e o fluxo vira "VENDA_FORTE" (-1.0), encerra a posição antecipadamente
+if posicao_atual == "LONG" and score_fluxo == -1.0:
+    encerrar_posicao_a_mercado(motivo="Inversão de Fluxo Institucional")
+
+```
+
+---
+
+### 💡 Resumo dos Benefícios
+
+1. **Desacoplado:** Não pesa o *loop* principal de execução do robô.
+2. **Visual Instintivo:** Transforma tabelas complexas do *Times & Trades* em uma barra de status simples (Verde = Institucional Comprando / Vermelho = Institucional Vendendo).
+
+
+3. **Métrica Objetiva para o Robô:** Gera um valor numérico (`score_fluxo` de -1.0 a +1.0) que pode ser usado como trava de segurança ou filtro de entrada/saída.
+
