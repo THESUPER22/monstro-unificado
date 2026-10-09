@@ -261,6 +261,55 @@ def api_ticker():
         return jsonify({'ok': False, 'erro': str(e)}), 500
 
 
+@dashboard_bp.route('/api/fluxo/status')
+def api_fluxo_status():
+    """Snapshot em memoria do fluxo (somente leitura).
+
+    Contencao F2: nenhuma chamada MT5 por request; serve apenas o
+    snapshot thread-safe do modulo fluxo_tempo_real. 200 com schema
+    estavel quando ativo; resposta segura quando desativado ou sem feed.
+    """
+    try:
+        import fluxo_tempo_real as _fx
+        return jsonify(_fx.get_estado().snapshot())
+    except Exception as e:
+        return jsonify({
+            'schema_version': 1,
+            'enabled': False,
+            'symbol': None,
+            'contract_source': 'dinamico',
+            'last_tick_time': None,
+            'data_age_ms': None,
+            'quality': 'INDISPONIVEL',
+            'capture_method': 'COPY_TICKS_FLAGS',
+            'buy_volume': None,
+            'sell_volume': None,
+            'delta': None,
+            'cumulative_delta': None,
+            'total_volume': None,
+            'buy_sell_ratio': None,
+            'tick_count': 0,
+            'bid': None,
+            'ask': None,
+            'spread': None,
+            'window': 'M1',
+            'suggestion': {
+                'bias': 'DADO_INSUFICIENTE',
+                'confidence': 0.0,
+                'reason_codes': ['ERRO_SNAPSHOT'],
+                'is_executable': False,
+                'source_quality': 'INFERIDO',
+                'symbol': None,
+                'window': 'M1',
+                'generated_at': None,
+                'data_age_ms': None,
+            },
+            'reason_codes': ['ERRO_SNAPSHOT'],
+            'errors': [{'erro': str(e)[:200]}],
+            'updated_at': None,
+        })
+
+
 @dashboard_bp.route('/api/trades')
 def api_trades():
     """Histórico de trades do dia."""

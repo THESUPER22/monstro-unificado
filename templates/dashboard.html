@@ -142,6 +142,20 @@ body::before{content:'';position:fixed;top:0;left:0;right:0;bottom:0;background:
 .sent-neutro{border-color:#475569}
 .sent-neutro strong{color:#94A3B8}
 
+/* FLUXO TEMPO REAL (somente informativo — não executa ordens) */
+.flux-bar{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:3px 10px;font-size:10px;border-radius:6px;border:1px solid #475569;background:rgba(15,23,42,.6);min-width:0}
+.flux-bar .s-label{font-weight:700;letter-spacing:1px;color:#64748B;font-size:9px;flex-shrink:0}
+.flux-bar strong{font-size:11px;font-weight:800;flex-shrink:0}
+.flux-bar .flux-delta{font-family:'Cascadia Code',monospace;font-weight:700;font-size:11px;font-variant-numeric:tabular-nums;flex-shrink:0}
+.flux-cv{flex:1;display:flex;height:8px;border-radius:4px;overflow:hidden;background:#1E293B;min-width:60px}
+.flux-cv .buy{background:#10B981}.flux-cv .sell{background:#EF4444}
+.flux-bar em{font-style:normal;color:#94A3B8;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.flux-badge{font-size:8px;font-weight:800;letter-spacing:.5px;padding:1px 6px;border-radius:4px;flex-shrink:0;text-transform:uppercase}
+.flux-q-inferido{background:rgba(245,158,11,.15);color:#FBBF24;border:1px solid rgba(245,158,11,.4)}
+.flux-q-atrasado{background:rgba(239,68,68,.15);color:#F87171;border:1px solid rgba(239,68,68,.4)}
+.flux-q-indisponivel{background:rgba(100,116,139,.15);color:#94A3B8;border:1px solid rgba(100,116,139,.4)}
+.flux-info{font-size:8px;color:#475569;flex-shrink:0;white-space:nowrap}
+
 /* NEON MODE */
 body.neon{background:#05010F}
 body.neon::before{opacity:0.04}
@@ -209,6 +223,17 @@ body.neon .btn{box-shadow:0 0 8px rgba(255,0,255,.35)}
     <span class="s-label">SENTINELA</span>
     <strong id="sentVal">NEUTRO</strong>
     <em id="sentDet">Inicializando...</em>
+  </div>
+
+  <!-- FLUXO TEMPO REAL (somente informativo — não executa ordens) -->
+  <div class="flux-bar" id="fluxBar">
+    <span class="s-label">FLUXO</span>
+    <strong id="fluxBias">--</strong>
+    <span class="flux-delta" id="fluxDelta">Δ 0</span>
+    <div class="flux-cv"><div class="buy" id="fluxBuyW" style="width:50%"></div><div class="sell" id="fluxSellW" style="width:50%"></div></div>
+    <em id="fluxDet">Aguardando feed...</em>
+    <span class="flux-badge flux-q-indisponivel" id="fluxBadge">INDISPONÍVEL</span>
+    <span class="flux-info">somente informativo</span>
   </div>
 
   <!-- MAIN TWO-COLUMN CONTENT -->
@@ -388,6 +413,28 @@ async function fetchLogs(){
   }catch(e){console.warn('fetchLogs:',e.message);}
 }
 
+async function fetchFluxo(){
+  try{
+    const r=await fetch('/api/fluxo/status');const d=await r.json();
+    const bias=document.getElementById('fluxBias'),dl=document.getElementById('fluxDelta'),
+      det=document.getElementById('fluxDet'),bd=document.getElementById('fluxBadge'),
+      bw=document.getElementById('fluxBuyW'),sw=document.getElementById('fluxSellW');
+    if(!bias||!d||!d.suggestion)return;
+    const s=d.suggestion,b=s.bias||'--';
+    bias.textContent=b;
+    bias.style.color=(b.indexOf('COMPRA')===0)?'#10B981':(b.indexOf('VENDA')===0)?'#F87171':'#94A3B8';
+    const dv=(d.delta==null)?0:d.delta;
+    dl.textContent='Δ '+(dv>0?'+':'')+dv;
+    dl.style.color=dv>0?'#10B981':dv<0?'#F87171':'#94A3B8';
+    const tot=(d.total_volume||0),bp=tot>0?((d.buy_volume||0)/tot*100):50;
+    if(bw)bw.style.width=bp.toFixed(1)+'%';if(sw)sw.style.width=(100-bp).toFixed(1)+'%';
+    const age=(d.data_age_ms==null)?'--':(d.data_age_ms/1000).toFixed(1)+'s';
+    det.textContent=(d.symbol||'--')+' '+(d.window||'')+' | Vol '+(d.total_volume==null?'--':d.total_volume)+' | Spread '+(d.spread==null?'--':d.spread)+' | '+age;
+    const q=d.quality||'INDISPONIVEL';
+    bd.textContent=q;bd.className='flux-badge '+(q==='ATRASADO'?'flux-q-atrasado':q==='INFERIDO'?'flux-q-inferido':'flux-q-indisponivel');
+  }catch(e){console.warn('fetchFluxo:',e.message);}
+}
+
 async function fetchStatus(){
   if(_paused)return;
   try{const r=await fetch('/api/status');const d=await r.json();
@@ -419,6 +466,7 @@ async function fetchStatus(){
     const sb=document.getElementById('sentBar'),sv=document.getElementById('sentVal'),sd=document.getElementById('sentDet');
     if(d.sentinela_ativo===false){sv.textContent='OFF';sb.className='sent-bar sent-neutro';sd.textContent='Sentinela de fluxo DESATIVADO';}
     else{const sc=(d.sentinela||'NEUTRO').toLowerCase();sv.textContent=d.sentinela||'NEUTRO';sb.className='sent-bar sent-'+sc;sd.textContent=(d.sentinela_detalhe||'')+(d.sentinela_atualizado?(' | Atualizado: '+d.sentinela_atualizado):'');}
+    fetchFluxo();
     if(d.trades)updateChart(d.trades);
   }catch(e){console.warn('fetchStatus:',e.message);}
 }
