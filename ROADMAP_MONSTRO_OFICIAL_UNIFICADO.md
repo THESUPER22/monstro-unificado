@@ -2095,3 +2095,54 @@ travada de decisao continua ate reguas com n>=100.
       MATEMATICAMENTE impossivel no 6P (minimo ~9,7 pts). A confusao classica
       de nomenclatura (6 ticks = 3 pts como "6P") explica a inconsistencia;
       por isso a coleta e dual, decisao empirica apos a massa critica.
+
+### 23.12 FLUXO TEMPO REAL - WIRING + AUTOMACAO (09/10, validacao ao vivo 13/10)
+
+> Status em 09/10: **implementado e testado (19 passed), NAO validado ao
+> vivo**. 12/10 (segunda) e feriado nacional - sem pregao; primeira sessao
+> com feed real e **13/10 (terca)**, via `start_all.bat` oficial (09:00).
+
+- [x] **Modulo `fluxo_tempo_real.py`** (monitoramento, read-only): captura via
+      `copy_ticks_range`, cursor `time_msc` + dedup, delta C/V, snapshot
+      thread-safe (`session_total` = volume direcional do dia). 13 testes mock.
+- [x] **Adapter `fluxo_mt5_adapter.py`**: `datetime` (nao int-ms), flags
+      resolvidas em runtime (`TICK_FLAG_BUY=32/SELL=64`), `ticks None->raise`.
+- [x] **Rota `GET /api/fluxo/status`** (`dashboard_bp`) + card no dashboard
+      (polling 1s dentro de `fetchStatus`, sem timer novo, so `textContent`).
+- [x] **Wiring aditivo no main** (+16, 0 remocoes) + `config.json` (+12).
+- [x] **Autostart Herman** no watchdog (single-instance via psutil + pidfile
+      `logs/herman_6p/watchdog.pid`) + **stop no fecho** (so o coletor).
+- [x] **Resumo diario** `logs/fluxo_resumo_YYYYMMDD.json` no fecho (veredito
+      tri-estado sobre `session_total`; fallback = ultima `FLUXO heartbeat`).
+- [x] **Fronteira:** `is_executable=false` / `usar_como_decisao=false`;
+      flags de feed = **INFERIDO** (nao "agressao real"); 0 `order_send` no
+      diff (161 insercoes, 0 remocoes em 4 arquivos).
+- [ ] **13/10 ao vivo:** `tick_count>0` em pregao, `quality=INFERIDO`,
+      resumo gravado com `ROTULADOS`, coletor encerrado no fecho 17:35.
+- [ ] **Apos validacao:** commit `feat(fluxo): ...` **antes** das 17:35
+      (senao cai no `fecho autonomo` generico), sem push.
+
+### 23.13 - SPRINT 09/10/2026 (sexta) - FLUXO + FERRAMENTAS
+
+> Declaracao honesta de desvio de pauta: 09/10 era o dia agendado de A1/A2
+> (23.10), mas a janela foi absorvida pelo wiring do Fluxo Real (frente
+> emergencial da semana) e pelo parser da autopsia (ferramenta read-only,
+> segura). Verificado: nada disso toca o Core/Faixa (congelados).
+
+- [x] **Parser da autopsia corrigido**: `re_saida` por tokens ASCII
+      (sobrevive ao mojibake do log), `tem_deal_saida`, segregacao
+      `n_fechados`/`n_sem_deal`, gate P3 como `[INFO]`. Validado vs
+      `monstro_wdo_20261007.log`: n=8, fechados=7, sem_deal=1, be=0,
+      saldo=-150.0 (antes: be=8 fantasma, saldo=0).
+- [x] **Wiring Fluxo Real (F1/F2/F3)**: `fluxo_tempo_real.py` +
+      `fluxo_mt5_adapter.py` + 3 ancoras no main + `config.json`.
+      Smoke standalone MT5 real OK. pytest 19 passed.
+- [x] **Automacao segunda-quinta**: Herman auto-launch no watchdog
+      (single-instance psutil+pidfile), heartbeat 15min, resumo diario
+      tri-estado no fecho + stop do coletor. Atende ao alerta da 23.11.
+- [x] **Roadmap 23.12** criado (fluxo tempo real wiring + automacao),
+      normalizado para ASCII puro.
+
+- [ ] **A1 (expurgo do Core)** - reagendado para **18/10** (freeze sexta).
+- [ ] **A2 (trava financeira da Faixa + spam Scaler)** - reagendado para
+      **18/10**.

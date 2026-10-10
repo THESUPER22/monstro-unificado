@@ -59,6 +59,8 @@ from tensorflow.keras.optimizers import Adam
 
 import sentinela_fluxo
 from dashboard_routes import dashboard_bp, register_main_module
+import fluxo_tempo_real
+from fluxo_mt5_adapter import FluxoMT5Adapter
 from diagnostico_monstro import checar_arquivos_essenciais
 from rompimento_orquestrador import (
     OrquestradorRompimento,
@@ -11453,6 +11455,16 @@ if __name__ == "__main__":
     threading.Thread(target=atualizar_sentinela, daemon=True).start()
     # PATCH A v22.2: Watchdog DLL - destrava a thread principal se o MT5 congelar
     threading.Thread(target=_loop_watchdog_dll, daemon=True).start()
+    # FLUXO TEMPO REAL (somente leitura; respeita config fluxo_tempo_real.ativo)
+    try:
+        _fx_cfg = config.get("fluxo_tempo_real", {}) if isinstance(config, dict) else {}
+        if _fx_cfg.get("ativo", True):
+            _fx_adapter = FluxoMT5Adapter(symbol_provider=lambda: SYMBOL)
+            fluxo_tempo_real.get_estado(_fx_cfg)
+            fluxo_tempo_real.iniciar(_fx_adapter)
+            logging.info("Fluxo tempo real: coletor iniciado (monitoramento).")
+    except Exception as _fx_e:
+        logging.warning(f"Fluxo tempo real desativado por falha no start: {_fx_e}")
 
     # Aguarda Flask ficar pronto antes de abrir a janela
     import urllib.request
@@ -11484,6 +11496,10 @@ if __name__ == "__main__":
         # Limpeza ao fechar a janela
         logging.info("Janela Desktop fechada. Encerrando threads...")
         thread_ativo = False
+        try:
+            fluxo_tempo_real.parar()
+        except Exception:
+            pass
         mt5_ativo = False
         try:
             import MetaTrader5 as mt5

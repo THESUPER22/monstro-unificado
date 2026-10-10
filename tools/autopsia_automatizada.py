@@ -41,7 +41,7 @@ def extrair_trades(lines):
         r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+.*?Nova posi..o iniciada: Ticket=(\d+), Tipo=(BUY|SELL), Entrada=([\d.]+), SL=([\d.]+), TP=([\d.]+)"
     )
     re_saida = re.compile(
-        r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+.*?Deal de sa.da encontrado para ticket (\d+):.*?Lucro=(-?[\d.]+).*?Pre.o Sa.da=([\d.]+).*?Hora=(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})"
+        r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+.*?ticket (\d+): DealTicket=\d+, PositionID=\d+, Lucro=(-?[\d.]+), [^=]+=([\d.]+), Volume=[\d.]+,\s*Hora=(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})"
     )
     # Posicoes sincronizadas do MT5 apos restart (watchdog): sem "Ordem executada"
     # no log. Captura sync + preco de entrada para nao perder o trade na autopsia.
@@ -114,13 +114,11 @@ def extrair_trades(lines):
             "fechamento_log": sai.get("ts_log"),
             "hora_saida": sai.get("hora_saida"),
             "preco_saida": sai.get("preco_saida") or 0.0,
-            # Sem "Deal de saida" (ex.: fechamento manual/automático 17:35 sem log
-            # do deal) o lucro fica None e quebra calcular_metricas ('>' NoneType).
-            # Trata como 0.0 (BE) - consistente com o fechamento manual registrado.
-            "lucro": sai.get("lucro", 0.0),
+            "tem_deal_saida": bool(sai),
+            "lucro": sai.get("lucro") if sai else None,
         })
 
-    trades.sort(key=lambda x: x["abertura_log"] or "")
+    trades.sort(key=lambda x: x["abertura_log"] or "9999")
     return trades
 
 
@@ -201,17 +199,21 @@ def cruzar_contexto(trades, decisions, contexto, multitf, williams):
 
 
 def calcular_metricas(trades):
-    wins = [t["lucro"] for t in trades if t["lucro"] > 0]
-    losses = [t["lucro"] for t in trades if t["lucro"] < 0]
-    be = [t["lucro"] for t in trades if t["lucro"] == 0]
-    saldo = sum(t["lucro"] for t in trades)
-    win_rate = len(wins) / len(trades) * 100 if trades else 0
+    fechados = [t for t in trades if t.get("lucro") is not None]
+    sem_deal = [t for t in trades if t.get("lucro") is None]
+    wins = [t["lucro"] for t in fechados if t["lucro"] > 0]
+    losses = [t["lucro"] for t in fechados if t["lucro"] < 0]
+    be = [t["lucro"] for t in fechados if t["lucro"] == 0]
+    saldo = sum(t["lucro"] for t in fechados)
+    win_rate = len(wins) / len(fechados) * 100 if fechados else 0
     avg_gain = sum(wins) / len(wins) if wins else 0
     avg_loss = sum(losses) / len(losses) if losses else 0
     profit_factor = abs(sum(wins) / sum(losses)) if losses and sum(losses) != 0 else float('inf')
     payoff = avg_gain / abs(avg_loss) if avg_loss != 0 else 0
     return {
         "n": len(trades),
+        "n_fechados": len(fechados),
+        "n_sem_deal": len(sem_deal),
         "wins": len(wins),
         "losses": len(losses),
         "be": len(be),
@@ -280,7 +282,9 @@ def gerar_plano(metricas, trades):
         plano.append("  -> Contramedida: na pausa 12:30, considerar aumentar dol_conf_min ou CONFIDENCE_GAP.")
         plano.append("  -> Reversivel: sim, voltar ao valor anterior no fecho.")
 
-    if metricas["win_rate"] < 35:
+    if metricas["n_fechados"] < 15:
+        plano.append(f"[INFO] Amostra insuficiente ({metricas['n_fechados']} fechados) - sem conclusao.")
+    elif metricas["win_rate"] < 35:
         plano.append("[PRIORIDADE 3] Win rate abaixo de 35%.")
         plano.append("  -> Contramedida: NAO ajustar nada automaticamente; aguardar mais amostra.")
         plano.append("  -> Reversivel: nao se aplica.")
@@ -325,11 +329,13 @@ def main():
     print("\n--- TABELA DE TRADES ---")
     print(f"{'#':<3} {'Ticket':<12} {'Abertura':<20} {'Tipo':<5} {'Entrada':<9} {'SL':<9} {'TP':<6} {'Saida':<20} {'P&L(R$)':<10} {'Result':<7}")
     for i, t in enumerate(trades, 1):
-        res = "GAIN" if t["lucro"] > 0 else ("LOSS" if t["lucro"] < 0 else "BE")
-        print(f"{i:<3} {t['ticket']:<12} {str(t['abertura_log']):<20} {t['tipo']:<5} {t['entrada']:<9.1f} {t['sl']:<9.1f} {t['tp']:<6.1f} {str(t['hora_saida']):<20} {t['lucro']:<10.2f} {res:<7}")
+        res = "ABER" if not t["tem_deal_saida"] else ("GAIN" if t["lucro"] > 0 else ("LOSS" if t["lucro"] < 0 else "BE"))
+        pl = f"{t['lucro']:.2f}" if t["lucro"] is not None else " - "
+        print(f"{i:<3} {t['ticket']:<12} {str(t['abertura_log']):<20} {t['tipo']:<5} {t['entrada']:<9.1f} {t['sl']:<9.1f} {t['tp']:<6.1f} {str(t['hora_saida']):<20} {pl:<10} {res:<7}")
 
     print("\n--- METRICAS FINANCEIRAS (dia completo) ---")
     print(f"Total trades: {metricas['n']}")
+    print(f"Fechados: {metricas['n_fechados']} | Sem deal: {metricas['n_sem_deal']}")
     print(f"Wins: {metricas['wins']} | Losses: {metricas['losses']} | BE: {metricas['be']}")
     print(f"Win Rate: {metricas['win_rate']:.1f}%")
     print(f"Saldo liquido: R$ {metricas['saldo']:.2f}")
@@ -343,6 +349,7 @@ def main():
     met_manha = calcular_metricas(trades_manha)
     print("\n--- METRICAS FINANCEIRAS (ATE 12:30) ---")
     print(f"Total trades: {met_manha['n']}")
+    print(f"Fechados: {met_manha['n_fechados']} | Sem deal: {met_manha['n_sem_deal']}")
     print(f"Wins: {met_manha['wins']} | Losses: {met_manha['losses']} | BE: {met_manha['be']}")
     print(f"Win Rate: {met_manha['win_rate']:.1f}%")
     print(f"Saldo liquido: R$ {met_manha['saldo']:.2f}")
@@ -365,7 +372,8 @@ def main():
     print(f"{'#':<3} {'Tipo':<5} {'IA':<6} {'Conf':<6} {'ATR':<6} {'RSI':<6} {'Entropia':<9} {'CtxAction':<10} {'M5/M15/M30 WR':<35} {'WR':<8} {'P&L':<8}")
     for i, c in enumerate(cruzado[:10], 1):
         mtf_wr = f"{c['m5_wr']:.0f}/{c['m15_wr']:.0f}/{c['m30_wr']:.0f}" if c['m5_wr'] is not None else "None"
-        print(f"{i:<3} {c['tipo']:<5} {str(c['decisao']):<6} {c['confianca']:<6.3f} {c['atr']:<6.2f} {c['rsi']:<6.1f} {c['entropia']:<9.3f} {str(c['action_ctx']):<10} {mtf_wr:<35} {str(c['wr_value'])[:7]:<8} {c['lucro']:<8.2f}")
+        pl_ctx = f"{c['lucro']:.2f}" if c['lucro'] is not None else " - "
+        print(f"{i:<3} {c['tipo']:<5} {str(c['decisao']):<6} {c['confianca']:<6.3f} {c['atr']:<6.2f} {c['rsi']:<6.1f} {c['entropia']:<9.3f} {str(c['action_ctx']):<10} {mtf_wr:<35} {str(c['wr_value'])[:7]:<8} {pl_ctx:<8}")
 
     # Sniper
     sniper_hoje = analisar_sniper(data_uso)

@@ -15,6 +15,7 @@ LIMITES OBRIGATORIOS (nao remover):
 - Chamadas ao terminal MT5 acontecem FORA do Lock de estado.
 - Nenhuma excecao do coletor pode derrubar o robo.
 """
+import logging
 import math
 import threading
 import time
@@ -306,6 +307,7 @@ class EstadoFluxo:
                 "delta": _finito_ou_null(delta),
                 "cumulative_delta": _finito_ou_null(self.cumulative_delta),
                 "total_volume": _finito_ou_null(total),
+                "session_total": _finito_ou_null(self.session_total),
                 "buy_sell_ratio": ratio,
                 "tick_count": int(self.tick_count),
                 "bid": self.bid,
@@ -375,13 +377,25 @@ def coletar_uma_passada(adapter, estado: EstadoFluxo | None = None):
 def loop_coleta(adapter, estado: EstadoFluxo | None = None,
                 intervalo_ms: int = 200):
     """Loop daemon do coletor. Chamada uma vez pelo ciclo de vida do robo."""
+    _log = logging.getLogger(__name__)
     est = estado or get_estado()
     intervalo = max(0.05, (intervalo_ms or 200) / 1000.0)
+    ultimo_hb = 0.0
     while not est._stop.is_set():
         try:
             coletar_uma_passada(adapter, est)
         except Exception:  # noqa: BLE001 - nunca derrubar o robo
             pass
+        if time.time() - ultimo_hb >= 900:
+            ultimo_hb = time.time()
+            try:
+                s = est.snapshot()
+                _log.info(
+                    "FLUXO heartbeat quality=%s tick_count=%d "
+                    "delta=%s is_executable=false",
+                    s["quality"], s["tick_count"], s["delta"])
+            except Exception:
+                pass
         est._stop.wait(intervalo)
 
 

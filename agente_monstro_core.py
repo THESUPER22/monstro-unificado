@@ -693,6 +693,64 @@ def ultimo_commit_robo():
     return out.strip().split("|", 3)
 
 
+def resumo_fluxo_dia():
+    """Le o snapshot via HTTP (outro processo) e grava resumo do dia.
+
+    Veredito tri-estado sobre session_total (volume direcional do dia):
+    ROTULADOS / SEM_FEED / SEM_ROTULOS. Se o GET falhar (robo ja em
+    shutdown), fallback: ultima linha FLUXO heartbeat do log do robo.
+    """
+    data = datetime.now().strftime("%Y%m%d")
+    out_path = os.path.join(BASE_DIR, "logs", f"fluxo_resumo_{data}.json")
+    resumo = {"data": data, "quality": "INDISPONIVEL", "erro": None,
+              "fonte": "http"}
+    try:
+        r = requests.get(
+            f"http://127.0.0.1:{porta_dashboard()}/api/fluxo/status",
+            timeout=5)
+        d = r.json()
+        rot = float(d.get("session_total") or 0)
+        ntc = int(d.get("tick_count") or 0)
+        if rot > 0:
+            veredito = "ROTULADOS"
+        elif ntc == 0:
+            veredito = "SEM_FEED"
+        else:
+            veredito = "SEM_ROTULOS"
+        resumo.update({
+            "symbol": d.get("symbol"),
+            "quality": d.get("quality"),
+            "capture_method": d.get("capture_method"),
+            "tick_count": ntc,
+            "session_total": d.get("session_total"),
+            "delta": d.get("delta"),
+            "cumulative_delta": d.get("cumulative_delta"),
+            "veredito_rotulos": veredito,
+            "suggestion": (d.get("suggestion") or {}).get("bias"),
+        })
+    except Exception as e:
+        resumo["erro"] = str(e)[:200]
+        resumo["fonte"] = "heartbeat"
+        try:
+            hb = None
+            if os.path.exists(LOG_ROBO):
+                with open(LOG_ROBO, encoding="utf-8",
+                          errors="replace") as f:
+                    for line in f:
+                        if "FLUXO heartbeat" in line:
+                            hb = line.rstrip()[-200:]
+            resumo["heartbeat_ref"] = hb
+        except Exception:
+            pass
+    try:
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(resumo, f, indent=2, ensure_ascii=False)
+        log.info(f"fluxo: resumo do dia salvo: {out_path} "
+                 f"({resumo.get('veredito_rotulos', 'ERRO')})")
+    except Exception as e:
+        log.error(f"fluxo: falha ao salvar resumo: {e}")
+
+
 def run_fecho():
     log.info("=" * 60)
     log.info("FECHO 17:35 - autopsia e consolidacao do dia")
@@ -711,11 +769,13 @@ def run_fecho():
     if ult:
         log.info(f"ultimo commit no fonte: {ult[0]} {ult[1]} {ult[2]} - {ult[3]}")
     gerar_relatorio_diario(info_diff)
+    resumo_fluxo_dia()
     autopsia_eod = CFG.get("autopsia_eod", {})
     if autopsia_eod.get("ativo", True):
         gerar_plano_dia_seguinte()
     git_commit_dia()
     # 3) Por ultimo: aguarda o robo encerrar e fecha o MT5.
+    parar_coletor_herman()
     parar_robo()
     log.info("FECHO concluido - ambiente pronto para amanha")
 
@@ -1006,6 +1066,64 @@ def reiniciar_mt5_processo():
     return True
 
 
+HERMAN_SCRIPT = "coletor_herman_6p_shadow.py"
+HERMAN_PIDFILE = os.path.join(BASE_DIR, "logs", "herman_6p", "watchdog.pid")
+
+
+def pids_herman():
+    out = []
+    for pr in psutil.process_iter(["pid", "name", "cmdline"]):
+        try:
+            cl = " ".join(pr.info.get("cmdline") or [])
+            if HERMAN_SCRIPT in cl:
+                out.append(pr.info["pid"])
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    return out
+
+
+def garantir_coletor_herman():
+    """Single-instance do coletor shadow Herman (somente leitura)."""
+    if not R.get("herman_coletor_auto", True):
+        return
+    vivos = pids_herman()
+    if vivos:
+        log.info(f"herman: coletor ja rodando (PIDs {vivos}) - sem acao")
+        return
+    try:
+        if os.path.exists(HERMAN_PIDFILE):
+            os.remove(HERMAN_PIDFILE)  # stale de ciclo anterior
+    except Exception:
+        pass
+    try:
+        cmd = [os.path.join(BASE_DIR, P["python_venv"]), HERMAN_SCRIPT]
+        proc = subprocess.Popen(cmd, cwd=BASE_DIR,
+                                creationflags=subprocess.CREATE_NEW_CONSOLE)
+        try:
+            with open(HERMAN_PIDFILE, "w", encoding="utf-8") as f:
+                f.write(str(proc.pid))
+        except Exception as e:
+            log.error(f"herman: pidfile falhou: {e}")
+        log.info(f"herman: coletor iniciado (PID {proc.pid})")
+    except Exception as e:
+        log.error(f"herman: falha ao iniciar coletor: {e}")
+
+
+def parar_coletor_herman():
+    """Encerra o coletor shadow no fecho. Nunca toca no robo."""
+    for pid in pids_herman():
+        try:
+            psutil.Process(pid).kill()
+            log.info(f"herman: coletor encerrado (PID {pid})")
+        except Exception as e:
+            log.error(f"herman: falha kill {pid}: {e}")
+    try:
+        if os.path.exists(HERMAN_PIDFILE):
+            os.remove(HERMAN_PIDFILE)
+    except Exception:
+        pass
+
+
 def run_watchdog():
     if not dentro_do_expediente():
         log.info("watchdog: fora do expediente (seg-sex 09:00-17:40) - sem acao")
@@ -1112,6 +1230,7 @@ def run_watchdog():
             if not ok2:
                 _backoff_salvar(time.time())
             log.info(f"watchdog restart travado: {ok2} ({m2})")
+    garantir_coletor_herman()
 
 
 def dryrun():

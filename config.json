@@ -102,6 +102,18 @@
     "port": 5001,
     "debug": true
   },
+  "fluxo_tempo_real": {
+    "ativo": true,
+    "modo": "monitoramento",
+    "janela_curta_segundos": 30,
+    "janela_candle": "M1",
+    "persistencia_ativa": false,
+    "intervalo_captura_ms": 200,
+    "retencao_dias": 7,
+    "limiar_volume": 0,
+    "limiar_delta": 100,
+    "usar_como_decisao": false
+  },
   "logging": {
     "level": "INFO",
     "file": "monstro.log"
