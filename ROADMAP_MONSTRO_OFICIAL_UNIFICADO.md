@@ -2119,8 +2119,10 @@ travada de decisao continua ate reguas com n>=100.
       diff (161 insercoes, 0 remocoes em 4 arquivos).
 - [ ] **13/10 ao vivo:** `tick_count>0` em pregao, `quality=INFERIDO`,
       resumo gravado com `ROTULADOS`, coletor encerrado no fecho 17:35.
-- [ ] **Apos validacao:** commit `feat(fluxo): ...` **antes** das 17:35
-      (senao cai no `fecho autonomo` generico), sem push.
+- [x] **Commit antecipado (09/10):** `9f06a26` (8 arquivos, 375+/15-, sem push).
+      Feito antes do verde ao vivo por decisao do usuario. Se a validacao de
+      13/10 exigir correcao, novo commit antes das 17:35 (senao cai no fecho
+      autonomo generico).
 
 ### 23.13 - SPRINT 09/10/2026 (sexta) - FLUXO + FERRAMENTAS
 
