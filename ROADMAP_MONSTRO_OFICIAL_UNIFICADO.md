@@ -2123,6 +2123,11 @@ travada de decisao continua ate reguas com n>=100.
       Feito antes do verde ao vivo por decisao do usuario. Se a validacao de
       13/10 exigir correcao, novo commit antes das 17:35 (senao cai no fecho
       autonomo generico).
+- [ ] **Pendencia pos-validacao (18/10):** card FLUXO exibe so subset dos
+      "elementos visuais minimos" do prompt §7.9 (faltam: delta acumulado,
+      volume total, spread, ultimo preco, simbolo/contrato, janela, idade do
+      dado). API ja retorna todos (`/api/fluxo/status`). Adicionar a template
+      no freeze de 18/10, apos verde ao vivo.
 
 ### 23.13 - SPRINT 09/10/2026 (sexta) - FLUXO + FERRAMENTAS
 
