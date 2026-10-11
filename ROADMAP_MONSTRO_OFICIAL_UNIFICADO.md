@@ -29,7 +29,7 @@
 
 **Ações obrigatórias em 09/10/2026 (pós-validação):**
 - [ ] **A1 — Expurgo:** remover os ~18 métodos mortos em `monstro_unificado_v22.py` + fix do bloco inalcançável `alertas` (L2485-2499, em `pode_operar`).
-- [ ] **A2 — Testes legados:** corrigir as 5 falhas pré-existentes da suíte `tests/teste_orquestrador_rompimento.py` (RG1 SL=lo caixa / RG2 SL=hi caixa / RG3 final EOD + pts + CSV). **Confirmado pré-existente no commit 73e02ca** (via `git stash`) — NÃO é regressão do filtro R/R.
+- [x] **A2 — Testes legados:** validado 10/10 — baseline 73e02ca roda 9/9 PASS, HEAD atual 18/18 GREEN. As 5 falhas (RG1/RG2/RG3) não reproduzem nem no baseline nem no HEAD; foram resolvidas por trabalho legítimo (commits 2546706, 13a56c3, f6d7996). Sem falhas a corrigir.
 - [ ] **A3 — Fiação Keras→gate (Opção "b"):** desenhar e implementar para que `pode_operar` consulte **ativamente** as inferências da rede. Sub-tarefas: (i) registrar Faixa 1 / Sub-Trader como experiências do Keras — **CONCLUÍDO em 29/09 (D1/D2/D3, ver seção abaixo)**; (ii) transformar o `shadow_registrar_entrada` (hoje **passivo**) em gate de veto — **BLOQUEADO**: pesos do Monstro WDO são sintéticos; (iii) validar que a rede tem poder preditivo (critério: correlação ≥ 0.15 sustained, ver §Quarentena 04/09) antes de virar veto real.
 
 > **Base factual do filtro R/R (backtest 264 pregões, 48.7M ticks — commit 2546706):** desenho original (TP/SL nos pavios) tinha E = **-1.00 pt/trade**, R/R médio 0.39, P(E>0) = **7.4%**; com filtro `sub_rr_min=1.0` (só opera R/R ≥ 1:1): E = **+2.36 pts**, P(E>0) = **88.6%**, ~33 trades/ano. Sub com filtro opera em ~12,5% dos pregões (1 a cada ~8 dias).
