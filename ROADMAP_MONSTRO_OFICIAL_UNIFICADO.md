@@ -2153,3 +2153,24 @@ travada de decisao continua ate reguas com n>=100.
 - [ ] **A1 (expurgo do Core)** - reagendado para **18/10** (freeze sexta).
 - [ ] **A2 (trava financeira da Faixa + spam Scaler)** - reagendado para
       **18/10**.
+
+### 23.14 - OBSERVACOES BOOT IDLE 12/10/2026 (feriado)
+
+> Boot idle sem pregao. Sistema 100% automatico. Nenhum trade, nenhuma
+> ordem. Coletor de fluxo vivo (35 heartbeats, todos INDISPONIVEL/tick_count=0,
+> correto sem feed). Fecho gracioso 17:35. **Pontos de atencao (nao bloqueantes,
+> melhorias futuras):**
+
+- [ ] **Storm watchdog-DLL em feriado:** 2415 reconexoes (~12s) por tick
+      estagnado >10s sem pregao. Pre-existente (loop v22.2), nao vem do Fluxo.
+      Em pregao os ticks fluem e nao deve ocorrer. Melhoria futura: diferenciar
+      "feriado/sem pregao" de "feed travado" no watchdog (ex: checar calendario
+      B3 ou silencio de reconexao em dias sem pregao).
+- [ ] **Coletor de fluxo reiniciou 2x (10:43 e 10:57):** auto-restart
+      funcionou (35 heartbeats continuos), mas vale investigar causa raiz
+      (excecao nao capturada? reinicio externo?). Melhoria futura: adicionar
+      log estruturada de erro no coletor quando morrer.
+- [ ] **Resumo com ConnectionReset no fecho:** caiu para o heartbeat do log
+      (nao-fatal, resumo valido). Melhoria futura: retry no request do resumo.
+- [ ] **Herman 6p sem dados:** parado desde 03/10. Esperado; coleta efetiva
+      inicia 13/10 (auto via watchdog).
