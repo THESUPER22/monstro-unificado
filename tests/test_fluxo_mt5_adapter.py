@@ -22,7 +22,7 @@ def _instalar_stub(ticks="ok"):
         mod._rows = None
     mod.copy_ticks_range = lambda s, a, b, c: mod._rows
     mod.last_error = lambda: (1, "stub")
-    tick = types.SimpleNamespace(bid=5176.5, ask=5177.0)
+    tick = types.SimpleNamespace(bid=5176.5, ask=5177.0, time=base // 1000)
     mod.symbol_info_tick = lambda s: tick
     sys.modules["MetaTrader5"] = mod
     return mod
@@ -85,3 +85,36 @@ def test_adapter_nunca_encosta_em_ordens():
     for proib in ("order_send", "executar_ordem", "fechar_posicao",
                   "order_check", "positions_get"):
         assert proib not in txt, proib
+
+
+def test_fetch_ancora_janela_no_server_time_do_tick():
+    from datetime import datetime
+    mod = _instalar_stub("ok")
+    try:
+        capturado = {}
+
+        def fake_range(s, a, b, c):
+            capturado["from"], capturado["to"] = a, b
+            return mod._rows
+
+        mod.copy_ticks_range = fake_range
+        from fluxo_mt5_adapter import FluxoMT5Adapter
+        ad = FluxoMT5Adapter(symbol_provider=lambda: "WDOX26", janela_segundos=3)
+        out, _bid, _ask = ad.fetch_ticks("WDOX26", 3000)
+        assert len(out) == 3
+        esperado_to = datetime.fromtimestamp(mod.symbol_info_tick("WDOX26").time)
+        assert capturado["to"] == esperado_to, "janela deve ancorar em symbol_info_tick().time"
+        assert (esperado_to - capturado["from"]).total_seconds() == 3
+    finally:
+        _remover_stub()
+
+
+def test_fetch_sem_tick_retorna_vazio():
+    mod = _instalar_stub("ok")
+    try:
+        mod.symbol_info_tick = lambda s: types.SimpleNamespace(bid=0, ask=0, time=0)
+        from fluxo_mt5_adapter import FluxoMT5Adapter
+        ad = FluxoMT5Adapter(symbol_provider=lambda: "WDOX26")
+        assert ad.fetch_ticks("WDOX26", 3000) == ([], None, None)
+    finally:
+        _remover_stub()

@@ -144,7 +144,8 @@ class Coletor:
                       f, ensure_ascii=False, indent=2)
 
     def _coleta_ticks(self):
-        agora = dt.datetime.now()
+        ti = self.mt5.symbol_info_tick(SYM)
+        agora = dt.datetime.fromtimestamp(ti.time) if ti and ti.time else dt.datetime.now()
         tk = self.mt5.copy_ticks_range(SYM, agora - dt.timedelta(seconds=LAST_LOOKBACK_S), agora)
         if tk is None or len(tk) == 0:
             return []
