@@ -386,7 +386,7 @@ def loop_coleta(adapter, estado: EstadoFluxo | None = None,
             coletar_uma_passada(adapter, est)
         except Exception:  # noqa: BLE001 - nunca derrubar o robo
             pass
-        if time.time() - ultimo_hb >= 900:
+        if time.time() - ultimo_hb >= 60:
             ultimo_hb = time.time()
             try:
                 s = est.snapshot()
@@ -394,6 +394,36 @@ def loop_coleta(adapter, estado: EstadoFluxo | None = None,
                     "FLUXO heartbeat quality=%s tick_count=%d "
                     "delta=%s is_executable=false",
                     s["quality"], s["tick_count"], s["delta"])
+                # DEBUG temporario - remover apos diagnostico ao vivo
+                _dbg_sym = None
+                _dbg = {}
+                try:
+                    import MetaTrader5 as mt5
+                    _dbg_sym = adapter.get_symbol()
+                    if _dbg_sym:
+                        ti = mt5.symbol_info_tick(_dbg_sym)
+                        if ti:
+                            _dbg["ti_time"] = ti.time
+                            _dbg["ti_bid"] = ti.bid
+                            _dbg["ti_ask"] = ti.ask
+                            _dbg["time_msc"] = getattr(ti, "time_msc", None)
+                        else:
+                            _dbg["ti_time"] = "None"
+                        try:
+                            _ticks, _, _ = adapter.fetch_ticks(_dbg_sym, 3000)
+                            _dbg["ticks_mt5"] = len(_ticks)
+                        except Exception as _e:
+                            _dbg["ticks_mt5"] = f"err:{_e}"
+                        _dbg["last_err"] = mt5.last_error()
+                except Exception as _e:
+                    _dbg["dbg_erro"] = f"err:{_e}"
+                _log.info(
+                    "FLUXO debug symbol=%s ti.time=%s ti.bid=%s ti.ask=%s "
+                    "time_msc=%s ticks_mt5=%s last_error=%s",
+                    _dbg_sym or s.get("symbol"), _dbg.get("ti_time"),
+                    _dbg.get("ti_bid"), _dbg.get("ti_ask"),
+                    _dbg.get("time_msc"), _dbg.get("ticks_mt5"),
+                    _dbg.get("last_err"))
             except Exception:
                 pass
         est._stop.wait(intervalo)
