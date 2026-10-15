@@ -2117,8 +2117,12 @@ travada de decisao continua ate reguas com n>=100.
 - [x] **Fronteira:** `is_executable=false` / `usar_como_decisao=false`;
       flags de feed = **INFERIDO** (nao "agressao real"); 0 `order_send` no
       diff (161 insercoes, 0 remocoes em 4 arquivos).
-- [ ] **13/10 ao vivo:** `tick_count>0` em pregao, `quality=INFERIDO`,
+- [ ] **16/10 ao vivo:** `tick_count>0` em pregao, `quality=INFERIDO`,
       resumo gravado com `ROTULADOS`, coletor encerrado no fecho 17:35.
+      Causa raiz do tick_count=0: `fetch_ticks` usava `t.get()` em
+      `numpy.void` (nao dict) -> AttributeError silencioso. Fix: `t[k]`.
+      Commit `b6f654a`. Debug ground truth no heartbeat (commit `1ad815d`,
+      cadencia 60s) para validacao ao vivo em 16/10 16h.
 - [x] **Commit antecipado (09/10):** `9f06a26` (8 arquivos, 375+/15-, sem push).
       Feito antes do verde ao vivo por decisao do usuario. Se a validacao de
       13/10 exigir correcao, novo commit antes das 17:35 (senao cai no fecho
