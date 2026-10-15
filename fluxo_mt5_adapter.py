@@ -39,14 +39,14 @@ class FluxoMT5Adapter:
         out = []
         for t in ticks:
             f = int(t["flags"])
-            last = float(t.get("last", 0) or 0)
+            last = float(t["last"] or 0)
             out.append({
                 "time_msc": int(t["time_msc"]),
                 "is_buy": bool(f & fb),
                 "is_sell": bool(f & fs),
-                "volume": float(t.get("volume", 0) or 0),
-                "volume_real": float(t.get("volume_real", 0) or 0),
-                "price": last if last > 0 else float(t.get("bid", 0) or 0),
+                "volume": float(t["volume"] or 0),
+                "volume_real": float(t["volume_real"] or 0),
+                "price": last if last > 0 else float(t["bid"] or 0),
             })
         bid = float(ti.bid) if ti.bid else None
         ask = float(ti.ask) if ti.ask else None

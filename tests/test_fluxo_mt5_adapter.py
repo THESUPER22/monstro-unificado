@@ -4,20 +4,23 @@ import types
 
 
 def _instalar_stub(ticks="ok"):
+    import numpy as np
     mod = types.ModuleType("MetaTrader5")
     mod.TICK_FLAG_BUY = 32
     mod.TICK_FLAG_SELL = 64
     mod.COPY_TICKS_ALL = 0
     base = 1_700_000_000_000
+    # MT5 real devolve array estruturado (linhas numpy.void), NAO dict.
+    _dtype = np.dtype([
+        ("time_msc", "<i8"), ("flags", "<u4"), ("volume", "<u8"),
+        ("volume_real", "<f8"), ("last", "<f8"), ("bid", "<f8"),
+    ])
     if ticks == "ok":
-        mod._rows = [
-            {"time_msc": base, "flags": 32, "volume": 2,
-             "volume_real": 5, "last": 5177.0, "bid": 5176.5},
-            {"time_msc": base + 1, "flags": 64, "volume": 1,
-             "volume_real": 0, "last": 0, "bid": 5176.0},
-            {"time_msc": base + 2, "flags": 0, "volume": 3,
-             "volume_real": 0, "last": 5176.5, "bid": 5176.0},
-        ]
+        mod._rows = np.array([
+            (base, 32, 2, 5.0, 5177.0, 5176.5),
+            (base + 1, 64, 1, 0.0, 0.0, 5176.0),
+            (base + 2, 0, 3, 0.0, 5176.5, 5176.0),
+        ], dtype=_dtype)
     else:
         mod._rows = None
     mod.copy_ticks_range = lambda s, a, b, c: mod._rows
