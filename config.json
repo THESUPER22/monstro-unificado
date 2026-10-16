@@ -124,7 +124,7 @@
   "sniper_cooldown_s": 120,
   "rompimento": {
     "ativo": true,
-    "lote": 5.0,
+    "lote": 1.0,
     "sl_mode": "lo",
     "tp_k": 1.5,
     "janela_min": 60,
