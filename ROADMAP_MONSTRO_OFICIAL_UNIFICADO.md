@@ -2154,6 +2154,14 @@ travada de decisao continua ate reguas com n>=100.
 - [x] **Roadmap 23.12** criado (fluxo tempo real wiring + automacao),
       normalizado para ASCII puro.
 
+**Decisao 16/10 - Agente Autonomo (OPCAO A):**
+- Whitelist permanece VAZIA. Agente funciona como vigilante (watchdog,
+  kill-switch, fecho, autopsia).
+- Motivo: Sniper %R tem thresholds hardcoded (ignora config); autotuning
+  anterior nao mostrou ganhos claros; sistema estavel e lucrativo.
+- Nao reativar autotuning. Se futuro: testar Opção B (whitelist limitada
+  a sniper_cooldown_s/max_spread, 1 ajuste/dia, rollback automatico).
+
 - [x] **A1 (expurgo do Core)** - executado em **16/10** (commit da8e2e7).
 - [x] **A2 (trava financeira da Faixa + spam Scaler)** - executado em **16/10**
       (commit da8e2e7).
