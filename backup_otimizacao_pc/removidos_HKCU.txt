@@ -1,0 +1,4 @@
+﻿AvastBrowserAutoLaunch_7FB44DE0765CFC0DACD7ED4445A7E87D = "C:\Program Files\AVAST Software\Browser\Application\AvastBrowser.exe" --check-run=src=logon --auto-launch-at-startup --profile-directory="Default"
+Proton VPN = C:\Program Files\Proton\VPN\ProtonVPN.Launcher.exe "----ms-protocol:ms-encodedlaunch:App?ContractId=Windows.StartupTask&TaskId=Proton%20VPN"
+GoogleChromeAutoLaunch_7C0A3586226714C29492A037945013EE = "C:\Program Files\Google\Chrome\Application\chrome.exe" --no-startup-window /prefetch:5
+MicrosoftEdgeAutoLaunch_145EEABE3A2FDFD3E95916E1C230BE25 = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --no-startup-window --win-session-start
