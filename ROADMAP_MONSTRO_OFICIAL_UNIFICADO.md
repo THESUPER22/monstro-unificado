@@ -2127,11 +2127,11 @@ travada de decisao continua ate reguas com n>=100.
       Feito antes do verde ao vivo por decisao do usuario. Se a validacao de
       13/10 exigir correcao, novo commit antes das 17:35 (senao cai no fecho
       autonomo generico).
-- [ ] **Pendencia pos-validacao (18/10):** card FLUXO exibe so subset dos
+- [ ] **Pendencia pos-validacao (16/10):** card FLUXO exibe so subset dos
       "elementos visuais minimos" do prompt §7.9 (faltam: delta acumulado,
       volume total, spread, ultimo preco, simbolo/contrato, janela, idade do
       dado). API ja retorna todos (`/api/fluxo/status`). Adicionar a template
-      no freeze de 18/10, apos verde ao vivo.
+      no freeze de 16/10, apos verde ao vivo.
 
 ### 23.13 - SPRINT 09/10/2026 (sexta) - FLUXO + FERRAMENTAS
 
@@ -2154,9 +2154,34 @@ travada de decisao continua ate reguas com n>=100.
 - [x] **Roadmap 23.12** criado (fluxo tempo real wiring + automacao),
       normalizado para ASCII puro.
 
-- [ ] **A1 (expurgo do Core)** - reagendado para **18/10** (freeze sexta).
-- [ ] **A2 (trava financeira da Faixa + spam Scaler)** - reagendado para
-      **18/10**.
+- [x] **A1 (expurgo do Core)** - executado em **16/10** (commit da8e2e7).
+- [x] **A2 (trava financeira da Faixa + spam Scaler)** - executado em **16/10**
+      (commit da8e2e7).
+
+### 23.15 - AUTOPSIA SEMANA 12-16/10/2026
+
+> Semana lucrativa (+R$ 190 liquido), mas com ineficiencias operacionais.
+> Core (Sniper %R) 79% WR; Faixa 1 25% WR. Agente em vigilancia (whitelist vazia).
+
+**Correcao de relatorio (Sub-Trader nao incluido como item separado):**
+
+- **Sub-Trader (modulo `sub`):** 15/10 SELL 5073.5 TP +18.5pts **+R$925**
+      (lote 5.0). Amostra: 2 trades (1 gain +925, 1 loss -200). Expectativa
+      positiva mas amostra minima.
+
+**Mudanca de lote (commit 4b0d03a, 16/10):**
+
+- **Antes (ate 15/10):** lote 5.0 na Faixa 1 (5x mais capital em risco)
+- **Depois (a partir de 16/10):** lote 1.0 (alinhado com Core)
+- **Impacto esperado:** exposicao reduzida em 80%. Perdas como -R$975
+      (lote 5) virariam -R$195 (lote 1). Porem, gains como +R$925 (Sub)
+      tambem reduzem proporcionalmente.
+
+**Vigilar semana que vem (19-23/10):**
+- [ ] Se a Faixa 1 com lote 1.0 + trava financeira (R$ 1500/dia) para a sangria
+- [ ] Se o Sub continua lucrativo com lote 1.0 (expectativa por trade cai,
+      mas o risco tambem)
+- [ ] Se o conflito Sniper x Faixa 1 (60 bloqueios GATE) diminui
 
 ### 23.14 - OBSERVACOES BOOT IDLE 12/10/2026 (feriado)
 
