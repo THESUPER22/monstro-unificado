@@ -93,6 +93,18 @@ def _hora_float(dt):
     return dt.hour + dt.minute / 60.0
 
 
+def _carregar_trades_dia(dia, modulo=None):
+    import csv
+    if not os.path.exists(TRADES_CSV): return []
+    res=[]
+    try:
+        with open(TRADES_CSV,encoding='utf-8') as f:
+            for r in csv.DictReader(f):
+                if r.get('dia')!=dia: continue
+                if modulo and (r.get('modulo') or 'faixa1')!=modulo: continue
+                res.append(r)
+    except Exception: pass
+    return res
 # ---------------- FUSO / FRESCOR / BARRAS ----------------
 def detectar_shift(mt5mod, symbol, n=3000):
     """Escolhe o deslocamento (s) que coloca mais M5 na sessao diurna 9-17h."""
@@ -578,6 +590,12 @@ class OrquestradorRompimento:
         estiver aberto, a Faixa 1 Raiz fica BLOQUEADA; ao encerrar, libera o
         gatilho de rompimento do Pavio_Topo/Fundo imediatamente.
         """
+        if not self._trava_financeira(dia, modulo="sub"):
+            st["final"] = True
+            st["saida"] = "TRAVA"
+            self._grava_final(st)
+            _salvar_state(st)
+            return
         if not self.cfg.get("sub_ativo"):
             return
         sub = st.get("sub") or {}
@@ -737,6 +755,38 @@ class OrquestradorRompimento:
              niv["corpo_topo"], niv["corpo_fundo"],
              niv["pavio_topo"], niv["pavio_fundo"]))
 
+    def _trava_financeira(self, dia, modulo="faixa1"):
+        cfg = self.cfg
+        limite = float(cfg.get("faixa_perda_max_rs", 1500.0))
+        try:
+            trades = _carregar_trades_dia(dia, modulo=modulo)
+            realizado = 0.0
+            for tr in trades:
+                try:
+                    realizado += float(tr.get("lucro_rs") or 0.0)
+                except Exception:
+                    pass
+            flut = 0.0
+            try:
+                st = _carregar_state()
+                tk = st.get("ticket") if modulo == "faixa1" else (st.get("sub") or {}).get("ticket")
+                if tk:
+                    lr = self._lucro_real_rs(tk)
+                    if lr is not None:
+                        flut = lr
+            except Exception:
+                pass
+            total = realizado + flut
+            if total <= -limite:
+                try:
+                    log("[ROMPIMENTO] TRAVA FINANCEIRA %s ativada: total=%.2f" % (modulo, total))
+                except Exception:
+                    pass
+                return False
+        except Exception:
+            pass  # fail-open
+        return True
+
     def _fase_gatilho(self, st, a, dia):
         """Fase gatilho da Faixa 1 (10:00-11:06): abre sem posicao."""
         if not st.get("ticket"):
@@ -823,6 +873,13 @@ class OrquestradorRompimento:
         return e + tp_dist if side == "C" else e - tp_dist
 
     def _abrir(self, st, t, tr):
+        dia = st.get("dia") or datetime.now().strftime("%Y-%m-%d")
+        if not self._trava_financeira(dia):
+            st["final"] = True
+            st["saida"] = "TRAVA"
+            self._grava_final(st)
+            _salvar_state(st)
+            return
         side, _idx, _entry_bt = tr
         action = "BUY" if side == "C" else "SELL"
         cfg = self.cfg

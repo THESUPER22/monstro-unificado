@@ -89,50 +89,6 @@ MAX_FORCADOS_DIA = 3  # MÃÂ¡ximo 3 operaÃÂ§ÃÂµes forÃÂ§adas 
 # ===== CLASSES PARA MELHORIAS IMPLEMENTADAS =====
 
 
-class VolumeAdaptativo:
-    """Ã°Å¸âÅ  Calcula um volume mÃÂ­nimo para operar de forma adaptativa."""
-
-    def __init__(self, janela_minutos=15, percentual_da_media=0.8):
-        self.janela_segundos = janela_minutos * 60
-        self.percentual_da_media = percentual_da_media
-        # Deque armazena (timestamp, volume)
-        self.historico_volumes = collections.deque()
-        self.volume_minimo_adaptativo = 500  # Valor inicial padrÃÂ£o (WDO)
-
-    def adicionar_volume_atual(self, volume_total: float):
-        """Adiciona o volume total do book ao histÃÂ³rico."""
-        agora = time.time()
-        self.historico_volumes.append((agora, volume_total))
-        self._limpar_historico_antigo(agora)
-        self._calcular_novo_minimo()
-
-    def _limpar_historico_antigo(self, timestamp_atual):
-        """Remove dados mais antigos que a janela de tempo definida."""
-        while self.historico_volumes:
-            if timestamp_atual - self.historico_volumes[0][0] > self.janela_segundos:
-                self.historico_volumes.popleft()
-            else:
-                break
-
-    def _calcular_novo_minimo(self):
-        """Calcula o novo volume mÃÂ­nimo com base na mÃÂ©dia do histÃÂ³rico."""
-        if not self.historico_volumes:
-            return
-
-        volumes_na_janela = [vol for ts, vol in self.historico_volumes]
-        media_volume = sum(volumes_na_janela) / len(volumes_na_janela)
-
-        # O novo mÃÂ­nimo ÃÂ© um percentual da mÃÂ©dia
-        self.volume_minimo_adaptativo = media_volume * self.percentual_da_media
-
-        # Garante um piso mÃÂ­nimo para nÃÂ£o operar com volume muito baixo
-        piso_absoluto = 500
-        self.volume_minimo_adaptativo = max(
-            self.volume_minimo_adaptativo, piso_absoluto)
-
-    def pode_operar(self, volume_atual: float) -> bool:
-        """Verifica se o volume atual atende ao mÃÂ­nimo adaptativo."""
-        return volume_atual >= self.volume_minimo_adaptativo
 
 
 # ConfiguraÃÂ§ÃÂ£o TensorFlow
@@ -209,11 +165,6 @@ class TrailingStopInteligente:
 
         return None
 
-    def finalizar_trailing(self):
-        """Finaliza o trailing stop."""
-        self.posicao_ativa = None
-        self.trailing_ativo = False
-        self.lucro_travado = False
 
 # endregion
 
@@ -1645,15 +1596,6 @@ class DetectorModoMercado:
 
         return self.modo_atual
 
-    def ajustar_parametros_trading(self, volume_base: float, sl_base: float, tp_base: float) -> tuple:
-        """Ajusta parÃÂ¢metros de trading baseado no modo."""
-        if self.modo_atual == "CONSERVADOR":
-            volume_ajustado = volume_base * 0.5  # Volume reduzido 50%
-            sl_ajustado = sl_base * 0.7         # SL menor 30%
-            tp_ajustado = tp_base * 0.8         # TP menor 20%
-            return volume_ajustado, sl_ajustado, tp_ajustado
-
-        return volume_base, sl_base, tp_base
 
 
 # InstÃÂ¢ncia global do detector de modo
@@ -1944,18 +1886,6 @@ class SistemaConfluencia:
                 if lucro > 0.0:  # CORREÃâ¡ÃÆO C9: Conta apenas experiÃÂªncias lucrativas
                     self.stats_por_confluencia[key]["acertos"] += 1
 
-    def get_stats_confluencia(self) -> Dict:
-        """Retorna estatÃÂ­sticas de performance por tipo de confluÃÂªncia."""
-        stats = {}
-        for key, data in self.stats_por_confluencia.items():
-            if data["total"] > 0:
-                taxa_acerto = data["acertos"] / data["total"]
-                stats[key] = {
-                    "total_ops": data["total"],
-                    "acertos": data["acertos"],
-                    "taxa_acerto": taxa_acerto
-                }
-        return stats
 
 
 # ========== MELHORIA 5: SAÃÂDA INTELIGENTE DE POSIÃâ¡ÃÆO (+1.5% EFICÃÂCIA) ==========
@@ -1979,59 +1909,7 @@ class SaidaInteligentePositions:
             "rsi_entrada": self.historico_rsi[-1] if self.historico_rsi else 50.0
         }
 
-    def atualizar_rsi(self, rsi_atual: float):
-        """Atualiza histÃÂ³rico de RSI."""
-        self.historico_rsi.append(rsi_atual)
-        if len(self.historico_rsi) > 10:
-            self.historico_rsi.pop(0)
 
-    def verificar_saida_inteligente(self, ticket: int, preco_atual: float, rsi_atual: float) -> bool:
-        """Verifica se deve sair da posiÃÂ§ÃÂ£o inteligentemente."""
-        if ticket not in self.posicoes_monitoradas:
-            return False
-
-        posicao = self.posicoes_monitoradas[ticket]
-        tempo_atual = time.time()
-        tempo_em_trade = tempo_atual - posicao["tempo_inicio"]
-
-        # Calcula lucro atual em pontos WDO
-        if posicao["tipo"] == "BUY":
-            # TICK_SIZE WDO
-            lucro_atual = (preco_atual - posicao["preco_entrada"]) / TICK_SIZE
-        else:
-            lucro_atual = (posicao["preco_entrada"] -
-                           preco_atual) / TICK_SIZE  # TICK_SIZE WDO
-
-        # Atualiza melhor lucro
-        if lucro_atual > posicao["melhor_lucro"]:
-            posicao["melhor_lucro"] = lucro_atual
-            posicao["tempo_sem_lucro"] = 0
-        else:
-            posicao["tempo_sem_lucro"] = tempo_atual - posicao["tempo_inicio"]
-
-        # CRITÃâ°RIO 1: 5 minutos sem lucro
-        if posicao["tempo_sem_lucro"] >= 300:  # 300 segundos = 5 minutos
-            logging.info(
-                f"Ã°Å¸Å¡Âª SaÃÂ­da por tempo sem lucro: {posicao['tempo_sem_lucro']:.0f}s")
-            return True
-
-        # CRITÃâ°RIO 2: RSI inverteu com lucro mÃÂ­nimo (5 pontos WDO)
-        if lucro_atual >= 5.0:  # Lucro mÃÂ­nimo para considerar saÃÂ­da por RSI
-            rsi_entrada = posicao["rsi_entrada"]
-
-            # Para posiÃÂ§ÃÂ£o BUY: sair se RSI estava baixo e agora estÃÂ¡ alto
-            if posicao["tipo"] == "BUY" and rsi_entrada < 30 and rsi_atual > 70:
-                logging.info(
-                    f"Ã°Å¸Å¡Âª SaÃÂ­da BUY por inversÃÂ£o RSI: {rsi_entrada:.1f} Ã¢â â {rsi_atual:.1f}")
-                return True
-
-            # Para posiÃÂ§ÃÂ£o SELL: sair se RSI estava alto e agora estÃÂ¡ baixo
-            if posicao["tipo"] == "SELL" and rsi_entrada > 70 and rsi_atual < 30:
-                logging.info(
-                    f"Ã°Å¸Å¡Âª SaÃÂ­da SELL por inversÃÂ£o RSI: {rsi_entrada:.1f} Ã¢â â {rsi_atual:.1f}")
-                return True
-
-        return False
 
     def finalizar_monitoramento(self, ticket: int):
         """Finaliza monitoramento de uma posiÃÂ§ÃÂ£o."""
@@ -2215,6 +2093,23 @@ detector_tendencia = None
 
 # ========== SISTEMA DE VOLUME INTELIGENTE BASEADO NO BOOK ==========
 
+
+# --- Throttle do Scaler (A2b) ---
+_SCALER_LAST_TS=0.0
+_SCALER_LAST_OK=None
+
+def _forcar_recreacao_scaler_throttled():
+    global _SCALER_LAST_TS,_SCALER_LAST_OK
+    import time
+    now=time.time()
+    if now-_SCALER_LAST_TS<3600: return _SCALER_LAST_OK
+    try:
+        res=_forcar_recreacao_scaler_throttled()
+        _SCALER_LAST_TS=now; _SCALER_LAST_OK=res
+        return res
+    except Exception:
+        _SCALER_LAST_TS=now
+        return None
 
 def calcular_volume_inteligente(volume_book_total: float) -> float:
     """Calcula volume adaptativo baseado na liquidez do book (ajustado para WDO).
@@ -2602,21 +2497,6 @@ class VolumeAdaptativo:
         """Verifica se o volume atual ae ao mÃÂ­nimo adaptativo."""
         return volume_atual >= self.volume_minimo_adaptativo
 
-        # Alerta: Drawdown alto
-        if self.drawdown_atual > 300:  # R$ 300
-            alertas.append(f"Ã°Å¸Å¡Â¨ Drawdown alto: R$ {self.drawdown_atual:.2f}")
-
-        # Alerta: Muitos losses seguidos
-        losses_seguidos = 0
-        for op in reversed(self.operacoes_recentes):
-            if op < 0:
-                losses_seguidos += 1
-            else:
-                break
-        if losses_seguidos >= 3:
-            alertas.append(f"Ã°Å¸Å¡Â¨ {losses_seguidos} losses seguidos")
-
-        return alertas
 
     def get_status(self) -> dict:
         """Retorna status completo da performance."""
@@ -4341,58 +4221,7 @@ class CSVEncodingDetector:
             f"[CSVEncodingDetector] Usando codificaÃÂ§ÃÂ£o em cache: {encoding}")
         return encoding
 
-    def cache_encoding(self, file_path: str, encoding: str):
-        """Armazena codificaÃÂ§ÃÂ£o bem-sucedida no cache.
 
-        Args:
-            file_path: Caminho para o arquivo
-            encoding: CodificaÃÂ§ÃÂ£o que funcionou
-        """
-        self.encoding_cache[file_path] = {
-            'encoding': encoding,
-            'timestamp': time.time()
-        }
-        logging.debug(
-            f"[CSVEncodingDetector] CodificaÃÂ§ÃÂ£o {encoding} armazenada em cache")
-
-    def detect_encoding(self, file_path: str) -> List[str]:
-        """Detecta a melhor codificaÃÂ§ÃÂ£o para um arquivo CSV.
-
-        Args:
-            file_path: Caminho para o arquivo
-
-        Returns:
-            Lista ordenada de codificaÃÂ§ÃÂµes para tentar (mais provÃÂ¡vel primeiro)
-        """
-        if not os.path.exists(file_path):
-            return self.encoding_priority.copy()
-
-        # 1. Verifica cache primeiro
-        cached_encoding = self.get_cached_encoding(file_path)
-        if cached_encoding:
-            # Move codificaÃÂ§ÃÂ£o em cache para o inÃÂ­cio da lista
-            encodings = [cached_encoding] + \
-                [e for e in self.encoding_priority if e != cached_encoding]
-            return encodings
-
-        # 2. Tenta detectar por BOM
-        bom_encoding = self.detect_bom(file_path)
-        if bom_encoding:
-            # Move codificaÃÂ§ÃÂ£o detectada por BOM para o inÃÂ­cio
-            encodings = [bom_encoding] + \
-                [e for e in self.encoding_priority if e != bom_encoding]
-            return encodings
-
-        # 3. Tenta detectar por conteÃÂºdo
-        content_encoding = self.detect_by_content(file_path)
-        if content_encoding:
-            # Move codificaÃÂ§ÃÂ£o detectada por conteÃÂºdo para o inÃÂ­cio
-            encodings = [content_encoding] + \
-                [e for e in self.encoding_priority if e != content_encoding]
-            return encodings
-
-        # 4. Retorna lista padrÃÂ£o se nenhuma detecÃÂ§ÃÂ£o funcionou
-        return self.encoding_priority.copy()
 
 
 # InstÃÂ¢ncia global do detector
@@ -4586,121 +4415,8 @@ class CSVDataValidator:
 
         return alerts
 
-    def validate_book_data(self, book_data: Dict[str, List[int]]) -> Dict[str, Any]:
-        """Valida dados completos do book de ofertas.
 
-        Args:
-            book_data: DicionÃÂ¡rio com 'bids' e 'asks'
 
-        Returns:
-            Resultado completo da validaÃÂ§ÃÂ£o com dados sanitizados
-        """
-        self.validation_stats['total_validations'] += 1
-
-        result = {
-            'valid': True,
-            'sanitized_data': {},
-            'issues': [],
-            'suspicious_patterns': [],
-            'statistics': {},
-            'recommendation': 'accept'  # accept, sanitize, reject
-        }
-
-        if not book_data or not isinstance(book_data, dict):
-            result['valid'] = False
-            result['issues'].append("Dados do book invÃÂ¡lidos ou nulos")
-            result['recommendation'] = 'reject'
-            self.validation_stats['rejected_data'] += 1
-            return result
-
-        # Valida bids
-        bids = book_data.get('bids', [])
-        bid_validation = self.validate_volume_list(bids, 'bids')
-
-        # Valida asks
-        asks = book_data.get('asks', [])
-        ask_validation = self.validate_volume_list(asks, 'asks')
-
-        # Combina resultados
-        result['issues'].extend(bid_validation['issues'])
-        result['issues'].extend(ask_validation['issues'])
-
-        if not bid_validation['valid'] or not ask_validation['valid']:
-            result['valid'] = False
-            result['recommendation'] = 'reject'
-            self.validation_stats['rejected_data'] += 1
-            return result
-
-        # Dados sanitizados
-        result['sanitized_data'] = {
-            'bids': bid_validation['sanitized_volumes'],
-            'asks': ask_validation['sanitized_volumes']
-        }
-
-        # Detecta padrÃÂµes suspeitos
-        result['suspicious_patterns'] = self.detect_suspicious_patterns(
-            bid_validation['sanitized_volumes'],
-            ask_validation['sanitized_volumes']
-        )
-
-        # EstatÃÂ­sticas
-        result['statistics'] = {
-            'bid_levels': bid_validation['sanitized_count'],
-            'ask_levels': ask_validation['sanitized_count'],
-            'total_bid_volume': bid_validation['total_volume'],
-            'total_ask_volume': ask_validation['total_volume'],
-            'total_liquidity': bid_validation['total_volume'] + ask_validation['total_volume'],
-            'bid_ask_ratio': (bid_validation['total_volume'] / ask_validation['total_volume'])
-            if ask_validation['total_volume'] > 0 else float('inf')
-        }
-
-        # Determina recomendaÃÂ§ÃÂ£o final
-        if result['issues'] or result['suspicious_patterns']:
-            if self.enable_sanitization and not self.strict_mode:
-                result['recommendation'] = 'sanitize'
-                self.validation_stats['sanitized_data'] += 1
-            else:
-                result['recommendation'] = 'reject'
-                result['valid'] = False
-                self.validation_stats['rejected_data'] += 1
-                return result
-
-        # Atualiza estatÃÂ­sticas de issues comuns
-        for issue in result['issues']:
-            issue_type = issue.split(':')[0] if ':' in issue else issue
-            self.validation_stats['common_issues'][issue_type] = self.validation_stats['common_issues'].get(
-                issue_type, 0) + 1
-
-        self.validation_stats['successful_validations'] += 1
-        return result
-
-    def get_validation_statistics(self) -> Dict[str, Any]:
-        """Retorna estatÃÂ­sticas de validaÃÂ§ÃÂ£o acumuladas."""
-        stats = self.validation_stats.copy()
-
-        if stats['total_validations'] > 0:
-            stats['success_rate'] = stats['successful_validations'] / \
-                stats['total_validations']
-            stats['sanitization_rate'] = stats['sanitized_data'] / \
-                stats['total_validations']
-            stats['rejection_rate'] = stats['rejected_data'] / \
-                stats['total_validations']
-        else:
-            stats['success_rate'] = 0.0
-            stats['sanitization_rate'] = 0.0
-            stats['rejection_rate'] = 0.0
-
-        return stats
-
-    def reset_statistics(self):
-        """Reseta as estatÃÂ­sticas de validaÃÂ§ÃÂ£o."""
-        self.validation_stats = {
-            'total_validations': 0,
-            'successful_validations': 0,
-            'sanitized_data': 0,
-            'rejected_data': 0,
-            'common_issues': {}
-        }
 
 
 # InstÃÂ¢ncia global do validador
@@ -4822,72 +4538,6 @@ class RetryManager:
                 'description': 'Erro desconhecido'
             }
 
-    def execute_with_retry(self, operation_func, *args, **kwargs):
-        """Executa uma operaÃÂ§ÃÂ£o com retry automÃÂ¡tico.
-
-        Args:
-            operation_func: FunÃÂ§ÃÂ£o a ser executada
-            *args: Argumentos posicionais para a funÃÂ§ÃÂ£o
-            **kwargs: Argumentos nomeados para a funÃÂ§ÃÂ£o
-
-        Returns:
-            Resultado da operaÃÂ§ÃÂ£o ou None se todas as tentativas falharam
-        """
-        self.retry_stats['total_operations'] += 1
-        last_exception = None
-
-        # +1 para incluir tentativa inicial
-        for attempt in range(self.max_retries + 1):
-            try:
-                # Tenta executar a operaÃÂ§ÃÂ£o
-                result = operation_func(*args, **kwargs)
-
-                # Sucesso!
-                if attempt > 0:  # Se houve retry
-                    self.retry_stats['total_retries'] += attempt
-                    logging.info(
-                        f"[RetryManager] OperaÃÂ§ÃÂ£o bem-sucedida apÃÂ³s {attempt} tentativas")
-
-                self.retry_stats['successful_operations'] += 1
-                self._update_avg_retries()
-                return result
-
-            except Exception as e:
-                last_exception = e
-                error_type = type(e).__name__
-
-                # Atualiza estatÃÂ­sticas de erro
-                self.retry_stats['error_types'][error_type] = self.retry_stats['error_types'].get(
-                    error_type, 0) + 1
-
-                # Verifica se deve tentar novamente
-                if not self.should_retry(e, attempt):
-                    logging.debug(
-                        f"[RetryManager] NÃÂ£o tentando novamente: {error_type} (tentativa {attempt + 1})")
-                    break
-
-                # ObtÃÂ©m estratÃÂ©gia especÃÂ­fica para o erro
-                strategy = self.get_error_strategy(e)
-
-                # Calcula delay ajustado pela estratÃÂ©gia
-                base_delay = self.calculate_delay(attempt)
-                adjusted_delay = base_delay * strategy['delay_multiplier']
-
-                logging.debug(f"[RetryManager] {strategy['description']} - Tentativa {attempt + 1}/{self.max_retries + 1}, "
-                              f"aguardando {adjusted_delay:.2f}s")
-
-                # Aguarda antes da prÃÂ³xima tentativa
-                time.sleep(adjusted_delay)
-
-        # Todas as tentativas falharam
-        self.retry_stats['failed_operations'] += 1
-        self.retry_stats['total_retries'] += self.max_retries
-        self._update_avg_retries()
-
-        logging.warning(f"[RetryManager] OperaÃÂ§ÃÂ£o falhou apÃÂ³s {self.max_retries + 1} tentativas. "
-                        f"ÃÅ¡ltimo erro: {last_exception}")
-
-        return None
 
     def _update_avg_retries(self):
         """Atualiza a mÃÂ©dia de retries por operaÃÂ§ÃÂ£o."""
@@ -4895,31 +4545,7 @@ class RetryManager:
             self.retry_stats['avg_retries_per_operation'] = self.retry_stats['total_retries'] / \
                 self.retry_stats['total_operations']
 
-    def get_statistics(self) -> Dict[str, Any]:
-        """Retorna estatÃÂ­sticas do gerenciador de retry."""
-        stats = self.retry_stats.copy()
 
-        if stats['total_operations'] > 0:
-            stats['success_rate'] = stats['successful_operations'] / \
-                stats['total_operations']
-            stats['failure_rate'] = stats['failed_operations'] / \
-                stats['total_operations']
-        else:
-            stats['success_rate'] = 0.0
-            stats['failure_rate'] = 0.0
-
-        return stats
-
-    def reset_statistics(self):
-        """Reseta as estatÃÂ­sticas do retry manager."""
-        self.retry_stats = {
-            'total_operations': 0,
-            'successful_operations': 0,
-            'failed_operations': 0,
-            'total_retries': 0,
-            'error_types': {},
-            'avg_retries_per_operation': 0.0
-        }
 
 
 # InstÃÂ¢ncia global do retry manager
@@ -8062,7 +7688,7 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                 confianca_decisao = 0.0
 
                 # Garante que o scaler estÃÂ¡ limpo do JSON (treino online nÃÂ£o corrompe)
-                forcar_recreacao_scaler()
+                _forcar_recreacao_scaler_throttled()
 
                 contexto_df_previsao = pd.DataFrame([contexto])
                 # Adiciona coluna 'action' dummy se nÃÂ£o existir, para consistÃÂªncia com preparar_dados
@@ -8840,11 +8466,6 @@ class MemoriaExperiencias:
             0.2 * (1 - alternancia)
         )
 
-    def verificar_replay(self) -> bool:
-        """Verifica se ÃÂ© hora de fazer replay das experiÃÂªncias."""
-        tempo_desde_replay = (
-            datetime.now() - self.ultimo_replay).total_seconds() / 60
-        return tempo_desde_replay >= INTERVALO_REPLAY
 
     def obter_batch_replay(self) -> Tuple[List[Tuple[Dict[str, Any], str, float, float]], List[float]]:
         """ObtÃÂ©m batch para replay Ã¢â¬â inclui TODAS as experiÃÂªncias reais para aprendizado completo."""
@@ -9287,7 +8908,7 @@ def treinar_modelo(modelo: Sequential, memoria: MemoriaExperiencias) -> Sequenti
         return modelo
 
     # Restaura scaler global do JSON apÃÂ³s treino (evita corromper escala)
-    forcar_recreacao_scaler()
+    _forcar_recreacao_scaler_throttled()
 
     return modelo
 
@@ -11415,7 +11036,7 @@ if __name__ == "__main__":
 
     # Reseta e recria scaler global para compatibilidade com 22 features
     resetar_scaler_global()
-    forcar_recreacao_scaler()
+    _forcar_recreacao_scaler_throttled()
 
     # VariÃÂ¡veis globais
     thread_ativo = True
