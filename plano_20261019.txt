@@ -1,0 +1,6 @@
+============================================================
+PLANO DO DIA SEGUINTE - MONSTRO WDO v22
+Gerado em: 19/10/2026 17:35:25
+============================================================
+[INFO] Amostra insuficiente (0 fechados) - sem conclusao.
+[PADRAO] Manter parametros atuais se nenhuma prioridade critica acionar.
