@@ -1,0 +1,4 @@
+FEED DO BROKER INDISPONIVEL/DEFASADO - 02/11/2026 17:20:05
+idade do ultimo tick: 255125s
+terminal restarts hoje: 6 | robo restarts hoje: 2
+ACAO NECESSARIA: verificar XPMT5-DEMO/corretora. Nenhuma operacao no dia.
