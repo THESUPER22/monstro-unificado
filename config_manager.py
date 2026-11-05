@@ -27,13 +27,13 @@ CONFIG_FILE = _caminho_dados("config.json")
 
 # Parâmetros editáveis em tempo real com seus tipos e limites
 PARAM_SCHEMA = {
-    "sl_points":           {"type": float, "min": 1, "max": 50, "default": 5},
+    "sl_points":           {"type": float, "min": 1, "max": 50, "default": 8},
     "tp_points":           {"type": float, "min": 0, "max": 100, "default": 0},
-    "sniper_ratio_min":    {"type": float, "min": 1.0, "max": 5.0, "default": 1.2},
+    "sniper_ratio_min":    {"type": float, "min": 1.0, "max": 5.0, "default": 1.5},
     "sniper_volume_min":   {"type": int,   "min": 50, "max": 5000, "default": 400},
     "max_losses_sequencia":{"type": int,   "min": 1, "max": 20, "default": 5},
-    "trailing_gatilho":    {"type": float, "min": 1, "max": 50, "default": 3},
-    "trailing_distancia":  {"type": float, "min": 0.5, "max": 20, "default": 2},
+    "trailing_gatilho":    {"type": float, "min": 1, "max": 50, "default": 8},
+    "trailing_distancia":  {"type": float, "min": 0.5, "max": 20, "default": 4},
     "max_spread":          {"type": float, "min": 1, "max": 50, "default": 5},
     "max_loss_diario":     {"type": float, "min": -5000, "max": -10, "default": -500},
     "dol_conf_min":        {"type": float, "min": 0.2, "max": 0.8, "default": 0.4},

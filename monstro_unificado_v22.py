@@ -1018,9 +1018,9 @@ TRAILING_INTERVALO = config.get(
 
 # Stop Loss e Take Profit (em pontos) - CONFIGURAÃâ¡ÃÆO WDO (REFATORADO)
 # 5 pontos WDO = 5000 ticks (SL como rede de seguranÃÂ§a - FIX 07/08: era 8)
-SL_POINTS = config.get("sl_points", 5)
+SL_POINTS = config.get("sl_points", 8)
 # 10 pontos WDO = 10000 ticks (TP dinÃÂ¢mico - Keras decide saÃÂ­da)
-TP_POINTS = config.get("tp_points", 10)
+TP_POINTS = config.get("tp_points", 0)
 
 # ========================================================================
 # Ã°Å¸Å½Â¯ FILTRO SNIPER DE ELITE (BOOK NATIVO MT5) - AJUSTE FÃÂCIL AQUI

@@ -50,14 +50,17 @@
     "min_lucro_desbloqueio": 0.0,
     "sniper_volume_min": 400,
     "sniper_ratio_min": 1.5,
-    "sl_points": 8
+    "sl_points": 8,
+    "book_ratio_min": 1.3,
+    "dol_conf_min": 0.4,
+    "tp_points": 0
   },
   "trailing_stop": {
     "ativo": true,
     "intervalo_segundos": 5,
     "gatilho_pontos": 8.0,
     "distancia_pontos": 4.0,
-    "_nota": "Valores espelham o hardcoded em monstro_unificado_v22.py (L1088/L1090). O codigo NAO le este bloco - ajuste real so via fonte."
+    "_nota": "Valores lidos pelo codigo (monstro_unificado_v22.py L1060-1062). Ajuste real via fonte ou config.json."
   },
   "aprendizado": {
     "modelo_path": "modelo_monstro_wdo.h5",
