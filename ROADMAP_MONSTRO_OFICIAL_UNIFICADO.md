@@ -6,6 +6,31 @@
 
 ---
 
+## 📅 05/11/2026 — REGISTRO DO CORPUS + VEREDITO DO GATE (FASE 2 — CONCLUÍDA)
+
+**Fonte:** Consolidação da Fase 2 — `logs/modelo_a_shadow_com_setup.csv` (141 trades resolvidos) + `logs/rompimento/rompimento_trades.csv` (23) + `decisions_wdo.csv` (251.206 decisões).
+
+### 📦 Corpus Consolidado (entregável da Fase 2)
+- **Arquivo:** `C:\AIOFEN\logs\treino_corpus_real.csv`
+- **Amostras:** **141** trades resolvidos (29 colunas: contexto com 22 features + `action` + `reward` + `score_dist` + `prob_modelo_a`).
+
+### 🔬 Reavaliação do Gate (correlação confiança→outcome)
+| Amostra | n | Pearson | Gate ≥ 0,15 |
+|---|---:|---:|---|
+| Consolidado | 141 | **0,088** | ❌ **NÃO liberado** |
+| Período auditado (19/10→31/10) | 34 | 0,157 | ⚠️ Marginal |
+
+### 🧭 Parecer do Tech Lead (04/11/2026)
+1. **Gate NÃO liberado** — correlação consolidada (0,088) abaixo do limiar (0,15).
+2. **Fase 3 NÃO autorizada** — operar com `p ≥ 0,60` sem gate validado = operar à cegas (A3 bloqueada por pesos sintéticos).
+3. **Shadow Mode ATIVO** — manter coleta; reavaliar gate com ~200+ amostras.
+
+### ⏭️ Próximos passos
+- Acumular trades reais via Shadow Mode.
+- Reavaliar correlação quando n ≥ 200.
+- Liberar gate → re-treino com pesos reais → Fase 3.
+
+---
 ## ✅ 28/09/2026 — ETAPA DE CORREÇÃO E RECONCILIAÇÃO 100% CONCLUÍDA E ENTREGUE
 
 > **Pacote de 6 correções autorizado e validado (py_compile OK + 39 checks de teste, 0 erros).**
