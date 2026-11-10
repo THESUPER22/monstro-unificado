@@ -32,6 +32,9 @@ jobs:
           config_manager.py \
           fluxo_tempo_real.py \
           fluxo_mt5_adapter.py \
+          coletor_herman_6p_shadow.py \
+          rompimento_ft.py \
+          monitor_saude_coletores.py \
           tests/test_fluxo_tempo_real.py \
           tests/test_fluxo_api_contrato.py \
           tests/test_fluxo_mt5_adapter.py
@@ -43,4 +46,3 @@ jobs:
       run: |
         python tests/testes_pos_fix.py || true
         python tests/teste_orquestrador_rompimento.py || true
-PYEOF

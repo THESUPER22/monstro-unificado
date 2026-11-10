@@ -1,8 +1,26 @@
 # 🚀 ROADMAP OFICIAL — MONSTRO TRADER V2
-**Última atualização:** 28/09/2026
+**Última atualização:** 10/11/2026
 **Versão:** Monstro Unificado V22 (Engine v22.4 — Faixa 1: Rompimento da 1ª Hora + Sub-Trader Corpo 1H + autópsia P1–P6)
 **Arquivo principal:** `monstro_unificado_v22.py`
 **Status geral:** v22.4 em produção; Faixa 1 (Rompimento 1ª Hora, magic 7008) com janela REAL 09–11h ativa desde 16/09/2026; autópsias de 16/09 (P1–P5) e 17/09 (P6 — bug crítico `positions_get(magic=...)` + posição fantasma) concluídas
+
+---
+
+## 📅 10/11/2026 — COLETA HERMAN RECUPERADA + MONITOR DE SAÚDE + FT REABILITADO
+
+**Status:** correção urgente concluída e verificada. Detalhe completo em
+**23.17** (coleta/monitor/FT) e **23.18** (CI) no fim deste documento.
+
+| frente | resultado |
+|---|---|
+| Coleta Herman | CSV auto-curável; 35 boxes no dia (28 de 3P + 7 de 6P), 0 linhas corrompidas |
+| Causa dos 19 dias | símbolo `WDO$` sem ticks + cabeçalho do CSV desatualizado |
+| Monitor | `monitor_saude_coletores.py` a cada 10 min, toast + arquivo de alerta |
+| Rompimento FT | fuso corrigido, selftest 172/172, ativo em 11/11 às 09:00 |
+| CI GitHub | YAML inválido (linha 46, `PYEOF` órfão) corrigido |
+
+**Regra reafirmada:** coletor silencioso é falha. Todo coletor tem que estar no
+monitor e neste roadmap. Dados nunca são demais.
 
 ---
 
@@ -2236,3 +2254,169 @@ travada de decisao continua ate reguas com n>=100.
       (nao-fatal, resumo valido). Melhoria futura: retry no request do resumo.
 - [ ] **Herman 6p sem dados:** parado desde 03/10. Esperado; coleta efetiva
       inicia 13/10 (auto via watchdog).
+
+### 23.16 CORRECAO COLETOR HERMAN (10/11/2026) - URGENTE
+
+- [x] **Causa raiz identificada:** coletor usava `SYM = "WDO$"` (generico) que nao retorna ticks
+  via `copy_ticks_range`. 19 pregões de coleta perdidos (13/10 a 09/11).
+- [x] **Fix aplicado:** SYM resolvido dinamicamente (front-month WDOZ26, mesmo criterio do robo).
+- [x] **LAST_LOOKBACK_S:** 3.0 -> 10.0 (MT5 nao armazena ticks dos ultimos 3s).
+- [x] **COPY_TICKS_ALL flag:** adicionado ao copy_ticks_range (faltava, causava "Invalid arguments").
+- [x] **Coletor reiniciado** com contrato WDOZ26. vwap=5589.89 (recebendo ticks).
+- [ ] **Acumulo de dados:** aguardar ~15 sessoes de pregao para validar edge.
+- [ ] **Backtest:** executar backtest_6p_herman.py sobre boxes coletados.
+
+---
+
+### 23.17 COLETA HERMAN: CSV AUTO-CURÁVEL + MONITOR DE SAÚDE + ROMPIMENTO FT (10/11/2026)
+
+> Sessão de recuperação após 19 pregões perdidos. Duas camadas de falha foram
+> corrigidas: (1) símbolo genérico sem ticks (já em 23.16); (2) cabeçalho do CSV
+> desatualizado, que fazia o backtest descartar 100% das linhas. Também foram
+> criados o monitor de saúde dos coletores e a reativação do Rompimento FT.
+
+#### 23.17.1 Diagnóstico em duas camadas
+
+| # | camada | sintoma | causa | correção |
+|---|---|---|---|---|
+| 1 | símbolo | `copy_ticks_range` vazio | `WDO$` não retorna ticks | contrato dinâmico `WDOZ26` (commit `a342232`) |
+| 2 | CSV | backtest lia 0 boxes | `boxes_herman.csv` de 03/10 sem a coluna `box_pts`; linhas novas com 26 colunas desalinhavam | auto-cura + reparo in-place (commit `8c1ca88`) |
+
+O coletor **estava** coletando (heartbeat de 1 min, vwap vivo). O que falhava era
+a **leitura**: `float("2026-11-10")` estourava e o backtest descartava tudo.
+
+#### 23.17.2 Correção do CSV (auto-cura)
+
+- `_init_csvs` agora valida o cabeçalho na abertura. Se não bater com o layout
+  atual, rotaciona o arquivo antigo (`*.hdr_antigo_YYYYMMDD_HHMMSS`) em vez de
+  escrever linhas novas sob cabeçalho velho.
+- Reparo in-place preservou os boxes do dia: **34 boxes (27 de 3P + 7 de 6P)**.
+- Integridade verificada: **26 colunas, 0 linhas desalinhadas**.
+- Backtest passou a carregar **7 boxes 6P e 27 boxes 3P** (antes: 0).
+
+#### 23.17.3 Monitor de saúde dos coletores
+
+Arquivos: `monitor_saude_coletores.py` + `monitor_saude_coletores.bat`.
+**Read-only:** só lê processos/logs/CSVs e escreve em `logs/`. Nunca envia ordem.
+
+| checagem | critério | severidade |
+|---|---|---|
+| MT5 `terminal64` | vivo no pregão | CRIT |
+| Coletor Herman | processo vivo | CRIT |
+| Coletor duplicado | >2 processos (wrapper+filho) | WARN |
+| Heartbeat | último registro < 5 min | CRIT |
+| Crescimento de boxes | sem box novo > 30 min (45 no almoço) | WARN |
+| Crescimento de boxes | sem box novo > 50 min (75 no almoço) | CRIT |
+| Integridade do CSV | cabeçalho de 26 colunas + 0 linhas desalinhadas | CRIT |
+| `resumo_herman.json` | `day` == hoje | WARN |
+| Robô principal | `monstro_unificado_v22.py` vivo | CRIT |
+| Rompimento FT | rodando quando a tarefa existe e `ativo_desde` já passou | CRIT |
+
+Saídas:
+- `logs/saude_coletores.json` — retrato atual (dashboard)
+- `logs/saude_coletores.log` — histórico append-only
+- `logs/ALERTA_COLETORES.txt` — existe enquanto houver WARN/CRIT
+- toast do Windows em WARN/CRIT, com cooldown de 20 min
+- exit code: `0` OK, `1` WARN, `2` CRIT
+
+O horário do último box vem da coluna `ts` do CSV (não do horário em que o
+monitor rodou), então um coletor travado é detectado mesmo se o monitor iniciar
+tarde. Fora do pregão, ausência de processo vira INFO (não alerta).
+
+Tarefa `Monstro-Monitor-Coletores`: diária 09:00, repetição a cada 10 min por
+9h (última ~17:50). Teste de ponta a ponta: execução automática às **12:30:01
+de 10/11, resultado 0**, próxima 12:40.
+
+#### 23.17.4 Rompimento FT (paper) — viabilidade e reativação
+
+- **O que é:** forward test em papel do "Rompimento da Primeira Hora" (WIN M5),
+  caixa 09:00–10:00, gatilho 10:00–11:00, SL antes do TP, EOD 17:55. Read-only:
+  zero `order_send` no código.
+- **Bloqueio corrigido:** `feed_lag_min()` comparava a vela com o relógio local
+  sem o offset do terminal (~3h), então o feed parecia sempre 180 min defasado.
+  Agora usa `last_epoch + _SHIFT` (offset detectado por `detect_shift`).
+- **Dry-run (sem gravar estado):** connect OK, `_SHIFT=10800s`, feed lag
+  **4,3 min** (limite 12), 40 barras M5 no dia.
+- **Selftest:** **172/172 dias, 0 falhas** contra o histórico.
+- **Ativação:** tarefa `Rompimento-FT` seg–sex 09:00, início **11/11/2026**.
+  Marcador `logs/rompimento_ft/ativo_desde.txt = 2026-11-11` evita cobrança no
+  dia da ativação. **Não** foi iniciado em 10/11 no meio do dia para não travar
+  um registro parcial.
+- **Sem backfill proposital:** preencher 11/09–10/11 seria retrospectivo (o
+  backtest 2021–2026 já cobre); o FT existe para validar **ao vivo**.
+
+#### 23.17.5 Tarefas agendadas (novas)
+
+| tarefa | quando | ação |
+|---|---|---|
+| `Monstro-Monitor-Coletores` | diária 09:00, a cada 10 min por 9h | `monitor_saude_coletores.bat --quiet` |
+| `Rompimento-FT` | seg–sex 09:00 | `rompimento_ft_run.bat` (paper, read-only) |
+
+Ambas criadas sem admin (`schtasks /create`).
+
+#### 23.17.6 Linha de base de 10/11/2026 (pós-correção)
+
+| item | estado |
+|---|---|
+| Coletor Herman | vivo (PID 28744), heartbeat 1 min, contrato `WDOZ26` |
+| Boxes do dia (CSV) | 35 (28 de 3P + 7 de 6P), 0 linhas corrompidas |
+| Robô principal | vivo |
+| MT5 | vivo |
+| Monitor | OK, rodando a cada 10 min |
+| Rompimento FT | agendado para 11/11 09:00 |
+
+#### 23.17.7 Regras e decisões desta sessão
+
+1. **Nunca reiniciar o coletor no meio do pregão** (zera EMA/K em memória). O
+   backtest recalcula EMA/K pelo CSV, mas evita-se o restart desnecessário.
+2. **Foco no track 3P:** o 6P gera stop > 4,5 pts, incompatível com o spec.
+3. **Não fazer backfill do FT** com dados passados.
+4. **O monitor é read-only** e nunca interfere na operação.
+5. **Dados nunca são demais:** todo coletor deve ser vigiado; coletor silencioso
+   é falha, não economia.
+6. **Os 19 pregões perdidos são irrecuperáveis** (MT5 não guarda ticks antigos).
+
+#### 23.17.8 Pendências / próximos passos
+
+- [ ] Acumular ~15 sessões de pregão (a partir de 10/11) para o backtest Herman.
+- [ ] Rodar `backtest_6p_herman.py --box 3` e `--box 3 --sens` após ~15 sessões.
+- [ ] Acompanhar `logs/saude_coletores.json` e `logs/ALERTA_COLETORES.txt`.
+- [ ] Após ~20–30 dias de FT, comparar `logs/rompimento_ft/trades.csv` com o
+      backtest; divergência = investigar feed/fill.
+- [ ] Se o monitor acusar crescimento parado, verificar antes de reiniciar
+      (heartbeat vivo + CSV íntegro = provável mercado lento).
+
+#### 23.17.9 Commits desta sessão
+
+| commit | conteúdo |
+|---|---|
+| `a342232` | coletor Herman usa contrato dinâmico (WDOZ26) |
+| `8c1ca88` | auto-cura do cabeçalho CSV (box_pts) |
+| `c29f053` | monitor de saúde + fix de fuso do Rompimento FT |
+| `2125d24` | limiar de crescimento mais folgado no almoço |
+
+#### 23.17.10 Lições registradas
+
+- Coletor "vivo" (heartbeat ok) não garante dado **útil**: validar a **leitura**
+  (cabeçalho + parse) é tão importante quanto validar a **coleta**.
+- O monitor checa exatamente o bug que causou os 19 dias: cabeçalho e linhas
+  desalinhadas. Falha silenciosa agora tem alarme.
+- Agendar ≠ executar: toda tarefa nova precisa de teste de ponta a ponta
+  (execução real + resultado 0).
+
+---
+
+### 23.18 CI GITHUB ACTIONS: YAML INVÁLIDO (linha 46) — CORRIGIDO (10/11/2026)
+
+- **Sintoma:** GitHub Actions recusava `.github/workflows/monstro-ci.yml` com
+  "You have an error in your yaml syntax on line 46".
+- **Causa raiz:** um `PYEOF` órfão na última linha (resto de heredoc que não
+  existe; os `run:` usam bloco literal `|`, não heredoc). `PYEOF` no nível zero
+  não é chave YAML válida → o arquivo inteiro fica inválido.
+- **Correção:** removida a linha `PYEOF`. Aproveitado para incluir
+  `coletor_herman_6p_shadow.py`, `rompimento_ft.py` e
+  `monitor_saude_coletores.py` no `py_compile` do CI.
+- **Validação local:** YAML parseado com PyYAML (OK, job `static-checks`, 6
+  steps) e `py_compile` de todos os arquivos do CI com exit 0.
+- **Regra:** antes de `git push`, validar o YAML do workflow. Heredoc em
+  workflow exige `<<'EOF'` dentro do `run:`; nunca deixar o terminador solto.
