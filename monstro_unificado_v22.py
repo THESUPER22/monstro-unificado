@@ -2594,6 +2594,8 @@ def horario_permitido() -> bool:
     agora = datetime.now().time()
     if dtime(9, 15) <= agora <= dtime(12, 30):
         return True
+    if dtime(12, 30) <= agora <= dtime(14, 30):
+        return True  # Hibernacao eliminada - operacao continua
     if dtime(14, 30) <= agora <= dtime(17, 15):
         return True
     return False
@@ -7377,29 +7379,17 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     time.sleep(30)
                     continue
 
-                # ========== HIBERNAÃâ¡ÃÆO 12:30-14:30 (REDUZIDA - SNIPER CONTINUA ATIVO) ==========
-                inicio_hibernacao = dtime(12, 30)
-                fim_hibernacao = dtime(14, 30)
-
-                if inicio_hibernacao <= agora < fim_hibernacao:
-                    # Treina uma vez ao entrar na hibernaÃÂ§ÃÂ£o (exatamente ÃÂ s 12h)
-                    if agora.hour == 12 and agora.minute == 30:
-                        logging.info(
-                            "Ã°Å¸Â§Â  TREINO DO MEIO-DIA: Iniciando treino antes da hibernaÃÂ§ÃÂ£o...")
-                        try:
-                            modelo_ia_local = treinar_modelo_inteligente(
-                                modelo_ia_local, memoria_experiencias)
-                            logging.info(
-                                "Ã¢Åâ¦ TREINO DO MEIO-DIA CONCLUÃÂDO. HibernaÃÂ§ÃÂ£o reduzida Ã¢â¬â sniper ativo.")
-                        except Exception as e:
-                            logging.error(f"Ã¢ÂÅ Erro no treino do meio-dia: {e}")
-
-                    # HibernaÃÂ§ÃÂ£o reduzida: loop normal mas modo normal bloqueado
-                    # SniperSupermo pode operar mesmo em hibernaÃÂ§ÃÂ£o
-                    logging.debug(
-                        "Ã°Å¸ËÂ´ HibernaÃÂ§ÃÂ£o 12:30-14:30 (sniper ativo, modo normal bloqueado por horÃÂ¡rio)")
-                    time.sleep(5)
-                    continue
+                # ========== HIBERNACAO ELIMINADA - operacao continua 12:30-14:30 ==========
+                # Treino do meio-dia (executa uma vez as 12:30)
+                if agora.hour == 12 and agora.minute == 30 and not getattr(monstro_thread, '_treino_meio_dia_feito', False):
+                    monstro_thread._treino_meio_dia_feito = True
+                    logging.info("TREINO DO MEIO-DIA: Iniciando treino...")
+                    try:
+                        modelo_ia_local = treinar_modelo_inteligente(
+                            modelo_ia_local, memoria_experiencias)
+                        logging.info("TREINO DO MEIO-DIA CONCLUIDO.")
+                    except Exception as e:
+                        logging.error(f"Erro no treino do meio-dia: {e}")
 
                 # ========== TREINO DAS 17:30 ANTES DE ENCERRAR ==========
                 inicio_treino_tarde = dtime(17, 30)
