@@ -2449,3 +2449,49 @@ step **"Testes sem dependencia de MT5"**.
 - **Pendência (não bloqueante):** `actions/checkout@v4` e
   `actions/setup-python@v5` emitem aviso de depreciação do Node 20 (forçados a
   rodar em Node 24). Migrar para `@v5`/`@v6` quando conveniente.
+
+**Resultado:** run `#110` (`8093001`) — **success em todos os steps** (setup,
+checkout, deps, `py_compile`, pytest 21/21, testes legados). CI fechado.
+
+---
+
+### 23.19 VARREDURA GITHUB: PROJETOS SEMELHANTES (10/11/2026)
+
+Busca por repositórios públicos via API (`/search/repositories`, sem token —
+limite ~10 req/min). Não é avaliação de qualidade; é mapa de referências.
+
+| repositório | ⭐ | stack | por que interessa |
+|---|---:|---|---|
+| `AlexPMendonca/lara-ml-trading` | 0 | Python, XGBoost, MT5, B3 | ML para WIN/B3 com holdout temporal e auditoria de overfitting/vazamento — mesma preocupação do nosso `modelo_a` |
+| `Tzaratin/win-wdo-quant-research` | 1 | Python | "audit-first" para mini futures B3; mesma filosofia de validar antes de operar |
+| `wesleyzilva/RepoRobos` | 4 | Python/MQL5, MT5 | robôs WIN + backtest em Python; comparável ao nosso 3P/6P |
+| `srlcarlg/srl-python-indicators` | 59 | Python | Order Flow Ticks, Volume/TPO Profile, VWAP, Wyckoff — referência direta para o Herman (boxes por volume) |
+| `mahmoud20138/OrderFlow-Analysis-Pro` | 78 | Python, Dash, MT5 | footprint + delta + volume profile com feed MT5; espelho do nosso `fluxo_tempo_real` |
+| `mahmoud20138/OrderFlow-Scalper` | 19 | Python, MT5 | scalper 3 threads com order flow; arquitetura de coleta assíncrona |
+| `francomascareloai/EA_SCALPER_XAUUSD` | 285 | MQL5 + Python | pesquisa de EA aberta, com disciplina de registro (parecido com nosso ROADMAP) |
+| `jimtin/algorithmic_trading_bot` | 163 | Python, MT5 | bot MT5 didático; útil para revisar integração/retry |
+| `AminHP/gym-mtsim` | 526 | Python | simulador OpenAI Gym para MT5; ideia para ambiente de RL (não usamos hoje) |
+| `geraked/metatrader5` | 690 | MQL5 | coleção de estratégias para backtest MT5 |
+
+Achados relevantes da busca:
+
+- **B3/WDO/WIN é nicho:** buscas "MetaTrader5 WDO WIN" → 1 repo;
+  "WIN B3 day trade python" → 1; "b3 futures quantitative research" → 1.
+  Não existe projeto público grande com a nossa arquitetura completa
+  (coletor + gate + FT + monitor + autópsia).
+- **Order flow/volume profile é onde há mais material reaproveitável**
+  (`srl-python-indicators`, `OrderFlow-Analysis-Pro`) — provável fonte de
+  ideias para melhorar a leitura dos boxes do Herman.
+- **Nada de "Rompimento da 1ª Hora" com esse nome:** a estratégia é descrita
+  na literatura como *opening range breakout* (ORB). Buscar por "ORB" rende
+  mais que "primeira hora".
+- **Code search exige token** (a busca em código, não em repositórios). Sem
+  `gh`/token, o alcance fica limitado a nome/descrição/topic dos repos.
+
+Próximos passos possíveis (nenhum obrigatório):
+
+- [ ] Clonar em `C:\AIOFEN\_referencias\` (fora do repo) os 3 mais próximos:
+      `srl-python-indicators`, `OrderFlow-Analysis-Pro`, `lara-ml-trading`.
+- [ ] Comparar o cálculo de delta/footprint deles com o nosso
+      `fluxo_tempo_real.py` (só leitura, sem tocar no Core).
+- [ ] Buscar "opening range breakout" + B3/WIN para calibrar o FT.
