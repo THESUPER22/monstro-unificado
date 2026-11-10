@@ -36,6 +36,7 @@ jobs:
           fluxo_mt5_adapter.py \
           coletor_herman_6p_shadow.py \
           rompimento_ft.py \
+          rompimento_orb_wdo.py \
           monitor_saude_coletores.py \
           backtest_orb_wdo.py \
           tests/test_fluxo_tempo_real.py \

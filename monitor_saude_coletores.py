@@ -43,6 +43,9 @@ RESUMO_JSON = os.path.join(HERMAN_DIR, "resumo_herman.json")
 BOXES_CSV = os.path.join(HERMAN_DIR, "boxes_herman.csv")
 FT_STATE = os.path.join(FT_DIR, "state.json")
 FT_ATIVO_DESDE = os.path.join(FT_DIR, "ativo_desde.txt")
+ORB_DIR = os.path.join(LOG_DIR, "rompimento_orb_wdo")
+ORB_STATE = os.path.join(ORB_DIR, "state.json")
+ORB_ATIVO_DESDE = os.path.join(ORB_DIR, "ativo_desde.txt")
 
 # Limiares (minutos)
 HEARTBEAT_MAX_MIN = 5
@@ -232,8 +235,12 @@ def _task_existe(nome):
 
 def _ft_ativo_desde():
     """Data a partir da qual o FT deve ser cobrado (evita alerta no dia da ativacao)."""
+    return _ativo_desde(FT_ATIVO_DESDE)
+
+
+def _ativo_desde(path):
     try:
-        with open(FT_ATIVO_DESDE, encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return datetime.strptime(f.read().strip(), "%Y-%m-%d").date()
     except Exception:
         return None
@@ -415,6 +422,47 @@ def main():
         add("rompimento_ft", "INFO", "tarefa Rompimento-FT agendada (fora da janela)")
     else:
         add("rompimento_ft", "INFO", "FT nao agendado/ativo")
+
+    # 9) ORB WDO FT (paper, 3 saidas em paralelo)
+    orb = _proc_matches("rompimento_orb_wdo.py", so_python=True)
+    orb_task = _task_existe("ORB-WDO-FT")
+    orb_ativo = _ativo_desde(ORB_ATIVO_DESDE)
+    orb_vigente = bool(orb_ativo and now.date() >= orb_ativo)
+    metrics["orb_pids"] = [p["pid"] for p in orb]
+    metrics["orb_task"] = orb_task
+    metrics["orb_ativo_desde"] = orb_ativo.isoformat() if orb_ativo else None
+    orb_state = {}
+    try:
+        with open(ORB_STATE, encoding="utf-8") as f:
+            orb_state = json.load(f)
+        metrics["orb_state_day"] = orb_state.get("dia")
+        metrics["orb_final"] = orb_state.get("final")
+        metrics["orb_fase"] = orb_state.get("fase")
+    except Exception:
+        pass
+    if orb:
+        idade_orb = ((now.timestamp() - os.path.getmtime(ORB_STATE)) / 60.0
+                     if os.path.exists(ORB_STATE) else None)
+        if idade_orb is not None and idade_orb > FT_STATE_MAX_MIN:
+            add("orb_wdo_ft", "WARN",
+                "ORB FT vivo mas state.json sem atualizar ha %.0f min" % idade_orb)
+        else:
+            add("orb_wdo_ft", "OK", "ORB WDO paper vivo (%s)" % (orb_state.get("fase") or "-"))
+    elif (orb_task and orb_vigente and pregao
+          and (now.hour, now.minute) >= (10, 20) and now.hour < 19):
+        if orb_state.get("dia") == hoje_str and orb_state.get("final"):
+            add("orb_wdo_ft", "OK", "ORB WDO finalizado hoje")
+        else:
+            add("orb_wdo_ft", "CRIT",
+                "tarefa ORB-WDO-FT existe mas o robo NAO esta rodando")
+    elif orb_task and not orb_vigente:
+        add("orb_wdo_ft", "INFO",
+            "ORB WDO agendado para comecar em %s (hoje ainda nao e' cobrado)"
+            % (orb_ativo.isoformat() if orb_ativo else "-"))
+    elif orb_task:
+        add("orb_wdo_ft", "INFO", "tarefa ORB-WDO-FT agendada (fora da janela)")
+    else:
+        add("orb_wdo_ft", "INFO", "ORB WDO FT nao agendado/ativo")
 
     # ---- consolida status ----
     niveis = [c["level"] for c in checks]

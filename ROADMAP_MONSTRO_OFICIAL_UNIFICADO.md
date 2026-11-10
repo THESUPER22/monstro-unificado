@@ -2853,13 +2853,22 @@ sempre 1 contrato):
 - Corrigir custo canônico para R$ 1,20 (seção 21) e recalcular 23.20.2.
 - Este plano (23.21) aprovado antes de qualquer código.
 
-**Fase 1 — ORB paper (única estratégia nova):**
+**Fase 1 — ORB paper (única estratégia nova):** ✅ **APROVADA em 10/11/2026**
 - Criar `rompimento_orb_wdo.py` (read-only, sem `order_send`), nos moldes do
   `rompimento_ft.py`.
-- Janela: caixa 09:00–10:00; gatilho 10:30–11:00; stop 0,5× caixa; EOD 17:55.
-- Flags: `--vies` (viés 1ª hora), `--ema` (EMA20/50), `--caixa-max` (≤2× mediana).
-- Registrar: lado, entrada, stop, caixa, viés, EMA, MFE/MAE, resultado.
-- Wrapper `.bat` + tarefa agendada com marcador `ativo_desde.txt`.
+- Janela: caixa 09:00–10:00; gatilho 10:30–11:00; EOD 17:55.
+- **Decisão do Mestre: rodar as 3 saídas EM PARALELO no paper** (custo zero,
+  não compromete capital nem lógica de produção):
+  1. `stop_caixa` = lado oposto da caixa (~R$ 339 de risco) — maior WR (51,9%);
+  2. `stop_half` = 0,5× caixa a partir da entrada (~R$ 170) — melhor total;
+  3. `stop_fixed5` = 5 pts fixos (R$ 50) — o stop do código Herman, PF alto e
+     DD baixo, mas WR 17–21%.
+  Após 20–30 sessões, o vencedor é escolhido com dado real, não no chute.
+- Flags registradas por dia (não bloqueiam o paper): `vies` (viés 1ª hora),
+  `ema` (EMA20/50), `caixa_max` (caixa ≤2× mediana 20d).
+- Registrar: lado, entrada, os 3 stops, viés, EMA, caixa-max, MFE/MAE e
+  resultado das 3 saídas.
+- Wrapper `.bat` + tarefa agendada (`ORB-WDO-FT`) com marcador `ativo_desde.txt`.
 - Integrar ao `monitor_saude_coletores.py`.
 
 **Fase 2 — validação do paper (20–30 sessões):**
@@ -2908,3 +2917,39 @@ Uma iniciativa só sobe para o Core se, **fora da amostra**:
 4. passa no holdout/CPCV.
 
 Se não passar em 1–4, fica documentada como **rejeitada** (histórico no ROADMAP).
+
+#### 23.21.5 Registro de decisão — 3 stops em paralelo (10/11/2026)
+
+Pergunta do Mestre: qual stop usar no FT ORB. Resposta: **não escolher no chute**.
+O paper é read-only e custo zero, então registramos **as três saídas ao mesmo
+tempo** e deixamos 20–30 sessões decidirem.
+
+| saída | stop (R$) | WR backtest | exp R$ | PF | maxDD | perfil |
+|---|---:|---:|---:|---:|---:|---|
+| `stop_caixa` | ~339 | **51,9%** | 58,86 | 1,48 | -3.188 | maior acertividade |
+| `stop_half` | ~170 | 40,8% | 61,26 | 1,63 | -2.226 | melhor total |
+| `stop_fixed5` | **50** | 17,4% | 32,57 | 1,77 | **-1.469** | poucos acertos grandes |
+
+Combinado com viés da 1ª hora: `stop_half` = PF 1,83 / OOS 1,89; `stop_fixed5`
+= PF 2,25 / OOS 2,55. **Nenhuma saída é descartada antes do paper.** A regra de
+aceite (23.21.4) é aplicada ao fim das 20–30 sessões, por saída e por filtro.
+
+**Validação do núcleo do FT (10/11/2026):** `rompimento_orb_wdo.evaluate_day` foi
+comparado dia a dia com `backtest_orb_wdo.simulate` em **200 sessões reais**,
+nas 3 saídas: **200/200 idênticos** (diferença < 0,01 pt). O único ajuste
+necessário foi cortar o after-market do WDO$ (barras 18:05–18:25), que o
+backtest já ignorava.
+
+**Sensibilidade do EOD (17:55 × 18:00):** o backtest usa como EOD o fecho da
+barra 18:00 (que fecha ~18:05); a barra 17:55 é o fim da sessão regular. Medido
+no período completo (875 trades):
+
+| saída | EOD 17:55 (PF / exp) | EOD 18:00 (PF / exp) | delta |
+|---|---|---:|---:|
+| caixa | 1,46 / R$ 55,95 | 1,48 / R$ 58,82 | ~R$ 2,87/trade |
+| half | 1,60 / R$ 58,00 | 1,63 / R$ 61,22 | ~R$ 3,22/trade |
+| fixed5 | 1,72 / R$ 30,49 | 1,77 / R$ 32,43 | ~R$ 1,94/trade |
+
+O FT mantém o critério do backtest (18:00) para o paper ser **diretamente
+comparável**. Em execução real, achatar em 17:55 custa ~R$ 2–3/trade e o edge
+continua positivo — está documentado como ajuste conservador.
