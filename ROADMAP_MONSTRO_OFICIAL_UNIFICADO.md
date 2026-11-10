@@ -18,7 +18,7 @@
 | Monitor | `monitor_saude_coletores.py` a cada 10 min, toast + arquivo de alerta |
 | Rompimento FT | fuso corrigido, selftest 172/172, ativo em 11/11 às 09:00 |
 | CI GitHub | YAML inválido (linha 46, `PYEOF` órfão) corrigido + Flask/requests no CI (pytest 21/21) |
-| Pesquisa ORB WDO | 5 anos, 1.242 sessões: ORB base PF 1,09 (fraco); gatilho 10:30–11:00 (EUA) PF 1,50–1,71, 6/6 anos positivos (23.20) |
+| Pesquisa ORB WDO | 5 anos, 1.242 sessões: ORB base PF 1,09 (fraco); gatilho 10:30–11:00 (EUA) PF 1,50–1,96, 6/6 anos positivos (23.20/23.21) |
 
 **Regra reafirmada:** coletor silencioso é falha. Todo coletor tem que estar no
 monitor e neste roadmap. Dados nunca são demais.
@@ -878,7 +878,7 @@ Semana real 01–02/09 (WDOV26, 1 ct): 8 trades | 5 W / 3 L | **62.5% WR** | PnL
 | Item | Ação | Critério de GO |
 |---|---|---|
 | A1 | **Single-writer lock** de `config.json`/`agente_config.json` (mutex p/ edição; git diff obrigatório antes de commit) | **SEMPRE — sem isso nada vale** |
-| A2 | Verificar `custos_operacionais` = valores XP RLP (R$0,80 WDO / R$0,25 WIN) | Presente e coerente c/ `backtest/custos_reais.py` |
+| A2 | Verificar `custos_operacionais` = **R$1,20 WDO (0,60+0,60) / R$0,25 WIN** | Pendente: `config.json` ainda tem R$0,80 WDO (legado) |
 | A3 | `py_compile` config.json + `python -c "json.load(...)"` em config + agente_config | Exit 0 |
 | A4 | Criar `tests/validar_config_estrutura.py` (checa 1 ocorrência de cada chave crítica + tipos) | 9/9 + novo teste PASS |
 
@@ -1822,11 +1822,24 @@ trailing como "PROPOSTA p/ revisao humana" em vez de aplica-la.
 
 ## 21. [DIRETRIZ FIXA] Matriz de Parametrizacao e Custos da B3 (WIN vs WDO)
 
-> Valores oficiais do ecossistema. Custos operacionais RETIFICADOS em 02/10/2026
-> para os valores do `config.json` -> `custos_operacionais` (XP NOMOS, 5
-> contratos, emolumentos B3 + RLP, ZERO corretagem) — fonte canonica, reforcada
-> pela diretriz A2 (linha 836). A redacao inicial (R$ 1,20 / R$ 0,50 "Friction
-> B3") era pressuposto sem correspondencia no config — REVOGADA nesta data.
+> Valores oficiais do ecossistema.
+>
+> **REVISAO 10/11/2026 (canonica, vale para todo o projeto):** custo do WDO =
+> **R$ 0,60 para entrar + R$ 0,60 para sair = R$ 1,20 por contrato por
+> operacao**. Diretriz do Mestre, confirmada nesta data. O valor anterior de
+> R$ 0,80/contrato (retificado em 02/10/2026 a partir do `config.json` ->
+> `custos_operacionais`, XP NOMOS, 5 contratos) fica **substituido** e mantido
+> apenas como historico. O `config.json`/`backtest/custos_reais.py` ainda
+> carregam o valor antigo e devem ser alinhados na proxima manutencao.
+>
+> **Historico (nao vale mais):** em 02/10/2026 o custo foi retificado para
+> R$ 0,80 com base no `config.json`; a redacao original de R$ 1,20 / R$ 0,50
+> ("Friction B3") tinha sido revogada naquela data. Em 10/11/2026 o Mestre
+> restabeleceu **R$ 1,20** como o valor correto e definitivo.
+>
+> **Custo nao decide trade:** operamos sempre com **1 contrato**; 1 ponto =
+> R$ 10,00 (0,5 pt = R$ 5; 5 pts = R$ 50; 20 pts = R$ 200). R$ 1,20 e ruido
+> frente a amplitude tipica do WDO e **nao** invalida estrategia lucrativa.
 
 ### 1. Mini Dolar (WDO)
 
@@ -1835,13 +1848,14 @@ trailing como "PROPOSTA p/ revisao humana" em vez de aplica-la.
 - **Variacao Minima (Tick) do CONTRATO REAL (`WDOV26`):** 0,5 ponto = R$ 5,00.
 - **Tick do sintetico `WDO$`:** 0,001 ponto = R$ 0,01 — resolucao **500x mais
   fina** que o real. Nunca usar o tick sintetico para justificar fills/paradas.
-- **Custo Operacional (Friction B3):** R$ 0,80 por contrato, ida e volta
-  (= `custo_por_trade_5ct: 4,0` do `config.json`; emolumentos B3 + RLP, XP
-  NOMOS, zero corretagem). Canonico desde 02/10/2026.
+- **Custo Operacional (Friction B3):** **R$ 0,60 na entrada + R$ 0,60 na saida =
+  R$ 1,20 por contrato por operacao**. Canonico desde 10/11/2026 (diretriz do
+  Mestre). O valor de R$ 0,80 do `config.json` (`custo_por_trade_5ct: 4,0`) e
+  legado e deve ser corrigido.
 - **PnL Liquido (por lote):**
-  - Lucro = `pontos a favor x R$ 10,00 - R$ 0,80`;
-  - Prejuizo = `pontos contra x R$ 10,00 + R$ 0,80`.
-- **Break-even (higiene):** obrigatoriamente acima do custo (> 0,08 ponto);
+  - Lucro = `pontos a favor x R$ 10,00 - R$ 1,20`;
+  - Prejuizo = `pontos contra x R$ 10,00 + R$ 1,20`.
+- **Break-even (higiene):** obrigatoriamente acima do custo (**> 0,12 ponto**);
   sugestao de +1,5 a +2,0 pontos para sair no lucro real.
 - **Amplitude diaria medida** (M5, 01/10/2025-29/09/2026): p50 = 47,
   p75 = 62, p90 = 84 pontos.
@@ -1880,12 +1894,13 @@ trailing como "PROPOSTA p/ revisao humana" em vez de aplica-la.
   R$ 303,60; bootstrap p=0,390; 23 sinais em 248 dias (n>=100 exigiria
   ~1.078 dias); MaxDD% de 37,5% invalido porque a curva comecou em R$ 0.
   Nenhuma integracao ao Core (ainda congelado).
-- **RETIFICACAO 02/10 (custos):** os numeros do parecer acima (lucro
-  R$ 808,80, etc.) usaram o custo provisorio antigo de R$ 1,20/contrato.
-  Com o custo canonico R$ 0,80 (retificado acima), o lucro/PF seriam
-  marginalmente melhores (≈ +R$ 9), SEM alterar a reprovacao: os criterios
-  decisivos (n=23 vs n>=100 -> ~4,3 anos; RF 2,66 vs floor; MaxDD% invalido)
-  nao dependem do friction.
+- **RETIFICACAO 02/10 (custos) — HISTORICO:** os numeros do parecer acima
+  (lucro R$ 808,80, etc.) usaram o custo provisorio antigo de R$ 1,20/contrato.
+  Em 02/10 isso foi rebaixado para R$ 0,80; **em 10/11/2026 o valor de R$ 1,20
+  foi restabelecido como canonico** (0,60 + 0,60), de modo que os numeros
+  originais do parecer estao, na pratica, corretos. A reprovacao nao muda: os
+  criterios decisivos (n=23 vs n>=100 -> ~4,3 anos; RF 2,66 vs floor; MaxDD%
+  invalido) nao dependem do friction.
 
 ---
 
@@ -1998,8 +2013,10 @@ trailing como "PROPOSTA p/ revisao humana" em vez de aplica-la.
    Conteudo: A1 (expurgo ~18 metodos mortos + bloco inalcancavel `alertas`
    L2485-2499), A2 (5 falhas legadas RG1/RG2/RG3 + spam scaler + trava da
    Faixa 1), A3 (fiacao Keras ->gate). Re-baseline EXECUTADO (23.6).
-- Friction: secao 21 RETIFICADA nesta data para o canonico do `config.json`
-  (WDO R$ 0,80 / WIN R$ 0,25) -- sem conflito com config/A2.
+- Friction: secao 21 RETIFICADA em 10/11/2026 para o canonico do Mestre
+  (**WDO R$ 1,20 = 0,60+0,60** / WIN R$ 0,25). O valor antigo (WDO R$ 0,80)
+  era o do `config.json` e fica so como historico; o `config.json` precisa ser
+  alinhado.
 
 ### 23.6 Re-baseline implementado
 
@@ -2521,8 +2538,9 @@ vezes e achar que o feed está 3h atrasado.
 
 #### 23.20.2 Estudo ORB no WDO (5 anos, dados reais)
 
-Fonte: `WDO$` M5, **135.354 barras**, 10/11/2021 → 10/11/2026, **1.242 sessões**.
-Custo canônico: R$ 0,80/contrato ida-e-volta; 1 ponto = R$ 10,00.
+Fonte: `WDO$` M5, **135.365 barras**, 10/11/2021 → 10/11/2026, **1.242 sessões**.
+Custo canônico: **R$ 1,20/contrato por operação** (0,60 entrada + 0,60 saída);
+1 ponto = R$ 10,00. Todos os números abaixo já estão líquidos de R$ 1,20.
 
 Definição: caixa = 09:00–10:00 BRT; rompimento do high/low da caixa na janela
 de gatilho; stop = lado oposto da caixa; saída no EOD (17:55).
@@ -2536,47 +2554,89 @@ de gatilho; stop = lado oposto da caixa; saída no EOD (17:55).
 
 Ou seja: o ORB "de manual" é quase cara-ou-coroa no WDO.
 
-**Resultado por variante (1 contrato, saída EOD):**
+**Resultado por variante (1 contrato, saída EOD, custo R$ 1,20):**
 
 | variante | n | win% | exp R$ | PF | total R$ | maxDD R$ |
 |---|---:|---:|---:|---:|---:|---:|
-| base (gatilho 10:00–11:00) | 1012 | 46,4 | 12,69 | 1,09 | 12.839 | -5.863 |
-| gatilho 10:00–10:30 | 814 | 47,5 | 23,16 | 1,16 | 18.851 | -5.570 |
-| **gatilho 10:30–11:00** | **875** | **52,1** | **60,88** | **1,50** | **53.267** | **-3.182** |
-| confirmação no fechamento | 862 | 48,6 | 16,84 | 1,12 | 14.513 | -4.835 |
-| stop 0,5× caixa | 1012 | 36,2 | 27,90 | 1,26 | 28.232 | -3.382 |
-| caixa comprimida (<p30 20d) | 363 | 48,8 | 40,78 | 1,36 | 14.802 | -3.198 |
-| volume da caixa ≥ mediana 20d | 476 | 46,2 | 3,84 | 1,02 | 1.828 | -4.566 |
-| filtro p20–p80 (repo vespera) | 549 | 44,4 | 3,79 | 1,03 | 2.078 | -7.886 |
+| base (gatilho 10:00–11:00) | 1012 | 46,4 | 12,22 | 1,09 | 12.364 | -5.886 |
+| gatilho 10:00–10:30 | 814 | 47,5 | 22,76 | 1,16 | 18.526 | -5.589 |
+| **gatilho 10:30–11:00** | **875** | **52,1** | **60,40** | **1,50** | **52.847** | **-3.188** |
+| confirmação no fechamento | 862 | 48,6 | 16,36 | 1,11 | 14.098 | -4.851 |
+| stop 0,5× caixa (janela cheia) | 1012 | 36,2 | 27,43 | 1,25 | 27.757 | -3.395 |
+| caixa comprimida (<p30 20d) | 363 | 48,8 | 40,38 | 1,36 | 14.657 | -3.205 |
+| volume da caixa ≥ mediana 20d | 476 | 46,2 | 3,44 | 1,02 | 1.638 | -4.570 |
+| filtro p20–p80 (repo vespera) | 549 | 44,4 | 3,08 | 1,02 | 1.694 | -8.056 |
 
 **Controles (o teste que separa edge de sorte):**
 
 | controle | exp R$ | PF | total R$ |
 |---|---:|---:|---:|
-| CTRL-MIRROR (lado oposto) | -14,38 | 0,91 | -14.553 |
-| CTRL-LONG 10:00 → EOD (deriva do dólar) | -7,50 | 0,95 | -9.314 |
+| CTRL-MIRROR (lado oposto) | -14,62 | 0,91 | -14.793 |
+| CTRL-LONG 10:00 → EOD (deriva do dólar) | -8,03 | 0,94 | -9.976 |
 
 O espelho perde e o comprado-puro perde: o ganho **não** vem de deriva do dólar
 nem de ruído simétrico. Vem da direção do rompimento.
 
-**Validação do gatilho 10:30–11:00 (o único com PF relevante):**
+**Validação do gatilho 10:30–11:00 (o único com PF relevante, R$ 1,20):**
 
 | ano | n | win% | exp R$ | PF | total R$ |
 |---|---:|---:|---:|---:|---:|
-| 2021 (parcial) | 28 | 57,1 | 134,12 | 1,94 | 3.755 |
-| 2022 | 190 | 56,3 | 101,84 | 1,62 | 19.350 |
-| 2023 | 176 | 50,6 | 36,47 | 1,31 | 6.418 |
-| 2024 | 164 | 52,4 | 74,20 | 1,67 | 12.168 |
-| 2025 | 175 | 53,1 | 45,93 | 1,43 | 8.037 |
-| 2026 | 142 | 45,8 | 24,91 | 1,27 | 3.538 |
+| 2021 (parcial) | 28 | 57,1 | 133,72 | 1,94 | 3.744 |
+| 2022 | 190 | 56,3 | 101,44 | 1,62 | 19.274 |
+| 2023 | 176 | 50,6 | 36,07 | 1,31 | 6.348 |
+| 2024 | 164 | 52,4 | 73,80 | 1,67 | 12.103 |
+| 2025 | 175 | 53,1 | 45,53 | 1,43 | 7.967 |
+| 2026 | 142 | 45,8 | 24,02 | 1,26 | 3.411 |
 
-- **IS 2021–2024:** PF **1,57** (n=558) | **OOS 2025–2026:** PF **1,36** (n=317)
+- **IS 2021–2024:** PF **1,56** (n=558) | **OOS 2025–2026:** PF **1,36** (n=317)
 - **6 de 6 anos positivos**, inclusive 2026 (ano em que o ORB base é negativo).
-- **Stress de slippage:** +2 pts/trade ainda deixa exp **R$ 40,88** e total R$ 35.767.
-- **Stop 0,5× caixa:** PF **1,71**, maxDD **-R$ 2.216**, exp R$ 67,26 (melhor risco).
-- **TP:** 3R (PF 1,52) ≈ sem TP (PF 1,50); TP 1R piora (PF 1,41).
+- **Stress de slippage:** +2 pts/trade ainda deixa exp **R$ 40,40** e total R$ 35.347.
+- **Stop 0,5× caixa:** PF **1,70**, maxDD **-R$ 2.226**, exp R$ 66,78 (melhor risco).
+- **TP:** 3R (PF 1,51) ≈ sem TP (PF 1,50); TP 1R piora (PF 1,41).
 - **Risco por trade (stop = caixa):** mediana **R$ 339** (p80 R$ 493) — é trade
   de 1 por dia, não scalp.
+
+**Filtros testados sobre o gatilho 10:30–11:00 (R$ 1,20, saída EOD):**
+
+| filtro | n | win% | exp R$ | PF | total R$ | maxDD R$ |
+|---|---:|---:|---:|---:|---:|---:|
+| sem filtro (referência) | 874 | 52,2 | 61,07 | 1,51 | 53.379 | -3.188 |
+| + rompimento acima/abaixo do VWAP | 874 | 52,2 | 61,07 | 1,51 | 53.379 | -3.188 |
+| + alinhado com EMA20/EMA50 | 506 | 54,0 | 72,66 | 1,62 | 36.767 | -3.799 |
+| + alinhado com o viés da 1ª hora | 624 | 53,4 | 74,41 | 1,63 | 46.434 | -3.210 |
+| + alinhado com o gap (vs fecho anterior) | 404 | 53,7 | 65,35 | 1,56 | 26.401 | -3.558 |
+| + caixa ≤ 2× mediana 20d | 829 | 52,6 | 64,30 | 1,55 | 53.305 | -3.235 |
+| viés 1ª hora + stop 0,5× | 624 | 44,4 | **82,31** | **1,89** | 51.364 | **-2.251** |
+| EMA + caixa ≤2× + stop 0,5× | 477 | 44,4 | **85,57** | **1,96** | 40.818 | **-1.652** |
+
+Leituras importantes (preto no branco):
+- **VWAP é redundante:** resultado idêntico ao sem filtro (mesmo n, mesmo PF).
+  Motivo: o rompimento da caixa quase sempre já está do lado certo do VWAP da
+  caixa. Não vale implementar.
+- **Filtro de percentil do repo `vespera` falhou** no WDO (PF 1,02): rejeitado.
+- **Volume da caixa não separa** (PF 1,02): rejeitado.
+- Os filtros que **de fato sobem acertividade e PF** são **viés da 1ª hora** e
+  **EMA20/EMA50**, combinados com **stop 0,5× caixa**.
+
+**Validação final dos 2 candidatos (R$ 1,20):**
+
+| | viés 1ª hora + stop 0,5× | EMA + caixa≤2× + stop 0,5× |
+|---|---:|---:|
+| n | 624 | 477 |
+| win% | 44,4 | 44,4 |
+| exp R$ | 82,31 | **85,57** |
+| PF | 1,89 | **1,96** |
+| total R$ | **51.364** | 40.818 |
+| maxDD R$ | -2.251 | **-1.652** |
+| IS 2021–2024 | PF 1,87 | PF 2,06 |
+| OOS 2025–2026 | PF **1,94** | PF 1,74 |
+| +2 pts slippage | exp R$ 62,31 / total 38.884 | exp R$ 65,57 / total 31.278 |
+| anos positivos | 6/6 | 6/6 |
+
+Observação honesta: o WR **cai** para 44,4% com stop 0,5× (stop mais curto =
+mais stops), mas o **payoff sobe** e o PF/lucro melhoram. Ou seja: o ganho não
+vem de acertar mais, vem de **perder menos quando erra**. Se a prioridade for
+WR alto, o candidato é o **gatilho puro com stop cheio** (WR 52,1%, PF 1,50).
 
 **Por que 10:30 e não 10:00 (a explicação econômica):** 10:30 BRT é o horário
 do catalisador americano. No horário de verão dos EUA (mar–nov) = **09:30 ET,
@@ -2599,10 +2659,11 @@ a informação direcional chega com os EUA. Isso explica por que o gatilho misto
 
 **Veredito preto no branco:** ORB genérico no WDO **não é edge** (PF 1,09,
 2026 negativo). ORB **restrito à janela pós-EUA** é um candidato real
-(PF 1,50; 1,71 com stop 0,5×), com 6 anos positivos e OOS positivo — mas ainda
-é **1 hipótese**, não uma verdade: foram ~10 variantes testadas, então existe
-risco de seleção. Próximo passo obrigatório: paper 20–30 dias antes de qualquer
-capital.
+(PF 1,50 puro; 1,70 com stop 0,5×; 1,89–1,96 com filtro + stop 0,5×), com
+6 anos positivos e OOS positivo — mas ainda é **1 hipótese**, não uma verdade:
+foram ~15 variantes testadas, então existe risco de seleção. Próximo passo
+obrigatório: paper 20–30 dias antes de qualquer capital. O custo de R$ 1,20
+**não** muda o veredito (era R$ 0,80; a diferença é ~0,04 ponto/trade).
 
 #### 23.20.3 Order flow e volume profile — o que é, o que já temos, o que falta
 
@@ -2640,17 +2701,23 @@ LVN como corredor**. Duas aplicações concretas:
 Nada disso está validado no WDO ainda. É a próxima fila de pesquisa, depois do
 ORB.
 
-#### 23.20.4 gym-mtsim — veredito: DESCARTAR por agora
+#### 23.20.4 gym-mtsim — veredito: **volta à lista como ★★ (avaliação futura)**
+
+Revisão de 10/11/2026 (diretriz do Mestre: foco é **lucratividade**, não custo;
+sempre 1 contrato):
 
 - É um simulador MT5 + ambiente Gym para RL. Bom código, 526 estrelas.
-- **Não modela custos da B3, tick 0,5, rolagem de contrato nem IR.** Simular
-  WDO nele daria resultado bonito e falso.
-- RL precisa de reward desenhado e milhões de episódios; nosso gargalo hoje é
-  **qualidade de dado e disciplina de validação**, não velocidade de simulação.
-- O candidato que apareceu (ORB pós-EUA) é uma regra simples e explicável.
-  RL em cima de uma regra simples só adiciona variância.
-- Fica como opção futura **se** algum dia formos para RL — e só depois de ter
-  custo/tick/rolagem modelados.
+- **Limite real:** não modela custos da B3, tick 0,5, rolagem de contrato nem
+  IR. Como operamos sempre 1 contrato e R$ 1,20 é ruído, o custo **não** é o
+  problema; o problema é que o simulador não reproduz **microestrutura** (tick
+  a tick, fila, slippage) nem a rolagem do contrato.
+- **Onde pode ajudar de verdade:** gerar **dados sintéticos** para testar
+  robustez da regra (ex.: ORB pós-EUA) sob diferentes regimes de volatilidade,
+  e servir de ambiente para eventual RL **depois** que a regra base estiver
+  validada em paper. Não substitui backtest com dados reais.
+- **Não implementar agora.** Fica como ★★: só entra se (a) o ORB estiver
+  validado em paper e (b) houver tempo para modelar tick/rolagem. Antes disso é
+  distração.
 
 #### 23.20.5 Auditoria dos repos (foco WDO; WIN e EA descartados)
 
@@ -2658,7 +2725,7 @@ ORB.
 |---|---|---|---|
 | `masterjesue/quant` | WDO/WIN, MT5+cTrader, `investiga_deslocamento_3h.py`, `investiga_limite_copy_ticks_from.py` | confirma nosso bug de fuso e o comportamento de `copy_ticks_from` em janela densa | **referência** (não importar: sem README, mistura fontes) |
 | `klaubeer/trade-scan` | backtester WDO/WIN, walk-forward, Monte Carlo, import de CSV do Profit | **Monte Carlo** para dimensionar drawdown + gate IS→OOS | **método** |
-| `RafaelQSantos-RQS/radar` | motor WDO$/WIN$, custos B3 completos (emolumentos, ISS, IRRF, **IR 20% day trade**) | modelo de custo/imposto: nosso R$ 0,80 ignora IR | **método** (melhoria real de expectativa líquida) |
+| `RafaelQSantos-RQS/radar` | motor WDO$/WIN$, custos B3 completos (emolumentos, ISS, IRRF, **IR 20% day trade**) | modelo de custo/imposto: nosso R$ 1,20 ignora IR (★, adiado em simulador) | **método** (só quando for dinheiro real) |
 | `mnogueira/autoresearch-tradebot` | WDO M5, estratégia editável por agente, flat nos últimos 30 min | harness "propõe → backtest reprova"; regra de não dormir com posição | **método** (cuidado: loop de otimização overfitta) |
 | `nicksauro/vespera` | WDO EOD unwind, CPCV, holdout lock, bandas de percentil | **CPCV/holdout**; a regra de percentil **falhou** no nosso teste (PF 1,03) | **método sim, regra não** |
 | `Rpinto003/mini-dolar-strategy-v4` | WDO, RF + volume profile + orderflow | lista de features e multi-TP por ATR | **referência** (sem resultado validado) |
@@ -2669,21 +2736,129 @@ ORB.
 | `Mvrsant/wdoaprimorado` | paridade do WDO | sanity check de preço justo | **descartar** |
 | `AlexPMendonca/lara-ml-trading`, `wesleyzilva/RepoRobos`, `francomascareloai/EA_SCALPER_XAUUSD` | WIN / EA / XAU | — | **descartados** (fora do foco WDO) |
 
-#### 23.20.6 Fila de pesquisa (ordem por valor esperado)
+#### 23.20.6 Fila de pesquisa revisada (10/11/2026)
+
+> Revisão conforme diretriz do Mestre: foco em **lucratividade/acertividade**;
+> IR e Monte Carlo **não** entram agora (não melhoram WR); gym-mtsim volta como
+> ★★; absorção/sweep e POC/HVN/LVN só se provarem lucro incremental.
 
 1. [ ] **ORB pós-EUA no WDO em paper** (20–30 dias), com stop 0,5× caixa e
-       registro de MFE/MAE. Comparar com o backtest (PF 1,71 / maxDD R$ 2,2k).
-2. [ ] **IR 20% day trade** no cálculo de expectativa (repo `radar`): refazer
-       as contas do ORB líquidas de imposto.
-3. [ ] **Monte Carlo** da sequência de trades do ORB (repo `trade-scan`) para
-       dimensionar lote por drawdown, não por "lucro do backtest".
-4. [ ] **Absorção/sweep nas bordas da caixa do Herman** com ticks reais
-       (hipótese de veto; se não separar, descartar).
-5. [ ] **POC/HVN/LVN** como caixa alternativa do Herman (só depois de ~15
-       sessões de coleta).
+       registro de MFE/MAE. Comparar com o backtest (PF 1,50–1,96 / maxDD
+       R$ 1,6–3,2k).
+2. [ ] **Filtros do ORB**: viés da 1ª hora, EMA20/50, caixa ≤2× mediana.
+       Já validados no backtest; entram como flags do FT, não como código novo
+       separado.
+3. [ ] **Calendário/catalisador** (repo `Mercado_Financeiro`): ORB consciente
+       do calendário (não operar 10:30 sem catalisador). Testar no backtest
+       antes de ligar no FT.
+4. [ ] **Absorção OU sweep** nas bordas da caixa do Herman com ticks reais
+       (escolher **um** veto, provar valor incremental; se não separar, descartar).
+5. [ ] **POC/HVN/LVN** como caixa alternativa do Herman e POC do dia anterior
+       como filtro de direção (só depois de ~15 sessões de coleta).
 6. [ ] **CPCV/holdout** como protocolo oficial de qualquer estratégia nova.
+7. [~] **Monte Carlo** — ★ (não melhora WR; só dimensiona drawdown). Deixar de lado.
+8. [~] **IR 20% day trade** — ★ (modo simulador). Deixar de lado por agora.
+9. [~] **gym-mtsim** — ★★ (avaliação futura, só após ORB validado em paper).
 
 #### 23.20.7 Arquivo entregue
 
 - `backtest_orb_wdo.py` — estudo reprodutível, read-only, com controles,
   sensibilidade, validação IS/OOS e stress de slippage. Não envia ordem.
+
+---
+
+### 23.21 PLANO DE IMPLEMENTAÇÃO PONTUADO (10/11/2026)
+
+> **Diretriz:** só entra o que tem evidência de melhorar **lucratividade e/ou
+> acertividade** no WDO. Pontuação de 1 a 5 estrelas; **★ = deixar de lado**.
+> Nada aqui altera o Core nem envia ordem real. Tudo é read-only/paper até
+> validação em 20–30 sessões.
+>
+> Custo canônico: **R$ 1,20/contrato** (0,60 + 0,60). 1 contrato sempre.
+> 1 ponto = R$ 10,00.
+
+#### 23.21.1 Ranking (o que vale a pena)
+
+| # | Iniciativa | ★ | Impacto esperado | Evidência | Decide |
+|---|---|---:|---|---|---|
+| 1 | **FT paper ORB pós-EUA (10:30–11:00)** | ★★★★★ | lucro + acertividade | PF 1,50 (puro) a 1,96 (filtros), 6/6 anos positivos, OOS 1,36–1,94, controles negativos | **implementar agora** |
+| 2 | **Stop 0,5× caixa no ORB** | ★★★★★ | corta maxDD de -3.188 → -2.226 e sobe PF 1,50 → 1,70 | mesma base, R$ 1,20 | **implementar junto** |
+| 3 | **Filtro viés da 1ª hora** | ★★★★ | sobe WR 52,1 → 53,4 e PF 1,50 → 1,63 (1,89 com stop 0,5×) | mesma base, R$ 1,20 | **implementar junto** |
+| 4 | **Filtro EMA20/50 + caixa ≤2× mediana + stop 0,5×** | ★★★★ | melhor PF (1,96) e menor DD (-1.652), mas OOS 1,74 e n menor | mesma base, R$ 1,20 | **flag opcional** (comparar no paper) |
+| 5 | **CPCV/holdout como protocolo** | ★★★★ | protege contra overfitting; barato | método (repo `vespera`/`win-wdo-quant-research`) | **adotar como regra** |
+| 6 | **Calendário/catalisador no ORB** | ★★★★ | evita operar 10:30 sem catalisador (hipótese de mecanismo) | repo `Mercado_Financeiro` + lógica EUA | **testar no backtest antes** |
+| 7 | **Absorção OU sweep (um veto)** | ★★★ | pode filtrar rompimento falso | hipótese; precisa ticks reais | **testar; descartar se não separar** |
+| 8 | **POC/HVN/LVN (caixa alternativa)** | ★★★ | pode melhorar caixa do Herman | hipótese; precisa ~15 sessões | **testar depois** |
+| 9 | **POC do dia anterior como filtro de direção** | ★★★ | barato de testar no ORB | hipótese | **testar no backtest** |
+| 10 | **Flat nos últimos 30 min** | ★★★ | regra de risco, não de edge | método (`autoresearch-tradebot`) | **adotar no FT** |
+| 11 | **Exaustão (saída antecipada)** | ★★ | redundante com absorção/sweep | mesma stream de ticks | **deixar de lado** |
+| 12 | **Divergência (delta cumulativo)** | ★★ | redundante; flags MT5 aproximadas | mesma stream | **deixar de lado** |
+| 13 | **Footprint / delta horizontal** | ★★ | só vale com agressor real (não temos) | `OrderFlow-Analysis-Pro` | **deixar de lado** |
+| 14 | **gym-mtsim** | ★★ | dados sintéticos/RL futuro | repo 526★ | **deixar de lado por agora** |
+| 15 | **VWAP como filtro** | ★ | resultado idêntico ao base | mesmo n/PF | **descartar** |
+| 16 | **Filtro de percentil (vespera)** | ★ | PF 1,02 no WDO | falhou | **descartar** |
+| 17 | **Filtro de volume da caixa** | ★ | PF 1,02 | falhou | **descartar** |
+| 18 | **Monte Carlo** | ★ | não melhora WR; só dimensiona DD | diretriz do Mestre | **deixar de lado** |
+| 19 | **IR 20% day trade** | ★ | modo simulador | diretriz do Mestre | **deixar de lado** |
+
+#### 23.21.2 Ordem de execução (sem conflito de estratégias)
+
+**Fase 0 — agora (documentação):**
+- Corrigir custo canônico para R$ 1,20 (seção 21) e recalcular 23.20.2.
+- Este plano (23.21) aprovado antes de qualquer código.
+
+**Fase 1 — ORB paper (única estratégia nova):**
+- Criar `rompimento_orb_wdo.py` (read-only, sem `order_send`), nos moldes do
+  `rompimento_ft.py`.
+- Janela: caixa 09:00–10:00; gatilho 10:30–11:00; stop 0,5× caixa; EOD 17:55.
+- Flags: `--vies` (viés 1ª hora), `--ema` (EMA20/50), `--caixa-max` (≤2× mediana).
+- Registrar: lado, entrada, stop, caixa, viés, EMA, MFE/MAE, resultado.
+- Wrapper `.bat` + tarefa agendada com marcador `ativo_desde.txt`.
+- Integrar ao `monitor_saude_coletores.py`.
+
+**Fase 2 — validação do paper (20–30 sessões):**
+- Comparar WR/PF/DD do paper com o backtest.
+- Se divergir muito, **parar** e investigar (fill, slippage, fuso, rolagem).
+- Só depois disso considerar capital.
+
+**Fase 3 — filtros adicionais (só se Fase 2 passar):**
+- Calendário/catalisador e POC do dia anterior: testar **primeiro no backtest**.
+- Se melhorarem PF/WR fora da amostra, ligar como flag.
+
+**Fase 4 — order flow no Herman (paralelo, não concorrente):**
+- Com ≥15 sessões de ticks, testar **absorção OU sweep** como veto.
+- Critério de aceite: separa WR de forma estatisticamente visível e melhora
+  expectativa. Se não, descartar sem dó.
+
+**Fase 5 — volume profile no Herman:**
+- POC/HVN/LVN como caixa alternativa; comparar com caixa fixa 3P/6P.
+- Só se bater a caixa fixa em PF e DD.
+
+**Contínuo:** CPCV/holdout em toda estratégia nova.
+
+#### 23.21.3 Conflitos e concorrências (resposta direta)
+
+- **ORB × Herman:** **não competem.** ORB é caixa por tempo (1/dia, risco
+  R$ 170–340); Herman é caixa por volume (várias/dia, risco R$ 30–60). Podem
+  rodar em paralelo com magics/contas separados.
+- **Absorção × exaustão × divergência × sweep:** **não são concorrentes na
+  definição, mas são redundantes na prática** — todas saem do mesmo stream de
+  ticks com flags aproximadas do MT5. Regra: **escolher UM veto** (absorção ou
+  sweep), provar valor incremental; não empilhar os quatro.
+- **Footprint × delta vertical:** footprint é delta **por preço**; o nosso
+  `fluxo_tempo_real.py` é delta **vertical**. Footprint só vale com agressor
+  real (Times & Trades), que não temos. Sem isso, é aproximação.
+- **VWAP × ORB:** redundante (rompimento já está do lado certo do VWAP). Não
+  implementar.
+- **Monte Carlo × IR:** não melhoram WR; ficam ★ e saem da fila.
+- **gym-mtsim × backtest real:** não substitui dados reais; fica ★★.
+
+#### 23.21.4 Critério de aceite (para não se enganar)
+
+Uma iniciativa só sobe para o Core se, **fora da amostra**:
+1. PF > 1,30 **e** expectativa > R$ 20/trade (1 contrato, R$ 1,20); **ou**
+2. reduz maxDD em ≥30% **sem** derrubar PF abaixo de 1,30; **e**
+3. sobrevive a +1 pt de slippage por trade; **e**
+4. passa no holdout/CPCV.
+
+Se não passar em 1–4, fica documentada como **rejeitada** (histórico no ROADMAP).

@@ -14,8 +14,8 @@ Controles (para separar edge de deriva do dolar):
   CTRL-LONG : comprado as 10:00, sai no EOD (mede a deriva)
   CTRL-MIRROR: lado oposto do sinal ORB (se o ORB tem edge, isso perde)
 
-Custos: R$ 0,80 por contrato ida-e-volta (canonico do projeto),
-        1 ponto = R$ 10,00 -> 0,08 ponto por trade.
+Custos: R$ 1,20 por contrato por operacao (0,60 entrada + 0,60 saida),
+        1 ponto = R$ 10,00 -> 0,12 ponto por trade.
 
 Uso:
     python backtest_orb_wdo.py
@@ -30,7 +30,7 @@ import numpy as np
 import pandas as pd
 
 SHIFT_H = 0            # copy_rates_range ja devolve barra em BRT; o +3h vale para TICKS
-COST_RS = 0.80         # ida e volta, por contrato
+COST_RS = 1.20         # R$ 0,60 entrada + R$ 0,60 saida, por contrato (canonico 10/11/2026)
 RS_PER_POINT = 10.0
 BOX_START, BOX_END = "09:00", "10:00"
 TRIG_END = "11:00"
@@ -50,6 +50,8 @@ def load_m5(symbol: str, start: datetime) -> pd.DataFrame:
     df = pd.DataFrame(rates)
     df["ts"] = pd.to_datetime(df["time"], unit="s") + pd.Timedelta(hours=SHIFT_H)
     df = df[["ts", "open", "high", "low", "close", "tick_volume"]].sort_values("ts")
+    df["ema20"] = df["close"].ewm(span=20, adjust=False).mean()
+    df["ema50"] = df["close"].ewm(span=50, adjust=False).mean()
     df["day"] = df["ts"].dt.date
     df["hm"] = df["ts"].dt.strftime("%H:%M")
     # sessao diurna apenas (09:00-18:00 BRT)
@@ -66,13 +68,18 @@ def build_days(df: pd.DataFrame) -> list[dict]:
         after = g[g["hm"] >= TRIG_END]
         if len(box) < 8 or len(trig) < 4 or len(after) < 10:
             continue
+        tpv = float(((box["high"] + box["low"] + box["close"]) / 3 * box["tick_volume"]).sum())
+        vol = float(box["tick_volume"].sum())
         days.append({
             "day": day,
             "box_high": float(box["high"].max()),
             "box_low": float(box["low"].min()),
             "box_open": float(box["open"].iloc[0]),
             "box_close": float(box["close"].iloc[-1]),
-            "box_vol": float(box["tick_volume"].sum()),
+            "box_vol": vol,
+            "box_vwap": tpv / vol if vol else float(box["close"].mean()),
+            "box_ema20": float(box["ema20"].iloc[-1]),
+            "box_ema50": float(box["ema50"].iloc[-1]),
             "trig": trig,
             "after": after,
             "eod_close": float(after["close"].iloc[-1]),
@@ -162,6 +169,10 @@ def main() -> None:
 
     df = load_m5(a.symbol, datetime.strptime(a.start, "%Y-%m-%d"))
     days = build_days(df)
+    prev = None
+    for d in days:
+        d["prev_eod"] = prev
+        prev = d["eod_close"]
     print(f"simbolo={a.symbol} barras={len(df)} dias_validos={len(days)}")
     print(f"periodo: {days[0]['day']} -> {days[-1]['day']}\n")
 
@@ -263,7 +274,7 @@ def main() -> None:
     # ------------------------------------------------------------------
     # SENSIBILIDADE: onde (se em algum lugar) o edge sobrevive
     # ------------------------------------------------------------------
-    print("\n--- sensibilidade (saida EOD, custo R$0.80) ---")
+    print("\n--- sensibilidade (saida EOD, custo R$1.20) ---")
     print(f"{'variante':<44} {'n':>5} {'win%':>6} {'exp_R$':>8} {'PF':>6} {'total_R$':>10} {'maxDD_R$':>10}")
 
     def run_cfg(label, lo="10:00", hi="11:00", confirm=False, stop_mult=1.0,
@@ -298,6 +309,7 @@ def main() -> None:
         d["_p30"] = np.percentile(hist_rng[-20:], 30) if len(hist_rng) >= 20 else None
         d["_p70"] = np.percentile(hist_rng[-20:], 70) if len(hist_rng) >= 20 else None
         d["_vol_med"] = float(np.median(hist_vol[-20:])) if len(hist_vol) >= 20 else None
+        d["_med20"] = float(np.median(hist_rng[-20:])) if len(hist_rng) >= 20 else None
         hist_rng.append(rng)
         hist_vol.append(d["box_vol"])
 
@@ -375,6 +387,98 @@ def main() -> None:
         if side is not None:
             risks.append(abs(entry - stop) * RS_PER_POINT)
     print(f"    mediana R$ {np.median(risks):.0f} | p80 R$ {np.percentile(risks,80):.0f} | max R$ {max(risks):.0f}")
+
+    # ------------------------------------------------------------------
+    # FILTROS: alguma coisa sobe acertividade de verdade?
+    # ------------------------------------------------------------------
+    print("\n--- filtros sobre o gatilho 10:30-11:00 (stop = caixa, EOD) ---")
+    print(f"{'filtro':<40} {'n':>5} {'win%':>6} {'exp_R$':>8} {'PF':>6} {'total_R$':>10} {'maxDD_R$':>10}")
+
+    def run_filter(label, cond, stop_mult=1.0):
+        tr = []
+        for d in days:
+            if d["prev_eod"] is None:
+                continue
+            side, entry, stop, _ = entry_signal(d, "10:30", "11:00")
+            if side is None or not cond(d, side, entry):
+                continue
+            rng = d["box_high"] - d["box_low"]
+            if stop_mult != 1.0:
+                stop = entry - stop_mult * rng if side == "BUY" else entry + stop_mult * rng
+            pnl = simulate(d, side, entry, stop, None)[0]
+            tr.append({"pnl": pnl, "mfe": 0, "mae": 0})
+        v = stats(tr, label)
+        if v["n"] == 0:
+            print(f"{label:<40} {'0':>5}")
+            return v
+        print(f"{label:<40} {v['n']:>5} {v['win%']:>6.1f} {v['exp_rs']:>8.2f} "
+              f"{v['pf']:>6.2f} {v['total_rs']:>10.0f} {v['maxdd_rs']:>10.0f}")
+        return v
+
+    f_vwap = lambda d, s, e: (s == "BUY" and e > d["box_vwap"]) or (s == "SELL" and e < d["box_vwap"])
+    f_ema = lambda d, s, e: (s == "BUY" and d["box_ema20"] > d["box_ema50"]) or \
+                            (s == "SELL" and d["box_ema20"] < d["box_ema50"])
+    f_bias = lambda d, s, e: (s == "BUY" and d["box_close"] > d["box_open"]) or \
+                             (s == "SELL" and d["box_close"] < d["box_open"])
+    f_gap = lambda d, s, e: (s == "BUY" and d["box_open"] > d["prev_eod"]) or \
+                            (s == "SELL" and d["box_open"] < d["prev_eod"])
+    f_cap = lambda d, s, e: d["_med20"] is not None and \
+                            (d["box_high"] - d["box_low"]) <= 2.0 * d["_med20"]
+
+    run_filter("sem filtro (referencia)", lambda d, s, e: True)
+    run_filter("+ rompimento acima/abaixo do VWAP", f_vwap)
+    run_filter("+ alinhado com EMA20/EMA50", f_ema)
+    run_filter("+ alinhado com o vies da 1a hora", f_bias)
+    run_filter("+ alinhado com o gap (vs fecho anterior)", f_gap)
+    run_filter("+ caixa <= 2x mediana 20d (dia nao caotico)", f_cap)
+    run_filter("VWAP + caixa <= 2x mediana", lambda d, s, e: f_vwap(d, s, e) and f_cap(d, s, e))
+    run_filter("VWAP + stop 0.5x", f_vwap, stop_mult=0.5)
+    run_filter("vies 1a hora + stop 0.5x", f_bias, stop_mult=0.5)
+    run_filter("EMA + caixa <= 2x mediana + stop 0.5x",
+               lambda d, s, e: f_ema(d, s, e) and f_cap(d, s, e), stop_mult=0.5)
+
+    # ------------------------------------------------------------------
+    # VALIDACAO FINAL dos 2 candidatos (por ano + IS/OOS + stress)
+    # ------------------------------------------------------------------
+    print("\n--- validacao final dos candidatos ---")
+
+    def collect_filter(cond, stop_mult):
+        tr = []
+        for d in days:
+            if d["prev_eod"] is None:
+                continue
+            side, entry, stop, _ = entry_signal(d, "10:30", "11:00")
+            if side is None or not cond(d, side, entry):
+                continue
+            rng = d["box_high"] - d["box_low"]
+            if stop_mult != 1.0:
+                stop = entry - stop_mult * rng if side == "BUY" else entry + stop_mult * rng
+            out = simulate(d, side, entry, stop, None)
+            tr.append({"pnl": out[0], "mfe": out[2], "mae": -out[3], "year": d["day"].year})
+        return tr
+
+    candidates = [
+        ("vies 1a hora + stop 0.5x", f_bias, 0.5),
+        ("EMA + caixa<=2x + stop 0.5x", lambda d, s, e: f_ema(d, s, e) and f_cap(d, s, e), 0.5),
+    ]
+    for name, cond, sm in candidates:
+        tr = collect_filter(cond, sm)
+        print(f"\n  [{name}] n={len(tr)}")
+        by_y = {}
+        for t in tr:
+            by_y.setdefault(t["year"], []).append(t)
+        for y in sorted(by_y):
+            v = stats(by_y[y], str(y))
+            print(f"    {y}  n={v['n']:>3}  win%={v['win%']:>5.1f}  exp_R$={v['exp_rs']:>7.2f}  "
+                  f"PF={v['pf']:>5.2f}  total_R$={v['total_rs']:>8.0f}")
+        for lbl, sub in (("IS 2021-2024", [t for t in tr if t["year"] <= 2024]),
+                         ("OOS 2025-2026", [t for t in tr if t["year"] >= 2025])):
+            v = stats(sub, lbl)
+            print(f"    {lbl:<15} n={v['n']:>3} win%={v['win%']:>5.1f} exp_R$={v['exp_rs']:>7.2f} "
+                  f"PF={v['pf']:>5.2f} total_R$={v['total_rs']:>8.0f}")
+        for extra in (0.0, 1.0, 2.0):
+            net = np.array([t["pnl"] for t in tr]) * RS_PER_POINT - COST_RS - extra * RS_PER_POINT
+            print(f"    +{extra:.0f} pt slippage: exp_R$={net.mean():>7.2f} total_R$={net.sum():>9.0f}")
 
 
 if __name__ == "__main__":
