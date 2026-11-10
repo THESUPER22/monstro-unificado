@@ -82,13 +82,14 @@ def build_days(df: pd.DataFrame) -> list[dict]:
             "box_ema50": float(box["ema50"].iloc[-1]),
             "trig": trig,
             "after": after,
+            "all": g,
             "eod_close": float(after["close"].iloc[-1]),
         })
     return days
 
 
 def entry_signal(d: dict, lo="10:00", hi="11:00", confirm=False):
-    """Retorna (side, entry, stop, ambiguous) do rompimento na janela de gatilho."""
+    """Retorna (side, entry, stop, ambiguous, entry_ts) do rompimento na janela."""
     bh, bl = d["box_high"], d["box_low"]
     trig = d["trig"]
     trig = trig[(trig["hm"] >= lo) & (trig["hm"] < hi)]
@@ -102,29 +103,44 @@ def entry_signal(d: dict, lo="10:00", hi="11:00", confirm=False):
             dn = bar["low"] < bl
             px_up, px_dn = bh, bl
         if up and dn:
-            return None, None, None, True      # barra ambigua: pula o dia
+            return None, None, None, True, None   # barra ambigua: pula o dia
         if up:
-            return "BUY", px_up, bl, False
+            return "BUY", px_up, bl, False, bar["ts"]
         if dn:
-            return "SELL", px_dn, bh, False
-    return None, None, None, False
+            return "SELL", px_dn, bh, False, bar["ts"]
+    return None, None, None, False, None
 
 
-def simulate(d: dict, side: str, entry: float, stop: float, k_tp: float | None):
-    """Retorna (pnl_pts_bruto, exit, mfe, mae). Conservador: stop antes do TP."""
+def simulate(d: dict, side: str, entry: float, stop: float, k_tp: float | None,
+             entry_ts=None):
+    """Retorna (pnl_pts_bruto, exit, mfe, mae).
+
+    IMPORTANTE: a simulacao comeca na BARRA DE ENTRADA (entry_ts), nao em
+    11:00. Ignorar a barra de entrada favorece stop apertado (o pior trecho
+    do trade e' logo apos o gatilho) e foi a causa de um PF inflado no teste
+    de stop fixo de 5 pts. Sem entry_ts, cai no comportamento antigo.
+    """
     risk = abs(entry - stop)
     if risk <= 0:
         return None
     tp = None if k_tp is None else (entry + k_tp * risk if side == "BUY" else entry - k_tp * risk)
     mfe = mae = 0.0
-    for _, bar in d["after"].iterrows():
+    path = d["after"] if entry_ts is None else d["all"][d["all"]["ts"] >= entry_ts]
+    first = True
+    for _, bar in path.iterrows():
         hi, lo = bar["high"], bar["low"]
+        # gap through the stop: se a barra ABRE alem do stop, o fill e' o open
+        # (pior que o stop). Nao vale para a barra de entrada (open e' antes dela).
+        gap_buy = (not first) and (float(bar["open"]) < stop)
+        gap_sell = (not first) and (float(bar["open"]) > stop)
+        first = False
         if side == "BUY":
             mfe = max(mfe, hi - entry)
             mae = min(mae, lo - entry)
             hit_sl, hit_tp = lo <= stop, (tp is not None and hi >= tp)
             if hit_sl:
-                return stop - entry, "SL", mfe, mae
+                fill = float(bar["open"]) if gap_buy else stop
+                return fill - entry, "SL", mfe, mae
             if hit_tp:
                 return tp - entry, "TP", mfe, mae
         else:
@@ -132,7 +148,8 @@ def simulate(d: dict, side: str, entry: float, stop: float, k_tp: float | None):
             mae = min(mae, entry - hi)
             hit_sl, hit_tp = hi >= stop, (tp is not None and lo <= tp)
             if hit_sl:
-                return entry - stop, "SL", mfe, mae
+                fill = float(bar["open"]) if gap_sell else stop
+                return entry - fill, "SL", mfe, mae
             if hit_tp:
                 return entry - tp, "TP", mfe, mae
     return (d["eod_close"] - entry) if side == "BUY" else (entry - d["eod_close"]), "EOD", mfe, mae
@@ -183,11 +200,11 @@ def main() -> None:
 
     rows, amb = [], 0
     for d in days:
-        side, entry, stop, ambiguous = entry_signal(d)
+        side, entry, stop, ambiguous, ets = entry_signal(d)
         amb += int(ambiguous)
         if side is None:
             continue
-        d.update({"side": side, "entry": entry, "stop": stop})
+        d.update({"side": side, "entry": entry, "stop": stop, "entry_ts": ets})
         rows.append(d)
 
     rompeu = len(rows)
@@ -195,7 +212,7 @@ def main() -> None:
           f"({100*rompeu/len(days):.1f}%) | ambiguos={amb}")
 
     # MFE/MAE: o edge bruto do rompimento
-    res = [simulate(d, d["side"], d["entry"], d["stop"], None) for d in rows]
+    res = [simulate(d, d["side"], d["entry"], d["stop"], None, d.get("entry_ts")) for d in rows]
     mfe = np.array([r[2] for r in res])
     mae = np.array([-r[3] for r in res])
     print(f"apos o rompimento: MFE mediano={np.median(mfe):.1f} pts | "
@@ -206,15 +223,15 @@ def main() -> None:
     for k in (1.0, 1.5, 2.0, 3.0):
         tr = []
         for d in rows:
-            out = simulate(d, d["side"], d["entry"], d["stop"], k)
+            out = simulate(d, d["side"], d["entry"], d["stop"], k, d.get("entry_ts"))
             tr.append({"pnl": out[0], "mfe": out[2], "mae": -out[3]})
         variants.append(stats(tr, f"ORB TP={k:g}R"))
 
-    tr = [{"pnl": simulate(d, d["side"], d["entry"], d["stop"], None)[0],
+    tr = [{"pnl": simulate(d, d["side"], d["entry"], d["stop"], None, d.get("entry_ts"))[0],
            "mfe": 0, "mae": 0} for d in rows]
     variants.append(stats(tr, "ORB sem TP (EOD)"))
 
-    tr = [{"pnl": simulate(d, d["side"], d["entry"], d["stop"], None)[0], "mfe": 0, "mae": 0} for d in rows]
+    tr = [{"pnl": simulate(d, d["side"], d["entry"], d["stop"], None, d.get("entry_ts"))[0], "mfe": 0, "mae": 0} for d in rows]
     tr_m = [{"pnl": -t["pnl"], "mfe": 0, "mae": 0} for t in tr]
     variants.append(stats(tr_m, "CTRL-MIRROR (lado oposto, EOD)"))
 
@@ -243,10 +260,10 @@ def main() -> None:
             kept.append(d)
     tr = []
     for d in kept:
-        side, entry, stop, _ = entry_signal(d)
+        side, entry, stop, _, ets = entry_signal(d)
         if side is None:
             continue
-        tr.append({"pnl": simulate(d, side, entry, stop, None)[0], "mfe": 0, "mae": 0})
+        tr.append({"pnl": simulate(d, side, entry, stop, None, ets)[0], "mfe": 0, "mae": 0})
     v = stats(tr, "ORB filtrado (EOD)")
     print(f"{v['label']:<32} n={v['n']} win%={v['win%']:.1f} exp_R$={v['exp_rs']:.2f} "
           f"PF={v['pf']:.2f} total_R$={v['total_rs']:.0f} maxDD_R$={v['maxdd_rs']:.0f}")
@@ -256,7 +273,7 @@ def main() -> None:
     by_year: dict[int, list] = {}
     for d in rows:
         by_year.setdefault(d["day"].year, []).append(
-            {"pnl": simulate(d, d["side"], d["entry"], d["stop"], None)[0], "mfe": 0, "mae": 0})
+            {"pnl": simulate(d, d["side"], d["entry"], d["stop"], None, d.get("entry_ts"))[0], "mfe": 0, "mae": 0})
     for y in sorted(by_year):
         v = stats(by_year[y], str(y))
         print(f"{y}  n={v['n']:>3}  win%={v['win%']:>5.1f}  exp_R$={v['exp_rs']:>7.2f}  "
@@ -267,7 +284,7 @@ def main() -> None:
     shorts = [d for d in rows if d["side"] == "SELL"]
     print(f"\ndirecao: BUY={len(longs)} SELL={len(shorts)}")
     for lbl, sub in (("BUY", longs), ("SELL", shorts)):
-        tr = [{"pnl": simulate(d, d["side"], d["entry"], d["stop"], None)[0], "mfe": 0, "mae": 0} for d in sub]
+        tr = [{"pnl": simulate(d, d["side"], d["entry"], d["stop"], None, d.get("entry_ts"))[0], "mfe": 0, "mae": 0} for d in sub]
         v = stats(tr, lbl)
         print(f"  {lbl:<5} n={v['n']:>3} win%={v['win%']:>5.1f} exp_R$={v['exp_rs']:>7.2f} PF={v['pf']:.2f}")
 
@@ -288,12 +305,12 @@ def main() -> None:
                 v20 = d.get("_vol_med")
                 if v20 and d["box_vol"] < v20:
                     continue
-            side, entry, stop, _ = entry_signal(d, lo, hi, confirm)
+            side, entry, stop, _, ets = entry_signal(d, lo, hi, confirm)
             if side is None:
                 continue
             if stop_mult != 1.0:
                 stop = entry - stop_mult * rng if side == "BUY" else entry + stop_mult * rng
-            pnl = simulate(d, side, entry, stop, None)[0]
+            pnl = simulate(d, side, entry, stop, None, ets)[0]
             tr.append({"pnl": pnl, "mfe": 0, "mae": 0})
         v = stats(tr, label)
         if v["n"] == 0:
@@ -336,12 +353,12 @@ def main() -> None:
             if subset is not None and not subset(d):
                 continue
             rng = d["box_high"] - d["box_low"]
-            side, entry, stop, _ = entry_signal(d, lo, hi)
+            side, entry, stop, _, ets = entry_signal(d, lo, hi)
             if side is None:
                 continue
             if stop_mult != 1.0:
                 stop = entry - stop_mult * rng if side == "BUY" else entry + stop_mult * rng
-            out = simulate(d, side, entry, stop, k_tp)
+            out = simulate(d, side, entry, stop, k_tp, ets)
             tr.append({"pnl": out[0], "mfe": out[2], "mae": -out[3], "year": d["day"].year})
         return tr
 
@@ -383,7 +400,7 @@ def main() -> None:
     print("\n  risco medio por trade (stop = caixa):")
     risks = []
     for d in days:
-        side, entry, stop, _ = entry_signal(d, "10:30", "11:00")
+        side, entry, stop, _, _ = entry_signal(d, "10:30", "11:00")
         if side is not None:
             risks.append(abs(entry - stop) * RS_PER_POINT)
     print(f"    mediana R$ {np.median(risks):.0f} | p80 R$ {np.percentile(risks,80):.0f} | max R$ {max(risks):.0f}")
@@ -394,18 +411,20 @@ def main() -> None:
     print("\n--- filtros sobre o gatilho 10:30-11:00 (stop = caixa, EOD) ---")
     print(f"{'filtro':<40} {'n':>5} {'win%':>6} {'exp_R$':>8} {'PF':>6} {'total_R$':>10} {'maxDD_R$':>10}")
 
-    def run_filter(label, cond, stop_mult=1.0):
+    def run_filter(label, cond, stop_mult=1.0, stop_pts=None):
         tr = []
         for d in days:
             if d["prev_eod"] is None:
                 continue
-            side, entry, stop, _ = entry_signal(d, "10:30", "11:00")
+            side, entry, stop, _, ets = entry_signal(d, "10:30", "11:00")
             if side is None or not cond(d, side, entry):
                 continue
             rng = d["box_high"] - d["box_low"]
-            if stop_mult != 1.0:
+            if stop_pts is not None:
+                stop = entry - stop_pts if side == "BUY" else entry + stop_pts
+            elif stop_mult != 1.0:
                 stop = entry - stop_mult * rng if side == "BUY" else entry + stop_mult * rng
-            pnl = simulate(d, side, entry, stop, None)[0]
+            pnl = simulate(d, side, entry, stop, None, ets)[0]
             tr.append({"pnl": pnl, "mfe": 0, "mae": 0})
         v = stats(tr, label)
         if v["n"] == 0:
@@ -438,6 +457,61 @@ def main() -> None:
                lambda d, s, e: f_ema(d, s, e) and f_cap(d, s, e), stop_mult=0.5)
 
     # ------------------------------------------------------------------
+    # ESCLARECIMENTO + TESTE: stop em PONTOS fixos (5 pts = R$ 50), como no
+    # codigo do Herman (SL_M=0.5 alem do pavio, MAX_SL=4.5). "0.5x caixa"
+    # NAO e 0.5 ponto: e metade do tamanho da caixa (~17.7 pts = R$ 177).
+    # ------------------------------------------------------------------
+    print("\n--- stop em PONTOS (para nao confundir com 0.5x caixa) ---")
+    stops_pts = []
+    for d in days:
+        side, entry, stop, _, _ = entry_signal(d, "10:30", "11:00")
+        if side is not None:
+            stops_pts.append(abs(entry - stop))
+    stops_pts = np.array(stops_pts)
+    print(f"  caixa (stop 1x):     mediana={np.median(stops_pts):.1f} pts = R$ {np.median(stops_pts)*RS_PER_POINT:.0f}")
+    print(f"  0.5x caixa:          mediana={np.median(stops_pts)*0.5:.1f} pts = R$ {np.median(stops_pts)*0.5*RS_PER_POINT:.0f}")
+    print(f"  0.25x caixa:         mediana={np.median(stops_pts)*0.25:.1f} pts = R$ {np.median(stops_pts)*0.25*RS_PER_POINT:.0f}")
+    print(f"  stop fixo 5 pts:     5.0 pts = R$ {5*RS_PER_POINT:.0f}")
+
+    print(f"\n{'stop fixo':<40} {'n':>5} {'win%':>6} {'exp_R$':>8} {'PF':>6} {'total_R$':>10} {'maxDD_R$':>10}")
+    for p in (3, 5, 8, 10):
+        run_filter(f"stop fixo {p} pts (R$ {p*RS_PER_POINT:.0f})", lambda d, s, e: True, stop_pts=p)
+    for p in (5, 8):
+        run_filter(f"vies 1a hora + stop fixo {p} pts", f_bias, stop_pts=p)
+
+    # validacao do stop fixo (por ano + IS/OOS + slippage) — stop apertado
+    # engana no M5: sem slippage e sem gap, todo stop preenche no preco exato.
+    print("\n--- validacao stop fixo 5 pts (o stop do codigo Herman) ---")
+    for lbl, cond in (("stop fixo 5 pts", lambda d, s, e: True),
+                      ("vies + stop fixo 5 pts", f_bias)):
+        tr = []
+        for d in days:
+            if d["prev_eod"] is None:
+                continue
+            side, entry, stop, _, ets = entry_signal(d, "10:30", "11:00")
+            if side is None or not cond(d, side, entry):
+                continue
+            stop = entry - 5.0 if side == "BUY" else entry + 5.0
+            out = simulate(d, side, entry, stop, None, ets)
+            tr.append({"pnl": out[0], "mfe": out[2], "mae": -out[3], "year": d["day"].year})
+        print(f"\n  [{lbl}] n={len(tr)}")
+        by_y = {}
+        for t in tr:
+            by_y.setdefault(t["year"], []).append(t)
+        for y in sorted(by_y):
+            v = stats(by_y[y], str(y))
+            print(f"    {y}  n={v['n']:>3}  win%={v['win%']:>5.1f}  exp_R$={v['exp_rs']:>7.2f}  "
+                  f"PF={v['pf']:>5.2f}  total_R$={v['total_rs']:>8.0f}")
+        for l2, sub in (("IS 2021-2024", [t for t in tr if t["year"] <= 2024]),
+                        ("OOS 2025-2026", [t for t in tr if t["year"] >= 2025])):
+            v = stats(sub, l2)
+            print(f"    {l2:<15} n={v['n']:>3} win%={v['win%']:>5.1f} exp_R$={v['exp_rs']:>7.2f} "
+                  f"PF={v['pf']:>5.2f} total_R$={v['total_rs']:>8.0f}")
+        for extra in (0.0, 0.5, 1.0, 2.0):
+            net = np.array([t["pnl"] for t in tr]) * RS_PER_POINT - COST_RS - extra * RS_PER_POINT
+            print(f"    +{extra:.1f} pt slippage: exp_R$={net.mean():>7.2f} total_R$={net.sum():>9.0f}")
+
+    # ------------------------------------------------------------------
     # VALIDACAO FINAL dos 2 candidatos (por ano + IS/OOS + stress)
     # ------------------------------------------------------------------
     print("\n--- validacao final dos candidatos ---")
@@ -447,13 +521,13 @@ def main() -> None:
         for d in days:
             if d["prev_eod"] is None:
                 continue
-            side, entry, stop, _ = entry_signal(d, "10:30", "11:00")
+            side, entry, stop, _, ets = entry_signal(d, "10:30", "11:00")
             if side is None or not cond(d, side, entry):
                 continue
             rng = d["box_high"] - d["box_low"]
             if stop_mult != 1.0:
                 stop = entry - stop_mult * rng if side == "BUY" else entry + stop_mult * rng
-            out = simulate(d, side, entry, stop, None)
+            out = simulate(d, side, entry, stop, None, ets)
             tr.append({"pnl": out[0], "mfe": out[2], "mae": -out[3], "year": d["day"].year})
         return tr
 

@@ -2549,30 +2549,39 @@ de gatilho; stop = lado oposto da caixa; saída no EOD (17:55).
 
 - caixa mediana = **35,4 pts** (p20 = 23,1 | p80 = 51,7)
 - rompe a caixa na hora seguinte em **81,5%** dos dias
-- depois do rompimento: MFE mediano **21,4 pts** vs MAE mediano **19,8 pts**
-  → razão **1,08**; MFE > MAE em **49,3%** dos dias
+- depois do rompimento: MFE mediano **22,6 pts** vs MAE mediano **21,2 pts**
+  → razão **1,07**; MFE > MAE em **49,3%** dos dias
 
 Ou seja: o ORB "de manual" é quase cara-ou-coroa no WDO.
+
+**CORREÇÃO METODOLÓGICA (10/11/2026) — leia antes dos números.** A primeira
+versão da simulação começava a checar o stop só às 11:00, **ignorando a barra
+de entrada** (10:30–11:00). Isso favorece stop apertado, porque o pior trecho do
+trade é logo após o gatilho. Corrigido: a simulação agora começa **na barra de
+entrada** e modela **gap através do stop** (se a barra abre além do stop, o fill
+é o open, pior que o stop). Os números abaixo são os corrigidos. O efeito foi
+grande no stop de 5 pts (PF caiu de 3,02 para 1,77) e no stop 0,5× caixa na
+janela cheia (PF caiu de 1,25 para 1,06).
 
 **Resultado por variante (1 contrato, saída EOD, custo R$ 1,20):**
 
 | variante | n | win% | exp R$ | PF | total R$ | maxDD R$ |
 |---|---:|---:|---:|---:|---:|---:|
-| base (gatilho 10:00–11:00) | 1012 | 46,4 | 12,22 | 1,09 | 12.364 | -5.886 |
-| gatilho 10:00–10:30 | 814 | 47,5 | 22,76 | 1,16 | 18.526 | -5.589 |
-| **gatilho 10:30–11:00** | **875** | **52,1** | **60,40** | **1,50** | **52.847** | **-3.188** |
-| confirmação no fechamento | 862 | 48,6 | 16,36 | 1,11 | 14.098 | -4.851 |
-| stop 0,5× caixa (janela cheia) | 1012 | 36,2 | 27,43 | 1,25 | 27.757 | -3.395 |
-| caixa comprimida (<p30 20d) | 363 | 48,8 | 40,38 | 1,36 | 14.657 | -3.205 |
-| volume da caixa ≥ mediana 20d | 476 | 46,2 | 3,44 | 1,02 | 1.638 | -4.570 |
-| filtro p20–p80 (repo vespera) | 549 | 44,4 | 3,08 | 1,02 | 1.694 | -8.056 |
+| base (gatilho 10:00–11:00) | 1012 | 45,8 | 8,43 | 1,06 | 8.527 | -6.502 |
+| gatilho 10:00–10:30 | 814 | 46,7 | 18,09 | 1,13 | 14.724 | -5.589 |
+| **gatilho 10:30–11:00** | **875** | **51,9** | **58,86** | **1,48** | **51.505** | **-3.188** |
+| confirmação no fechamento | 862 | 47,9 | 12,16 | 1,08 | 10.480 | -6.255 |
+| stop 0,5× caixa (janela cheia) | 1012 | 32,2 | 6,69 | 1,06 | 6.766 | -8.046 |
+| caixa comprimida (<p30 20d) | 363 | 46,8 | 29,90 | 1,25 | 10.855 | -3.777 |
+| volume da caixa ≥ mediana 20d | 476 | 46,2 | 2,80 | 1,02 | 1.331 | -4.570 |
+| filtro p20–p80 (repo vespera) | 549 | 44,3 | 2,06 | 1,01 | 1.131 | -8.584 |
 
 **Controles (o teste que separa edge de sorte):**
 
 | controle | exp R$ | PF | total R$ |
 |---|---:|---:|---:|
-| CTRL-MIRROR (lado oposto) | -14,62 | 0,91 | -14.793 |
-| CTRL-LONG 10:00 → EOD (deriva do dólar) | -8,03 | 0,94 | -9.976 |
+| CTRL-MIRROR (lado oposto) | -10,83 | 0,93 | -10.956 |
+| CTRL-LONG 10:00 → EOD (deriva do dólar) | -8,06 | 0,94 | -10.011 |
 
 O espelho perde e o comprado-puro perde: o ganho **não** vem de deriva do dólar
 nem de ruído simétrico. Vem da direção do rompimento.
@@ -2583,16 +2592,18 @@ nem de ruído simétrico. Vem da direção do rompimento.
 |---|---:|---:|---:|---:|---:|
 | 2021 (parcial) | 28 | 57,1 | 133,72 | 1,94 | 3.744 |
 | 2022 | 190 | 56,3 | 101,44 | 1,62 | 19.274 |
-| 2023 | 176 | 50,6 | 36,07 | 1,31 | 6.348 |
+| 2023 | 176 | 49,4 | 29,82 | 1,25 | 5.248 |
 | 2024 | 164 | 52,4 | 73,80 | 1,67 | 12.103 |
-| 2025 | 175 | 53,1 | 45,53 | 1,43 | 7.967 |
-| 2026 | 142 | 45,8 | 24,02 | 1,26 | 3.411 |
+| 2025 | 175 | 53,1 | 44,35 | 1,41 | 7.761 |
+| 2026 | 142 | 45,8 | 23,77 | 1,25 | 3.376 |
 
-- **IS 2021–2024:** PF **1,56** (n=558) | **OOS 2025–2026:** PF **1,36** (n=317)
+- **IS 2021–2024:** PF **1,54** (n=558) | **OOS 2025–2026:** PF **1,35** (n=317)
 - **6 de 6 anos positivos**, inclusive 2026 (ano em que o ORB base é negativo).
-- **Stress de slippage:** +2 pts/trade ainda deixa exp **R$ 40,40** e total R$ 35.347.
-- **Stop 0,5× caixa:** PF **1,70**, maxDD **-R$ 2.226**, exp R$ 66,78 (melhor risco).
-- **TP:** 3R (PF 1,51) ≈ sem TP (PF 1,50); TP 1R piora (PF 1,41).
+- **Stress de slippage:** +2 pts/trade ainda deixa exp **R$ 38,86** e total R$ 34.005.
+- **Stop 0,5× caixa DENTRO da janela 10:30–11:00:** PF **1,63**, maxDD
+  **-R$ 2.226**, exp R$ 61,26. (Na janela cheia 10:00–11:00 o stop 0,5× é ruim:
+  PF 1,06 — o stop curto só funciona depois das 10:30.)
+- **TP:** 3R (PF 1,49) ≈ sem TP (PF 1,48); TP 1R piora (PF 1,43).
 - **Risco por trade (stop = caixa):** mediana **R$ 339** (p80 R$ 493) — é trade
   de 1 por dia, não scalp.
 
@@ -2600,20 +2611,20 @@ nem de ruído simétrico. Vem da direção do rompimento.
 
 | filtro | n | win% | exp R$ | PF | total R$ | maxDD R$ |
 |---|---:|---:|---:|---:|---:|---:|
-| sem filtro (referência) | 874 | 52,2 | 61,07 | 1,51 | 53.379 | -3.188 |
-| + rompimento acima/abaixo do VWAP | 874 | 52,2 | 61,07 | 1,51 | 53.379 | -3.188 |
-| + alinhado com EMA20/EMA50 | 506 | 54,0 | 72,66 | 1,62 | 36.767 | -3.799 |
-| + alinhado com o viés da 1ª hora | 624 | 53,4 | 74,41 | 1,63 | 46.434 | -3.210 |
-| + alinhado com o gap (vs fecho anterior) | 404 | 53,7 | 65,35 | 1,56 | 26.401 | -3.558 |
-| + caixa ≤ 2× mediana 20d | 829 | 52,6 | 64,30 | 1,55 | 53.305 | -3.235 |
-| viés 1ª hora + stop 0,5× | 624 | 44,4 | **82,31** | **1,89** | 51.364 | **-2.251** |
-| EMA + caixa ≤2× + stop 0,5× | 477 | 44,4 | **85,57** | **1,96** | 40.818 | **-1.652** |
+| sem filtro (referência) | 874 | 51,9 | 59,54 | 1,49 | 52.037 | -3.188 |
+| + rompimento acima/abaixo do VWAP | 874 | 51,9 | 59,54 | 1,49 | 52.037 | -3.188 |
+| + alinhado com EMA20/EMA50 | 506 | 54,0 | 72,59 | 1,62 | 36.732 | -3.799 |
+| + alinhado com o viés da 1ª hora | 624 | 53,0 | 72,59 | 1,61 | 45.299 | -3.210 |
+| + alinhado com o gap (vs fecho anterior) | 404 | 53,7 | 65,26 | 1,56 | 26.366 | -3.558 |
+| + caixa ≤ 2× mediana 20d | 829 | 52,4 | 62,68 | 1,53 | 51.963 | -3.235 |
+| viés 1ª hora + stop 0,5× | 624 | 43,3 | **78,57** | **1,83** | 49.027 | **-2.251** |
+| EMA + caixa ≤2× + stop 0,5× | 477 | 44,0 | **82,97** | **1,93** | 39.575 | **-1.652** |
 
 Leituras importantes (preto no branco):
 - **VWAP é redundante:** resultado idêntico ao sem filtro (mesmo n, mesmo PF).
   Motivo: o rompimento da caixa quase sempre já está do lado certo do VWAP da
   caixa. Não vale implementar.
-- **Filtro de percentil do repo `vespera` falhou** no WDO (PF 1,02): rejeitado.
+- **Filtro de percentil do repo `vespera` falhou** no WDO (PF 1,01): rejeitado.
 - **Volume da caixa não separa** (PF 1,02): rejeitado.
 - Os filtros que **de fato sobem acertividade e PF** são **viés da 1ª hora** e
   **EMA20/EMA50**, combinados com **stop 0,5× caixa**.
@@ -2623,20 +2634,53 @@ Leituras importantes (preto no branco):
 | | viés 1ª hora + stop 0,5× | EMA + caixa≤2× + stop 0,5× |
 |---|---:|---:|
 | n | 624 | 477 |
-| win% | 44,4 | 44,4 |
-| exp R$ | 82,31 | **85,57** |
-| PF | 1,89 | **1,96** |
-| total R$ | **51.364** | 40.818 |
+| win% | 43,3 | 44,0 |
+| exp R$ | 78,57 | **82,97** |
+| PF | 1,83 | **1,93** |
+| total R$ | **49.027** | 39.575 |
 | maxDD R$ | -2.251 | **-1.652** |
-| IS 2021–2024 | PF 1,87 | PF 2,06 |
-| OOS 2025–2026 | PF **1,94** | PF 1,74 |
-| +2 pts slippage | exp R$ 62,31 / total 38.884 | exp R$ 65,57 / total 31.278 |
+| IS 2021–2024 | PF 1,81 | PF 2,01 |
+| OOS 2025–2026 | PF **1,89** | PF 1,73 |
+| +2 pts slippage | exp R$ 58,57 / total 36.547 | exp R$ 62,97 / total 30.035 |
 | anos positivos | 6/6 | 6/6 |
 
-Observação honesta: o WR **cai** para 44,4% com stop 0,5× (stop mais curto =
-mais stops), mas o **payoff sobe** e o PF/lucro melhoram. Ou seja: o ganho não
-vem de acertar mais, vem de **perder menos quando erra**. Se a prioridade for
-WR alto, o candidato é o **gatilho puro com stop cheio** (WR 52,1%, PF 1,50).
+Observação honesta: o WR **cai** para 43–44% com stop 0,5× (stop mais curto =
+mais stops), mas o **payoff sobe** e o PF/lucro melhoram. O ganho não vem de
+acertar mais, vem de **perder menos quando erra**. Se a prioridade for WR alto,
+o candidato é o **gatilho puro com stop cheio** (WR 51,9%, PF 1,48).
+
+**Stop em PONTOS (o esclarecimento que evita erro de 10x):**
+
+| stop | pontos | R$ (1 contrato) | WR | PF | total R$ | maxDD R$ |
+|---|---:|---:|---:|---:|---:|---:|
+| 0,5× caixa (metade da caixa) | ~17,0 | ~R$ 170 | 43,3 | 1,83 | 49.027 | -2.251 |
+| caixa cheia (stop do ORB base) | ~33,9 | ~R$ 339 | 51,9 | 1,48 | 51.505 | -3.188 |
+| **stop fixo 3 pts** | 3,0 | R$ 30 | 14,5 | 2,43 | 33.372 | -998 |
+| **stop fixo 5 pts (padrão Herman)** | 5,0 | **R$ 50** | **17,4** | **1,77** | 28.470 | **-1.469** |
+| stop fixo 8 pts | 8,0 | R$ 80 | 24,0 | 1,55 | 29.573 | -2.013 |
+| stop fixo 10 pts | 10,0 | R$ 100 | 29,9 | 1,65 | 39.755 | -2.086 |
+| viés + stop fixo 5 pts | 5,0 | R$ 50 | 21,3 | **2,25** | 31.499 | **-1.280** |
+
+**ATENÇÃO — "0,5× caixa" NÃO é 0,5 ponto.** É **metade do tamanho da caixa**:
+caixa mediana 33,9 pts → stop **~17,0 pts = ~R$ 170**. Meio ponto (R$ 5) seria
+violado no primeiro tick. O tick do WDO anda de 0,5 em 0,5 ponto (R$ 5), então
+stop de 5 pontos = R$ 50, como no código do Herman (`SL_M=0,5` além do pavio,
+`MAX_SL=4,5`).
+
+**Validação do stop fixo de 5 pts (o do código Herman):**
+
+| | stop fixo 5 pts | viés + stop fixo 5 pts |
+|---|---:|---:|
+| n | 874 | 624 |
+| win% | 17,4 | 21,3 |
+| exp R$ | 32,57 | **50,48** |
+| PF | 1,77 | **2,25** |
+| total R$ | 28.470 | **31.499** |
+| maxDD R$ | -1.469 | **-1.280** |
+| IS 2021–2024 | PF 1,70 | PF 2,10 |
+| OOS 2025–2026 | PF **1,90** | PF **2,55** |
+| +2 pts slippage | exp R$ 12,57 / total 10.990 | exp R$ 30,48 / total 19.019 |
+| anos positivos | 6/6 | 6/6 |
 
 **Por que 10:30 e não 10:00 (a explicação econômica):** 10:30 BRT é o horário
 do catalisador americano. No horário de verão dos EUA (mar–nov) = **09:30 ET,
@@ -2651,19 +2695,21 @@ a informação direcional chega com os EUA. Isso explica por que o gatilho misto
 | | Herman (3P/6P) | ORB WDO |
 |---|---|---|
 | caixa | **volume** em faixa de 3 ou 6 pts, várias por dia | **tempo** (1ª hora), 1 por dia |
-| risco/trade | R$ 30 / R$ 60 | R$ 170–340 |
+| risco/trade | R$ 30 / R$ 60 (stop 5 pts = R$ 50) | R$ 50 (stop 5 pts) a R$ 339 (caixa cheia) |
 | gatilho | rompimento + EMA9/21 + VWAP + ajuste + pavio | rompimento puro após 10:30 |
 | o que precisa para ganhar | acertar muito (WR alto) em movimentos curtos | capturar o repricing macro do dia |
 | frequência | alta | ~1/dia (875 em 5 anos) |
-| ponto fraco | stop apertado, ruído | 1 stop largo, dependente do catalisador |
+| ponto fraco | stop apertado, ruído | depende do catalisador; WR baixo com stop curto |
 
-**Veredito preto no branco:** ORB genérico no WDO **não é edge** (PF 1,09,
+**Veredito preto no branco:** ORB genérico no WDO **não é edge** (PF 1,06,
 2026 negativo). ORB **restrito à janela pós-EUA** é um candidato real
-(PF 1,50 puro; 1,70 com stop 0,5×; 1,89–1,96 com filtro + stop 0,5×), com
-6 anos positivos e OOS positivo — mas ainda é **1 hipótese**, não uma verdade:
-foram ~15 variantes testadas, então existe risco de seleção. Próximo passo
-obrigatório: paper 20–30 dias antes de qualquer capital. O custo de R$ 1,20
-**não** muda o veredito (era R$ 0,80; a diferença é ~0,04 ponto/trade).
+(PF 1,48 puro; 1,63 com stop 0,5×; 1,83–1,93 com filtro + stop 0,5×; 1,77 com
+stop fixo de 5 pts), com 6 anos positivos e OOS positivo — mas ainda é **1
+hipótese**, não uma verdade: foram ~20 variantes testadas, então existe risco de
+seleção. Próximo passo obrigatório: paper 20–30 dias antes de qualquer capital.
+O custo de R$ 1,20 **não** muda o veredito (era R$ 0,80; a diferença é ~0,04
+ponto/trade). O stop de 5 pts **é lucrativo**, mas com WR baixo (17–21%): é um
+perfil de "poucos acertos grandes", não de acertividade alta.
 
 #### 23.20.3 Order flow e volume profile — o que é, o que já temos, o que falta
 
