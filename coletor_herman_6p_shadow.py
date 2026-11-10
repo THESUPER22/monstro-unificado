@@ -135,11 +135,31 @@ class Coletor:
         for fn, h, obj in (("boxes_herman.csv", box_h, "wbx"),
                            ("sinais_herman.csv", sin_h, "wsi")):
             p = os.path.join(OUT, fn)
-            novo = not os.path.exists(p)
+            novo = True
+            if os.path.exists(p) and os.path.getsize(p) > 0:
+                # Valida o cabecalho: se nao bate com o layout atual, rotaciona o
+                # arquivo antigo. Sem isso, linhas novas (com box_pts na 1a coluna)
+                # ficam desalinhadas sob um cabecalho velho e o backtest le lixo.
+                try:
+                    with open(p, encoding="utf-8-sig", newline="") as _chk:
+                        atual = next(csv.reader(_chk), [])
+                except Exception:
+                    atual = []
+                if atual == h:
+                    novo = False
+                else:
+                    bkp = "%s.hdr_antigo_%s" % (p, dt.datetime.now().strftime("%Y%m%d_%H%M%S"))
+                    try:
+                        os.replace(p, bkp)
+                        print("Cabecalho de %s desatualizado -> rotacionado para %s"
+                              % (fn, os.path.basename(bkp)), flush=True)
+                    except Exception as e:
+                        print("Falha ao rotacionar %s: %s" % (fn, e), flush=True)
             fh = open(p, "a", newline="", encoding="utf-8")
             w = csv.DictWriter(fh, fieldnames=h)
             if novo:
                 w.writeheader()
+                fh.flush()
             setattr(self, obj + "_fh", fh)
             setattr(self, obj, w)
 
