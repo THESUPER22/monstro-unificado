@@ -644,7 +644,8 @@ def _migrar_historico_timestamp():
         if cabecalho and cabecalho[0].strip().lower() == "timestamp":
             return
         backup = f"{HISTORICO_CSV}.sem_timestamp.bak"
-        os.rename(HISTORICO_CSV, backup)
+        # os.replace sobrescreve backup existente (Windows: os.rename falha com WinError 183)
+        os.replace(HISTORICO_CSV, backup)
         logging.warning(
             "HISTORICO: schema antigo sem timestamp migrado para %s. "
             "Novo arquivo sera criado com timestamp.", os.path.basename(backup))
