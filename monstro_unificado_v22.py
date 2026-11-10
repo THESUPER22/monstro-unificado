@@ -6927,11 +6927,10 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
 
                 if timestamp_atual - ultimo_diagnostico >= 300:
                     checar_arquivos_essenciais()
-                    # === VERIFICAÃâ¡ÃÆO PERIÃâDICA DO MODELO (roda igual; log em debug) ===
-                    logging.debug("Ã°Å¸âºÂ¡Ã¯Â¸Â VerificaÃÂ§ÃÂ£o periÃÂ³dica do modelo...")
-                    if not verificar_e_proteger_modelo():
-                        logging.warning(
-                            "Ã¢Å¡Â Ã¯Â¸Â Modelo teve problemas - mas foi protegido automaticamente")
+                    # Verificacao leve: apenas checa se o arquivo do modelo existe
+                    # (nao carrega o modelo - evita bloqueio de ~15s na porta 5001)
+                    if not os.path.exists(MODELO_PATH):
+                        logging.warning("Modelo ausente em disco - sera recriado na proxima inicializacao")
                     ultimo_diagnostico = timestamp_atual
 
                 if esperando_confirmacao:

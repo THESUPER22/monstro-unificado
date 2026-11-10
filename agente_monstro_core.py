@@ -1206,7 +1206,7 @@ def run_watchdog():
             _backoff_salvar(time.time())
         log.info(f"watchdog restart: {ok} ({m})")
     else:
-        ok, m = health_check(10)
+        ok, m = health_check(30)
         if ok:
             log.info(f"watchdog: robo vivo ({m})")
         else:
