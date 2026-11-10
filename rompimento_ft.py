@@ -129,11 +129,17 @@ def batch_avail(mt5, hoje, now):
 
 
 def feed_lag_min(mt5):
-    """defasagem (min) da ultima vela M5 em relacao a hora real. fuso-independente."""
+    """defasagem (min) da ultima vela M5 em relacao a hora real.
+
+    O terminal pode gravar as barras em outro fuso (servidor != BRT). detect_shift()
+    ja descobriu o deslocamento _SHIFT que converte o epoch da barra para o horario
+    local, entao a idade real da barra e' time.time() - (last_epoch + _SHIFT).
+    Sem esse ajuste o FT acharia o feed 180 min defasado e nunca decidiria.
+    """
     r = mt5.copy_rates_from_pos(SYMBOL, mt5.TIMEFRAME_M5, 0, 1)
     if r is None or len(r) == 0:
         return 10 ** 9
-    last_epoch = int(r[0]["time"])
+    last_epoch = int(r[0]["time"]) + _SHIFT
     return (time.time() - last_epoch) / 60.0
 
 
