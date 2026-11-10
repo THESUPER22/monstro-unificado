@@ -33,12 +33,12 @@ import datetime as dt
 import argparse
 
 BASE = r"C:\AIOFEN"
-SYM = "WDO$"
+SYM = None  # resolvido dinamicamente no Coletor.__init__
 OUT = os.path.join(BASE, "logs", "herman_6p")
 SIZES = (6.0, 3.0)
 MIN_PAVIO = 0.35
 POLL_S = 0.1
-LAST_LOOKBACK_S = 3.0
+LAST_LOOKBACK_S = 10.0
 
 
 class Builder:
@@ -92,6 +92,19 @@ class Coletor:
         self.mt5 = mt5
         if not mt5.initialize():
             raise RuntimeError("MT5 nao inicializou")
+        # Resolve contrato front-month dinamicamente (WDO$ nao retorna ticks)
+        import re as _re
+        _syms = mt5.symbols_get()
+        _agora = dt.datetime.now().timestamp()
+        _cand = [s for s in _syms
+                if _re.fullmatch(r"WDO[A-Z]\d{2}", s.name)
+                and s.trade_mode == mt5.SYMBOL_TRADE_MODE_FULL
+                and getattr(s, "expiration_time", 0) > _agora]
+        self.sym = min(_cand, key=lambda s: s.expiration_time).name if _cand else "WDO$"
+        mt5.symbol_select(self.sym, True)
+        global SYM
+        SYM = self.sym
+        print("Coletor Herman usando contrato:", self.sym, flush=True)
         self.last_ms = 0
         self.day = None
         self.nlv = 0.0
@@ -105,7 +118,7 @@ class Coletor:
         self._init_csvs()
 
     def _ajuste(self):
-        d1 = self.mt5.copy_rates_range(SYM, self.mt5.TIMEFRAME_D1,
+        d1 = self.mt5.copy_rates_range(self.sym, self.mt5.TIMEFRAME_D1,
                                        dt.datetime.now() - dt.timedelta(days=6),
                                        dt.datetime.now())
         if d1 is not None and len(d1) >= 2:
@@ -144,9 +157,9 @@ class Coletor:
                       f, ensure_ascii=False, indent=2)
 
     def _coleta_ticks(self):
-        ti = self.mt5.symbol_info_tick(SYM)
+        ti = self.mt5.symbol_info_tick(self.sym)
         agora = dt.datetime.fromtimestamp(ti.time) if ti and ti.time else dt.datetime.now()
-        tk = self.mt5.copy_ticks_range(SYM, agora - dt.timedelta(seconds=LAST_LOOKBACK_S), agora)
+        tk = self.mt5.copy_ticks_range(self.sym, agora - dt.timedelta(seconds=LAST_LOOKBACK_S), agora, self.mt5.COPY_TICKS_ALL)
         if tk is None or len(tk) == 0:
             return []
         out = []
@@ -264,7 +277,7 @@ class Coletor:
         self.heart()
 
     def smoke(self):
-        si = self.mt5.symbol_info_tick(SYM)
+        si = self.mt5.symbol_info_tick(self.sym)
         print("conexao OK. symbol_info_tick:")
         if si is not None:
             print("  ts_ms:", si.time_msc, "bid:", si.bid, "ask:", si.ask,
