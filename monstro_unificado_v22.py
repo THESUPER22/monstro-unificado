@@ -3385,7 +3385,7 @@ def corrigir_csv_historico() -> None:
         df = pd.read_csv(HISTORICO_CSV, on_bad_lines='skip')
         linhas_originais = len(df)
 
-        colunas_esperadas = ['bid_qty', 'ask_qty', 'spread', 'volatility', 'candle_type',
+        colunas_esperadas = ['timestamp', 'bid_qty', 'ask_qty', 'spread', 'volatility', 'candle_type',
                              'entropia_book', 'rsi_14', 'volume_tick', 'is_in_trade',
                              'floating_profit', 'tempo_em_trade',
                              'preco_maior_escora_bid', 'volume_maior_escora_bid',
@@ -3409,7 +3409,9 @@ def corrigir_csv_historico() -> None:
             logging.warning(
                 f"Ã¢Å¾â¢ Adicionando colunas faltantes no CSV: {colunas_faltando}")
             for col in colunas_faltando:
-                if col in ['reward', 'floating_profit', 'spread']:
+                if col == 'timestamp':
+                    df[col] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                elif col in ['reward', 'floating_profit', 'spread']:
                     df[col] = 0.0
                 elif col == 'action':
                     df[col] = 'NADA'
