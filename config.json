@@ -1,163 +1,170 @@
 {
-  "symbol_prefix": "WDO",
-  "volume_padrao": 1.0,
-  "sl_points": 8,
-  "tp_points": 0,
-  "max_loss_diario": -1000.0,
-  "max_spread": 5,
-  "min_volume_book": 200,
-  "sniper_volume_min": 400,
-  "sniper_ratio_min": 1.5,
-  "horarios": {
-    "pregao": "09:00",
-    "limite_ordens": "17:33",
-    "encerramento": "17:35",
-    "after_market": "17:40"
-  },
-  "ia_config": {
-    "epochs_treino": 3,
-    "batch_size": 32,
-    "learning_rate": 0.001,
-    "decay_meia_vida": 12
-  },
-  "geral": {
-    "mt5_path": "C:\\Program Files\\MetaTrader 5 Terminal\\terminal64.exe",
-    "log_file": "monstro.log",
-    "magic_number": 123456,
-    "deviation": 20
-  },
-  "contrato": {
-    "prefixo": "WDO",
-    "tick_size": 0.5,
-    "ticks_por_ponto": 1000,
-    "digits_dolar": 3
-  },
-  "operacional": {
-    "volume_padrao": 1.0,
-    "volume_minimo_book": 200,
-    "periodo_atr": 14,
-    "multiplicador_sl_atr": 2.0,
-    "multiplicador_tp_atr": 3.0,
-    "sl_max_pontos": 8,
-    "tp_max_pontos": 0
-  },
-  "risk_management": {
-    "max_loss_diario": -1000.0,
-    "max_drawdown": -100.0,
-    "max_spread_pontos": 5,
-    "max_losses_sequencia": 3,
-    "ciclos_bloqueio": 5,
-    "min_lucro_desbloqueio": 0.0,
-    "sniper_volume_min": 400,
-    "sniper_ratio_min": 1.5,
-    "sl_points": 8,
-    "book_ratio_min": 1.3,
-    "dol_conf_min": 0.4,
-    "tp_points": 0
-  },
-  "trailing_stop": {
-    "ativo": true,
-    "intervalo_segundos": 5,
-    "gatilho_pontos": 8.0,
-    "distancia_pontos": 4.0,
-    "_nota": "Valores lidos pelo codigo (monstro_unificado_v22.py L1060-1062). Ajuste real via fonte ou config.json."
-  },
-  "aprendizado": {
-    "modelo_path": "modelo_monstro_wdo.h5",
-    "historico_csv": "historico_contexto_wdo.csv",
-    "n_features": 22,
-    "min_exp_para_treino": 3,
-    "max_experiencias_memoria": 1000,
-    "epochs": 3,
-    "batch_size": 32
-  },
-  "trading": {
     "symbol_prefix": "WDO",
     "volume_padrao": 1.0,
-    "magic_number": 123456,
     "sl_points": 8,
     "tp_points": 0,
+    "max_loss_diario": -1000.0,
     "max_spread": 5,
-    "horario_pregao": "09:00",
-    "horario_after": "18:32"
-  },
-  "ai_settings": {
-    "n_features": 22,
-    "min_experiencias_treino": 3,
-    "max_experiencias_memoria": 1000,
-    "epochs_treino": 3,
-    "batch_size": 32
-  },
-  "modo_wdo": {
-    "ativo": true,
-    "descricao": "Configuração para WDO - Mini Dólar",
-    "data_ativacao": "2025-01-16",
-    "observacoes": [
-      "Volume de 1 contrato por operação",
-      "Volume mínimo book 200cc",
-      "SL 8 pontos (piso max(1.5xATR, 8)), SEM TP - saída dinâmica por Keras+Book",
-      "Risk management -R$ 1000 diário",
-      "Trailing 8/4 pts hardcoded no código",
-      "Modelo otimizado para WDO"
-    ]
-  },
-  "web_dashboard": {
-    "port": 5001,
-    "debug": true
-  },
-  "fluxo_tempo_real": {
-    "ativo": true,
-    "modo": "monitoramento",
-    "janela_curta_segundos": 30,
-    "janela_candle": "M1",
-    "persistencia_ativa": false,
-    "intervalo_captura_ms": 200,
-    "retencao_dias": 7,
-    "limiar_volume": 0,
-    "limiar_delta": 100,
-    "usar_como_decisao": false
-  },
-  "logging": {
-    "level": "INFO",
-    "file": "monstro.log"
-  },
-  "dol_conf_min": 0.4,
-  "book_ratio_min": 1.3,
-  "sniper_apenas": true,
-  "sniper_cooldown_s": 120,
-  "rompimento": {
-    "ativo": true,
-    "lote": 1.0,
-    "sl_mode": "lo",
-    "tp_k": 1.5,
-    "janela_min": 60,
-    "magic": 7008,
-    "hora_inicio": 9.0,
-    "hora_fim": 11.0,
-    "hora_eod": "17:30",
-    "stale_max_min": 12,
-    "no_night_bars": true,
-    "sub_ativo": true,
-    "sub_rr_min": 1.0,
-    "sub_sl_min_atr": 1.0,
-    "cb2_ignore_max_loss": true,
-    "datas_bloqueadas": []
-  },
-  "custos_operacionais": {
-    "win": {
-      "custo_por_trade_5ct": 1.25,
-      "valor_por_ponto_5ct": 5.0,
-      "slippage_pontos": 1.0,
-      "tick_size": 0.5,
-      "ticks_por_ponto": 2
+    "min_volume_book": 200,
+    "sniper_volume_min": 400,
+    "sniper_ratio_min": 1.5,
+    "horarios": {
+        "pregao": "09:00",
+        "limite_ordens": "17:33",
+        "encerramento": "17:35",
+        "after_market": "17:40"
     },
-    "wdo": {
-      "custo_por_trade_5ct": 4.0,
-      "valor_por_ponto_5ct": 50.0,
-      "slippage_pontos": 0.5,
-      "tick_size": 0.5,
-      "ticks_por_ponto": 2000
+    "ia_config": {
+        "epochs_treino": 3,
+        "batch_size": 32,
+        "learning_rate": 0.001,
+        "decay_meia_vida": 12
     },
-    "observacao": "Custos reais XP NOMOS com RLP ativo (5 contratos). Zero corretagem. Emolumentos B3 + RLP. Slippage reduzido pelo RLP."
-  }
+    "geral": {
+        "mt5_path": "C:\\Program Files\\MetaTrader 5 Terminal\\terminal64.exe",
+        "log_file": "monstro.log",
+        "magic_number": 123456,
+        "deviation": 20
+    },
+    "contrato": {
+        "prefixo": "WDO",
+        "tick_size": 0.5,
+        "ticks_por_ponto": 1000,
+        "digits_dolar": 3
+    },
+    "operacional": {
+        "volume_padrao": 1.0,
+        "volume_minimo_book": 200,
+        "periodo_atr": 14,
+        "multiplicador_sl_atr": 2.0,
+        "multiplicador_tp_atr": 3.0,
+        "sl_max_pontos": 8,
+        "tp_max_pontos": 0
+    },
+    "risk_management": {
+        "max_loss_diario": -1000.0,
+        "max_drawdown": -100.0,
+        "max_spread_pontos": 5,
+        "max_losses_sequencia": 3,
+        "ciclos_bloqueio": 5,
+        "min_lucro_desbloqueio": 0.0,
+        "sniper_volume_min": 400,
+        "sniper_ratio_min": 1.5,
+        "sl_points": 8,
+        "book_ratio_min": 1.3,
+        "dol_conf_min": 0.4,
+        "tp_points": 0
+    },
+    "trailing_stop": {
+        "ativo": true,
+        "intervalo_segundos": 5,
+        "gatilho_pontos": 8.0,
+        "distancia_pontos": 4.0,
+        "_nota": "Valores lidos pelo codigo (monstro_unificado_v22.py L1060-1062). Ajuste real via fonte ou config.json."
+    },
+    "aprendizado": {
+        "modelo_path": "modelo_monstro_wdo.h5",
+        "historico_csv": "historico_contexto_wdo.csv",
+        "n_features": 22,
+        "min_exp_para_treino": 3,
+        "max_experiencias_memoria": 1000,
+        "epochs": 3,
+        "batch_size": 32
+    },
+    "trading": {
+        "symbol_prefix": "WDO",
+        "volume_padrao": 1.0,
+        "magic_number": 123456,
+        "sl_points": 8,
+        "tp_points": 0,
+        "max_spread": 5,
+        "horario_pregao": "09:00",
+        "horario_after": "18:32"
+    },
+    "ai_settings": {
+        "n_features": 22,
+        "min_experiencias_treino": 3,
+        "max_experiencias_memoria": 1000,
+        "epochs_treino": 3,
+        "batch_size": 32
+    },
+    "modo_wdo": {
+        "ativo": true,
+        "descricao": "Configuração para WDO - Mini Dólar",
+        "data_ativacao": "2025-01-16",
+        "observacoes": [
+            "Volume de 1 contrato por operação",
+            "Volume mínimo book 200cc",
+            "SL 8 pontos (piso max(1.5xATR, 8)), SEM TP - saída dinâmica por Keras+Book",
+            "Risk management -R$ 1000 diário",
+            "Trailing 8/4 pts hardcoded no código",
+            "Modelo otimizado para WDO"
+        ]
+    },
+    "web_dashboard": {
+        "port": 5001,
+        "debug": true
+    },
+    "fluxo_tempo_real": {
+        "ativo": true,
+        "modo": "monitoramento",
+        "janela_curta_segundos": 30,
+        "janela_candle": "M1",
+        "persistencia_ativa": false,
+        "intervalo_captura_ms": 200,
+        "retencao_dias": 7,
+        "limiar_volume": 0,
+        "limiar_delta": 100,
+        "usar_como_decisao": false,
+        "relaxar_filtros_lateral": false
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "monstro.log"
+    },
+    "dol_conf_min": 0.4,
+    "book_ratio_min": 1.3,
+    "sniper_apenas": true,
+    "sniper_cooldown_s": 120,
+    "rompimento": {
+        "ativo": true,
+        "lote": 1.0,
+        "sl_mode": "lo",
+        "tp_k": 1.5,
+        "janela_min": 60,
+        "magic": 7008,
+        "hora_inicio": 9.0,
+        "hora_fim": 11.0,
+        "hora_eod": "17:30",
+        "stale_max_min": 12,
+        "no_night_bars": true,
+        "sub_ativo": false,
+        "sub_rr_min": 1.0,
+        "sub_sl_min_atr": 1.0,
+        "cb2_ignore_max_loss": true,
+        "datas_bloqueadas": [],
+        "faixa_perda_max_rs": 500.0
+    },
+    "custos_operacionais": {
+        "win": {
+            "custo_por_trade_5ct": 1.25,
+            "valor_por_ponto_5ct": 5.0,
+            "slippage_pontos": 1.0,
+            "tick_size": 0.5,
+            "ticks_por_ponto": 2
+        },
+        "wdo": {
+            "custo_por_trade_5ct": 4.0,
+            "valor_por_ponto_5ct": 50.0,
+            "slippage_pontos": 0.5,
+            "tick_size": 0.5,
+            "ticks_por_ponto": 2000
+        },
+        "observacao": "Custos reais XP NOMOS com RLP ativo (5 contratos). Zero corretagem. Emolumentos B3 + RLP. Slippage reduzido pelo RLP."
+    },
+    "sniper_wr_buy": -80,
+    "sniper_wr_sell": -20,
+    "mr_rsi_compra": 25.0,
+    "mr_rsi_venda": 75.0,
+    "mr_zscore_limiar": 1.5
 }

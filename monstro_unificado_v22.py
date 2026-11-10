@@ -3108,6 +3108,9 @@ class SniperSupermo:
         # (spam de sinal). Cooldown de 2min forÃ§a o sniper a esperar entre
         # sinais consecutivos, filtrando ruÃ­do e processamento desperdiÃ§ado.
         self.cooldown_segundos = float(config.get('sniper_cooldown_s', 120))
+        # WR thresholds configuraveis (relaxar em mercado lateral via config)
+        self.wr_buy = float(config.get('sniper_wr_buy', -80))
+        self.wr_sell = float(config.get('sniper_wr_sell', -20))
         self.em_zona = 0  # 1=SOBREVENDIDO(BUY), -1=SOBRECOMPRADO(SELL), 0=fora
         self.wr_anterior = -50.0
 
@@ -3137,14 +3140,14 @@ class SniperSupermo:
 
         # Sinal %R extremo com trava de zona: sÃ³ entra na ENTRADA da zona
         # (debounce), evitando mÃºltiplos sinais dentro do mesmo extremo.
-        if wr <= -80:
+        if wr <= self.wr_buy:
             score += 2
             detalhes.append(f"%R={wr:.0f}(SEV)")
             if self.em_zona != 1:
                 self.em_zona = 1
                 direcao = "BUY"
                 detalhes.append("BUY")
-        elif wr >= -20:
+        elif wr >= self.wr_sell:
             score += 2
             detalhes.append(f"%R={wr:.0f}(SEC)")
             if self.em_zona != -1:
@@ -3178,9 +3181,9 @@ class SniperSupermo:
             _veto_mt_buy = False
             _veto_mt_sell = False
             if _m15_wr is not None and _m30_wr is not None:
-                if _m15_wr >= -20 and _m30_wr >= -20:
+                if _m15_wr >= self.wr_sell and _m30_wr >= self.wr_sell:
                     _veto_mt_sell = True
-                if _m15_wr <= -80 and _m30_wr <= -80:
+                if _m15_wr <= self.wr_buy and _m30_wr <= self.wr_buy:
                     _veto_mt_buy = True
             if (direcao == "BUY" and (tendencia_m1 == "BAIXA" or _veto_buy or _veto_mt_buy)) or \
                (direcao == "SELL" and (tendencia_m1 == "ALTA" or _veto_sell or _veto_mt_sell)):
@@ -10980,7 +10983,11 @@ class FiltroMeanReversion:
         }
 
 
-filtro_mean_reversion = FiltroMeanReversion()
+filtro_mean_reversion = FiltroMeanReversion(
+    rsi_compra=float(config.get('mr_rsi_compra', 25.0)),
+    rsi_venda=float(config.get('mr_rsi_venda', 75.0)),
+    zscore_limiar=float(config.get('mr_zscore_limiar', 1.5)),
+)
 
 
 # region [InicializaÃÂ§ÃÂ£o]
