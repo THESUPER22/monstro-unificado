@@ -46,8 +46,8 @@ FT_ATIVO_DESDE = os.path.join(FT_DIR, "ativo_desde.txt")
 
 # Limiares (minutos)
 HEARTBEAT_MAX_MIN = 5
-GROWTH_WARN_MIN = 25
-GROWTH_CRIT_MIN = 45
+GROWTH_WARN_MIN = 30
+GROWTH_CRIT_MIN = 50
 FT_STATE_MAX_MIN = 10
 NOTIFY_COOLDOWN_MIN = 20
 # Janela de pregao (hora local da maquina)
@@ -139,21 +139,22 @@ def _idade_heartbeat_min(now):
 
 
 def _csv_stats(hoje_str):
-    """(header_ok, malformadas, total_hoje, por_track, erro)"""
+    """(header_ok, malformadas, total_hoje, por_track, ultimo_ts, erro)"""
     if not os.path.exists(BOXES_CSV):
-        return False, 0, 0, {}, "arquivo nao existe"
+        return False, 0, 0, {}, None, "arquivo nao existe"
     try:
         with open(BOXES_CSV, encoding="utf-8-sig", newline="") as f:
             rows = list(csv.reader(f))
     except Exception as e:
-        return False, 0, 0, {}, "falha ao ler: %s" % e
+        return False, 0, 0, {}, None, "falha ao ler: %s" % e
     if not rows:
-        return False, 0, 0, {}, "arquivo vazio"
+        return False, 0, 0, {}, None, "arquivo vazio"
     header = rows[0]
     header_ok = (header == BOX_H)
     malformadas = sum(1 for r in rows[1:] if len(r) != len(header))
     por_track = {}
     total_hoje = 0
+    ultimo_ts = None
     for r in rows[1:]:
         if len(r) != len(header):
             continue
@@ -161,9 +162,15 @@ def _csv_stats(hoje_str):
             if r[2] == hoje_str:
                 por_track[r[0]] = por_track.get(r[0], 0) + 1
                 total_hoje += 1
+                try:
+                    ts = datetime.strptime(r[1].strip(), "%Y-%m-%d %H:%M:%S")
+                    if ultimo_ts is None or ts > ultimo_ts:
+                        ultimo_ts = ts
+                except Exception:
+                    pass
         except Exception:
             continue
-    return header_ok, malformadas, total_hoje, por_track, None
+    return header_ok, malformadas, total_hoje, por_track, ultimo_ts, None
 
 
 def _carregar_state():
@@ -232,6 +239,15 @@ def _ft_ativo_desde():
         return None
 
 
+def _growth_limits(now):
+    """Limiares (WARN, CRIT) em minutos. No almoco a volatilidade cai e um box de
+    3 pts demora mais naturalmente, entao afrouxamos para nao gerar falso positivo."""
+    hm = (now.hour, now.minute)
+    if (12, 0) <= hm < (14, 0):
+        return 45, 75
+    return GROWTH_WARN_MIN, GROWTH_CRIT_MIN
+
+
 def main():
     no_notify = "--no-notify" in sys.argv
     quiet = "--quiet" in sys.argv
@@ -283,7 +299,7 @@ def main():
         add("herman_heartbeat", "OK", "heartbeat ha %.1f min" % idade_hb)
 
     # 4) Integridade do CSV (o bug que zerou o backtest)
-    h_ok, malformadas, total_hoje, por_track, err = _csv_stats(hoje_str)
+    h_ok, malformadas, total_hoje, por_track, ultimo_box_ts, err = _csv_stats(hoje_str)
     metrics["boxes_hoje"] = total_hoje
     metrics["boxes_por_track"] = por_track
     metrics["csv_malformadas"] = malformadas
@@ -311,7 +327,10 @@ def main():
         ant_change = None
     if ant_total is None or total_hoje > ant_total or total_hoje < ant_total:
         # primeiro run do dia, box novo OU CSV rotacionado/reiniciado -> reancora
-        change_dt = now
+        # no horario REAL do ultimo box (nao no horario em que o monitor rodou)
+        change_dt = ultimo_box_ts or now
+        if change_dt > now:
+            change_dt = now
     else:
         # sem crescimento desde a ultima referencia: preserva o instante do ultimo box
         try:
@@ -321,12 +340,13 @@ def main():
     parado_min = (now - change_dt).total_seconds() / 60.0
     metrics["box_parado_min"] = round(parado_min, 1)
     if pregao and now.hour >= 9 and (now.hour, now.minute) >= (9, 20):
-        if parado_min > GROWTH_CRIT_MIN:
+        warn_min, crit_min = _growth_limits(now)
+        if parado_min > crit_min:
             add("herman_crescimento", "CRIT",
-                "sem novo box ha %.0f min (critico >%d)" % (parado_min, GROWTH_CRIT_MIN))
-        elif parado_min > GROWTH_WARN_MIN:
+                "sem novo box ha %.0f min (critico >%d)" % (parado_min, crit_min))
+        elif parado_min > warn_min:
             add("herman_crescimento", "WARN",
-                "sem novo box ha %.0f min (alerta >%d)" % (parado_min, GROWTH_WARN_MIN))
+                "sem novo box ha %.0f min (alerta >%d)" % (parado_min, warn_min))
         else:
             add("herman_crescimento", "OK",
                 "ultimo box ha %.0f min | total hoje=%d" % (parado_min, total_hoje))
