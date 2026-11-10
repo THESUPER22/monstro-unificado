@@ -17,7 +17,9 @@ jobs:
     - name: Install dependencies (CI-safe, sem MetaTrader5 que e Windows-only)
       run: |
         pip install --upgrade pip
-        pip install pytest pandas numpy
+        # flask/requests: necessarios para tests/test_fluxo_api_contrato.py
+        # (dashboard_routes -> flask; sentinela_fluxo -> requests)
+        pip install pytest pandas numpy requests flask
         # TensorFlow opcional - se falhar, testes de ML sao pulados
         pip install tensorflow>=2.13.0 2>/dev/null || echo "TensorFlow indisponivel no CI - pulando"
     - name: Syntax check (py_compile)

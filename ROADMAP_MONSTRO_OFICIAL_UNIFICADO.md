@@ -17,7 +17,7 @@
 | Causa dos 19 dias | símbolo `WDO$` sem ticks + cabeçalho do CSV desatualizado |
 | Monitor | `monitor_saude_coletores.py` a cada 10 min, toast + arquivo de alerta |
 | Rompimento FT | fuso corrigido, selftest 172/172, ativo em 11/11 às 09:00 |
-| CI GitHub | YAML inválido (linha 46, `PYEOF` órfão) corrigido |
+| CI GitHub | YAML inválido (linha 46, `PYEOF` órfão) corrigido + Flask/requests no CI (pytest 21/21) |
 
 **Regra reafirmada:** coletor silencioso é falha. Todo coletor tem que estar no
 monitor e neste roadmap. Dados nunca são demais.
@@ -2420,3 +2420,32 @@ Ambas criadas sem admin (`schtasks /create`).
   steps) e `py_compile` de todos os arquivos do CI com exit 0.
 - **Regra:** antes de `git push`, validar o YAML do workflow. Heredoc em
   workflow exige `<<'EOF'` dentro do `run:`; nunca deixar o terminador solto.
+
+#### 23.18.1 Falha do pytest no CI — causa e correção (10/11/2026)
+
+Com o YAML válido, a run `#109` (`b35c6cd`) executou de verdade pela primeira
+vez. Passaram: setup, checkout, dependências e `py_compile`. Falhou apenas o
+step **"Testes sem dependencia de MT5"**.
+
+| item | resultado |
+|---|---|
+| Anotação do check-run | apenas "Process completed with exit code 1" (sem texto do pytest) |
+| Log bruto do job | 403 — exige autenticação (`gh` não instalado) |
+| Reprodução local (venv limpo, só pytest+pandas+numpy+requests) | **1 failed, 20 passed** |
+| Erro exato | `ModuleNotFoundError: No module named 'flask'` em `tests/test_fluxo_api_contrato.py:7` |
+| Mesmo venv **com** flask | **21 passed**, exit 0 |
+
+- **Causa raiz:** o CI instalava `pytest pandas numpy` (+ TensorFlow), mas
+  `tests/test_fluxo_api_contrato.py` importa `dashboard_routes`, que importa
+  `flask`; e `sentinela_fluxo` importa `requests`. No Windows local os dois
+  existem, por isso o teste passava aqui e falhava no Ubuntu.
+- **Correção:** passo de instalação passou a ser
+  `pip install pytest pandas numpy requests flask`.
+- **Validação:** YAML OK (6 steps) + 21/21 no venv limpo com as dependências
+  do CI.
+- **Lição:** teste verde na máquina local não prova nada sobre o CI. A lista de
+  dependências do CI tem que ser derivada dos **imports reais** dos módulos
+  testados (`flask`, `requests`), não presumida.
+- **Pendência (não bloqueante):** `actions/checkout@v4` e
+  `actions/setup-python@v5` emitem aviso de depreciação do Node 20 (forçados a
+  rodar em Node 24). Migrar para `@v5`/`@v6` quando conveniente.
