@@ -1156,6 +1156,9 @@ MIN_VOLUME_BOOK = config.get("min_volume_book", 200)
 # ConfiguraÃÂ§ÃÂµes de Aprendizado
 MIN_EXPERIENCIAS_TREINO = 3    # MÃÂ­nimo de experiÃÂªncias para comeÃÂ§ar treino
 MAX_EXPERIENCIAS_MEMORIA = 1000  # MÃÂ¡ximo de experiÃÂªncias na memÃÂ³ria
+MIN_TRADES_REAIS_TREINO = 30   # base minima de trades reais para treinar
+MIN_AMOSTRAS_VALIDACAO = 10    # minimo de amostras de validacao para SALVAR o modelo
+REPLAY_MAX = 256               # maximo de experiencias recentes no replay
 EPOCHS_TREINO = 3               # NÃÂºmero de ÃÂ©pocas por treino
 BATCH_SIZE = 32                 # Tamanho do batch de treino
 MIN_DELTA_LOSS = 0.001         # MÃÂ­nima melhoria na loss para continuar
@@ -8617,7 +8620,7 @@ class MemoriaExperiencias:
 
         # Seleciona subset para replay: as mais RECENTES (o modelo precisa
         # aprender o regime atual; antes pegava sempre as mais antigas).
-        n_replay = min(BATCH_SIZE, len(exp_reais))
+        n_replay = min(REPLAY_MAX, len(exp_reais))
         indices_replay = [idx for idx, _ in exp_reais[-n_replay:]]
 
         batch = [self.experiencias[i] for i in indices_replay]
@@ -8816,9 +8819,18 @@ def normalizar_recompensas(recompensas: List[float], scores_distancia: List[floa
     return recompensas_final
 
 
-def deve_treinar_modelo() -> bool:
+def deve_treinar_modelo(memoria: Optional[MemoriaExperiencias] = None) -> bool:
     """Verifica se deve treinar o modelo baseado no contador de experiÃÂªncias."""
     global contador_experiencias_novas, MODO_APRENDIZADO_FORCADO
+
+    # GATE DE BASE MINIMA: com poucos trades reais o split gera validacao
+    # minuscula e o 'melhorou 1%' vira ruido (podia sobrescrever o modelo bom).
+    if memoria is not None:
+        n_reais = sum(1 for exp in memoria.experiencias if exp[1] in ("BUY", "SELL"))
+        if n_reais < MIN_TRADES_REAIS_TREINO:
+            logging.debug(
+                f"Treino adiado: {n_reais}/{MIN_TRADES_REAIS_TREINO} trades reais na memoria")
+            return False
 
     # APRENDIZADO ACELERADO: Treina mais frequentemente quando em modo forÃÂ§ado
     if MODO_APRENDIZADO_FORCADO and contador_experiencias_novas >= LIMITE_EXPERIENCIAS_PARA_TREINO:
@@ -8838,7 +8850,7 @@ def treinar_modelo_inteligente(modelo: Sequential, memoria: MemoriaExperiencias)
     """Treina o modelo apenas quando necessÃÂ¡rio."""
     global contador_experiencias_novas
 
-    if not deve_treinar_modelo():
+    if not deve_treinar_modelo(memoria):
         logging.debug(
             f"Ã°Å¸Â§Â  Treinamento adiado. ExperiÃÂªncias: {contador_experiencias_novas}/{LIMITE_EXPERIENCIAS_PARA_TREINO}")
         return modelo
@@ -9010,11 +9022,18 @@ def treinar_modelo(modelo: Sequential, memoria: MemoriaExperiencias) -> Sequenti
 
         # 7. COMPARAR E DECIDIR SE SALVA
         loss_nova, acc_nova = modelo.evaluate(X_val, y_val, verbose=0)
+
+        # GATE DE VALIDACAO: validacao pequena demais nao decide nada.
+        pode_salvar = len(X_val) >= MIN_AMOSTRAS_VALIDACAO
+        if not pode_salvar:
+            logging.warning(
+                f"[treinar_modelo] Validacao com {len(X_val)} amostras < "
+                f"{MIN_AMOSTRAS_VALIDACAO}. Modelo NAO sera salvo (evita ruido).")
         logging.info(
             f"Performance do Modelo NOVO na validaÃÂ§ÃÂ£o: Loss={loss_nova:.4f}, AcurÃÂ¡cia={acc_nova:.4f}")
 
         melhoria_minima = loss_antiga * 0.01
-        if loss_nova < (loss_antiga - melhoria_minima):
+        if pode_salvar and loss_nova < (loss_antiga - melhoria_minima):
             logging.info(
                 f"Ã¢Åâ¦ MELHORIA REAL: Loss {loss_antiga:.4f} Ã¢â â {loss_nova:.4f}. Salvando.")
             salvar_modelo(modelo)

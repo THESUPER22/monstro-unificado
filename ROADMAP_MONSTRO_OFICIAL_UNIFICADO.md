@@ -3215,3 +3215,69 @@ Script: `retreinar_keras_wdo.py` (mesma arquitetura do modelo vivo via
 - `logs/retreino_keras_20261111_120207.json` — métricas do candidato.
 - Candidatos `modelo_monstro_wdo_candidato.*` — **não promovidos, não versionados**.
 - `ROADMAP_MONSTRO_OFICIAL_UNIFICADO.md` — esta seção.
+
+## 23.24 Proteção do treino automático do Keras (11/11/2026)
+
+**Decisão do usuário (11/11):** "Proteger agora".
+Objetivo: impedir que o treino automático sobrescreva o modelo bom com ruído.
+
+### 23.24.1 Problema real (não teórico)
+
+- O treino disparava a cada **4 trades** (`LIMITE_EXPERIENCIAS_PARA_TREINO = 4`).
+- Com 4 amostras o split 80/20 gera **3 para treino e 1 para validação**.
+- A regra "salva se o loss cair 1%" era avaliada em **1 única amostra**.
+  Ou seja: ruído puro podia substituir o modelo treinado com 5.405 amostras.
+- `treinar_modelo` zerava o contador **antes** de treinar: se o treino falhasse
+  por dados insuficientes, o robô esperava mais 4 trades sem necessidade.
+
+### 23.24.2 O que foi implementado
+
+| Constante | Valor | Função |
+|---|---|---|
+| `MIN_TRADES_REAIS_TREINO` | 30 | só treina com ≥ 30 trades reais (BUY/SELL) na memória |
+| `MIN_AMOSTRAS_VALIDACAO` | 10 | só **salva** o modelo se `X_val` tiver ≥ 10 amostras |
+| `REPLAY_MAX` | 256 | replay usa até 256 experiências recentes (antes eram 32) |
+
+Mudanças em `monstro_unificado_v22.py`:
+
+1. `deve_treinar_modelo(memoria=None)` ganhou **gate de base mínima**:
+   conta apenas `exp[1] in ("BUY", "SELL")`; `NAO_AGIU` **não** conta como trade.
+2. `treinar_modelo_inteligente` passa a memória → `deve_treinar_modelo(memoria)`.
+3. Quando o gate bloqueia, a função retorna **antes** do reset do contador
+   (o contador não é mais perdido à toa).
+4. Guarda de validação: `pode_salvar = len(X_val) >= MIN_AMOSTRAS_VALIDACAO`.
+   A condição de salvar virou `if pode_salvar and loss_nova < (loss_antiga - melhoria_minima)`.
+   Se não puder salvar, cai no mesmo caminho de "sem melhoria": restaura o
+   modelo temporário anterior e mantém o modelo vivo intacto.
+5. `obter_batch_replay` usa `min(REPLAY_MAX, len(exp_reais))` em vez de
+   `min(BATCH_SIZE, ...)`, para a validação ter tamanho útil.
+
+### 23.24.3 Validação
+
+- `py_compile` em `monstro_unificado_v22.py`: **OK**.
+- Teste de runtime do gate (função isolada, sem subir o robô):
+  - 3 BUY + 4.997 `NAO_AGIU` → **False** (bloqueado);
+  - 3 SELL → **False**;
+  - 29 reais → **False**;
+  - 30 reais → **True**;
+  - `memoria=None` → **True** (comportamento antigo preservado).
+- `pytest tests/test_fluxo_tempo_real.py tests/test_fluxo_api_contrato.py tests/test_fluxo_mt5_adapter.py`: **21 passed**.
+
+### 23.24.4 Efeito prático esperado
+
+- **Treina** a partir de **30 trades reais**.
+- **Salva** só a partir de **~50 trades reais**, porque o split é 80/20 e a
+  validação precisa de 10 amostras (`50 × 0,20 = 10`). Isso é intencional:
+  as duas condições escolhidas pelo usuário valem ao mesmo tempo.
+- Enquanto não houver essa base, o modelo e o scaler vivos **não mudam**.
+
+### 23.24.5 O que NÃO muda
+
+- Lógica de trade, stops, alvos, gestão de posição: **intocados**.
+- Nenhum acesso a dinheiro real; segue tudo em demo/simulador.
+- O gate não força operação nem altera entrada/saída.
+
+### 23.24.6 Arquivos tocados
+
+- `monstro_unificado_v22.py` — 7 substituições da proteção, `py_compile` OK.
+- `ROADMAP_MONSTRO_OFICIAL_UNIFICADO.md` — esta seção.
