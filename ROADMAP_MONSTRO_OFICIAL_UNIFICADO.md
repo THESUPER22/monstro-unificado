@@ -3281,3 +3281,124 @@ Mudanças em `monstro_unificado_v22.py`:
 
 - `monstro_unificado_v22.py` — 7 substituições da proteção, `py_compile` OK.
 - `ROADMAP_MONSTRO_OFICIAL_UNIFICADO.md` — esta seção.
+
+## 23.25 Filtro de lateralização no ORB WDO (11/11/2026)
+
+**Gatilho:** em 11/11 o WDO fez range de **29,5 pts** contra média de **71,5 pts**
+das 10 sessões anteriores — 97% do range aconteceu antes das 10:00. Dia lateral.
+Hipótese levantada pelo usuário: **não operar quando a manhã é chop**.
+
+**Script:** `estudo_filtro_range_orb_wdo.py` (novo, read-only, não toca no Core).
+Reaproveita o simulador validado `backtest_orb_wdo.simulate`, o mesmo gatilho
+(rompimento da caixa 09:00–10:00 na janela 10:30–11:00) e o custo canônico
+**R$ 1,20 por contrato**.
+
+### 23.25.1 Metodologia (sem look-ahead)
+
+- Features calculadas **somente até 10:25**, antes da janela de gatilho.
+- Percentis/medianas usam os **20 dias anteriores**.
+- **Slippage explícito por lado**, porque o backtest do MT5 praticamente não o
+  modela: 1 tick WDO = 0,5 pt = R$ 5,00 → 1 tick/lado = **R$ 10,00 por trade**
+  (além dos R$ 1,20).
+- IS = 2021–2024 | OOS = 2025–2026. Filtro só vale se sobreviver no OOS.
+
+Métrica central — **eficiência da manhã** (Kaufman):
+
+```
+eff = |close(10:25) - open(09:00)| / range(09:00 -> 10:25)
+eff baixo = manhã lateral (anda de lado e gasta range)
+eff alto  = manhã direcional
+```
+
+### 23.25.2 Resultado principal (saída half, slippage 1 tick/lado)
+
+| Config | n | win% | PF | exp R$ | total R$ | maxDD R$ | t |
+|---|---|---|---|---|---|---|---|
+| sem filtro | 874 | 40,0 | 1,50 | 51,71 | 45.195 | -2.476 | 4,45 |
+| **eff ≥ 0,40** | **547** | **43,5** | **1,77** | **75,31** | **41.193** | **-1.822** | **4,89** |
+
+- Acerto: **+3,5 p.p.**
+- Lucro por trade: **+46%** (R$ 51,71 → R$ 75,31)
+- Drawdown: **-26%** (-2.476 → -1.822)
+- Total absoluto: **-9%**, porque opera **37% menos dias** (874 → 547).
+
+### 23.25.3 IS × OOS (o teste que importa)
+
+| Filtro | IS exp R$ | OOS exp R$ | OOS PF | OOS t |
+|---|---|---|---|---|
+| base (sem filtro) | 66,21 | **26,23** | — | — |
+| eff ≥ 0,40 | 83,03 | **61,80** | 1,81 | 2,88 |
+| eff ≥ 0,45 | 95,23 | 59,90 | 1,78 | 2,59 |
+| eff ≥ 0,50 | 113,38 | 74,93 | 2,03 | 3,05 |
+
+No OOS o filtro **mais que dobra** o resultado por trade (26,23 → 61,80), com
+n=199 e t=2,88. Os dias bloqueados no OOS tinham expectância **-33,75**.
+
+### 23.25.4 Slippage (o alerta do usuário)
+
+| Slippage | exp R$ | PF | total R$ |
+|---|---|---|---|
+| 0 tick/lado | 85,31 | 1,93 | 46.663 |
+| 0,5 tick/lado | 80,31 | 1,85 | 43.928 |
+| **1 tick/lado** | **75,31** | **1,77** | **41.193** |
+| 1,5 tick/lado | 70,31 | 1,70 | 38.458 |
+| 2 ticks/lado | 65,31 | 1,63 | 35.723 |
+
+O filtro sobrevive a **2 ticks por lado** (R$ 20/trade) com PF 1,63. Ou seja, o
+resultado não depende de slippage zero.
+
+### 23.25.5 Robustez
+
+- **Varredura do limiar é monotônica** (0,20 → 0,50): 61,23 / 69,07 / 71,46 /
+  68,85 / 75,31 / 82,80 / 99,66. Não é um "degrau" de sorte em 0,40.
+- **Todos os anos positivos** (2021–2026): exp R$ 49 a 98, PF 1,58 a 2,09.
+- Funciona nas **3 saídas**: caixa +21%, half +22%, fixed5 **+69%**
+  (PF 2,17, DD -1.469).
+- **Não é proxy de range pequeno:** `corr(eff, range_manha) = 0,29`; os dias com
+  eff ≥ 0,40 têm range mediano **maior** (45,3 vs 40,8 pts) e caixa mediana
+  parecida (37,3 vs 35,4). O p10 da caixa é 19,1 pts — o stop não fica minúsculo.
+- Refino opcional: `eff ≥ 0,40 e range ≥ p30` → n=410, win 46,1%, PF 1,86,
+  exp R$ 86,60, DD -1.710.
+- Melhor PF/DD: `eff ≥ 0,40 + viés 1ª hora + stop fixo 5 pts` → n=501, PF 2,23,
+  DD -1.408, OOS R$ 68,34 (mas win% 24,2%).
+
+### 23.25.6 Rejeitados (registro obrigatório)
+
+| Filtro | Motivo da rejeição |
+|---|---|
+| `ADX ≥ 20` | instável: IS 74,06 mas **OOS 19,22** (abaixo da base 26,23) |
+| `ADX ≥ 25` | OOS 26,39 ≈ base, sem ganho |
+| `ADX < 20` (contrário) | inverte entre IS (33,56) e OOS (61,18) → ruído |
+| `range ≤ p30` (contrário) | pior em tudo (35,1% win) → confirma a hipótese |
+| `eff ≥ 0,40 e range ≤ p70` | **pior** (exp 40,83): teto de range bloqueia dias bons |
+| `caixa ≥ 20 pts` | não melhora (74,99 vs 75,31) |
+| `ATR ≥ p50` | OOS 33,64, t=1,35 → sem confiança |
+
+### 23.25.7 Diagnóstico do dia 11/11
+
+| Feature | Hoje | Mediana histórica |
+|---|---|---|
+| range 09:00–10:25 | 29,5 pts | 40,8 pts |
+| range 1ª hora | 28,5 pts | 35,4 pts |
+| eficiência da manhã | **0,31** | 0,47 |
+| ATR14 M5 | 5,20 | 8,25 |
+| ADX14 M5 | 37,0 | 27,5 |
+
+`eff ≥ 0,40` → **BLOQUEIA**. `range ≥ p50` → **BLOQUEIA**.
+`ADX ≥ 20` → **passa** (por isso ADX foi rejeitado: teria operado o dia lateral).
+
+### 23.25.8 Veredito
+
+**4 estrelas.** Melhora acerto, PF, expectância, drawdown e OOS, e sobrevive a
+slippage de 2 ticks/lado. O único ponto contra é o total absoluto cair 9% por
+operar menos dias.
+
+**Decisão:** implementar **somente no FT paper** (`rompimento_orb_wdo.py`) como
+**4ª variante** (`eff≥0,40`), mantendo as 3 saídas atuais intactas para
+comparação. Nada de dinheiro real e nada na lógica do robô principal.
+
+### 23.25.9 Arquivos tocados
+
+- `estudo_filtro_range_orb_wdo.py` — novo estudo, read-only.
+- `.github/workflows/monstro-ci.yml` — py_compile do novo script.
+- `ROADMAP_MONSTRO_OFICIAL_UNIFICADO.md` — esta seção.
