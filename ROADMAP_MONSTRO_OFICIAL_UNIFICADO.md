@@ -3520,3 +3520,59 @@ nesta rodada.
 - `monstro_wdo.log` — sequência do erro (10031).
 - `ROADMAP_MONSTRO_OFICIAL_UNIFICADO.md` — esta seção.
 - `plano_20261111.txt` — commit `9845e13` (agente de fecho).
+
+## 23.28 Patch de robustez do fecho — proposta revisavel (NAO aplicada)
+
+**Data:** 11/11/2026
+**Status:** proposta isolada, aguardando revisao humana (Fase 1)
+**Origem:** incidente da secao 23.27 (retcode 10031 no fecho das 17:35)
+
+### 23.28.1 O que foi entregue
+
+Patch **aditivo**, sem tocar no robo em producao:
+
+- `patches/robustez_fecho_helpers.py` — helpers injetaveis (mt5/reconnect/log/sleep),
+  testaveis sem terminal.
+- `tests/test_robustez_fecho.py` — 12 testes com `FakeMT5`.
+- `patches/robustez_fecho_2026-11-11.md` — documento de integracao com ancoras,
+  plano de teste e rollback.
+- `.github/workflows/monstro-ci.yml` — passou a compilar e rodar o novo teste.
+
+`monstro_unificado_v22.py` e `agente_monstro_core.py` **nao foram alterados**
+(o fonte do robo tem mojibake; a aplicacao deve ser feita em branch separada).
+
+### 23.28.2 As 4 correcoes propostas
+
+| # | Bug (23.27) | Correcao |
+|---|---|---|
+| C1 | sem retry/reconexao em 10031 | `fechar_todas_robusto`: reconecta com backoff, testa todos os fillings, usa `pos.magic` |
+| C2 | mensagem de sucesso incondicional | so logar "POSICOES FECHADAS" se `posicoes_restantes()` for vazio |
+| C3 | shutdown nao garante flat | trava: nao encerra com posicao aberta; escape `MONSTRO_FORCE_SHUTDOWN=1` |
+| C4 | relatorio conta log, nao deals | `contar_deals_reais_hoje`: le `DEAL_ENTRY_OUT` dos magics do robo |
+
+### 23.28.3 Resultado dos testes
+
+- `py_compile` — OK.
+- `python tests/test_robustez_fecho.py` — **12/12 PASS**.
+- `pytest tests/test_robustez_fecho.py -q` — **12 passed**.
+- Suite do CI (3 antigos + novo) — **33 passed**.
+
+Cobertura: fecho normal, 10031 com reconexao, 10031 persistente (nao mente),
+`order_send None`, retcode DONE sem posicao sair (nao conta sucesso),
+magic alheio 123457 ignorado, bitmask de fillings, deals por magic/PnL.
+
+### 23.28.4 Decisao
+
+- **Nada aplicado em producao.** As 4 correcoes seguem como proposta.
+- Aplicacao futura em branch separada, com teste em demo simulando queda de rede.
+- Criterio de aceite: nenhum log de "POSICOES FECHADAS" com posicao aberta e
+  shutdown sem `--force` nunca termina com posicao do robo aberta.
+
+### 23.28.5 Observacao
+
+`tests/test_gerenciador_bloqueio.py` tem um teste legado que falha sempre
+(`assert False`); ele **nao** faz parte do CI e nao foi alterado nesta rodada.
+
+### 23.28.6 Veredito
+
+**5 estrelas** — correcao prioritaria antes de qualquer promocao para real.

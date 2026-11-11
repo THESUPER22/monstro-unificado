@@ -41,12 +41,14 @@ jobs:
           backtest_orb_wdo.py \
           estudo_filtro_range_orb_wdo.py \
           retreinar_keras_wdo.py \
+          patches/robustez_fecho_helpers.py \
           tests/test_fluxo_tempo_real.py \
           tests/test_fluxo_api_contrato.py \
-          tests/test_fluxo_mt5_adapter.py
+          tests/test_fluxo_mt5_adapter.py \
+          tests/test_robustez_fecho.py
     - name: Testes sem dependencia de MT5 (fluxo tempo real)
       run: |
-        python -m pytest tests/test_fluxo_tempo_real.py tests/test_fluxo_api_contrato.py tests/test_fluxo_mt5_adapter.py -q
+        python -m pytest tests/test_fluxo_tempo_real.py tests/test_fluxo_api_contrato.py tests/test_fluxo_mt5_adapter.py tests/test_robustez_fecho.py -q
     - name: Testes legados (best-effort, nao bloqueante)
       continue-on-error: true
       run: |
