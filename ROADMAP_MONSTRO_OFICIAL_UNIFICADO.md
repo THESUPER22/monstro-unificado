@@ -3402,3 +3402,60 @@ comparação. Nada de dinheiro real e nada na lógica do robô principal.
 - `estudo_filtro_range_orb_wdo.py` — novo estudo, read-only.
 - `.github/workflows/monstro-ci.yml` — py_compile do novo script.
 - `ROADMAP_MONSTRO_OFICIAL_UNIFICADO.md` — esta seção.
+
+## 23.26 Implementação da 4ª variante no FT paper (ORB WDO)
+
+**Data:** 11/11/2026
+**Arquivo:** `rompimento_orb_wdo.py` (paper/read-only)
+**Decisão:** ROADMAP 23.25.8 — aplicar `eff >= 0,40` como 4ª variante, mantendo
+as 3 saídas atuais intactas.
+
+### 23.26.1 O que mudou
+
+- `morning_efficiency(day_bars)`: mesma fórmula do estudo
+  (`|close(10:25) - open(09:00)| / range(09:00 -> 10:25)`), usando **somente
+  barras até 10:25** -> sem look-ahead.
+- Nova coluna `eff_manha` no CSV e no `state.json` (com `eff_ok`).
+- O log de registro agora mostra `eff=...` e `LIBERA4`/`BLOQUEIA4`.
+- `--resumo` ganhou:
+  - a linha `+ eff >= 0.40 (4a variante)` na tabela de filtros;
+  - o bloco `[4a VARIANTE: stop_half com eff >= 0.40]` com
+    **liberados x bloqueados**.
+- **As 3 saídas (`caixa`, `half`, `fixed5`) NÃO foram alteradas.** A variante
+  filtrada é uma leitura dos mesmos trades, não um bloqueio do paper.
+
+### 23.26.2 Paridade do eixo de horário (o ponto crítico)
+
+Havia dúvida: o FT registra `offset=10800 s` e o estudo usa `SHIFT_H=0`.
+Comparação em **52 dias sobrepostos** (2026-09-03 a 2026-11-11):
+
+| item | resultado |
+|---|---|
+| dias comparados | 52 |
+| max abs(delta eff) | **0,0000** |
+| média abs(delta eff) | **0,0000** |
+| veredito | **PARIDADE OK** |
+
+Explicação: `datetime.fromtimestamp(ts + 10800)` do FT aplica o fuso local
+(UTC-3), então o `+3h` **anula** essa conversão e cai no mesmo relógio naive do
+`pd.to_datetime(ts)` do estudo. O `+10800` não é offset de corretora; é
+compensação do fuso da máquina. Nada a corrigir no eixo.
+
+### 23.26.3 Teste do `--resumo` com a 4ª variante
+
+Testado com CSV sintético (monkeypatch do caminho; CSV real intocado):
+`liberados` = eff 0,55 e 0,41; `bloqueados` = eff 0,20 e vazio. Sem crash,
+seção impressa corretamente. `py_compile` OK e 21/21 testes verdes.
+
+### 23.26.4 Como ler o paper (expectativa honesta)
+
+- O paper **não prova** o filtro. A evidência estatística veio do IS/OOS (23.25.3).
+- Em ~25 sessões o filtro gera **~11 trades** -> amostra fraca para significância.
+- Critério de decisão: **o paper bate com o backtest?** Se sim, a implementação
+  está correta. Não é "esperar o paper dar lucro".
+- Nada de dinheiro real; nada na lógica do robô principal.
+
+### 23.26.5 Arquivos tocados
+
+- `rompimento_orb_wdo.py` — 4ª variante (`eff_manha`, `EFF_MIN`, `--resumo`).
+- `ROADMAP_MONSTRO_OFICIAL_UNIFICADO.md` — esta seção.

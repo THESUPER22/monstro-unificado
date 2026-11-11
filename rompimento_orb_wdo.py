@@ -40,6 +40,8 @@ COST_RS = 1.20            # 0,60 entrada + 0,60 saida, por contrato
 BOX_START, BOX_END = "09:00", "10:00"
 TRIG_START, TRIG_END = "10:30", "11:00"
 EOD_HM = "17:55"
+EFF_CUTOFF = "10:25"      # ultima barra usada no filtro (antes da janela de gatilho)
+EFF_MIN = 0.40            # 4a variante: so conta quando a manha foi direcional (ROADMAP 23.25)
 
 # ---------------- TIMES (BRT) ----------------
 TIME_NO_TRADE = dtime(11, 6)      # janela fecha 11:00; depois disso, sem gatilho = S/TRADE
@@ -59,7 +61,7 @@ HEADER = [
     "ema_align", "cap_ok", "entry", "entry_ts",
     "stop_caixa", "stop_half", "stop_fixed5",
     "exit_caixa", "pts_caixa", "exit_half", "pts_half",
-    "exit_fixed5", "pts_fixed5", "mfe_pts", "mae_pts", "obs",
+    "exit_fixed5", "pts_fixed5", "mfe_pts", "mae_pts", "obs", "eff_manha",
 ]
 
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -189,6 +191,23 @@ def build_box(day_bars):
     }
 
 
+def morning_efficiency(day_bars):
+    """Eficiencia da manha (Kaufman) ate 10:25 — sem look-ahead.
+
+    eff = |close(10:25) - open(09:00)| / range(09:00 -> 10:25)
+    eff baixo = manha lateral. Base da 4a variante (ROADMAP 23.25).
+    """
+    manha = [b for b in day_bars if _hm(b) <= EFF_CUTOFF]
+    if len(manha) < 6:
+        return None
+    hi = max(b["h"] for b in manha)
+    lo = min(b["l"] for b in manha)
+    rng = hi - lo
+    if rng <= 0:
+        return None
+    return abs(manha[-1]["c"] - manha[0]["o"]) / rng
+
+
 def prior_range_median(bars, hoje, n_days=20):
     """Mediana do tamanho da caixa nas ultimas `n_days` sessoes anteriores."""
     by_day = {}
@@ -293,12 +312,16 @@ def evaluate_day(bars, dia, obs=""):
         return None, {"dia": dia.isoformat(), "final": False, "obs": "caixa incompleta"}
     e20, e50 = attach_emas(bars, box)
     med = prior_range_median(bars, dia)
+    eff = morning_efficiency(day_bars)
+    eff_ok = (eff is not None and eff >= EFF_MIN)
 
     side, entry, entry_dt, ambiguous = entry_signal(day_bars, box)
     if side is None:
         st = {
             "dia": dia.isoformat(), "final": False, "side": None,
             "ambiguous": bool(ambiguous),
+            "eff_manha": None if eff is None else round(eff, 3),
+            "eff_ok": bool(eff_ok),
             "obs": "barra ambigua" if ambiguous else "sem gatilho na janela",
         }
         return None, st
@@ -323,6 +346,12 @@ def evaluate_day(bars, dia, obs=""):
            for k, s in stops.items()}
     mfe, mae = path_mfe_mae(day_bars, side, entry, entry_dt)
 
+    obs_txt = obs or ("vies=%d ema=%d cap=%d" % (
+        int(vies), int(bool(ema_align)), int(bool(cap_ok))))
+    obs_txt += " eff=%s %s" % (
+        "n/d" if eff is None else "%.2f" % eff,
+        "LIBERA4" if eff_ok else "BLOQUEIA4")
+
     row = {
         "dia": dia.isoformat(),
         "side": side,
@@ -345,7 +374,8 @@ def evaluate_day(bars, dia, obs=""):
         "pts_fixed5": round(res["fixed5"]["pnl"], 2),
         "mfe_pts": round(mfe, 2),
         "mae_pts": round(mae, 2),
-        "obs": obs or ("vies=%d ema=%d cap=%d" % (int(vies), int(bool(ema_align)), int(bool(cap_ok)))),
+        "obs": obs_txt,
+        "eff_manha": "" if eff is None else round(eff, 3),
     }
     st = {
         "dia": dia.isoformat(), "final": False, "side": side,
@@ -353,6 +383,8 @@ def evaluate_day(bars, dia, obs=""):
         "stops": {k: round(v, 2) for k, v in stops.items()},
         "resultados": {k: {"exit": res[k]["exit"], "pts": round(res[k]["pnl"], 2)}
                        for k in res},
+        "eff_manha": None if eff is None else round(eff, 3),
+        "eff_ok": bool(eff_ok),
         "obs": row["obs"],
     }
     return row, st
@@ -393,10 +425,10 @@ def registrar(row):
     _drop_day(TRADES_CSV, row["dia"])
     with open(TRADES_CSV, "a", encoding="utf-8", newline="") as f:
         csv.DictWriter(f, fieldnames=HEADER).writerow(row)
-    log("=> [REGISTRO %s] %s entrada=%s | caixa %s/%s pts | half %s/%s | f5 %s/%s | %s" % (
+    log("=> [REGISTRO %s] %s entrada=%s | caixa %s/%s pts | half %s/%s | f5 %s/%s | eff=%s | %s" % (
         row["dia"], row["side"], row["entry"],
         row["exit_caixa"], row["pts_caixa"], row["exit_half"], row["pts_half"],
-        row["exit_fixed5"], row["pts_fixed5"], row["obs"]))
+        row["exit_fixed5"], row["pts_fixed5"], row.get("eff_manha", ""), row["obs"]))
 
 
 def dia_completo(bars, dia, now):
@@ -536,6 +568,13 @@ def _stats(pts_list):
     }
 
 
+def _eff_val(r):
+    try:
+        return float(r.get("eff_manha") or "")
+    except (TypeError, ValueError):
+        return float("nan")
+
+
 def resumo():
     if not os.path.exists(TRADES_CSV):
         print("sem CSV ainda: %s" % TRADES_CSV)
@@ -556,6 +595,7 @@ def resumo():
             (r.get("side") == "SELL" and r.get("box_bias") == "DOWN"))),
         ("+ EMA alinhada", lambda r: r.get("ema_align") == "1"),
         ("+ caixa <=2x", lambda r: r.get("cap_ok") == "1"),
+        ("+ eff >= %.2f (4a variante)" % EFF_MIN, lambda r: _eff_val(r) >= EFF_MIN),
         ("+ vies + EMA + caixa", lambda r: (
             r.get("ema_align") == "1" and r.get("cap_ok") == "1" and (
                 (r.get("side") == "BUY" and r.get("box_bias") == "UP") or
@@ -578,6 +618,22 @@ def resumo():
                 continue
             print("  %-12s %5d %7.1f %9.2f %6.2f %11.0f %10.0f" %
                   (key, s["n"], s["wr"], s["exp"], s["pf"], s["total"], s["maxdd"]))
+
+    # 4a variante explicita: stop_half apenas nos dias com manha direcional
+    lib = [r for r in rows if _eff_val(r) >= EFF_MIN]
+    blo = [r for r in rows if not (_eff_val(r) >= EFF_MIN)]
+    print("\n[4a VARIANTE: stop_half com eff >= %.2f]  (ROADMAP 23.25)" % EFF_MIN)
+    for lbl, sub in (("liberados", lib), ("bloqueados", blo)):
+        try:
+            pts = [float(r["pts_half"]) for r in sub]
+        except (KeyError, ValueError):
+            continue
+        s = _stats(pts)
+        if s is None:
+            print("  %-11s n=0" % lbl)
+            continue
+        print("  %-11s n=%3d win=%5.1f%% exp=R$%7.2f PF=%5.2f total=R$%8.0f maxDD=R$%8.0f" %
+              (lbl, s["n"], s["wr"], s["exp"], s["pf"], s["total"], s["maxdd"]))
     return 0
 
 
