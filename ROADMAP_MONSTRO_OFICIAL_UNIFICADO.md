@@ -3459,3 +3459,64 @@ seção impressa corretamente. `py_compile` OK e 21/21 testes verdes.
 
 - `rompimento_orb_wdo.py` — 4ª variante (`eff_manha`, `EFF_MIN`, `--resumo`).
 - `ROADMAP_MONSTRO_OFICIAL_UNIFICADO.md` — esta seção.
+
+## 23.27 Incidente 11/11: fechamento das 17:35 falhou por queda de rede (posição ficou aberta)
+
+**Data:** 11/11/2026
+**Severidade:** alta (posição ficou aberta após o encerramento)
+**Conta:** demo 55265364 / XPMT5-DEMO (trade_mode=0) — sem dinheiro real
+
+### 23.27.1 O que aconteceu
+
+- 17:35:02 — robô inicia "FECHANDO TODAS AS POSIÇÕES"; `mt5.order_send`
+  retorna **None** para `#2590873006` (SELL WDOZ26).
+- 17:35:18 — shutdown gracioso (`parar.txt`) tenta de novo; **Retcode 10031**
+  ("Request rejected due to absence of network connection") nos fillings 0 e 1.
+- Robô encerra **com a SELL aberta**.
+- 17:36–17:37 — `WATCHDOG-DLL: Tick estagnado >10s` confirma instabilidade de
+  rede do terminal MT5.
+- 18:05:47 — fechamento manual (autorizado pelo Mestre) a 5586,0 ->
+  **−R$ 50,00** (deal `1878867890`).
+
+### 23.27.2 Resultado do dia (WDOZ26, 1 contrato)
+
+| Hora (BRT) | Lado | Entrada | Saída | Pts | R$ |
+|---|---|---|---|---|---|
+| 11:41:49 | BUY | 5579,5 | 5581,0 | +1,5 | **+15,00** |
+| 12:32:49 | SELL | 5581,0 | 5586,0 | −5,0 | **−50,00** |
+| **Total** | | | | | **−35,00 bruto** |
+
+Custos canônicos: 2 operações x R$ 1,20 = R$ 2,40 -> líquido ~ **−R$ 37,40**.
+
+Observação: o `relatorio_diario_20261111.txt` registrou "Trades executados: 1"
+porque foi gerado às 17:35, antes do fechamento manual. O número real é 2.
+
+### 23.27.3 Bugs identificados
+
+1. **Sem retry/reconexão em 10031**: o fecho das 17:35 não reconecta nem espera;
+   a re-checagem 15s/30s foi abortada pelo shutdown 16 s depois.
+2. **Mensagem incondicional**: "POSIÇÕES FECHADAS ÀS 17:35" foi impressa mesmo
+   com "0 posições fechadas".
+3. **Shutdown não garante flat**: o encerramento gracioso não bloqueia enquanto
+   houver posição aberta.
+
+### 23.27.4 Propostas de correção (NÃO implementadas — aguardam revisão humana, Fase 1)
+
+- Em retcode 10031, chamar `mt5.initialize()` e repetir com backoff
+  (ex.: 5 tentativas de 5 s) antes de desistir.
+- Só logar sucesso se `positions_get()` confirmar zero posições do magic.
+- Bloquear o shutdown gracioso se houver posição aberta, exigindo `--force`
+  explícito.
+- Relatório diário deve ler os deals reais (inclui fechamento manual).
+
+### 23.27.5 Veredito
+
+**5 estrelas** (risco operacional real, ainda que em demo). Correção prioritária
+antes de qualquer promoção para real. Documentado; **sem alteração de código**
+nesta rodada.
+
+### 23.27.6 Arquivos / evidências
+
+- `monstro_wdo.log` — sequência do erro (10031).
+- `ROADMAP_MONSTRO_OFICIAL_UNIFICADO.md` — esta seção.
+- `plano_20261111.txt` — commit `9845e13` (agente de fecho).
