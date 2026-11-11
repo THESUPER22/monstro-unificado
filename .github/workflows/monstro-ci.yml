@@ -39,6 +39,7 @@ jobs:
           rompimento_orb_wdo.py \
           monitor_saude_coletores.py \
           backtest_orb_wdo.py \
+          retreinar_keras_wdo.py \
           tests/test_fluxo_tempo_real.py \
           tests/test_fluxo_api_contrato.py \
           tests/test_fluxo_mt5_adapter.py

@@ -3081,3 +3081,137 @@ interromper o coletor Herman). Log após o restart:
 - `monstro_unificado_v22.py` (5 correções acima; `py_compile` OK).
 - `logs/monstro_wdo_20261111_bug_symbol.log` — backup do log do bug (1,38 MB).
 - `ROADMAP_MONSTRO_OFICIAL_UNIFICADO.md` — esta seção.
+
+---
+
+### 23.23 KERAS NÃO APRENDIA EM PRODUÇÃO — DIAGNÓSTICO, CORREÇÕES E RETREINO VALIDADO (11/11/2026)
+
+**Pergunta do Mestre:** "verificar se o Keras está realmente aprendendo".
+**Resposta curta:** o modelo **aprendeu** no treino offline, mas em produção **não
+aprendia** — e não era culpa da rede. Eram 6 bugs de pipeline de dados. Todos
+corrigidos. O retreino candidato **não foi promovido** (holdout real insuficiente).
+
+#### 23.23.1 Evidência de que a rede aprende
+
+- `history_treino.json` (treino offline de 30/07): `loss` 0,7046 → 0,4643 e
+  `val_loss` 0,56 → 0,40 em 30 épocas. A rede aprende quando recebe dado normalizado.
+- Com o scaler offline correto, `p(BUY)` varia 0,262–0,795 (média 0,465,
+  desvio 0,082; 183/500 > 0,5).
+- Com o fallback quebrado (fit em 1 linha), `p(BUY)` = **0,1605 fixo** em todas
+  as linhas. Ou seja: a IA virava um viés constante, não um modelo.
+- Efeito colateral real no log: com `p` constante 0,16, `ia_confianca_alta` ficava
+  sempre `True` (`p<0,2`) → `INVERSÃO BLOQUEADA: IA=SELL (conf:0.94) PREVALECE
+  sobre Confluência=BUY`.
+
+#### 23.23.2 As 6 causas confirmadas
+
+1. **Recursão infinita no scaler.** `_forcar_recreacao_scaler_throttled()`
+   (L2176-2187) chamava a **si mesma** em vez de `forcar_recreacao_scaler()`.
+   O `RecursionError` era engolido pelo `except Exception` → o scaler **nunca
+   carregava**. Log de hoje antes da correção: nenhuma linha "Scaler carregado".
+2. **Fallback degenerado.** `normalizar_dados()` (L3349) fazia
+   `MinMaxScaler().fit_transform()` na **única linha** da predição → min=max →
+   tudo vira 0. O modelo recebia um vetor de zeros.
+3. **Scaler salvo defasado.** `modelo_monstro_wdo_scaler.json` foi ajustado com
+   preços de julho: `preco_maior_escora_*` 5.045–5.148 vs hoje 5.562–5.635
+   (100% fora do range); `bid_qty` 8.148–22.344 vs hoje 4.155–11.954
+   (243/300 abaixo do mínimo). Mesmo carregando certo, o range não cobre o regime atual.
+4. **O CSV de treino apagava os trades reais.** `monitorar_recursos()` truncava
+   `historico_contexto_wdo.csv` para as últimas 5.000 linhas. O robô grava
+   ~194 linhas/hora de `NAO_AGIU`; o arquivo cobre só ~26 horas. Resultado:
+   **restaram 3 trades rotulados** (`4997 NAO_AGIU` + `3 BUY`). O dataset de
+   aprendizado era literalmente deletado pelo próprio robô.
+5. **Rótulo falso.** `preparar_dados()` fazia
+   `y = 1 if action=='BUY' else 0` → `NAO_AGIU` virava **SELL (0)**.
+6. **Replay sempre nas amostras mais antigas.** `obter_batch_replay()` ordenava
+   por idade e pegava `exp_reais[:32]`. Ao crescer o dataset, o modelo treinava
+   eternamente nas 32 primeiras e nunca no regime atual.
+
+#### 23.23.3 Correções aplicadas (sem tocar em lógica de trade)
+
+1. `_forcar_recreacao_scaler_throttled()` agora chama
+   `forcar_recreacao_scaler()` (fim da recursão).
+2. `normalizar_dados()`: ao faltar scaler, **tenta carregar o salvo antes** de
+   qualquer fallback; só faz fit de emergência com `len(df) >= 2`; com 1 linha,
+   usa scaler dummy e registra `ERROR` (nunca mais normalização degenerada silenciosa).
+3. Rótulo: `action.map({'BUY':1,'SELL':0})`; `NAO_AGIU`/`NADA` viram `NaN` e são
+   **descartados** em `treinar_modelo()` (log: "Descartando N amostras sem rótulo").
+4. `obter_batch_replay()` usa as experiências **mais recentes** (`[-n_replay:]`).
+5. Rotação do CSV: preserva **todos** os `BUY/SELL` e mantém as últimas 5.000
+   linhas de `NAO_AGIU` (teste isolado: 6 trades sobreviveram ao truncamento).
+6. `retreinar_keras_wdo.py`: script novo de retreino/validação offline, read-only
+   no robô, com gate de completude das features de book e veredito automático.
+
+`py_compile` OK.
+
+#### 23.23.4 Validação em produção (restart 12:04:35)
+
+- Restart **só do robô** (sem `start_all.bat`, sem reiniciar MT5/Herman/ORB).
+- Log confirma a correção do scaler:
+  `Scaler carregado do treinamento offline: modelo_monstro_wdo_scaler.json`.
+- Posição aberta `#2590758259` (BUY WDOZ26 5.579,50) foi **re-adotada**
+  automaticamente; zero erros de `SYMBOL`/dados incompletos/watchdog.
+- Nenhuma mudança de lógica de entrada/saída; modelo e scaler vivos **não** foram trocados.
+
+#### 23.23.5 Retreino candidato — números honestos
+
+Script: `retreinar_keras_wdo.py` (mesma arquitetura do modelo vivo via
+`clone_model`; scaler ajustado **só no treino**; `NAO_AGIU` descartado).
+
+| conjunto | n | baseline | acurácia | AUC | p(BUY) |
+|---|---|---|---|---|---|
+| validação offline (20% final do corpus de julho) | 1.081 | 0,539 | **0,593** | **0,631** | 0,177–0,986 |
+| holdout real recente (book completo) | 3 | 1,000 | 0,000 | n/a | ~0,31 |
+
+- O candidato **tem poder discriminativo no corpus offline** (AUC 0,631 > 0,55),
+  o que confirma que a arquitetura/dados aprendem.
+- **Holdout real = 3 trades** (todos BUY). Estatisticamente inútil.
+- **Veredito automático: NÃO PROMOVER** — holdout recente insuficiente (3 < 30).
+- Modelo vivo e scaler vivo **permanecem intocados**. Candidatos salvos como
+  `modelo_monstro_wdo_candidato.h5/.keras/_scaler.json` + métricas em
+  `logs/retreino_keras_20261111_120207.json` (não versionados).
+
+#### 23.23.6 Achado de qualidade de dados (importante)
+
+- `logs/treino_corpus_real.csv` (141 trades reais, ago–nov) tem **10 de 18
+  features zeradas**: `preco_maior_escora_*`, `volume_maior_escora_*`,
+  `distancia_maior_escora_*`, `liquidez_top5_*`. Só `bid_qty`, `ask_qty`,
+  `spread`, `volatility`, `entropia_book`, `rsi_14`, `volume_tick` são reais.
+  Treinar com ele ensinaria "book sempre zero" — por isso o script aplica o
+  gate `MIN_BOOK_FEATURES = 6` e o descarta.
+- O corpus offline (`modelo_monstro_wdo_dados_treino.csv`, 5.405 linhas) é de
+  julho, com preços ~5.100 e distribuições diferentes (spread 0,5–7,45 vs real
+  0–0,5; entropia 1,10–2,29 vs real 2,58–2,97).
+- Conclusão: **não existe hoje dataset rotulado do regime atual (WDO ~5.580)
+  com features completas.** É a limitação estrutural que impede a promoção.
+
+#### 23.23.7 Decisão registrada
+
+- **Rejeitado promover o candidato agora.** Motivo: holdout real < 30 amostras.
+- O que entra em produção **hoje**: apenas as correções de pipeline (itens 1–5),
+  que param a perda de dados e fazem a IA usar o scaler real em vez de zeros.
+- Critério de aceite para promover (quando houver dados):
+  1. `AUC validação > 0,55`;
+  2. `acurácia > baseline majoritário + 0,03`;
+  3. holdout recente **≥ 30** trades com book completo (ideal ≥ 100);
+  4. rodar em paper antes de ativar.
+
+#### 23.23.8 Próximos passos
+
+1. Deixar o robô rodar: a partir de agora os `BUY/SELL` **não são mais apagados**.
+2. Reexecutar `venv310\Scripts\python.exe retreinar_keras_wdo.py` quando houver
+   ≥ 30 trades reais com book completo.
+3. Só promover se o veredito do script for "APTO", e ainda assim em paper.
+4. Avaliar (futuro) remover features de **preço absoluto** (`preco_maior_escora_*`)
+   e usar só distâncias — reduz o problema de não-estacionariedade. Exige mudança
+   de features + retreino + validação; **não** fazer junto com outras mudanças.
+
+#### 23.23.9 Arquivos tocados
+
+- `monstro_unificado_v22.py` — 5 correções (itens 1–5), `py_compile` OK.
+- `retreinar_keras_wdo.py` — novo script de retreino/validação offline.
+- `logs/trades_reais_wdo.csv` — backup persistente dos trades reais (3 no momento).
+- `logs/historico_contexto_wdo_20261111_pre_fix.csv` — backup do CSV antes das correções.
+- `logs/retreino_keras_20261111_120207.json` — métricas do candidato.
+- Candidatos `modelo_monstro_wdo_candidato.*` — **não promovidos, não versionados**.
+- `ROADMAP_MONSTRO_OFICIAL_UNIFICADO.md` — esta seção.

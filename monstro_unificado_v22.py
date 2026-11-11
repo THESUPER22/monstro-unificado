@@ -2179,7 +2179,7 @@ def _forcar_recreacao_scaler_throttled():
     now=time.time()
     if now-_SCALER_LAST_TS<3600: return _SCALER_LAST_OK
     try:
-        res=_forcar_recreacao_scaler_throttled()
+        res=forcar_recreacao_scaler()
         _SCALER_LAST_TS=now; _SCALER_LAST_OK=res
         return res
     except Exception:
@@ -3369,13 +3369,32 @@ def normalizar_dados(df: pd.DataFrame, colunas_numericas: List[str], colunas_cat
                 scaler_precisa_fit = True
 
         if scaler_precisa_fit:
-            # Scaler nÃÂ£o fitted Ã¢â¬â faz fit com os dados atuais como fallback
+            # Scaler nao fitted: tenta carregar o scaler salvo antes de qualquer fallback
             logging.warning(
-                "[normalizar_dados] Ã¢Å¡Â Ã¯Â¸Â Scaler nÃÂ£o fitted Ã¢â¬â fazendo fit com dados atuais como fallback")
-            scaler_global = MinMaxScaler()
-            df[colunas_numericas] = scaler_global.fit_transform(
-                df[colunas_numericas])
+                "[normalizar_dados] Scaler nao fitted - tentando carregar scaler salvo")
+            try:
+                forcar_recreacao_scaler()
+                check_is_fitted(scaler_global)
+                scaler_precisa_fit = False
+            except Exception:
+                scaler_precisa_fit = True
+
+        if scaler_precisa_fit:
+            if len(df) >= 2:
+                logging.warning(
+                    "[normalizar_dados] Sem scaler salvo - fit de emergencia com %d linhas", len(df))
+                scaler_global = MinMaxScaler()
+                df[colunas_numericas] = scaler_global.fit_transform(
+                    df[colunas_numericas])
+            else:
+                logging.error(
+                    "[normalizar_dados] Sem scaler salvo e apenas 1 linha - usando scaler dummy (nao confiavel)")
+                scaler_global = MinMaxScaler()
+                scaler_global.fit(np.random.random((5, len(colunas_numericas))))
+                df[colunas_numericas] = np.clip(
+                    scaler_global.transform(df[colunas_numericas]), 0.0, 1.0)
         else:
+
             df[colunas_numericas] = scaler_global.transform(
                 df[colunas_numericas])
             antes = df[colunas_numericas].values.copy()
@@ -3425,8 +3444,21 @@ def monitorar_recursos() -> None:
             # LÃÂª e limita nÃÂºmero de linhas com tratamento de erro
             try:
                 df = pd.read_csv(HISTORICO_CSV)
-                if len(df) > 5000:  # Reduzido de 10000 para 5000
-                    df = df.tail(5000)
+                if len(df) > 5000:
+                    # PRESERVA as operacoes reais (BUY/SELL): sao o sinal de
+                    # aprendizado e nao podem ser rotacionadas pelo flood de
+                    # NAO_AGIU (era a causa de restarem so 3 trades no CSV).
+                    if 'action' in df.columns:
+                        reais = df[df['action'].isin(['BUY', 'SELL'])]
+                        resto = df[~df['action'].isin(
+                            ['BUY', 'SELL'])].tail(5000)
+                        df = pd.concat([resto, reais], ignore_index=True)
+                        try:
+                            df = df.sort_values('timestamp', kind='stable')
+                        except Exception:
+                            pass
+                    else:
+                        df = df.tail(5000)
                     df.to_csv(HISTORICO_CSV, index=False)
                     logging.debug(
                         "Ã¢ÅâÃ¯Â¸Â HistÃÂ³rico truncado para ÃÂºltimas 5000 linhas")
@@ -3794,8 +3826,10 @@ def preparar_dados(df: pd.DataFrame, treino: bool = False) -> Tuple[pd.DataFrame
     logging.debug(f"[preparar_dados] Shape final X: {X.shape}")
 
     # Prepara target
-    y = df_work['action'].apply(
-        lambda x: 1 if x == 'BUY' else 0) if 'action' in df_work else None
+    # Apenas BUY/SELL tem rotulo. NAO_AGIU/NADA viram NaN e sao descartados
+    # no treino (antes NAO_AGIU virava SELL=0, criando rotulo falso).
+    y = df_work['action'].map(
+        {'BUY': 1, 'SELL': 0}).astype('float64') if 'action' in df_work else None
 
     return X, y
 
@@ -8581,9 +8615,10 @@ class MemoriaExperiencias:
         # Ordena por idade (mais antigas primeiro para replay)
         exp_reais.sort(key=lambda x: self.timestamps[x[0]])
 
-        # Seleciona subset para replay
+        # Seleciona subset para replay: as mais RECENTES (o modelo precisa
+        # aprender o regime atual; antes pegava sempre as mais antigas).
         n_replay = min(BATCH_SIZE, len(exp_reais))
-        indices_replay = [idx for idx, _ in exp_reais[:n_replay]]
+        indices_replay = [idx for idx, _ in exp_reais[-n_replay:]]
 
         batch = [self.experiencias[i] for i in indices_replay]
         decays = [PESO_REPLAY * self.calcular_decay(self.timestamps[i])
@@ -8879,6 +8914,18 @@ def treinar_modelo(modelo: Sequential, memoria: MemoriaExperiencias) -> Sequenti
         df_treino = df_exp.drop(
             columns=["reward", "reward_norm", "score_dist"])
         X, y = preparar_dados(df_treino, treino=False)
+
+        # NAO_AGIU nao tem rotulo (y=NaN): descarta para nao virar SELL falso
+        if y is not None:
+            mask_label = y.notna().values
+            n_desc = int((~mask_label).sum())
+            if n_desc:
+                logging.info(
+                    f"[treinar_modelo] Descartando {n_desc} amostras sem rotulo (NAO_AGIU)")
+                X = X[mask_label].reset_index(drop=True)
+                y = y[mask_label].reset_index(drop=True)
+                recompensas = [recompensas[i] for i in range(len(recompensas))
+                               if i < len(mask_label) and mask_label[i]]
 
         # Remove NaN/inf e alinha recompensas com dados vÃÂ¡lidos
         if X is not None and y is not None and len(X) > 0:

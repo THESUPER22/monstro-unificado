@@ -125,3 +125,6 @@ autopsia_*.json
 
 # --- Estado runtime do watchdog (backoff) ---
 watchdog_estado.json
+# Candidatos de retreino (dados, nao codigo)
+*_candidato_scaler.json
+modelo_monstro_wdo_candidato*
