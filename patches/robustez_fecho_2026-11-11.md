@@ -1,6 +1,7 @@
 # Patch de robustez do fecho — proposta para revisão (11/11/2026)
 
-**Status:** PROPOSTA — nada aplicado ao robô em produção.
+**Status:** aprovado conceitualmente em 11/11/2026; aplicação pendente na branch
+`robustez-fecho` após o pregão de 12/11 (nada aplicado ao robô em produção).
 **Origem:** ROADMAP seção **23.27** (incidente do fechamento das 17:35).
 **Commit de referência das âncoras:** `9cd5c1b` (main).
 **Arquivos aditivos desta proposta:**
@@ -303,6 +304,8 @@ Cobertura dos 12 testes:
 
 ## 9. Checklist de aplicação (Fase 1 — revisão humana)
 
+- [x] Aprovação conceitual em 11/11/2026: textos de log, `MONSTRO_FORCE_SHUTDOWN=1`
+      e backoff 5×5 s.
 - [ ] Revisar este documento e os helpers.
 - [ ] Aprovar os textos de log e o escape hatch `MONSTRO_FORCE_SHUTDOWN`.
 - [ ] Aplicar C1–C4 em branch separada (não direto na `main`).

@@ -3568,6 +3568,16 @@ magic alheio 123457 ignorado, bitmask de fillings, deals por magic/PnL.
 - Criterio de aceite: nenhum log de "POSICOES FECHADAS" com posicao aberta e
   shutdown sem `--force` nunca termina com posicao do robo aberta.
 
+**Aprovacao conceitual em 11/11/2026 (Mestre):**
+
+- Textos de log aprovados: `FECHO CONFIRMADO`, `FECHO INCOMPLETO`,
+  `SHUTDOWN BLOQUEADO`.
+- Escape do shutdown: `MONSTRO_FORCE_SHUTDOWN=1` (variavel de ambiente;
+  CLI intocada).
+- Backoff: 5 tentativas x 5 s (~25 s).
+- Branch `robustez-fecho` criada em `9768889`, pronta para receber a
+  integracao C1-C4 apos o pregao de 12/11.
+
 ### 23.28.5 Observacao
 
 `tests/test_gerenciador_bloqueio.py` tem um teste legado que falha sempre
