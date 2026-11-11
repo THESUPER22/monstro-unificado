@@ -2953,3 +2953,18 @@ no período completo (875 trades):
 O FT mantém o critério do backtest (18:00) para o paper ser **diretamente
 comparável**. Em execução real, achatar em 17:55 custa ~R$ 2–3/trade e o edge
 continua positivo — está documentado como ajuste conservador.
+
+#### 23.21.6 Aposentadoria do FT WIN$ (11/11/2026)
+
+- A pedido do Mestre, a tarefa **`Rompimento-FT`** (WIN$, `rompimento_ft.py`) foi
+  **desabilitada** e os processos do dia encerrados. O foco passa a ser
+  **exclusivo em WDO**, e o `ORB-WDO-FT` assume o forward test.
+- **Nada foi apagado:** histórico, CSVs e logs do WIN$ ficam preservados. A
+  tarefa pode ser reabilitada (`schtasks /change /tn Rompimento-FT /enable`) se
+  um dia fizer sentido.
+- Motivo: diretriz WDO-only; o WIN não tinha edge validado no WDO e só gerava
+  ruído/arquivos.
+- Correção no monitor: `_task_existe()` agora considera tarefa **desabilitada**
+  como inativa. Antes, `schtasks /query` retornava 0 mesmo para tarefa desligada
+  e o monitor daria **falso CRIT** depois de aposentá-la. Testado:
+  `Rompimento-FT -> inativo`, `ORB-WDO-FT -> ativo`.

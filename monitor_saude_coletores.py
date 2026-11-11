@@ -225,12 +225,28 @@ def _notificar(titulo, msg):
 
 
 def _task_existe(nome):
+    """True se a tarefa existe E esta habilitada.
+
+    `schtasks /query` retorna 0 tambem para tarefa DESABILITADA; por isso
+    conferimos o State via Get-ScheduledTask. Assim, aposentar uma tarefa nao
+    gera falso CRIT no monitor.
+    """
     try:
         r = subprocess.run(["schtasks", "/query", "/tn", nome],
                            capture_output=True, text=True, timeout=20)
-        return r.returncode == 0
+        if r.returncode != 0:
+            return False
     except Exception:
         return False
+    try:
+        q = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+             "(Get-ScheduledTask -TaskName '%s' -ErrorAction SilentlyContinue).State" % nome],
+            capture_output=True, text=True, timeout=20)
+        state = (q.stdout or "").strip()
+        return bool(state) and state.lower() != "disabled"
+    except Exception:
+        return True   # nao conseguiu checar o estado: mantem "existe"
 
 
 def _ft_ativo_desde():
