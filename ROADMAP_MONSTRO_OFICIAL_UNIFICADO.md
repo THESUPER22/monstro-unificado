@@ -3055,12 +3055,12 @@ interromper o coletor Herman). Log após o restart:
 - Contrato correto: **WDOZ26** (vence 30/11/2026). `WDO$` retornou tick `0.0`
   neste teste — mais um motivo para o robô usar o contrato mensal explícito.
 - Book nativo: 20 níveis após `market_book_add`.
-- **Achado paralelo:** existe uma posição fantasma **WINV25 SELL 5.0**
-  (magic `123457`, aberta em 15/10/2025) em um símbolo que **não existe mais**
-  no terminal (`symbol_info("WINV25")` → `False`). Ela fica presa no servidor
-  demo. Com `SYMBOL=None`, o robô a via como "posição ativa"; com `SYMBOL`
-  resolvido, `positions_get(symbol="WDOZ26")` a ignora automaticamente.
-  **Não foi fechada** (símbolo inexistente / decisão do Mestre).
+- **Posição fantasma WINV25** (magic `123457`, aberta em 15/10/2025): **já
+  registrada e decidida** na autópsia de 17/09 (seções 6 e 13 — "DECISÃO DO
+  MESTRE: ignorar"). É impossível fechar (contrato vencido, retcode 10013, sem
+  livro). **Fica inerte na conta demo, sem ação.** Com `SYMBOL=None` ela aparecia
+  como "posição ativa"; com `SYMBOL` resolvido, `positions_get(symbol="WDOZ26")`
+  a ignora sozinho. Nada a fazer.
 
 #### 23.22.6 Lições registradas
 
