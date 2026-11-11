@@ -404,6 +404,80 @@ def reconectar_mt5() -> bool:
         return False
 
 
+# ===== AUTO-RECUPERACAO DO SIMBOLO (fix 11/11/2026) =====
+# Contexto do bug: em 11/11/2026 o mt5.initialize() falhou na abertura
+# (IPC timeout -10005). inicializar_mt5() retornou False, mas monstro_thread
+# seguiu em frente com SYMBOL=None. Resultado: loop infinito de
+# "SYMBOL ainda nao foi definido" + "Dados do mercado incompletos" e o
+# watchdog reabrindo a conexao a cada ~12s. As funcoes abaixo so RESOLVEM o
+# contrato e reassinam o book nativo - nenhuma regra de entrada/saida muda.
+def _resolver_symbol_wdo(force: bool = False) -> Optional[str]:
+    """Garante o contrato WDO resolvido (auto-recuperacao, read-only).
+
+    - Se SYMBOL ja existe e o terminal conhece o simbolo, mantem.
+    - Se o terminal caiu, tenta reconectar.
+    - Senao, resolve o contrato mensal vigente e assina o book nativo.
+    Throttle de 30s para nao martelar a API do MT5.
+    """
+    global SYMBOL
+    agora = time.time()
+    ultima = getattr(_resolver_symbol_wdo, '_ultima_tentativa', 0.0)
+    if not force and (agora - ultima) < 30.0:
+        return SYMBOL
+    _resolver_symbol_wdo._ultima_tentativa = agora
+    try:
+        if SYMBOL:
+            try:
+                if mt5.symbol_info(SYMBOL) is not None:
+                    return SYMBOL
+            except Exception:
+                pass
+        # Terminal/DLL pode ter caido junto com a falha de initialize.
+        try:
+            if mt5.terminal_info() is None:
+                if not reconectar_mt5():
+                    return SYMBOL
+        except Exception:
+            if not reconectar_mt5():
+                return SYMBOL
+        novo = get_front_month_symbol_dynamic("WDO")
+        if not novo:
+            return SYMBOL
+        mt5.symbol_select(novo, True)
+        if mt5.market_book_add(novo):
+            logging.info(f"[BOOK] Book nativo ATIVADO para {novo} (auto-recuperacao)")
+        else:
+            logging.warning(
+                f"[BOOK] market_book_add falhou para {novo}: {mt5.last_error()} (seguindo)")
+        if novo != SYMBOL:
+            logging.warning(f"[SYMBOL] Contrato auto-recuperado: {SYMBOL} -> {novo}")
+            SYMBOL = novo
+        return SYMBOL
+    except Exception as e:
+        logging.error(f"[SYMBOL] Falha ao resolver o contrato WDO: {e}")
+        return SYMBOL
+
+
+def _garantir_book_nativo(symbol: str = None) -> bool:
+    """Reassina o book nativo se a assinatura se perdeu (ex.: apos o watchdog
+    reiniciar o terminal64). Throttle de 15s. Nao altera a estrategia."""
+    global SYMBOL
+    s = symbol or SYMBOL
+    if not s:
+        return False
+    agora = time.time()
+    if (agora - getattr(_garantir_book_nativo, '_ultima', 0.0)) < 15.0:
+        return False
+    _garantir_book_nativo._ultima = agora
+    try:
+        if mt5.market_book_add(s):
+            logging.info(f"[BOOK] Reassinatura do book nativo para {s} (auto-recuperacao)")
+            return True
+    except Exception as e:
+        logging.debug(f"[BOOK] Falha ao reassinar book de {s}: {e}")
+    return False
+
+
 # ===== PATCH A v22.2: WATCHDOG DLL (resgate de trava de thread) =====
 # Autorizado pelo Mestre em 05/09 para o feriado de 07/09 (v22.2-protected).
 # Escopo: processo/resgate/observabilidade - NENHUMA logica de gatilho,
@@ -4861,6 +4935,10 @@ def obter_dados_mercado(symbol: str = None, timeframe: int = TIMEFRAME) -> Tuple
     if symbol is None:
         symbol = SYMBOL
     if symbol is None:
+        # Fix 11/11/2026: auto-recuperacao do contrato quando a inicializacao
+        # do MT5 falhou (IPC timeout). Antes o loop ficava preso para sempre.
+        symbol = _resolver_symbol_wdo()
+    if symbol is None:
         logging.error("Ã¢ÂÅ SYMBOL ainda nÃÂ£o foi definido!")
         return (None,) * 10
 
@@ -4890,6 +4968,10 @@ def obter_dados_mercado(symbol: str = None, timeframe: int = TIMEFRAME) -> Tuple
         # ===== LEITURA NATIVA DO BOOK (DIRETO DO MT5, SEM EA/CSV) =====
         book_data = ler_book_nativo()
         if not book_data or not book_data.get('bids') or not book_data.get('asks'):
+            # Fix 11/11/2026: se o watchdog reiniciou o terminal64, a assinatura
+            # do book se perde e o loop ficaria eternamente em "dados
+            # incompletos". Reassina (throttle 15s) sem tocar na estrategia.
+            _garantir_book_nativo(symbol)
             if log_time:
                 # Ã¢Åâ¦ MODO SNIPER: log reduzido Ã¢â¬â standby silencioso aguardando sinal institucional
                 logging.debug(
@@ -6660,6 +6742,21 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
     try:
         # InicializaÃÂ§ÃÂ£o
         mt5_ativo_local = inicializar_mt5() if mt5_ativo_param is None else mt5_ativo_param
+        # AUTO-RECUPERACAO (fix 11/11/2026): se o initialize falhar (ex.: IPC
+        # timeout na abertura), o loop antigo seguia com SYMBOL=None e ficava
+        # preso em "SYMBOL ainda nao foi definido" + watchdog reconectando a
+        # cada ~12s. Aqui reconectamos algumas vezes e resolvemos o contrato.
+        # Nenhuma regra de entrada/saida e alterada.
+        if mt5_ativo_param is None and not mt5_ativo_local:
+            for _tentativa_init in range(1, 7):
+                logging.warning(
+                    f"MT5 indisponivel na inicializacao - tentativa {_tentativa_init}/6 em 10s")
+                time.sleep(10)
+                if reconectar_mt5():
+                    mt5_ativo_local = True
+                    break
+        if not SYMBOL:
+            _resolver_symbol_wdo(force=True)
 
         # === PROTEÃâ¡ÃÆO TOTAL DO MODELO ===
         logging.info("Ã°Å¸âºÂ¡Ã¯Â¸Â Iniciando verificaÃÂ§ÃÂ£o de proteÃÂ§ÃÂ£o do modelo...")
@@ -9617,8 +9714,12 @@ def salvar_decisao_csv(acao: str, confianca: float, contexto: Dict[str, Any], ar
 # region [FunÃÂ§ÃÂµes de Mercado]
 
 
-def verificar_estado_book(symbol: str = SYMBOL) -> bool:
-    """Verifica se o book estÃÂ¡ ativo e funcionando corretamente."""
+def verificar_estado_book(symbol: str = None) -> bool:
+    """Verifica se o book esta ativo e funcionando corretamente."""
+    # Fix 11/11/2026: mesmo bug do default `= SYMBOL` avaliado no import.
+    symbol = symbol or SYMBOL
+    if not symbol:
+        return False
     try:
         # Verifica se ÃÂ© fim de semana
         if datetime.now().weekday() > 4:  # 5 = SÃÂ¡bado, 6 = Domingo
@@ -9667,8 +9768,14 @@ def verificar_estado_book(symbol: str = SYMBOL) -> bool:
         return False
 
 
-def reiniciar_book(symbol: str = SYMBOL) -> bool:
+def reiniciar_book(symbol: str = None) -> bool:
     """Tenta reiniciar o book de ofertas."""
+    # Fix 11/11/2026: default era `symbol: str = SYMBOL` (avaliado no import,
+    # quando SYMBOL ainda e None) -> market_book_release(None). Agora resolve
+    # em tempo de execucao.
+    symbol = symbol or SYMBOL
+    if not symbol:
+        return False
     try:
         # Desativa o book
         mt5.market_book_release(symbol)

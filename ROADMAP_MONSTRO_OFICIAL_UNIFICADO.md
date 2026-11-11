@@ -2968,3 +2968,116 @@ continua positivo — está documentado como ajuste conservador.
   como inativa. Antes, `schtasks /query` retornava 0 mesmo para tarefa desligada
   e o monitor daria **falso CRIT** depois de aposentá-la. Testado:
   `Rompimento-FT -> inativo`, `ORB-WDO-FT -> ativo`.
+
+---
+
+### 23.22 BUG CRÍTICO: `SYMBOL` NULO + "DADOS DO MERCADO INCOMPLETOS" EM LOOP (11/11/2026)
+
+**Status:** corrigido e validado em produção (conta **demo**).
+
+#### 23.22.1 Sintoma observado
+
+A partir de **09:15:07** o robô principal (`monstro_unificado_v22.py`) entrou em
+loop infinito, repetindo a cada ~2s:
+
+```
+ERROR   - SYMBOL ainda nao foi definido!
+WARNING - Dados do mercado incompletos. Aguardando proxima iteracao...
+```
+
+E, a cada ~12s, o watchdog forçava reconexão:
+
+```
+INFO  - Reconectado ao MetaTrader 5
+ERROR - [WATCHDOG-DLL] Tick estagnado >10s durante o expediente - reconexao forcada (ok=True)
+```
+
+Ficou assim de **09:15 até 11:40** (≈ 2h25 de robô paralisado). O ORB WDO e o
+coletor Herman **não** tinham erro — o problema era exclusivo do robô principal.
+
+#### 23.22.2 Cadeia de causa raiz (o que realmente aconteceu)
+
+1. `09:02:31` — robô inicia.
+2. `09:03:38` — `mt5.initialize()` falha com **`(-10005, 'IPC timeout')`**.
+3. `inicializar_mt5()` (L4777) retorna `False` **antes** de chegar na linha que
+   resolve o contrato (`SYMBOL = get_front_month_symbol_dynamic("WDO")`, L4814).
+4. `monstro_thread()` (L6662) fazia
+   `mt5_ativo_local = inicializar_mt5()` e **ignorava o `False`** — seguia em
+   frente com `SYMBOL = None`.
+5. O loop chamava `obter_dados_mercado(SYMBOL)` → `SYMBOL is None` → retornava
+   `(None,)*10` → "dados incompletos" → `sleep(2)` → repete para sempre.
+6. O watchdog via o tick parado, mas `_stale_real_min()` também usa `SYMBOL`
+   (nulo) e devolvia `None` → tratado como "episódio real" → `hard_reset_mt5()`
+   a cada 12s. Ele reconectava o MT5, **mas nunca re-resolvia o contrato**.
+
+Ou seja: a falha de inicialização do MT5 era **recuperável**, mas o código não
+tinha nenhum caminho de auto-recuperação do `SYMBOL`. O watchdog tratava o
+sintoma (conexão) e não a causa (contrato não resolvido).
+
+#### 23.22.3 Correções aplicadas (sem tocar em lógica de trade)
+
+Todas as mudanças são de **robustez/infraestrutura**. Nenhum limiar, gatilho,
+stop, alvo, filtro ou regra de entrada/saída foi alterado.
+
+| # | Local | Correção |
+|---|-------|----------|
+| 1 | `_resolver_symbol_wdo()` (nova, após `reconectar_mt5`) | Auto-recuperação do contrato: mantém `SYMBOL` se válido; reconecta se o terminal caiu; senão resolve o contrato mensal vigente, faz `symbol_select` + `market_book_add`. Throttle de 30s. |
+| 2 | `_garantir_book_nativo()` (nova) | Reassina o book nativo quando a assinatura se perde (ex.: watchdog reiniciou o `terminal64`). Throttle de 15s. Chamada quando `ler_book_nativo()` volta vazio. |
+| 3 | `obter_dados_mercado()` | Se `symbol is None`, chama `_resolver_symbol_wdo()` **antes** de desistir. |
+| 4 | `monstro_thread()` | Se `inicializar_mt5()` falhar, tenta `reconectar_mt5()` até **6× a cada 10s** e depois força `_resolver_symbol_wdo(force=True)`. |
+| 5 | `reiniciar_book()` | Default era `symbol: str = SYMBOL`, avaliado **no import** (quando `SYMBOL` ainda é `None`) → `market_book_release(None)`. Agora resolve em tempo de execução. |
+
+#### 23.22.4 Validação (11/11/2026, 11:41)
+
+Reinício limpo (somente o processo do robô; **MT5 não foi reiniciado** para não
+interromper o coletor Herman). Log após o restart:
+
+```
+11:41:29 - MetaTrader 5 inicializado com sucesso
+11:41:30 - Contrato dinamico selecionado: WDOZ26 (venc.: 2026-11-30 19:15)
+11:41:30 - [BOOK] Book nativo ATIVADO para WDOZ26 (Depth of Market)
+11:41:37 - WDOZ26 | Preco: 5580 | Spread: 0.5pts | BID: 5640 / ASK: 6391
+11:41:37 - DOL DOLZ26: ratio=1.10 lado=BUY conf=0.37 vol=1405
+11:41:38 - PTAX atualizada: R$ 5.5840
+11:41:39 - [MultiTF] M5 RSI=48.5 ATR=4.9 ...
+11:42:07 - BUY WDOZ26 | Entrada: 5580 | SL: 5572 TP: 5586
+```
+
+- **Zero** ocorrências de `SYMBOL ainda nao foi definido`, `Dados do mercado
+  incompletos` e `[WATCHDOG-DLL]` desde o restart (verificado por 75s+).
+- Robô voltou a operar (abriu BUY em WDOZ26 — comportamento normal).
+- `monitor_saude_coletores.py` → **OK** em todos os checks (`robo_principal`,
+  `herman_*`, `orb_wdo_ft`).
+
+#### 23.22.5 Diagnóstico read-only que confirmou o ambiente
+
+- Conta: **55265364 / XPMT5-DEMO** (demo, `trade_mode=0`, saldo R$ 838.534,21).
+- Contrato correto: **WDOZ26** (vence 30/11/2026). `WDO$` retornou tick `0.0`
+  neste teste — mais um motivo para o robô usar o contrato mensal explícito.
+- Book nativo: 20 níveis após `market_book_add`.
+- **Achado paralelo:** existe uma posição fantasma **WINV25 SELL 5.0**
+  (magic `123457`, aberta em 15/10/2025) em um símbolo que **não existe mais**
+  no terminal (`symbol_info("WINV25")` → `False`). Ela fica presa no servidor
+  demo. Com `SYMBOL=None`, o robô a via como "posição ativa"; com `SYMBOL`
+  resolvido, `positions_get(symbol="WDOZ26")` a ignora automaticamente.
+  **Não foi fechada** (símbolo inexistente / decisão do Mestre).
+
+#### 23.22.6 Lições registradas
+
+- **Nunca ignorar o retorno de `inicializar_mt5()`.** Inicialização parcial
+  precisa de caminho de recuperação, não de "seguir em frente".
+- **Watchdog não substitui auto-recuperação de estado.** Reconectar o MT5 não
+  adianta se o estado derivado (`SYMBOL`, assinatura do book) não é reconstruído.
+- **`market_book_add` é volátil:** `mt5.shutdown()` + `initialize()` (usado pelo
+  watchdog) derruba a assinatura do book; sem reassinar, o sintoma vira "dados
+  incompletos" mesmo com `SYMBOL` correto.
+- **Default argument com global mutável** (`symbol: str = SYMBOL`) congela o
+  valor do import (`None`). Bug silencioso.
+- Reiniciar **só o robô** (sem `start_all.bat`) evita matar o `terminal64` e
+  interromper o coletor Herman e o ORB.
+
+#### 23.22.7 Arquivos tocados
+
+- `monstro_unificado_v22.py` (5 correções acima; `py_compile` OK).
+- `logs/monstro_wdo_20261111_bug_symbol.log` — backup do log do bug (1,38 MB).
+- `ROADMAP_MONSTRO_OFICIAL_UNIFICADO.md` — esta seção.
