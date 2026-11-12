@@ -404,6 +404,33 @@ def resumo_rompimento_dia():
         return None
 
 
+# [C1-C4] C4: contagem read-only por deals reais do MT5 (inclui fecho manual).
+def contar_trades_reais_hoje():
+    """(n_fechados, pnl_realizado) lendo deals reais. Degrada para (None, 0)."""
+    try:
+        import MetaTrader5 as mt5
+        from patches.robustez_fecho_helpers import contar_deals_reais_hoje
+
+        cfg = carregar_config_robo()
+        magics = {int(cfg.get("geral", {}).get("magic_number", 123456))}
+        try:
+            magics.add(int((cfg.get("rompimento") or {}).get("magic", 7008)))
+        except (TypeError, ValueError):
+            pass
+
+        if not mt5.initialize():
+            return None, 0.0
+        try:
+            hoje = datetime.now().replace(
+                hour=0, minute=0, second=0, microsecond=0)
+            return contar_deals_reais_hoje(mt5, magics, hoje, datetime.now())
+        finally:
+            mt5.shutdown()
+    except Exception as e:
+        log.warning(f"contar_trades_reais_hoje indisponivel: {e}")
+        return None, 0.0
+
+
 def contar_executados_hoje():
     """Trades FECHADOS hoje (marcador 'processada e resetada do v22').
     Corresponde aos appends de historico_lucro (= total_operacoes do dashboard).
@@ -810,6 +837,14 @@ def gerar_relatorio_diario(info_diff=None):
     n_romp = contar_executados_rompimento_hoje()
     linhas.append(f"Decisoes hoje: {stats.get('n_decisoes', 0)} | Sinais BUY/SELL: {stats.get('sinais', 0)} "
                   f"| Trades executados: {n_v22 + n_romp} (v22={n_v22} + Faixa1={n_romp})")
+    # [C1-C4] C4: deals reais (inclui fecho manual fora do log).
+    n_real, pnl_real = contar_trades_reais_hoje()
+    if n_real is None:
+        linhas.append("Trades fechados (deals MT5): indisponivel (MT5 off)")
+    else:
+        linhas.append(
+            f"Trades fechados (deals MT5): {n_real} | "
+            f"PnL realizado: R$ {pnl_real:+.2f}")
     linhas.append(f"dataset_reward_fill: {w if w is not None else 'sem amostra'}% (n={nw})"
                   f"  [NAO e win rate de trade]")
     linhas.append("  win rate de TRADE (deals MT5): ver plano_ do dia seguinte / autopsia")

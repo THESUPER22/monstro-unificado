@@ -3890,6 +3890,118 @@ somar `contar_executados_rompimento_hoje()` ao `n_fechados` (Fase 1).
 **4 estrelas** para a correcao do relatorio: e o numero que o humano le
 para decidir, e estava 5x maior. O achado secundario e **2 estrelas**.
 
+## 23.34 Auditoria de logs do fecho de 12/11 (12/11/2026)
+
+### 23.34.1 Escopo e metodo
+
+Varredura read-only de todos os logs modificados em 12/11
+(`monstro_wdo.log`, `agente_autonomo.log`, `logs/saude_coletores.log`,
+`logs/ALERTA_COLETORES.txt`, `logs/herman_6p/online_herman.log`,
+`logs/rompimento/rompimento.log`, `logs/rompimento_orb_wdo/orb_wdo.log`).
+Nenhum arquivo foi alterado durante a investigacao.
+
+### 23.34.2 Log principal: zero erro
+
+`monstro_wdo.log` hoje: 61.974 linhas (09:02:39 -> 17:35:50), 21.844
+WARNING, **0 ERROR/CRITICAL/Traceback**. Encerramento gracioso as 17:35:50.
+
+### 23.34.3 "VETO TOTAL ... Sem historico suficiente" (2 estrelas)
+
+1.214 ocorrencias, o dia inteiro (nao so no inicio). Nao e falta de dados:
+`monstro_unificado_v22.py:1465` devolve "Sem historico suficiente" como
+**aprovacao**, e o veto real vem depois da trava dupla de Williams %R
+(`:9251-9258`); `:9269` imprime os motivos **obsoletos**. Casamento exato:
+1.214 VETO TOTAL = 1.214 veto SELL + 1.214 veto BUY por WR < -80.
+Recorrente (10/11=611, 06/11=592): nao e regressao. Acao: so corrigir a
+mensagem para citar Williams %R.
+
+### 23.34.4 "executar_ordem falhou" apos o gate (3 estrelas)
+
+18 ocorrencias, sempre 1:1 depois de
+`[GATE ROMPIMENTO] Ordem bloqueada ... (apenas Magic 7008)`. A ordem foi
+**bloqueada pelo gate**, nao falhou no MT5. Sao 18 sinais Sniper do Core
+perdidos com mensagem enganosa. Acao: distinguir "bloqueada" de "falhou".
+
+### 23.34.5 Clipping: frequencia recorde, magnitude menor (4 estrelas)
+
+Hoje: **10.390 eventos / 29.121 valores** clipados (2-5 features por
+evento). Comparacao: 10/11=6.072 eventos / 88.892 valores (14,6/evento);
+06/11=4.534 / 65.792; 05/11=6.755 / 94.059. Frequencia +71% vs 10/11,
+mas total de valores **-67%**. 11/11 nao serve de baseline (loop quase
+nao rodou). Features provaveis: `bid_qty` (min do scaler 8148 vs bid
+observado ~5011) e `volume_tick` (max 207 vs volume ~9.500-12.648).
+Acao: revisar scaler/faixas de treino antes do proximo retreino (T2).
+
+### 23.34.6 Trailing do ticket 2592177465 (confirma 23.32, 4 estrelas)
+
+"Nenhuma atualizacao real de SL. Entrada 5669, SL 5661, TP 5674 em 452 de
+452 linhas de monitoramento; maxima +1 pt (gatilho = 8). Fechou no SL fixo
+(-R$80)." Reforca a proposta 23.32: o log "Trailing stop iniciado" e falso
+e `monitorar_posicao_ativa` nunca e chamada.
+
+### 23.34.7 Shutdown do agente: bug real de ciclo de vida (4 estrelas)
+
+Timeline: `Monstro-Fecho` 17:35:04 -> 1o `parar.txt` 17:35:18 -> robo
+consome 17:35:49 -> `ENCERRAMENTO GRACIL CONCLUIDO` 17:35:50 -> **2o**
+`parar.txt` 17:36:17 (`parar_robo()`->`parar_gracioso()`) -> timeout
+17:37:58 (~100,8 s) -> force kill PIDs 49400/60184/61980 -> `parada
+forcada: ok` 17:38:13.
+
+Os 3 PIDs sao a cadeia `cmd.exe /k` -> shim do venv -> Python real;
+`pids_robo()` casa qualquer cmdline com `monstro_unificado_v22`
+(`agente_monstro_core.py:159-168`), por isso superconta.
+
+Causa raiz: o ramo de parada gracil termina com `break`
+(`monstro_unificado_v22.py:6919-6959`), mas a thread principal fica presa
+em `webview.start()` (`:11288`) e ninguem fecha a janela. O processo
+continua vivo apos "finalizado com seguranca" e o agente espera 90 s por
+`pids_robo()` vazio (`agente_config.json:22`). Em 06/11, sem pywebview,
+o fallback `join()` retornou e **nao houve force kill**; nos dias com
+pywebview (10/11, 11/11, 12/11) houve timeout: padrao cronico.
+
+Impacto hoje: nenhum (artefatos salvos, flat, sem processos, sem
+`parar.txt`). Risco real: se o force kill falhar (precedente 03/11), sobra
+`python.exe` com `monstro_unificado_v22` na cmdline e o anti-duplicidade
+do `start_all.bat:8-9` recusa subir no dia seguinte -> dia perdido.
+
+Correcoes propostas (Fase 1, nao implementadas):
+1. **4 estrelas** - sair de fato no shutdown gracil: apos o log final,
+   destruir a janela (`_janela.destroy()`) e `os._exit(0)` (com flush).
+2. **3 estrelas** - `pids_robo()` filtrar `python.exe` e ignorar
+   `cmd.exe`/shim; ideal: PID em arquivo (`robo.pid`).
+3. **2 estrelas** - launcher sem `cmd /k` (`start_all.bat:24`).
+4. **1 estrela** - timeout real descontando a varredura (`wait_procs`).
+5. **1 estrela** - alerta destacado se `parar_forcado()` retornar `FALHOU`.
+
+### 23.34.8 Monitor de coletores: 1 bug real + 2 falsos positivos
+
+- **CRIT `[rompimento_ft]` (11:40, 13:30, 14:30, 14:50, 17:00) - bug real
+  (3 estrelas).** A tarefa esta `Disabled` e o probe retornou `False` em
+  15/15 chamadas agora. O CRIT so aparece quando o probe externo
+  (`schtasks`+PowerShell, timeout 20 s cada) falha e cai no
+  `except Exception: return True` **fail-open** (`monitor:249`). As runs
+  que falharam duraram 70-175 s (contencao do Task Scheduler). Correcao:
+  fail-safe/tri-state + probe unico com retry + logar a falha; e remover
+  `ativo_desde.txt` do FT aposentado.
+- **CRIT 17:40/17:50 Herman + robo - falso positivo de janela
+  (3 estrelas).** O monitor so conhece 09:00-17:55
+  (`monitor_saude_coletores.py:56-58`), nao o fecho das 17:35. Limpa
+  sozinho as 18:00 (`saude_coletores.log:154`, `status OK`,
+  `ALERTA_COLETORES.txt` apagado). Correcao: `PREGAO_FIM=17:35` ou tratar
+  17:35-17:55 como "encerramento" INFO; grace ate 09:10 na abertura.
+- **WARN `herman_crescimento` 17:10/17:20 - falso positivo de limiar
+  (2 estrelas).** Gap real de formacao (16:30:31 -> 17:24:10), mas com
+  heartbeat vivo e CSV integro (190 boxes). 3o dia seguido. Correcao:
+  limiar sazonal apos 16:30 ou condicionar a heartbeat+CSV.
+
+### 23.34.9 Veredito
+
+Nenhum erro de execucao no pregao. Itens acionaveis: observabilidade
+(mensagens enganosas), qualidade de features (clipping) e **ciclo de vida
+do processo no fecho** (4 estrelas, o unico com risco de derrubar o dia
+seguinte). Os alertas do monitor sao 1 bug de fail-open + 2 falsos
+positivos de janela/limiar.
+
 ## LISTA DE LOGO MAIS (backlog operacional)
 
 Itens aprovados para fazer **depois** do fecho de 12/11, em ordem. Nada aqui
@@ -3907,3 +4019,11 @@ autoriza mexer no robo com posicao aberta.
 | 8 | P4 - remover/religar codigo morto do trailing | 2 | P1/P2 | proposta 23.32 |
 | 9 | Telemetria do ORB (EOD provisorio) | 2 | - | proposta 23.30 |
 | 10 | Plano do dia: somar Faixa 1 aos fechados | 2 | - | proposta 23.33 |
+| 11 | Clipping/scaler desatualizado (bid_qty/volume_tick) | 4 | T2/retreino | proposta 23.34 |
+| 12 | "executar_ordem falhou" vs "gate bloqueou" | 3 | - | proposta 23.34 |
+| 13 | "VETO TOTAL" citar Williams %R (motivo real) | 2 | - | proposta 23.34 |
+| 14 | Robo sair de fato no shutdown gracil (os._exit) | 4 | C1-C4 + revisao | proposta 23.34 |
+| 15 | Monitor: fail-open do probe `rompimento_ft` | 3 | - | proposta 23.34 |
+| 16 | Monitor: janela 09:00-17:35 + grace 09:10 | 3 | - | proposta 23.34 |
+| 17 | `pids_robo()` filtrar python.exe (sem cmd/shim) | 3 | item 14 | proposta 23.34 |
+| 18 | Growth: limiar sazonal no fim do dia | 2 | - | proposta 23.34 |
