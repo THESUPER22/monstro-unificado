@@ -4048,9 +4048,52 @@ OUT do dia (Core + Faixa 1). O relatorio diario passa a mostrar
 - **Pendencia unica:** fecho real em demo (`order_send`/10031) nao pode
   ser testado hoje (demo sem simbolo 24h; WDO fechado). Fica para
   **sexta 13/11 antes das 09:00**, com `--reverter` pronto.
+  **RESOLVIDO no mesmo dia as 18:18** (ver 23.36): o after-market estava
+  vivo e o teste real passou.
 - A correcao 4 estrelas do 23.34.7 (sair de fato apos o fecho) continua
   como **PROPOSTA** para revisao humana; nao foi aplicada para nao
   alterar ciclo de vida sem aprovacao.
+
+## 23.36 Teste real de fecho em demo: PASS (12/11/2026, 18:18)
+
+### 23.36.1 Como foi possivel hoje
+
+A demo nao tem simbolo 24h, mas as 18:18 o after-market da B3 ainda
+negociava: `WDOZ26`/`WINZ26` com tick avancando a cada 10 s e bid
+mudando. Como o robo estava parado e flat, o teste foi feito na hora,
+dentro da janela das 18:30, em vez de esperar sexta.
+
+### 23.36.2 Harness
+
+`patches/teste_fecho_demo.py` (novo, read-only no robo):
+- `--check`: so lista conta/simbolos/posicoes.
+- `--run SIMBOLO`: exige conta **DEMO**, aborta se houver posicao dos
+  magics 123456/7008, abre 1 contrato (`volume_min`) com magic **999999**
+  (fora de `MAGICS_ROBO`), fecha via `fechar_todas_robusto` e confirma
+  por `positions_get()`. Fallback de fecho direto se o helper falhar.
+- Log em `logs/teste_fecho_demo.log`.
+
+### 23.36.3 Resultado
+
+```
+conta=55265364 XPMT5-DEMO trade_mode=0
+posicao de teste aberta: #2592223021 WDOZ26 vol=1.0
+[fecho] #2592223021 retcode 10009 (Request executed)
+[fecho] #2592223021 saiu apos tentativa 1
+helper: fechadas=1 restantes=[]
+PASS: fecho confirmado por positions_get (flat, magic 999999)
+```
+
+Deals: entrada 5660.0 / saida 5659.5, `profit=-5.0` (spread), sem
+comissao na demo. Conta terminou flat (so a fantasma WINV25 magic 123457)
+e os 4 deals do robo seguem intactos (R$450,00).
+
+### 23.36.4 Veredito
+
+Caminho real do C1/C2 (order_send + confirmacao positions_get)
+**validado em demo**. A simulacao de queda de rede (10031) continua
+coberta pelos 12 testes com FakeMT5; o teste fisico de rede fica
+opcional para sexta. **Item 1 do backlog concluido.**
 
 ## LISTA DE LOGO MAIS (backlog operacional)
 
@@ -4059,7 +4102,7 @@ autoriza mexer no robo com posicao aberta.
 
 | # | Item | Estrelas | Depende de | Status |
 |---|---|---|---|---|
-| 1 | C1-C4 robustez do fecho (`robustez-fecho`) | 5 | fecho real demo 13/11 antes 09:00 | aplicado/testado 12/11 (`094ec34`) |
+| 1 | C1-C4 robustez do fecho (`robustez-fecho`) | 5 | - | concluido 12/11: 12 testes + fecho real demo PASS (23.36) |
 | 2 | P1 - trailing da Faixa 1 (magic 7008) | 5 | revisao humana + branch | proposta 23.32 |
 | 3 | P2 - backtest de trailing no ORB (4 variantes) | 5 | P1 + dados | proposta 23.32 |
 | 4 | P3 - log "Trailing iniciado" so quando for real | 3 | P1 | proposta 23.32 |
