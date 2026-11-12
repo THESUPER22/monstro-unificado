@@ -128,3 +128,6 @@ watchdog_estado.json
 # Candidatos de retreino (dados, nao codigo)
 *_candidato_scaler.json
 modelo_monstro_wdo_candidato*
+
+# Backups do script de aplicacao C1-C4 (contem copia do fonte; nao versionar)
+patches/backups/

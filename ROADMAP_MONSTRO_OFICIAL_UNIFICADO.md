@@ -3685,3 +3685,74 @@ bloqueia o pregao nem o ORB. Corrigir junto com o proximo retreino.
 
 **2 estrelas** - clareza de telemetria; sem risco de dados. Corrigir quando
 mexer no ORB.
+
+## 23.31 Materiais preparatorios pos-pregao 12/11 (C1-C4, ML 23.29, checklist)
+
+### 23.31.1 O que foi criado (nada aplicado ao robo)
+
+- `patches/aplicar_robustez_fecho.py` - script de aplicacao segura de C1-C4
+  (dry-run por padrao, backup, UTF-8 estrito, diff e `py_compile`).
+- `patches/proposta_ml_23.29.md` - proposta do throttle de clipping e das
+  escoras estacionarias, com ancoras e gates de retreino.
+- `patches/checklist_fecho_2026-11-12.md` - checklist de validacao do fecho
+  para rodar depois das 18:30.
+- `.gitignore`: `patches/backups/` passou a ser ignorado (copia do fonte).
+
+### 23.31.2 Validacao do script (somente dry-run)
+
+- Rodado apenas `py_compile` do proprio script e o modo seco (`--skip-git`).
+- **Nenhuma escrita nos fontes, nenhum MT5, nenhum restart.**
+- Plano do dry-run: robo 11.449 -> 11.418 linhas (diff 232); agente
+  1.275 -> 1.310 linhas (diff 51); buffer compilou.
+- O dry-run achou **1 bug real**: o C4 usava a indentacao da 2a linha do
+  `linhas.append(...)` (18 espacos) e gerava `unexpected indent`; corrigido
+  para usar a abertura do statement (4 espacos).
+- Ancoras sao trechos ASCII estaveis (nao dependem de numero de linha nem do
+  mojibake do fonte).
+
+### 23.31.3 Garantias do script de aplicacao
+
+- Exige branch `robustez-fecho` e os 2 arquivos limpos (salvo flags).
+- UTF-8 estrito; aborta em byte invalido ou U+FFFD.
+- `splitlines(keepends=True)` preserva CRLF/LF (o robo tem 11.405 CRLF + 43 LF).
+- Backup completo + `manifest.json` com sha256 + `diff.patch`.
+- `compile()` do buffer antes de gravar; `py_compile` do arquivo gravado.
+- Idempotente pela marca `[C1-C4]`; `--reverter` restaura o ultimo backup.
+
+### 23.31.4 Proposta ML 23.29 (pontuacao)
+
+- **T1 throttle do warning: 3 estrelas.** 1 aviso/10 min com os nomes das
+  features; restante em DEBUG. Nao muda modelo nem trade.
+- **T2 escoras estacionarias: 4 estrelas.** Descoberta: as features
+  `distancia_maior_escora_bid/ask` **ja existem** (L2895-L2898 e L2917-L2920)
+  e ja estao nas 22; o problema e manter as 2 colunas de **preco absoluto**.
+  Opcao A recomendada: 20 features + retreino + scaler novo + `n_features=20`.
+- **Opcao C (refitar scaler sozinho): 1 estrela, rejeitada.** O candidato de
+  11/11 ainda tem 3 features fora da faixa.
+- Gates: >=30 trades reais, validacao >=10, AUC>0,55, acuracia>baseline+0,03,
+  holdout>=30 e paper antes de qualquer promocao.
+
+### 23.31.5 Checklist do fecho
+
+- Pre-requisitos: ORB com `final=true`, zero processos Python do robo/ORB,
+  flat nos magics 123456/7008 (fantasma 123457 ignorado), branch limpa.
+- Gates: 12/12 pytest, `py_compile`, e pelo menos 1 fecho real em demo
+  confirmado por `positions_get()` (ou teste na sexta antes das 09:00).
+- Rede: queda de ~10 s (10031 -> reconecta/backoff) e falha persistente
+  (`critical`, nunca "POSICOES FECHADAS").
+- C3: revisao estatica hoje; dinamico opcional na sexta.
+- C4: relatorio por deals inclui fecho manual.
+- Rollback: `--reverter` ou `git revert`.
+
+### 23.31.6 Veredito
+
+**4 estrelas** para o pacote de robustez do fecho (C1-C4 + script + checklist):
+alto impacto operacional, baixo risco e nenhuma mudanca na logica de trade.
+O T1 (throttle) e **3 estrelas**; o T2 (escoras) e **4 estrelas**, mas fica
+bloqueado ate o retreino com >=30 trades.
+
+### 23.31.7 Proximo passo
+
+- 18:05: conferir ORB final e zero processos.
+- 18:30+: dry-run -> apply na `robustez-fecho` -> 12 testes -> fecho real demo.
+- Se verde: merge na `main` para sexta; senao, manter na branch e registrar.
