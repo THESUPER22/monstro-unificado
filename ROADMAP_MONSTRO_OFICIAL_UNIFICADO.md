@@ -4002,6 +4002,54 @@ do processo no fecho** (4 estrelas, o unico com risco de derrubar o dia
 seguinte). Os alertas do monitor sao 1 bug de fail-open + 2 falsos
 positivos de janela/limiar.
 
+## 23.35 C1-C4 aplicado + teste de restart ao vivo (12/11/2026)
+
+### 23.35.1 Aplicacao
+
+- `patches/aplicar_robustez_fecho.py --apply` as 18:06:53.
+- Backup: `patches/backups/20261112_180653` (manifest com `sha256_antes`).
+- Diff: `monstro_unificado_v22.py` +191/-111 (232 linhas no plano) e
+  `agente_monstro_core.py` +35. `py_compile` 4/4 OK. `pytest` **12
+  passed**. Nenhuma regra de trade tocada.
+- Revisao no codigo real: C3 (L6957-6972) **antes** do log final e do
+  `break` (L6974-6977), com `continue` e escape
+  `MONSTRO_FORCE_SHUTDOWN=1`; C2 (L7044-7053) so loga flat se
+  `positions_get()` confirmar; `MAGICS_ROBO`/helpers (L10633-10644)
+  definidos antes do `__main__` (L11138).
+- Commit `094ec34` na branch `robustez-fecho`.
+
+### 23.35.2 C4 validado isolado
+
+`contar_trades_reais_hoje()` -> **(4, 450.0)**, batendo com os 4 deals
+OUT do dia (Core + Faixa 1). O relatorio diario passa a mostrar
+`Trades fechados (deals MT5)`.
+
+### 23.35.3 Teste de restart (so o robo, sem `start_all.bat`)
+
+- 18:07:35 subida; 18:09:00 `Monstro WDO v2 REINICIADO`; MT5 ok,
+  WDOZ26/DOLZ26, book nativo, dashboard 5001 (waitress), **sem erro de
+  import** do patch.
+- 18:09:08 `Pregao encerrado. Dormindo...` (pos-after).
+- 18:09:30 `parar.txt` criado; 18:10:08 consumido; experiencias salvas;
+  `ENCERRAMENTO GRACIL CONCLUIDO`.
+- **O processo NAO saiu** (2 PIDs vivos) -> confirma ao vivo o bug 4
+  estrelas do 23.34.7 (pywebview segura a thread principal apos o
+  `break`). Force kill seguro (flat, mercado fechado): porta 5001 livre,
+  zero processos, `parar.txt` removido.
+- O caminho `parar.txt` nao passa pelo C2 (que fica no bloco
+  after-market); o C3 rodou sem posicoes e nao bloqueou, como esperado.
+
+### 23.35.4 Decisao
+
+- Merge na `main` autorizado: 12/12 testes, `py_compile` OK, flat,
+  diff restrito, C4 validado e restart limpo.
+- **Pendencia unica:** fecho real em demo (`order_send`/10031) nao pode
+  ser testado hoje (demo sem simbolo 24h; WDO fechado). Fica para
+  **sexta 13/11 antes das 09:00**, com `--reverter` pronto.
+- A correcao 4 estrelas do 23.34.7 (sair de fato apos o fecho) continua
+  como **PROPOSTA** para revisao humana; nao foi aplicada para nao
+  alterar ciclo de vida sem aprovacao.
+
 ## LISTA DE LOGO MAIS (backlog operacional)
 
 Itens aprovados para fazer **depois** do fecho de 12/11, em ordem. Nada aqui
@@ -4009,7 +4057,7 @@ autoriza mexer no robo com posicao aberta.
 
 | # | Item | Estrelas | Depende de | Status |
 |---|---|---|---|---|
-| 1 | C1-C4 robustez do fecho (`robustez-fecho`) | 5 | fecho 12/11 + 12 testes + fecho real demo | pronto para aplicar 18:30+ |
+| 1 | C1-C4 robustez do fecho (`robustez-fecho`) | 5 | fecho real demo 13/11 antes 09:00 | aplicado/testado 12/11 (`094ec34`) |
 | 2 | P1 - trailing da Faixa 1 (magic 7008) | 5 | revisao humana + branch | proposta 23.32 |
 | 3 | P2 - backtest de trailing no ORB (4 variantes) | 5 | P1 + dados | proposta 23.32 |
 | 4 | P3 - log "Trailing iniciado" so quando for real | 3 | P1 | proposta 23.32 |
