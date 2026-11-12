@@ -824,7 +824,15 @@ def gerar_relatorio_diario(info_diff=None):
         pts_raw = rp.get("pts")
         try:
             pts = float(pts_raw)
-            pnl = pts * 5.0 * 10.0
+            # 1 contrato WDO = R$10/ponto. Preferir o lucro_rs ja gravado no
+            # CSV (imune a mudanca de lote); fallback: 1 contrato * R$10.
+            # Bug corrigido 12/11: era pts * 5.0 * 10.0 (assumia 5 contratos,
+            # inflava a Faixa 1 em 5x: R$420 viravam R$2.100).
+            lucro_csv = rp.get("lucro_rs")
+            if lucro_csv not in (None, ""):
+                pnl = float(lucro_csv)
+            else:
+                pnl = pts * 1.0 * 10.0
         except (TypeError, ValueError):
             pts, pnl = None, 0.0
         linhas.append(f"  {side} | entrada={rp.get('entrada')} | SL={rp.get('sl')} "
