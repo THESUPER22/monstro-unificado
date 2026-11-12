@@ -4095,6 +4095,141 @@ Caminho real do C1/C2 (order_send + confirmacao positions_get)
 coberta pelos 12 testes com FakeMT5; o teste fisico de rede fica
 opcional para sexta. **Item 1 do backlog concluido.**
 
+## 23.37 Autopsia do dia 12/11: por que ganhou e por que perdeu (12/11/2026)
+
+### 23.37.1 Escopo e metodo
+
+Reconstrucao **read-only** dos 4 round trips reais do dia (magics
+123456/7008) a partir de `history_deals_get`, do `monstro_wdo.log`, do
+`sniper_supermo_historico.csv`, do `historico_multitf.csv`, do
+`logs/rompimento/rompimento.log` e de barras M1 do MT5 para MFE/MAE.
+Nenhum arquivo do robo foi alterado. Horarios do log/CSV sao locais; os
+deals do MT5 vem com offset de 3h (local = exibido + 3h).
+
+### 23.37.2 Os 4 round trips
+
+| # | Estrategia | Entrada | Saida | Pts | R$ | Duracao | MFE | MAE |
+|---|---|---|---|---|---|---|---|---|
+| 1 | Faixa 1 (7008) | 10:05:03 @5624,0 | 14:53:21 @5666,0 (TP) | +42,0 | +420 | 4h48 | +42,0 | -7,5 |
+| 2 | Core (123456) | 15:59:06 @5668,0 | 16:02:16 @5673,0 (TP) | +5,0 | +50 | 3m09 | +6,0 | -1,0 |
+| 3 | Core (123456) | 16:07:18 @5666,5 | 16:39:54 @5672,5 (TP) | +6,0 | +60 | 32m36 | +6,0 | -2,0 |
+| 4 | Core (123456) | 16:53:16 @5669,0 | 17:32:00 @5661,0 (SL) | -8,0 | -80 | 38m44 | +1,5 | -15,0 |
+
+Bruto do dia: **+R$450,00** (4 round trips; liquido ~+R$445,20 com custo
+R$1,20 x 4).
+
+### 23.37.3 Por que a Faixa 1 ganhou (+42 pts)
+
+- Caixa da 1a hora (09:00-10:00): high **5624,0**, low **5596,0**,
+  range **28,0 pts**.
+- Entrada 10:05:03 no rompimento da caixa (5624,0). `atr=7,33`.
+  SL = 2,5 x ATR = **18,33 pts** -> 5605,68. TP = 1,5 x range = **42 pts**
+  -> 5666,0. R/R = **2,29**.
+- O dia inteiro foi de alta (5612 as 09:38 -> 5674 as 16:02). O
+  rompimento teve seguimento e o preco **nunca ameacou o SL**: MAE de
+  apenas **-7,5 pts** (low 5616,5, 1h13 apos a entrada).
+- Saiu no TP as 14:53:21 (deal `#1879504380`), 4h48 depois, no topo do
+  movimento. **Vitoria de contexto (tendencia) + R/R assimetrico**, nao
+  de sorte: o stop tinha 18,3 pts de folga e o alvo 42.
+- Ponto de atencao: o filtro `eff >= 0,40` da variante ORB (23.31) daria
+  `eff=0,352` -> **BLOQUEIA4**. A variante teria perdido esse movimento
+  (saida caixa +36,5 pts), enquanto a Faixa 1 ao vivo, que **nao usa
+  eff**, ganhou +42. Contraexemplo de 1 dia; nao invalida as 25 sessoes,
+  mas entra no radar (2 estrelas).
+
+### 23.37.4 Por que os Core 1 e 2 ganharam (+5 e +6 pts)
+
+Os 3 Core de hoje foram o **Sniper %R comprando sobrevenda extrema**,
+que sobrepoe a IA e pula os filtros normais. Nos 3 instantes da entrada
+a IA dizia `NADA` no `decisions_wdo.csv`: o resultado e **100% do
+Sniper**, nao da IA.
+
+| # | %R | RSI | DOL | ATR | TP | Resultado |
+|---|---|---|---|---|---|---|
+| Core 1 | -87,5 | 34,2 | BUY 0,354 | 1,66 | 4,99 | TP +5,0 |
+| Core 2 | -83,3 | 35,8 | BUY 0,338 | 2,08 | 6,23 | TP +6,0 |
+| Core 3 | -88,9 | **45,0** | BUY 0,340 | 1,60 | 4,79 | SL -8,0 |
+
+- Core 1 e 2 pegaram o **tramo de alta** que levou o preco ao topo do dia
+  (5674 as 16:02). MAE de -1,0 e -2,0: o preco praticamente so subiu.
+- O sinal era fraco nos dois (score=2, DOL conf ~0,34, advisory), mas o
+  contexto ajudou: **RSI 34-36 (sobrevenda real)** e tendencia de alta.
+- Gestao: SL fixo 8 pts, TP = 3 x ATR (4,99 e 6,23), atingido em 3m e
+  32m. Sem trailing envolvido (23.32).
+
+### 23.37.5 Por que o Core 3 perdeu (-8 pts) e o falso "multiTF bloqueia BUY"
+
+- Core 3 entrou 16:53:16 @5669,0, %R -88,9, mas **RSI 45,0** (neutro, nao
+  sobrevendido como os outros dois) e ATR 1,60 (TP curto, 4,79).
+- Contexto de **exaustao**: os topos foram descendentes (5674 as 16:02 ->
+  5672,5 as 16:39 -> 5670,5 as 16:59). O Core 3 comprou a **terceira
+  tentativa**, que falhou: MFE de apenas **+1,5 pt** em 6m44 e depois
+  reversao ate o SL. O low foi a 5654,0 (MAE -15,0): o SL de 8 pts
+  **salvou** de um prejuizo maior.
+- A linha `standby` das 16:52:55 dizia
+  `multiTF M15=-16 M30=-9 bloqueia BUY`. **E mensagem enganosa.** Com
+  M15=-16 e M30=-9 (ambos sobrecomprados), o veto multiTF real e de
+  **SELL** (`_veto_mt_sell`), nao de BUY. O BUY estava bloqueado pelo
+  **SMA-50/momentum** (ultimo `TENDENCIA BLOQUEIA BUY` as 16:45:20,
+  momentum -3,5). O codigo (`:3267-3269`) imprime o detalhe do multiTF
+  sempre que `_veto_mt_sell or _veto_mt_buy` for verdadeiro, mesmo quando
+  o bloqueio veio da tendencia. **Bug de log (3 estrelas), nao de trade.**
+- O Sniper **respeitou** o veto: so entrou as 16:53:16, depois que o veto
+  de tendencia caiu. A zona do Williams tambem re-armou corretamente:
+  -88,9 (16:52:54) -> -66,7 (16:52:57, reset) -> -88,9 (16:53:16, nova
+  entrada na zona). **Nao houve "entrada ignorando bloqueio".**
+
+### 23.37.6 O gate da Faixa 1 bloqueou 18 sinais do Sniper
+
+O `ESTADO_SISTEMA = ROMPIMENTO_EXCLUSIVO` vale na janela **09:00-11:00** e
+enquanto houver posicao magic 7008 aberta (`:359-374`). A Faixa 1 entrou
+10:05 e so saiu 14:53, entao o Core ficou bloqueado de 09:00 a 14:53.
+
+- Hoje o Sniper gerou **21 sinais**; **18 foram bloqueados** pelo gate
+  (`[GATE ROMPIMENTO]` -> `executar_ordem falhou`). Sao exatamente os 18
+  "executar_ordem falhou" da auditoria 23.34.4. Os 3 restantes sao os
+  Core 1/2/3, depois das 14:53.
+- Simulacao read-only dos 18 bloqueados (SL 8, TP 3xATR, entrada no preco
+  do sinal, sem trailing/slippage): **11 TP / 7 SL, +43,8 pts**.
+  - Lado **BUY: +91,8 pts** (11 TP / 1 SL) — comprar sobrevenda num dia de
+    alta funcionou.
+  - Lado **SELL: -48,0 pts** (0 TP / 6 SL) — vender sobrecompra contra a
+    alta sangrou.
+- Respeitando **1 posicao por vez** (o robo real nao re-entra em posicao):
+  9 trades, **+40,6 pts**; os 6 que teriam sido abertos antes das 14:53
+  somam **+37,3 pts (R$373)** de custo de oportunidade.
+- **Ressalvas**: 1 dia, tendencia forte, sem trailing/slippage e com saida
+  fixa. Nao autoriza remover o gate. Vira **estudo multi-dia com
+  drawdown** (3 estrelas).
+
+### 23.37.7 O que NAO era bug
+
+- Zona do Williams re-armando (acima): correto.
+- Sniper bloqueado pelo gate: por desenho (Faixa 1 tem prioridade).
+- `VETO TOTAL` e `executar_ordem falhou`: ja mapeados em 23.34.3/23.34.4.
+- Nenhum ERROR/CRITICAL/Traceback no log principal.
+
+### 23.37.8 Propostas e estrelas
+
+| Proposta | Estrelas | Acao |
+|---|---|---|
+| Corrigir a mensagem do multiTF no standby (mostrar o veto real) | 3 | proposta; so log, sem risco |
+| Estudo multi-dia do custo do gate da Faixa 1 (com drawdown/trailing/slippage) | 3 | proposta; nao mexer agora |
+| Estudo de filtro RSI <= 40 no Sniper BUY (Core 3 tinha RSI 45) | 3 | proposta; exige backtest |
+| Documentar o contraexemplo do `eff >= 0,40` (perdeu +36,5 pts hoje) | 2 | registro; sem mudanca |
+
+### 23.37.9 Veredito
+
+O dia foi **excelente (+R$450)** porque a Faixa 1 pegou um rompimento com
+tendencia limpa e R/R 2,29, e porque o Sniper comprou duas sobrevendas
+verdadeiras (RSI 34-36) no tramo de alta. A unica perda (Core 3) foi a
+**terceira tentativa de reversao** num contexto de topos descendentes, com
+RSI neutro (45) e MFE de +1,5. O Sniper **nao ignorou veto**: a mensagem
+do multiTF era enganosa e o bloqueio real (SMA-50) caiu antes da entrada.
+O achado mais importante para lucratividade e o **gate da Faixa 1**, que
+bloqueou 18 sinais (BUY +91,8 / SELL -48,0): e um trade-off de risco que
+precisa de estudo multi-dia, nao de mudanca as cegas.
+
 ## LISTA DE LOGO MAIS (backlog operacional)
 
 Itens aprovados para fazer **depois** do fecho de 12/11, em ordem. Nada aqui
@@ -4120,3 +4255,7 @@ autoriza mexer no robo com posicao aberta.
 | 16 | Monitor: janela 09:00-17:35 + grace 09:10 | 3 | - | proposta 23.34 |
 | 17 | `pids_robo()` filtrar python.exe (sem cmd/shim) | 3 | item 14 | proposta 23.34 |
 | 18 | Growth: limiar sazonal no fim do dia | 2 | - | proposta 23.34 |
+| 19 | Corrigir mensagem do multiTF no standby (mostrar veto real) | 3 | - | proposta 23.37 |
+| 20 | Estudo multi-dia do custo do gate da Faixa 1 (drawdown/trailing/slippage) | 3 | dados multi-dia | proposta 23.37 |
+| 21 | Estudo filtro RSI <= 40 no Sniper BUY (Core 3 tinha RSI 45) | 3 | backtest | proposta 23.37 |
+| 22 | Contraexemplo do `eff >= 0,40` (perdeu +36,5 pts em 12/11) | 2 | - | registrado 23.37 |
