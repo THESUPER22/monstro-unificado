@@ -4042,7 +4042,9 @@ OUT do dia (Core + Faixa 1). O relatorio diario passa a mostrar
 ### 23.35.4 Decisao
 
 - Merge na `main` autorizado: 12/12 testes, `py_compile` OK, flat,
-  diff restrito, C4 validado e restart limpo.
+  diff restrito, C4 validado e restart limpo. **Merge concluido:
+  `768d3fd`** (branch `robustez-fecho` mantida em `9252f6d` para
+  auditoria).
 - **Pendencia unica:** fecho real em demo (`order_send`/10031) nao pode
   ser testado hoje (demo sem simbolo 24h; WDO fechado). Fica para
   **sexta 13/11 antes das 09:00**, com `--reverter` pronto.
