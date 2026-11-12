@@ -3586,3 +3586,102 @@ magic alheio 123457 ignorado, bitmask de fillings, deals por magic/PnL.
 ### 23.28.6 Veredito
 
 **5 estrelas** — correcao prioritaria antes de qualquer promocao para real.
+
+## 23.29 Alerta "3 valores fora de [0,1] foram clipped" - diagnostico (12/11/2026)
+
+### 23.29.1 O que e
+
+- WARNING de `normalizar_dados` (`monstro_unificado_v22.py` L3401-L3407), no modo
+  predicao: `scaler_global.transform` gera valores <0 ou >1, o codigo faz
+  `clip(0,1)` e conta quantos mudaram.
+- **Nao e erro** e nao para o robo: e aviso de saturacao de features.
+
+### 23.29.2 Evidencia
+
+- 12/11: **2.933 ocorrencias** entre 09:15:30 e 11:12:15 (~2,4 s entre cada),
+  no `monstro_wdo.log`.
+- 10/11: 6.072 | 06/11: 4.534 | 11/11: 3 (dia com bug SYMBOL e poucas predicoes).
+  Portanto e **cronico**, nao uma regressao de hoje.
+- Scaler em producao: `modelo_monstro_wdo_scaler.json`, de **01/08/2026**.
+- Ultima linha de `historico_contexto_wdo.csv` (11:00:50) fora da faixa em 3-4
+  features:
+  - `bid_qty` / `ask_qty` abaixo do minimo (intermitente);
+  - `volatility` acima do maximo (persistente);
+  - `preco_maior_escora_bid` / `ask` acima do maximo (persistentes;
+    ~5618 vs faixa de treino 5060-5148).
+- O numero "3" varia com o instante; os persistentes sao `volatility` e as
+  duas escoras de preco.
+
+### 23.29.3 Causa raiz
+
+- Features de preco absoluto sao **nao-estacionarias** (ja registrado nos
+  bloqueios do projeto).
+- O scaler foi ajustado num regime de preco ~5060-5148; hoje o WDO esta ~5620.
+  O modelo nunca viu esse nivel.
+- O clipping satura essas features em 0/1 e reduz a informacao; o modelo segue
+  prevendo (probabilidades 0,39-0,50), mas **fora da distribuicao de treino**.
+
+### 23.29.4 Impacto
+
+- **Nao** altera logica de entrada/saida, stops ou filtros; nao e bug de execucao.
+- **Nao** afeta o ORB (processo separado, sem scaler).
+- Risco operacional: log flood (2.933 linhas em ~2 h) pode rotacionar logs e
+  esconder erros reais (como o 10031 de 11/11).
+- Risco de modelo: sinal de ML degradado por saturacao; hoje os sinais sairam
+  NEUTRO (confianca < 0,15), entao sem trade.
+
+### 23.29.5 Propostas (NAO aplicadas)
+
+- Throttle do warning: no maximo 1x/10 min, com os nomes das features e a
+  contagem; DEBUG no restante.
+- Incluir `feature_names` no aviso para diagnostico imediato.
+- Nao refitar o scaler isoladamente: refitar junto com o retreino
+  (>=30 trades reais, validacao >=10) para manter scaler+modelo coerentes.
+- Avaliar substituir preco absoluto das escoras por **distancia relativa ao
+  preco** (ex.: `preco_escora - preco_atual`), que e estacionaria.
+- Enquanto isso, manter o modelo em paper; nao promover candidato.
+
+### 23.29.6 Veredito
+
+**3 estrelas** - importante para a qualidade do ML e higiene de logs, mas nao
+bloqueia o pregao nem o ORB. Corrigir junto com o proximo retreino.
+
+---
+
+## 23.30 ORB WDO 12/11: 4a variante e analitica e EOD do state e provisorio
+
+### 23.30.1 Estado observado (11:12)
+
+- `state.json`: dia 2026-11-12, side BUY, entry 5624,0 (10:30), stops
+  caixa 5596 / half 5610 / fixed5 5619, eff 0,352, eff_ok false,
+  obs `BLOQUEIA4`, final false, fase "em trade".
+- `resultados`: caixa/half "EOD" -1,5 (provisorios), fixed5 SL -5,0 (real).
+
+### 23.30.2 Por que BUY com eff_ok=false
+
+- `evaluate_day` registra os filtros, mas **nao bloqueia** (comentario L329:
+  "filtros (registrados, nao bloqueiam)").
+- A 4a variante e aplicada no `--resumo` (L622-L636), separando liberados
+  (eff >= 0,40) e bloqueados.
+- Portanto o paper registra o dia; `BLOQUEIA4` e classificacao analitica.
+  Se a intencao for bloqueio operacional, e mudanca de logica (proposta).
+
+### 23.30.3 Por que EOD aparece as 11:12
+
+- `simulate` usa `eod_close = day_bars[-1]["c"]` (ultima barra disponivel) e
+  rotula "EOD" se o stop nao foi atingido (L286-L287).
+- O CSV so e gravado as 18:05 (`TIME_EOD_FINAL`), com a barra 17:55; antes
+  disso o state e mark-to-market.
+- `final=false` confirma que nao e resultado final. Nao ler o state como fecho.
+
+### 23.30.4 Impacto
+
+- Nenhum no CSV/estatistica: `registrar()` so roda no EOD/reconciliacao.
+- Risco de leitura errada da telemetria ao vivo (operador achar que o dia fechou).
+- Proposta: rotular `exit="EOD_PARCIAL"` enquanto `final=false`, ou so preencher
+  `resultados` no EOD. Nao aplicado.
+
+### 23.30.5 Veredito
+
+**2 estrelas** - clareza de telemetria; sem risco de dados. Corrigir quando
+mexer no ORB.
