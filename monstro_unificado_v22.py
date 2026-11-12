@@ -6953,6 +6953,23 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                             logging.error(
                                 f"Ã¢ÂÅ Erro ao salvar experiÃÂªncias: {e}")
 
+                    # [C1-C4] C3: trava de shutdown - nao encerra com posicao aberta.
+                    _restantes = posicoes_restantes(mt5, MAGICS_ROBO)
+                    if _restantes:
+                        logging.critical(
+                            "SHUTDOWN BLOQUEADO: posicoes abertas %s - tentando fechar",
+                            _restantes)
+                        fechar_todas_posicoes("Trava de shutdown")
+                        _restantes = posicoes_restantes(mt5, MAGICS_ROBO)
+
+                    if _restantes and not os.environ.get("MONSTRO_FORCE_SHUTDOWN"):
+                        logging.critical(
+                            "SHUTDOWN BLOQUEADO: %d posicao(oes) seguem abertas. "
+                            "Processo permanece vivo. Use MONSTRO_FORCE_SHUTDOWN=1 "
+                            "para forcar.", len(_restantes))
+                        time.sleep(30)
+                        continue
+
                     logging.info(
                         "Ã¢Åâ¦ ENCERRAMENTO GRACIL CONCLUÃÂDO - Sistema finalizado com seguranÃÂ§a")
                     thread_ativo = False
@@ -7023,8 +7040,16 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     modelo_ia_global = modelo_ia_local
                     memoria_experiencias_global = memoria_experiencias
 
-                    logging.info(
-                        f"Ã°Å¸ÂÂ POSIÃâ¡Ãâ¢ES FECHADAS Ãâ¬S {HORARIO_ENCERRAMENTO} - AGUARDANDO AFTER MARKET")
+                    # [C1-C4] C2: so loga sucesso se positions_get() confirmar flat.
+                    _restantes = posicoes_restantes(mt5, MAGICS_ROBO)
+                    if _restantes:
+                        logging.critical(
+                            "POSICOES AINDA ABERTAS AS %s: %s - fecho NAO confirmado",
+                            HORARIO_ENCERRAMENTO, _restantes)
+                    else:
+                        logging.info(
+                            "POSICOES FECHADAS AS %s - flat confirmado (%d)",
+                            HORARIO_ENCERRAMENTO, posicoes_fechadas)
 
                 # === ENCERRAMENTO COMPLETO APÃâS AFTER MARKET (17:40) ===
                 horario_atual_after = datetime.now().time()
@@ -10604,125 +10629,69 @@ def agendar_rechecagem_fecho(ticket, intervalos=(15, 30)):
         daemon=True).start()
 
 
-def fechar_todas_posicoes(motivo: str = "Encerramento automÃÂ¡tico") -> int:
-    """Fecha todas as posiÃÂ§ÃÂµes abertas do robÃÂ´."""
-    posicoes_fechadas = 0
+# [C1-C4] Robustez do fecho (patch 2026-11-11, ROADMAP 23.27/23.28).
+# Helpers testados em patches/robustez_fecho_helpers.py (12 testes).
+# Import fail-fast de proposito: melhor nao iniciar do que iniciar sem fecho.
+from patches.robustez_fecho_helpers import (
+    contar_deals_reais_hoje,
+    fechar_todas_robusto,
+    posicoes_restantes,
+)
+
+MAGICS_ROBO = tuple(
+    {MAGIC_NUMBER} | ({MAGIC_ROMPIMENTO} if ROMPIMENTO_ATIVO else set())
+)
+
+
+def fechar_todas_posicoes(motivo: str = "Encerramento automatico") -> int:
+    """Fecha todas as posicoes do robo com reconexao/backoff (C1).
+
+    Delega para patches/robustez_fecho_helpers.fechar_todas_robusto:
+    - tenta todos os fillings aceitos pelo simbolo;
+    - em retcode 10031 (ou order_send None) reconecta e espera backoff;
+    - so conta como fechada o que positions_get() confirma que saiu.
+
+    Retorna o numero de posicoes confirmadas como fechadas (int), mantendo
+    compativel o contrato dos chamadores atuais.
+    """
+    tickets_antes = []
+    try:
+        for _p in (mt5.positions_get() or []):
+            if _p.magic in MAGICS_ROBO:
+                tickets_antes.append(_p.ticket)
+    except Exception:
+        pass
 
     try:
-        # ObtÃÂ©m todas as posiÃÂ§ÃÂµes abertas
-        posicoes = mt5.positions_get()
-        if not posicoes:
-            logging.info("Ã¢Åâ¦ Nenhuma posiÃÂ§ÃÂ£o aberta para fechar")
-            return 0
-
-        # Filtra apenas posiÃÂ§ÃÂµes do robÃÂ´ (por magic number)
-        magics_permitidos = [MAGIC_NUMBER]
-        if ROMPIMENTO_ATIVO:
-            magics_permitidos.append(MAGIC_ROMPIMENTO)
-        posicoes_monstro = [
-            pos for pos in posicoes if pos.magic in magics_permitidos]
-
-        if not posicoes_monstro:
-            logging.info("Ã¢Åâ¦ Nenhuma posiÃÂ§ÃÂ£o do Monstro para fechar")
-            return 0
-
-        logging.info(
-            f"Ã°Å¸âÂ´ Iniciando fechamento de {len(posicoes_monstro)} posiÃÂ§ÃÂµes - {motivo}")
-
-        # Fecha cada posiÃÂ§ÃÂ£o
-        for pos in posicoes_monstro:
-            try:
-                # Determina o tipo de ordem necessÃÂ¡rio para fechar
-                tipo_fechamento = mt5.ORDER_TYPE_SELL if pos.type == mt5.POSITION_TYPE_BUY else mt5.ORDER_TYPE_BUY
-
-                # ObtÃÂ©m preÃÂ§o atual
-                tick = mt5.symbol_info_tick(pos.symbol)
-                if not tick:
-                    logging.error(
-                        f"Ã¢ÂÅ NÃÂ£o foi possÃÂ­vel obter tick para {pos.symbol}")
-                    continue
-
-                preco_fechamento = tick.bid if pos.type == mt5.POSITION_TYPE_BUY else tick.ask
-
-                # Prepara requisiÃÂ§ÃÂ£o de fechamento
-                request = {
-                    "action": mt5.TRADE_ACTION_DEAL,
-                    "position": pos.ticket,
-                    "symbol": pos.symbol,
-                    "volume": pos.volume,
-                    "type": tipo_fechamento,
-                    "price": preco_fechamento,
-                    "deviation": 20,
-                    "magic": MAGIC_NUMBER,
-                    "comment": f"Auto-close: {motivo}",
-                    "type_time": mt5.ORDER_TIME_GTC,
-                    "type_filling": mt5.ORDER_FILLING_IOC,
-                }
-
-                # Envia ordem de fechamento
-                resultado = mt5.order_send(request)
-
-                # Ã°Å¸âÂ§ CORREÃâ¡ÃÆO CRÃÂTICA 3: Verificar se resultado nÃÂ£o ÃÂ© None
-                if resultado is None:
-                    logging.error(
-                        f"ï¿½Å Erro crÃÂ­tico: mt5.order_send retornou None para posiÃÂ§ÃÂ£o #{pos.ticket}")
-                    # PATCH v22.1 CORTE 2: em alta latencia o servidor processa a
-                    # ordem mesmo com retorno None (Trade #7). Varre os ultimos 60s
-                    # para capturar a execucao real antes de declarar a falha.
-                    try:
-                        import time as _t_mod
-                        _agora_ts = _t_mod.time()
-                        _deals_recentes = mt5.history_deals_get(
-                            _agora_ts - 60, _agora_ts + 5)
-                        _deal_fecho = None
-                        if _deals_recentes:
-                            for _d in _deals_recentes:
-                                if (_d.position_id == pos.ticket
-                                        and _d.entry == mt5.DEAL_ENTRY_OUT):
-                                    _deal_fecho = _d
-                        if _deal_fecho is not None:
-                            posicoes_fechadas += 1
-                            shadow_registrar_resultado(
-                                pos.ticket, _deal_fecho.profit)
-                            logging.info(
-                                f"ï¿½â¦ Fecho confirmado via varredura 60s: posicao "
-                                f"#{pos.ticket} Lucro={_deal_fecho.profit:.2f}")
-                        else:
-                            logging.warning(
-                                f"Confirmacao imediata nao obtida para #{pos.ticket} "
-                                f"({motivo}) - agendando re-checagem 15s/30s")
-                            agendar_rechecagem_fecho(pos.ticket)
-                            logging.error(
-                                f"Ã¢Åï¿½ Falha critica %s: ordem de fecho nao confirmada "
-                                f"no servidor para #{pos.ticket}", motivo)
-                    except Exception as e:
-                        logging.error(
-                            f"Ã¢Åï¿½ Erro na varredura de fechamento #{pos.ticket}: {e}")
-                    continue
-
-                if resultado.retcode == mt5.TRADE_RETCODE_DONE:
-                    posicoes_fechadas += 1
-                    logging.info(
-                        f"Ã¢Åâ¦ PosiÃÂ§ÃÂ£o #{pos.ticket} fechada - {pos.symbol} {pos.type} Vol:{pos.volume}")
-                    _telemetria_capturar_pnl(pos.ticket)
-                else:
-                    logging.error(
-                        f"Ã¢ÂÅ Erro ao fechar posiÃÂ§ÃÂ£o #{pos.ticket}: {resultado.retcode} - {resultado.comment}")
-
-            except Exception as e:
-                logging.error(
-                    f"Ã¢ÂÅ Erro ao processar posiÃÂ§ÃÂ£o #{pos.ticket}: {e}")
-                continue
-
-        logging.info(
-            f"Ã°Å¸ÂÂ Fechamento concluÃÂ­do: {posicoes_fechadas} posiÃÂ§ÃÂµes fechadas")
-        return posicoes_fechadas
-
+        fechadas, restantes = fechar_todas_robusto(
+            mt5, MAGICS_ROBO,
+            reconnect=reconectar_mt5,
+            log=logging,
+            deviation=20,
+            tentativas=5,
+            backoff_s=5.0,
+        )
     except Exception as e:
-        logging.error(f"Ã¢ÂÅ Erro crÃÂ­tico ao fechar posiÃÂ§ÃÂµes: {e}")
+        logging.error("Erro critico no fecho robusto (%s): %s", motivo, e)
         return 0
 
+    # Telemetria passiva: preserva o gancho que existia no corpo antigo.
+    try:
+        if "_telemetria_capturar_pnl" in globals():
+            for _ticket in tickets_antes:
+                if _ticket not in restantes:
+                    _telemetria_capturar_pnl(_ticket)
+    except Exception:
+        pass
 
+    if restantes:
+        logging.critical(
+            "FECHO INCOMPLETO (%s): %d posicao(oes) ainda aberta(s): %s",
+            motivo, len(restantes), restantes)
+    else:
+        logging.info(
+            "FECHO CONFIRMADO (%s): %d fechada(s), flat.", motivo, fechadas)
+    return fechadas
 def salvar_dados_finais(modelo_ia_local: Optional[Sequential], memoria_experiencias: MemoriaExperiencias) -> None:
     """Salva todos os dados importantes antes do encerramento."""
     try:
