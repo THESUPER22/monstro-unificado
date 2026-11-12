@@ -3756,3 +3756,119 @@ bloqueado ate o retreino com >=30 trades.
 - 18:05: conferir ORB final e zero processos.
 - 18:30+: dry-run -> apply na `robustez-fecho` -> 12 testes -> fecho real demo.
 - Se verde: merge na `main` para sexta; senao, manter na branch e registrar.
+
+## 23.32 Trailing stop da Faixa 1: por que +14/+20 pts nao foram protegidos (12/11/2026)
+
+### 23.32.1 O que o usuario viu
+
+Posicao real `#2591384275` WDOZ26 BUY 1 @ 5624,0 (magic **7008**, Faixa 1),
+aberta as 10:05. Na captura do usuario estava em 5638,0 (**+14 pts**,
++R$140). Chegou a 5644,5 (**+20,5 pts**, +R$205) as 12:12. Pergunta
+legitima: por que o trailing stop nao protegeu um movimento de 14-20 pontos?
+
+### 23.32.2 Causa raiz (dois mecanismos, nenhum ativo para a Faixa 1)
+
+1. **Thread `atualizar_trailing_stop` (L5802-L5879):** faz
+   `if pos.magic != MAGIC_NUMBER: continue` (L5844). `MAGIC_NUMBER = 123456`
+   (Core). A Faixa 1 usa **7008** -> o thread nunca olha para ela.
+2. **Classe `TrailingStopInteligente` (L102-L166):** e inicializada em toda
+   ordem (`iniciar_trailing`, L5534-L5538), inclusive a da Faixa 1 - por isso
+   o log "Trailing stop iniciado para posicao 2591384275". Mas o unico ponto
+   que chama `atualizar_trailing` e `monitorar_posicao_ativa` (L10147), e
+   **essa funcao nao e chamada em nenhum lugar do `monstro_unificado_v22.py`**
+   (confirmado por grep em todo o projeto). Ou seja: a classe e **codigo morto**
+   no v22; a linha do log e uma promessa falsa.
+3. **`rompimento_orquestrador.py` (Faixa 1):** gerencia SL/TP no servidor e
+   fecha a mercado no EOD (comentario L549). **Nao tem trailing.**
+
+Resultado: a Faixa 1 opera com SL/TP fixos no servidor (SL 5605,5 = -18,5 pts
+= -R$185) e **nenhuma protecao de lucro**.
+
+### 23.32.3 Evidencia no log
+
+- `monstro_wdo.log:7412` (10:05:06): "Trailing stop iniciado para posicao
+  2591384275" -> so inicializacao do objeto.
+- Nenhuma linha posterior de "Trailing stop ativado" / "Lucro travado" /
+  "SL movido" para esse ticket.
+- `logs/rompimento/rompimento.log:32825` (10:05:06): "[ROMPIMENTO] BUY WDOZ26
+  (lote 1.0) entrada=5624.0 SL~5605.68 TP=5666.0 ticket=2591384275" -> SL/TP
+  fixos, sem trailing.
+
+### 23.32.4 O que teria acontecido hoje (tick a tick, 70.273 ticks)
+
+Caminho real: entrada 5624,0; minimo -2,5 pts as 10:07; +8 as 10:08:30;
++12 as 10:09:41; **+14 as 10:09:49**; recuo; minimo **-7,5 pts as 11:18:35**
+(5616,5, a 11 pts do SL); **+20,5 as 12:12:03** (pico); +19 as 12:14.
+
+Simulacao com os parametros atuais (`gatilho 8`, `distancia 4`):
+
+| Regra | Saida | Resultado |
+|---|---|---|
+| **Sem trailing (real)** | ainda aberta | +19 flutuante, mas risco -18,5 e excursao -7,5 |
+| Trail 8/4 (atual) | 10:10:21 | **+11,0 pts = R$110** |
+| Trail 8/6 | 10:13:32 | +11,5 pts = R$115 |
+| Trail 8/8 | 10:18:01 | +9,5 pts = R$95 |
+| Trail 8/10 | 10:18:18 | +7,5 pts = R$75 |
+| BE +8 (trava 1 pt), sem trail | 10:23:08 | +1,0 pt = R$10 |
+| BE +8 + trava 70% em +14 | 10:10:27 | +10,5 pts = R$105 |
+
+Conclusao factual: **qualquer** regra de protecao teria saido entre +1 e +11,5
+pontos e **perdido o +20**, que so veio 2 horas depois, apos um recuo de
+-7,5 pts. O +20 nao foi um movimento linear de 14 pontos; foi um caminho
+volatil. O trailing "protegeria", mas cortaria o unico winner grande do dia.
+
+### 23.32.5 Leitura honesta
+
+- O usuario tem razao no principio: uma operacao que andou +14/+20 **deveria**
+  ter alguma protecao. Hoje nao tem nenhuma.
+- Mas "ligar o trailing atual" **nao** teria protegido +14: com distancia de
+  4 pts, o ruido normal do WDO (3-6 pts) tira a operacao em ~+11.
+- Aumentar a distancia (8-10 pts) protege menos ainda (sai em +7,5 a +9,5).
+- Breakeven puro (+8 -> SL entrada+1) tambem foi tirado em +1 hoje.
+- Ou seja: **proteger mais e ganhar mais sao objetivos em conflito** neste
+  desenho de 1 contrato e saida unica. A decisao tem que ser por backtest
+  (874 trades, com slippage), nao por um dia.
+
+### 23.32.6 Propostas (NAO implementadas - Fase 1)
+
+- **P1 - Fazer o thread enxergar a Faixa 1: 5 estrelas.**
+  Trocar o filtro `pos.magic != MAGIC_NUMBER` por um conjunto de magics
+  geridos (`{MAGIC_NUMBER, MAGIC_FAIXA1}`) ou delegar ao orquestrador.
+  Sem isso, qualquer parametro e irrelevante.
+- **P2 - Backtest de trailing no ORB antes de escolher regra: 5 estrelas.**
+  Rodar `backtest_orb_wdo.py` com 4 variantes de saida (sem trailing,
+  trail 8/4, BE+8, BE+8+trava 70%) nas 3 saidas existentes (caixa,
+  0,5x caixa, fixed5), com slippage 0/1/2 ticks. Gates: PF, expectancia,
+  WR e DD. **Nao promover se nao melhorar WR e PF.**
+- **P3 - Corrigir o log mentiroso: 3 estrelas.**
+  "Trailing stop iniciado" so deve ser impresso quando o trailing for
+  realmente gerenciado para aquele magic.
+- **P4 - Remover/religar o codigo morto: 2 estrelas.**
+  `monitorar_posicao_ativa` e `TrailingStopInteligente` estao mortos no v22;
+  decidir entre remover ou religar (religar mexe na logica de trade -> Fase 1).
+
+### 23.32.7 Veredito
+
+**5 estrelas** para P1+P2 (diagnostico + validacao). O bug e real e explica
+exatamente a queixa. Mas a expectativa "o trailing teria protegido os 14
+pontos" **nao se confirma** com os parametros atuais: ele teria saido em
++11 e perdido o +20. Antes de ligar qualquer trailing na Faixa 1, o
+backtest tem que mostrar que a troca (menos cauda, mais consistencia)
+melhora o resultado liquido.
+
+## LISTA DE LOGO MAIS (backlog operacional)
+
+Itens aprovados para fazer **depois** do fecho de 12/11, em ordem. Nada aqui
+autoriza mexer no robo com posicao aberta.
+
+| # | Item | Estrelas | Depende de | Status |
+|---|---|---|---|---|
+| 1 | C1-C4 robustez do fecho (`robustez-fecho`) | 5 | fecho 12/11 + 12 testes + fecho real demo | pronto para aplicar 18:30+ |
+| 2 | P1 - trailing da Faixa 1 (magic 7008) | 5 | revisao humana + branch | proposta 23.32 |
+| 3 | P2 - backtest de trailing no ORB (4 variantes) | 5 | P1 + dados | proposta 23.32 |
+| 4 | P3 - log "Trailing iniciado" so quando for real | 3 | P1 | proposta 23.32 |
+| 5 | T2 - features estacionarias (20 features) | 4 | >=30 trades reais | bloqueado |
+| 6 | Retreino Keras com gates | 4 | >=30 trades reais | bloqueado |
+| 7 | Walk-forward com janelas moveis | 4 | corpus maior | pendente |
+| 8 | P4 - remover/religar codigo morto do trailing | 2 | P1/P2 | proposta 23.32 |
+| 9 | Telemetria do ORB (EOD provisorio) | 2 | - | proposta 23.30 |
