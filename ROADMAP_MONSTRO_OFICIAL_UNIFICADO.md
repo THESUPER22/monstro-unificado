@@ -3856,6 +3856,40 @@ pontos" **nao se confirma** com os parametros atuais: ele teria saido em
 backtest tem que mostrar que a troca (menos cauda, mais consistencia)
 melhora o resultado liquido.
 
+## 23.33 Relatorio diario inflava a Faixa 1 em 5x (12/11/2026)
+
+### 23.33.1 Achado
+
+O `relatorio_diario_20261112.txt` mostrou a Faixa 1 como **R$ +2100,00**
+(42,0 pts). O deal real `#1879504380` fechou em **R$ +420,00** (42 pts x
+R$10, 1 contrato). Erro de 5x.
+
+### 23.33.2 Causa raiz
+
+`agente_monstro_core.py:827` fazia `pnl = pts * 5.0 * 10.0`, assumindo
+**5 contratos** (heranca do desenho antigo da Faixa 1). O CSV
+`logs/rompimento/rompimento_trades.csv` ja grava `lucro_rs` correto
+(420.0) e era ignorado.
+
+### 23.33.3 Correcao aplicada
+
+- `pnl` passa a usar `rp["lucro_rs"]` quando presente; fallback
+  `pts * 1.0 * 10.0` (1 contrato, R$10/ponto).
+- Commit `40b917c`; `py_compile` OK; diff restrito ao relatorio.
+- Nao toca em logica de trade, MT5 ou risco.
+
+### 23.33.4 Achado secundario (nao corrigido, 2 estrelas)
+
+`plano_20261112.txt` diz "3 fechados", mas o dia teve **4** (3 Core +
+1 Faixa 1). O `tools/autopsia_automatizada.py` le apenas o log do v22 e
+nao o CSV da Faixa 1. Impacto hoje: nulo (3 ou 4 < 15). Proposta:
+somar `contar_executados_rompimento_hoje()` ao `n_fechados` (Fase 1).
+
+### 23.33.5 Veredito
+
+**4 estrelas** para a correcao do relatorio: e o numero que o humano le
+para decidir, e estava 5x maior. O achado secundario e **2 estrelas**.
+
 ## LISTA DE LOGO MAIS (backlog operacional)
 
 Itens aprovados para fazer **depois** do fecho de 12/11, em ordem. Nada aqui
@@ -3872,3 +3906,4 @@ autoriza mexer no robo com posicao aberta.
 | 7 | Walk-forward com janelas moveis | 4 | corpus maior | pendente |
 | 8 | P4 - remover/religar codigo morto do trailing | 2 | P1/P2 | proposta 23.32 |
 | 9 | Telemetria do ORB (EOD provisorio) | 2 | - | proposta 23.30 |
+| 10 | Plano do dia: somar Faixa 1 aos fechados | 2 | - | proposta 23.33 |
