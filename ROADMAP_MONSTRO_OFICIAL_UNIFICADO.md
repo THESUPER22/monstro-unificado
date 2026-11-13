@@ -4259,7 +4259,13 @@ autoriza mexer no robo com posicao aberta.
 | 20 | Estudo multi-dia do custo do gate da Faixa 1 (drawdown/trailing/slippage) | 3 | dados multi-dia | proposta 23.37 |
 | 21 | Estudo filtro RSI <= 40 no Sniper BUY (Core 3 tinha RSI 45) | 3 | backtest | proposta 23.37 |
 | 22 | Contraexemplo do `eff >= 0,40` (perdeu +36,5 pts em 12/11) | 2 | - | registrado 23.37 |
-| 23 | Filtro vies da 1a hora + BE (Faixa 1) | 3 | OOS positivo + slip 1,0 | em observacao 23.39: positivo so em slip 0,5 e IS |
+| 23 | Filtro vies da 1a hora + BE (Faixa 1) | 1 | OOS positivo + slip 1,0 | rejeitado 13/11 (23.40): OOS negativo e falha em 1,0 pt/lado |
+| 24 | Entrada por stop order na Faixa 1 | 1 | - | rejeitado 13/11 (23.40): entra em falso rompimento e piora com slippage |
+| 25 | Entrada no reteste da caixa (limit) | 1 | - | rejeitado 13/11 (23.40): perde o movimento; exp -36/trade em 1,0 |
+| 26 | Filtros de seletividade da Faixa 1 | 1 | - | rejeitado 13/11 (23.40): so `rng_le_20` marginal em 0,5; falha em 1,0 |
+| 27 | Geometria de saida (TP/EOD) da Faixa 1 | 1 | - | rejeitado 13/11 (23.40): nenhuma combinacao robusta em 1,0 |
+| 28 | Decisao sobre a Faixa 1 (suspender real / demo) | 5 | revisao humana | pendente 23.40: recomendacao = suspender no real |
+| 29 | Pivotar pesquisa para nova tese (reversao/tendencia) | 5 | decisao do usuario | pendente 23.40 |
 
 ## 23.38 Pacote seguro: monitor + plano do dia (13/11/2026)
 
@@ -4432,6 +4438,166 @@ resistencia a 1 tick/lado.
 - **A Faixa 1, como esta, tem edge fragil:** PF ~1,04 sem slippage e < 1,0 com
   1 tick/lado. O ganho tem que vir de **filtro de regime/sinal**, nao de gestao
   de saida.
+- Nada foi alterado na logica de trade; robo nao reiniciado; nenhuma ordem
+  enviada.
+
+## 23.40 Entrada por stop/reteste e filtros de seletividade da Faixa 1 (13/11/2026)
+
+### 23.40.1 Escopo e metodologia
+
+Fechado na madrugada de 13/11 (02:20-03:10), com mercado fechado, **sem posicao
+real** (apenas a fantasma WINV25) e **sem robo rodando**. Estudo **read-only**:
+nenhuma logica de trade foi alterada e o robo nao foi reiniciado.
+
+Pergunta: o edge da Faixa 1 melhora se (a) entrarmos no rompimento por **stop
+order** (ou no **reteste** do nivel) em vez de esperar o fechamento da barra M5,
+e (b) **filtrarmos os dias** por regime?
+
+- Script novo: `backtest/filtros_faixa1.py` (read-only, reusa
+  `backtest/backtest_trailing_faixa1.py`).
+- Dados: **M5 126.921 barras + M1 635.746 barras** (2021-11-16 a 2026-11-13);
+  M1 e usado para sequenciar o intrabar sem look-ahead. 1.242 dias validos.
+- Modelo de saida **igual a producao**: SL = `max(8, min(dist_da_caixa,
+  2.5 * ATR14_da_manha))`; TP = `1.5 * tamanho_da_caixa`; EOD 17:30; custo
+  R$ 1,20 por contrato por operacao; 1 ponto = R$ 10,00; sempre 1 contrato.
+- **Slippage explicito por lado:** 0 / 0,5 / 1,0 ponto (0 / 1 / 2 ticks).
+- SL conferido **antes** do TP dentro da barra M1 (conservador). Barras M1 em
+  que high e low rompem os dois lados da ordem stop sao **ignoradas** (sequencia
+  desconhecida); foram apenas **4** no periodo.
+- Entradas comparadas:
+  - `mercado`: sinal na barra M5 fechada; entra no **open do primeiro M1**
+    seguinte (equivalente a producao, com preco real de execucao);
+  - `stop`: ordem stop no high/low da caixa **+ 0,5 pt**, ativa 10:30-11:00;
+    fill no nivel (ou no open, se gap);
+  - `retest`: apos o fechamento M5 que confirma o rompimento, ordem **limit no
+    nivel da caixa**, exigindo penetracao de 0,5 pt para assumir fill.
+- 16 filtros **pre-registrados** (limitando data mining): vies da caixa,
+  forca do vies, range alto/baixo vs media 20d, volume, ATR, tendencia (close
+  vs SMA20), gap alinhado, `rng_ge_6`, `rng_le_20` e combinacoes.
+- Gate: **OOS exp > 0, OOS PF > 1,0, n_OOS >= 40 e IS exp > 0**, sempre com
+  **slippage 1,0 pt/lado**. IS = 2021-2024; OOS = 2025-2026.
+
+Reproducao: `python backtest/filtros_faixa1.py`
+(≈30 s na amostra completa).
+
+### 23.40.2 Mercado vs stop order vs reteste
+
+`exp` em R$ por trade; `total` e `DD` em R$; 1 contrato.
+
+| entrada | slip | n | WR% | exp R$ | PF | total R$ | maxDD R$ |
+|---|---|---|---|---|---|---|---|
+| mercado | 0,0 | 903 | 43,0 | +4,55 | 1,04 | +4.113 | -6.920 |
+| stop | 0,0 | 878 | 43,6 | +4,88 | 1,04 | +4.288 | -7.991 |
+| reteste | 0,0 | 609 | 40,2 | -15,96 | 0,88 | -9.720 | -16.974 |
+| mercado | 0,5 | 903 | 41,7 | -4,44 | 0,97 | -4.007 | -12.875 |
+| stop | 0,5 | 878 | 41,7 | -6,49 | 0,95 | -5.694 | -15.061 |
+| reteste | 0,5 | 609 | 38,9 | -25,71 | 0,81 | -15.659 | -21.105 |
+| mercado | 1,0 | 903 | 40,6 | -13,00 | 0,90 | -11.743 | -18.906 |
+| stop | 1,0 | 878 | 40,5 | -16,75 | 0,88 | -14.703 | -22.505 |
+| reteste | 1,0 | 609 | 37,1 | -36,05 | 0,75 | -21.952 | -25.942 |
+
+- Sem slippage as tres entradas empatam em ~PF 1,04; **com 1 tick/lado todas
+  ficam negativas**.
+- A **stop order piora** em 0,5 e 1,0 pt/lado: entra no primeiro toque (muitas
+  vezes pavio/falso rompimento) e paga mais slippage de entrada.
+- O **reteste e o pior de todos**: perde o movimento quando o preco nao volta ao
+  nivel (633 dias sem sinal) e, quando volta, muitas vezes ja e a reversao.
+- **A entrada a mercado (modelo fiel) e a menos ruim.** Nao ha ganho em trocar
+  o gatilho.
+
+### 23.40.3 Filtros de seletividade (entrada stop, slip 1,0)
+
+Tabela do cenario mais favoravel a stop order. `exp`/`IS`/`OOS` em R$/trade.
+
+| filtro | n | WR% | exp | PF | IS exp | IS PF | OOS n | OOS exp | OOS PF | gate |
+|---|---|---|---|---|---|---|---|---|---|---|
+| todos | 878 | 40,5 | -16,75 | 0,88 | -4,16 | 0,97 | 319 | -38,80 | 0,67 | nao |
+| bias | 626 | 41,2 | -16,94 | 0,88 | -12,26 | 0,92 | 224 | -25,35 | 0,77 | nao |
+| bias_forte | 434 | 41,5 | -20,75 | 0,85 | -23,10 | 0,85 | 149 | -16,26 | 0,85 | nao |
+| range_hi | 302 | 40,4 | -14,52 | 0,90 | +5,01 | 1,03 | 106 | -50,65 | 0,61 | nao |
+| range_lo | 558 | 40,7 | -18,45 | 0,86 | -9,53 | 0,93 | 213 | -32,90 | 0,70 | nao |
+| vol_hi | 359 | 42,6 | -11,57 | 0,92 | +1,59 | 1,01 | 123 | -36,82 | 0,71 | nao |
+| atr_hi | 345 | 42,9 | -11,92 | 0,92 | +11,04 | 1,07 | 131 | -49,41 | 0,62 | nao |
+| tendencia | 433 | 41,8 | -14,22 | 0,89 | -8,52 | 0,94 | 158 | -24,13 | 0,77 | nao |
+| gap_alinhado | 429 | 41,7 | -10,88 | 0,92 | +1,84 | 1,01 | 156 | -33,15 | 0,72 | nao |
+| rng_ge_6 | 878 | 40,5 | -16,75 | 0,88 | -4,16 | 0,97 | 319 | -38,80 | 0,67 | nao |
+| **rng_le_20** | 140 | 45,0 | +5,11 | 1,06 | +26,37 | 1,36 | 87 | -7,84 | 0,91 | **nao** |
+| bias_vol | 268 | 43,7 | -5,29 | 0,96 | +5,00 | 1,03 | 95 | -24,04 | 0,80 | nao |
+| bias_range | 248 | 39,9 | -12,87 | 0,91 | -4,44 | 0,97 | 87 | -28,47 | 0,75 | nao |
+| bias_tend | 317 | 42,6 | -18,43 | 0,86 | -24,77 | 0,83 | 112 | -6,81 | 0,93 | nao |
+| bias_vol_range | 176 | 42,0 | -5,36 | 0,96 | +10,60 | 1,07 | 60 | -36,20 | 0,71 | nao |
+| bias_vol_tend | 131 | 48,1 | -1,78 | 0,99 | -14,11 | 0,91 | 41 | +25,30 | 1,31 | nao |
+
+- **Nenhum filtro passa o gate em 1,0 pt/lado.**
+- `bias_vol_tend` tem o melhor OOS (+25,30 / PF 1,31) mas **IS negativo**
+  (-14,11 / PF 0,91) e so 41 trades no OOS -> **overfit**, nao promover.
+- `rng_le_20` (evitar caixa larga, <= 20 pt) e o unico com total positivo
+  (+5,11 / PF 1,06), mas **falha no OOS em 1,0 pt/lado** (-7,84 / PF 0,91).
+- Na entrada `mercado` em slip 1,0 o melhor filtro (`atr_hi`) empata em PF 1,00
+  com OOS -31,94; nada robusto.
+
+### 23.40.4 O unico candidato marginal: `rng_le_20` (stop, slip 0,5)
+
+`rng_le_20` sobrevive **apenas com 1 tick/lado** e apenas na entrada stop.
+
+| ano | n | WR% | exp R$ | PF | total R$ | maxDD R$ |
+|---|---|---|---|---|---|---|
+| 2023 | 16 | 50,0 | +25,30 | 1,29 | +405 | -1.080 |
+| 2024 | 37 | 51,4 | +35,34 | 1,55 | +1.308 | -365 |
+| 2025 | 38 | 47,4 | +20,53 | 1,27 | +780 | -645 |
+| 2026 | 49 | 38,8 | -10,68 | 0,86 | -523 | -754 |
+| IS 2021-2024 | 53 | 50,9 | +32,31 | 1,46 | +1.712 | -1.080 |
+| OOS 2025-2026 | 87 | 42,5 | +2,95 | 1,04 | +257 | -901 |
+
+- **2021 e 2022 nao tem trades** (caixa > 20 pt): o "IS" e so 2023-2024.
+- **2026 e negativo** e derruba o OOS para PF 1,04. Em slip 1,0 o OOS fica
+  -7,84 / PF 0,91 (2026: -18,51 / PF 0,78).
+- Sensibilidade ao buffer da stop order (slip 1,0): buffer 0,0 -> exp +0,62 /
+  PF 1,01 (OOS -10,67 / 0,88); buffer 0,5 -> +5,11 / 1,06 (OOS -7,84 / 0,91);
+  buffer 1,0 -> +4,81 / 1,06 (OOS -8,21 / 0,90). **Nenhum buffer salva o OOS.**
+- Grade de saida (slip 0,5): nenhuma combinacao de TP x EOD melhora o OOS de
+  forma convincente. Melhores: `TP=caixa/EOD 14:00` (OOS +5,06 / 1,07),
+  `TP=1,0/EOD 17:30` (OOS +2,99 / 1,04) e `TP=1,0/EOD 16:00` (OOS +1,98 /
+  1,03) — todas marginais e **negativas em slip 1,0**.
+- Base `mercado/todos` em slip 1,0: todas as 12 combinacoes TP x EOD ficam
+  negativas no OOS (melhor: `TP=caixa/EOD 16:00`, OOS -25,50 / PF 0,76).
+- **Veredito: `rng_le_20` rejeitado (1 estrela).** Depende de regime
+  (2023-2025), morre em 2026 e nao resiste a 1 tick/lado.
+
+### 23.40.5 Controles do backtest base
+
+Para descartar edge contrarian/deriva, o `backtest_orb_wdo.py` (entrada
+otimista no nivel) foi consultado:
+
+| controle | n | WR% | exp R$ | PF | total R$ |
+|---|---|---|---|---|---|
+| CTRL-MIRROR (lado oposto, EOD) | 1.012 | 53,6 | -11,04 | 0,93 | -11.168 |
+| CTRL-LONG 10:00 -> EOD (deriva) | 1.242 | 48,6 | -7,94 | 0,95 | -9.864 |
+
+- O **lado oposto tambem perde** (PF 0,93): nao ha edge simples de *fade* do
+  rompimento.
+- A **deriva long** tambem perde (PF 0,95): o resultado nao vem de alta do WDO.
+- Ou seja, o ~PF 1,04 sem custo e o maximo que o modelo atual entrega, e ele
+  nao sobrevive ao custo real.
+
+### 23.40.6 Veredito final
+
+- **Entrada por stop order: rejeitada (1 estrela).** Entra em falso rompimento
+  e piora em 0,5/1,0 pt/lado.
+- **Entrada no reteste da caixa: rejeitada (1 estrela).** Perde o movimento;
+  exp -36/trade em 1,0 pt/lado.
+- **Filtros de seletividade: rejeitados em grupo (1 estrela).** So `rng_le_20`
+  e marginal em 0,5 pt/lado e falha em 1,0 e no OOS.
+- **Geometria de saida (TP/EOD): rejeitada (1 estrela).** Nenhuma combinacao e
+  robusta em 1,0 pt/lado.
+- **A Faixa 1, como esta, nao tem edge que sobreviva a 1 tick/lado.** Nenhuma
+  variante de entrada, filtro ou saida testada ate aqui resolve isso.
+- **Recomendacao (item 28, 5 estrelas): suspender a Faixa 1 no real** e manter
+  no maximo em demo, ate existir uma tese com OOS positivo e resistencia a
+  1 tick/lado. Alternativa: pivotar para uma nova tese (reversao a media ou
+  tendencia H1) — item 29.
+- Correcao de tooling: `linha()` em `backtest_trailing_faixa1.py` agora trata
+  `n=0` (evita `KeyError: 'saidas'` em filtros sem trades).
 - Nada foi alterado na logica de trade; robo nao reiniciado; nenhuma ordem
   enviada.
 

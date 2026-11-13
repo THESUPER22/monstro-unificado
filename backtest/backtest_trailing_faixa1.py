@@ -279,6 +279,8 @@ def coletar(days, lo_hm, hi_hm, mode, rule, slip, tp_on=True, bias=False):
 
 
 def linha(v: dict) -> str:
+    if not v.get("n"):
+        return f"{v.get('label', ''):<22} n=   0"
     saidas = ",".join("%s:%d" % (k, n) for k, n in sorted(v["saidas"].items()))
     return (f"{v['label']:<22} n={v['n']:>4} win%={v['win%']:>5.1f} "
             f"exp_R$={v['exp_rs']:>7.2f} PF={v['pf']:>5.2f} "
