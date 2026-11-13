@@ -4264,8 +4264,8 @@ autoriza mexer no robo com posicao aberta.
 | 25 | Entrada no reteste da caixa (limit) | 1 | - | rejeitado 13/11 (23.40): perde o movimento; exp -36/trade em 1,0 |
 | 26 | Filtros de seletividade da Faixa 1 | 1 | - | rejeitado 13/11 (23.40): so `rng_le_20` marginal em 0,5; falha em 1,0 |
 | 27 | Geometria de saida (TP/EOD) da Faixa 1 | 1 | - | rejeitado 13/11 (23.40): nenhuma combinacao robusta em 1,0 |
-| 28 | Decisao sobre a Faixa 1 (suspender real / demo) | 5 | revisao humana | pendente 23.40: recomendacao = suspender no real |
-| 29 | Pivotar pesquisa para nova tese (reversao/tendencia) | 5 | decisao do usuario | pendente 23.40 |
+| 28 | Decisao sobre a Faixa 1 (suspender real / demo) | 5 | revisao humana | concluido 13/11 (23.41): suspensa no real e no paper (`rompimento.ativo=false` + `ORB-WDO-FT` desabilitada) |
+| 29 | Pivotar pesquisa para nova tese (reversao/tendencia) | 5 | decisao do usuario | pendente 23.41: ranking = H1 trend (5), VWAP fade (4), book/absorcao (4), cross-asset (3) |
 
 ## 23.38 Pacote seguro: monitor + plano do dia (13/11/2026)
 
@@ -4600,4 +4600,89 @@ otimista no nivel) foi consultado:
   `n=0` (evita `KeyError: 'saidas'` em filtros sem trades).
 - Nada foi alterado na logica de trade; robo nao reiniciado; nenhuma ordem
   enviada.
+
+## 23.41 Suspensao da Faixa 1 no real e no paper (decisao humana, 13/11/2026)
+
+### 23.41.1 Decisao e contexto
+
+Depois dos vereditos 23.39 (trailing/vies) e 23.40 (stop/reteste/filtros/saida),
+o dono decidiu **suspender a Faixa 1 por completo**: nao apenas no real, mas
+tambem no demo/paper. Justificativa: nao ha tese com edge que sobreviva a
+**1 tick/lado**, entao manter em demo nao protege capital nem gera informacao
+nova — so consome tempo e logs.
+
+Contexto no momento da decisao: **sexta 13/11/2026, 10:52**, pregao aberto,
+**sem posicao da Faixa 1** (o trade do dia ja havia fechado as 10:20: BUY
+WDOZ26, SL -16,5 pts, -R$165) e apenas a fantasma WINV25 (magic 123457, inerte).
+
+### 23.41.2 O que foi alterado
+
+| item | antes | depois | efeito |
+|---|---|---|---|
+| `config.json` -> `rompimento.ativo` | `true` | **`false`** | desliga a Faixa 1 no proximo boot do robo |
+| tarefa `ORB-WDO-FT` (paper ORB) | Habilitada | **Desabilitada** | nao inicia mais o forward test em papel |
+| tarefa `Rompimento-FT` | Desabilitada | Desabilitada | ja estava suspensa |
+
+- O `config.json` e lido **uma vez no boot** (`ROMP_CFG` / `self.cfg`), portanto
+  a mudanca **nao afeta o processo de hoje** e passa a valer no proximo start
+  (segunda 16/11, 09:00). **Nenhum processo foi reiniciado ou encerrado.**
+- `rompimento_orquestrador.py` ja tem o curto-circuito
+  `if not self.ativo or not self.cfg.get("ativo"): return`, e
+  `agente_snapshot_v22.py` usa `ROMPIMENTO_ATIVO` para o estado exclusivo.
+- O paper ORB (`rompimento_orb_wdo.py`) e read-only e **nunca envia ordem**;
+  a tarefa foi desabilitada para nao gerar mais sessoes de uma tese reprovada.
+- Nada na logica de trade foi alterado; nenhuma ordem enviada; robo nao
+  reiniciado.
+
+### 23.41.3 Reversao (se algum dia for preciso)
+
+1. `config.json`: `"rompimento": { "ativo": true, ... }`.
+2. `schtasks /change /tn "ORB-WDO-FT" /enable` (paper, se quiser retomar).
+3. Reiniciar o robo apenas fora do pregao e sem posicao aberta.
+
+### 23.41.4 Verificacao pendente (fazer no fecho de 13/11, apos 17:35)
+
+- **Risco conhecido:** o dashboard usa `ThreadSafeConfig` (`config_manager.py`),
+  que carrega o `config.json` em memoria e, ao salvar qualquer parametro, grava
+  o snapshot inteiro. Se o dashboard de hoje (subiu 09:00, antes da mudanca)
+  salvar algo, ele pode **reverter** `rompimento.ativo` para `true`.
+- Checklist do fecho: (a) reler `rompimento.ativo` e confirmar `false`;
+  (b) se tiver revertido, reaplicar e **nao** salvar parametros pelo dashboard;
+  (c) confirmar `ORB-WDO-FT` = Desabilitado; (d) confirmar que nao ha posicao
+  da Faixa 1 aberta.
+- Sem reiniciar o robo com pregao aberto.
+
+### 23.41.5 Veredito tecnico (dev senior / trade)
+
+- **A tese de rompimento da 1a hora esta esgotada.** Tres angulos independentes
+  (entrada, saida, filtro) e os controles (mirror PF 0,93; deriva long PF 0,95)
+  mostram que o sinal nao tem edge depois do custo real.
+- O problema nao e parametro: e **ausencia de ineficiencia exploravel** nesse
+  horario/ativo com esse custo. Insistir em variantes do ORB e data mining.
+- Proxima tese deve ser escolhida por **eficiencia de custo** (poucos trades,
+  movimentos maiores) e **racional economico**, nao por mais filtros.
+- Ranking inicial para o item 29 (a validar com o mesmo gate):
+  1. **Momentum/tendencia em H1 com poucos trades e stop mais largo (5★)** —
+     custo por trade vira fracao pequena do movimento; testar com M1 intrabar,
+     slippage 1,0 pt/lado, IS/OOS e n_OOS >= 40.
+  2. **Reversao a media (VWAP) apos movimento extremo da manha (4★)** — fade
+     com alvo no VWAP e stop de tempo; diferente do CTRL-MIRROR cru (que usava
+     saida EOD sem filtro).
+  3. **Microestrutura/absorcao nos extremos com o book do Herman (4★)** —
+     maior potencial de edge, mas exige estudo de evento limpo antes.
+  4. **Lead-lag cross-asset (DXY/juros EUA -> WDO) (3★)** — plausivel, mas
+     depende de dados e latencia.
+  5. **Mais variantes de ORB (1★)** — encerrado.
+- **Gate obrigatorio para qualquer tese nova** (antes de dinheiro real):
+  backtest fiel com custo R$1,20 e slippage 1,0 pt/lado; IS 2021-2024 / OOS
+  2025-2026; OOS exp > 0, OOS PF > 1,0, n_OOS >= 40, IS exp > 0; robustez a
+  +-1 tick, vizinhanca de parametros e controle (mirror/random/shift); paper
+  forward 20-30 sessoes. Sem isso, nao vai para o real.
+
+### 23.41.6 Backlog atualizado
+
+- Item 28 (decisao sobre a Faixa 1): **concluido 13/11** — suspensa no real e
+  no paper/paper FT.
+- Item 29 (pivotar para nova tese): **pendente** — recomendacao acima; aguarda
+  escolha humana da tese antes de qualquer codigo.
 
