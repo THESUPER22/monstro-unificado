@@ -55,7 +55,9 @@ FT_STATE_MAX_MIN = 10
 NOTIFY_COOLDOWN_MIN = 20
 # Janela de pregao (hora local da maquina)
 PREGAO_INI = (9, 0)
-PREGAO_FIM = (17, 55)
+# 17:35 = horario da tarefa Monstro-Fecho; depois disso o robo ja encerrou de
+# proposito e nao deve ser cobrado como "fora do ar".
+PREGAO_FIM = (17, 35)
 
 BOX_H = ["box_pts", "ts", "day", "open", "high", "low", "close", "direction",
          "range", "pavio_sup", "pavio_inf", "ratio_sup", "ratio_inf",
@@ -228,8 +230,10 @@ def _task_existe(nome):
     """True se a tarefa existe E esta habilitada.
 
     `schtasks /query` retorna 0 tambem para tarefa DESABILITADA; por isso
-    conferimos o State via Get-ScheduledTask. Assim, aposentar uma tarefa nao
-    gera falso CRIT no monitor.
+    conferimos o State via Get-ScheduledTask. Se o PowerShell falhar, cai no
+    fallback `schtasks /query /fo LIST /v` (campo Status/State). Se nada puder
+    ser lido, assume DESABILITADA (fail-closed): tarefa aposentada nao pode
+    gerar falso CRIT so porque o estado ficou ilegivel.
     """
     try:
         r = subprocess.run(["schtasks", "/query", "/tn", nome],
@@ -238,15 +242,37 @@ def _task_existe(nome):
             return False
     except Exception:
         return False
+
+    # 1) caminho preferido: Get-ScheduledTask (State em ingles: Ready/Running/Disabled)
     try:
         q = subprocess.run(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command",
              "(Get-ScheduledTask -TaskName '%s' -ErrorAction SilentlyContinue).State" % nome],
             capture_output=True, text=True, timeout=20)
         state = (q.stdout or "").strip()
-        return bool(state) and state.lower() != "disabled"
+        if state:
+            return state.lower() != "disabled"
     except Exception:
-        return True   # nao conseguiu checar o estado: mantem "existe"
+        pass
+
+    # 2) fallback: schtasks /fo LIST /v -> "Status: Desabilitado" (PT-BR) ou
+    #    "Scheduled Task State: Disabled" (EN). Evita fail-open no locale atual.
+    try:
+        q = subprocess.run(["schtasks", "/query", "/tn", nome, "/fo", "LIST", "/v"],
+                           capture_output=True, text=True, timeout=20)
+        for linha in (q.stdout or "").splitlines():
+            chave, _, valor = linha.partition(":")
+            chave = chave.strip().lower()
+            valor = valor.strip().lower()
+            if not valor:
+                continue
+            if "task state" in chave or chave.startswith("status") or "situa" in chave:
+                return not ("desabilit" in valor or "disabled" in valor)
+    except Exception:
+        pass
+
+    # 3) estado ilegivel: fail-closed -> INFO, nunca CRIT falso.
+    return False
 
 
 def _ft_ativo_desde():
@@ -277,6 +303,11 @@ def main():
     now = agora()
     hoje_str = now.date().isoformat()
     pregao = em_pregao(now)
+    # Grace de abertura: as tarefas disparam 09:00 e os processos levam alguns
+    # minutos para subir. Ate 09:10, ausencia de processo/heartbeat e' WARN.
+    abertura_estavel = (now.hour, now.minute) >= (9, 10)
+    crit_pregao = pregao and abertura_estavel
+    warn_pregao = pregao and not abertura_estavel
     st_antigo = _carregar_state()
     checks = []
     metrics = {}
@@ -294,7 +325,8 @@ def main():
     if term:
         add("mt5", "OK", "terminal64 vivo (pid %s)" % ",".join(map(str, term)))
     else:
-        add("mt5", "CRIT" if pregao else "INFO", "terminal64 NAO esta rodando")
+        add("mt5", "CRIT" if crit_pregao else ("WARN" if warn_pregao else "INFO"),
+            "terminal64 NAO esta rodando")
 
     # 2) Coletor Herman — processo
     col = _proc_matches("coletor_herman_6p_shadow.py", so_python=True)
@@ -306,17 +338,17 @@ def main():
                 "%d processos do coletor (esperado 2: wrapper+filho) - possivel duplicata"
                 % len(col))
     else:
-        add("herman_processo", "CRIT" if pregao else "INFO",
+        add("herman_processo", "CRIT" if crit_pregao else ("WARN" if warn_pregao else "INFO"),
             "coletor Herman NAO esta rodando")
 
     # 3) Heartbeat
     idade_hb, ultima = _idade_heartbeat_min(now)
     metrics["herman_heartbeat_min"] = None if idade_hb is None else round(idade_hb, 1)
     if idade_hb is None:
-        add("herman_heartbeat", "CRIT" if pregao else "INFO",
+        add("herman_heartbeat", "CRIT" if crit_pregao else ("WARN" if warn_pregao else "INFO"),
             "sem heartbeat legivel em online_herman.log")
     elif idade_hb > HEARTBEAT_MAX_MIN:
-        add("herman_heartbeat", "CRIT" if pregao else "INFO",
+        add("herman_heartbeat", "CRIT" if crit_pregao else ("WARN" if warn_pregao else "INFO"),
             "heartbeat parado ha %.0f min (limite %d)" % (idade_hb, HEARTBEAT_MAX_MIN))
     else:
         add("herman_heartbeat", "OK", "heartbeat ha %.1f min" % idade_hb)
@@ -398,7 +430,7 @@ def main():
     if robo:
         add("robo_principal", "OK", "monstro vivo (%d processo(s))" % len(robo))
     else:
-        add("robo_principal", "CRIT" if pregao else "INFO",
+        add("robo_principal", "CRIT" if crit_pregao else ("WARN" if warn_pregao else "INFO"),
             "monstro_unificado_v22.py NAO esta rodando")
 
     # 8) Rompimento FT (paper)

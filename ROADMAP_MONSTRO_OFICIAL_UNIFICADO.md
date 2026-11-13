@@ -4246,16 +4246,67 @@ autoriza mexer no robo com posicao aberta.
 | 7 | Walk-forward com janelas moveis | 4 | corpus maior | pendente |
 | 8 | P4 - remover/religar codigo morto do trailing | 2 | P1/P2 | proposta 23.32 |
 | 9 | Telemetria do ORB (EOD provisorio) | 2 | - | proposta 23.30 |
-| 10 | Plano do dia: somar Faixa 1 aos fechados | 2 | - | proposta 23.33 |
+| 10 | Plano do dia: somar Faixa 1 aos fechados | 2 | - | concluido 13/11 (23.38): 12/11 = 4 fechados / R$450 |
 | 11 | Clipping/scaler desatualizado (bid_qty/volume_tick) | 4 | T2/retreino | proposta 23.34 |
 | 12 | "executar_ordem falhou" vs "gate bloqueou" | 3 | - | proposta 23.34 |
 | 13 | "VETO TOTAL" citar Williams %R (motivo real) | 2 | - | proposta 23.34 |
 | 14 | Robo sair de fato no shutdown gracil (os._exit) | 4 | C1-C4 + revisao | proposta 23.34 |
-| 15 | Monitor: fail-open do probe `rompimento_ft` | 3 | - | proposta 23.34 |
-| 16 | Monitor: janela 09:00-17:35 + grace 09:10 | 3 | - | proposta 23.34 |
+| 15 | Monitor: fail-open do probe `rompimento_ft` | 3 | - | concluido 13/11 (23.38): fallback schtasks + fail-closed |
+| 16 | Monitor: janela 09:00-17:35 + grace 09:10 | 3 | - | concluido 13/11 (23.38): `PREGAO_FIM=(17,35)` + grace |
 | 17 | `pids_robo()` filtrar python.exe (sem cmd/shim) | 3 | item 14 | proposta 23.34 |
 | 18 | Growth: limiar sazonal no fim do dia | 2 | - | proposta 23.34 |
 | 19 | Corrigir mensagem do multiTF no standby (mostrar veto real) | 3 | - | proposta 23.37 |
 | 20 | Estudo multi-dia do custo do gate da Faixa 1 (drawdown/trailing/slippage) | 3 | dados multi-dia | proposta 23.37 |
 | 21 | Estudo filtro RSI <= 40 no Sniper BUY (Core 3 tinha RSI 45) | 3 | backtest | proposta 23.37 |
 | 22 | Contraexemplo do `eff >= 0,40` (perdeu +36,5 pts em 12/11) | 2 | - | registrado 23.37 |
+
+## 23.38 Pacote seguro: monitor + plano do dia (13/11/2026)
+
+### 23.38.1 Escopo
+
+Fechado na madrugada de 13/11 (01:40-02:00), com mercado fechado, **sem posicao
+real** (apenas a fantasma WINV25) e **sem robo rodando**. Apenas observabilidade
+e relatorio: **nenhuma logica de trade foi alterada** e o robo nao foi reiniciado.
+
+### 23.38.2 Item 16 - janela do monitor (3 estrelas)
+
+- `PREGAO_FIM` passou de 17:55 para **17:35** (`monitor_saude_coletores.py`), o
+  horario da tarefa `Monstro-Fecho`. Entre 17:35 e 17:55 o robo ja encerrou de
+  proposito e nao deve ser cobrado.
+- **Grace de abertura ate 09:10:** MT5, coletor Herman, heartbeat e robo
+  principal passam a **WARN** (nao CRIT) entre 09:00 e 09:09, porque as tarefas
+  disparam as 09:00 e os processos levam alguns minutos para subir.
+- Validacao com `agora` e caminhos temporarios: **09:05 -> WARN; 09:15 -> CRIT**
+  (rc 1 e 2 respectivamente).
+
+### 23.38.3 Item 15 - fail-open do `_task_existe` (3 estrelas)
+
+- Fallback novo via `schtasks /query /tn <nome> /fo LIST /v`, lendo
+  `Status: Desabilitado` (PT-BR) ou `Scheduled Task State: Disabled` (EN).
+- Se o estado continuar ilegivel, retorna **False (fail-closed)** -> INFO, nunca
+  CRIT falso. O `Rompimento-FT` aposentado nao volta a alarmar.
+- Validacao forcando o PowerShell a falhar: `Rompimento-FT`=False,
+  `Monstro-Start`=True; com estado ilegivel: False.
+
+### 23.38.4 Item 10 - plano do dia soma a Faixa 1 (2 estrelas)
+
+- `tools/autopsia_automatizada.py` agora le
+  `logs/rompimento/rompimento_trades.csv` e **mescla por ticket** com os trades
+  do Core (o log pode registrar a posicao da Faixa 1 sem o deal de saida).
+- Horario de entrada vem do `rompimento.log`
+  (`[ROMPIMENTO] BUY ... ticket=`), permitindo a Faixa 1 tambem nas metricas
+  "ate 12:30". Sem esse horario, o trade entra no dia mas nao no corte da manha.
+- `lucro_rs` e a fonte canonica (1 contrato); fallback `pts * 10` apenas para
+  linhas antigas sem a coluna. Linhas `S/TRADE` sao ignoradas.
+- `cruzar_contexto` continua **apenas com trades do Core** (a Faixa 1 nao tem o
+  contexto v22), evitando cruzamento falso.
+- Validacao 12/11: `n=4`, `n_fechados=4`, `saldo=450.0`, WR 75%; ate 12:30 =
+  1 trade / R$420 (Faixa 1). `main` completo sem Traceback.
+
+### 23.38.5 Veredito
+
+Pacote concluido e testado. O monitor nao deve mais gerar CRIT falso do
+`Rompimento-FT` nem da janela 17:40-17:55, e o plano do dia passa a refletir o
+resultado real, incluindo a Faixa 1. Proximo item de lucratividade segue sendo o
+**backtest do trailing da Faixa 1** (itens 2/3), que exige dados e revisao humana.
+

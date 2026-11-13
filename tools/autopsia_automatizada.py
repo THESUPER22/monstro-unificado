@@ -14,6 +14,8 @@ from collections import defaultdict
 
 BASE = r"C:\AIOFEN"
 LOG_FILE = os.path.join(BASE, "monstro_wdo.log")
+ROMPIMENTO_CSV = os.path.join(BASE, "logs", "rompimento", "rompimento_trades.csv")
+ROMPIMENTO_LOG = os.path.join(BASE, "logs", "rompimento", "rompimento.log")
 
 
 def data_pregao(args=None):
@@ -120,6 +122,113 @@ def extrair_trades(lines):
 
     trades.sort(key=lambda x: x["abertura_log"] or "9999")
     return trades
+
+
+def _to_float(valor):
+    try:
+        return float(valor)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _aberturas_rompimento():
+    """ticket -> {'ts', 'tipo'} a partir do rompimento.log (hora local)."""
+    aberturas = {}
+    if not os.path.exists(ROMPIMENTO_LOG):
+        return aberturas
+    re_entrada = re.compile(
+        r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \| \[ROMPIMENTO\] (BUY|SELL) .*?ticket=(\d+)"
+    )
+    try:
+        with open(ROMPIMENTO_LOG, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                m = re_entrada.search(line)
+                if m:
+                    ts, tipo, ticket = m.groups()
+                    aberturas[ticket] = {"ts": ts, "tipo": tipo}
+    except Exception:
+        pass
+    return aberturas
+
+
+def extrair_trades_rompimento(data, tickets_log=None):
+    """Le a Faixa 1 (modulo rompimento) e devolve trades no formato de extrair_trades.
+
+    O CSV guarda o lucro em reais (1 contrato). O horario de entrada vem do
+    rompimento.log; sem ele, abertura_log fica None (trade entra no dia, mas nao
+    nas metricas 'ate 12:30'). Deduplica por ticket para nao contar duas vezes.
+    """
+    if not data or not os.path.exists(ROMPIMENTO_CSV):
+        return []
+    tickets_log = {str(t) for t in (tickets_log or set())}
+    aberturas = _aberturas_rompimento()
+    trades = []
+    try:
+        with open(ROMPIMENTO_CSV, "r", encoding="utf-8-sig") as f:
+            for row in csv.DictReader(f):
+                if (row.get("dia") or "").strip() != data:
+                    continue
+                if (row.get("saida") or "").strip().upper() == "S/TRADE":
+                    continue
+                ticket = (row.get("ticket") or "").strip()
+                if ticket and ticket in tickets_log:
+                    continue
+                side = (row.get("side") or "").strip().upper()
+                ab = aberturas.get(ticket, {})
+                tipo = ab.get("tipo") or ("BUY" if side in ("C", "BUY", "COMPRA") else "SELL")
+                lucro_txt = (row.get("lucro_rs") or "").strip()
+                if lucro_txt:
+                    lucro = _to_float(lucro_txt)
+                elif (row.get("pts") or "").strip():
+                    # linhas antigas sem lucro_rs: 1 ponto = R$ 10,00 (1 contrato)
+                    lucro = _to_float(row.get("pts")) * 10.0
+                else:
+                    lucro = None
+                trades.append({
+                    "ticket": ticket or "faixa1-%d" % len(trades),
+                    "tipo": tipo,
+                    "abertura_log": ab.get("ts"),
+                    "abertura_pos": None,
+                    "entrada": _to_float(row.get("entrada")),
+                    "sl": _to_float(row.get("sl")),
+                    "tp": _to_float(row.get("tp")),
+                    "fechamento_log": None,
+                    "hora_saida": None,
+                    "preco_saida": 0.0,
+                    "tem_deal_saida": lucro is not None,
+                    "lucro": lucro,
+                    "modulo": (row.get("modulo") or "rompimento").strip(),
+                    "origem": "rompimento",
+                })
+    except Exception:
+        return []
+    return trades
+
+
+def _mesclar_trades(trades_log, trades_rompimento):
+    """Une Core (log) + Faixa 1 (CSV), completando o mesmo ticket.
+
+    O log pode registrar a posicao da Faixa 1 sem o deal de saida; nesse caso o
+    CSV (lucro_rs) completa o resultado em vez de ser descartado como duplicata.
+    """
+    por_ticket = {str(t.get("ticket")): t for t in trades_log}
+    extras = []
+    for tr in trades_rompimento:
+        base = por_ticket.get(str(tr.get("ticket")))
+        if base is None:
+            extras.append(tr)
+            continue
+        if base.get("lucro") is None and tr.get("lucro") is not None:
+            base["lucro"] = tr["lucro"]
+            base["tem_deal_saida"] = True
+        if not base.get("abertura_log") and tr.get("abertura_log"):
+            base["abertura_log"] = tr["abertura_log"]
+        for campo in ("entrada", "sl", "tp"):
+            if not base.get(campo):
+                base[campo] = tr.get(campo)
+        base["origem"] = tr.get("origem")
+        base["modulo"] = tr.get("modulo")
+    return sorted(trades_log + extras, key=lambda x: x.get("abertura_log") or "9999")
 
 
 def ler_csv_data(csv_path, dt_col=None, fmt="%Y.%m.%d %H:%M:%S"):
@@ -302,7 +411,8 @@ def run_autopsia(data=None):
     """Interface importavel para o agente (Pilar 2). Retorna (metricas, plano, trades)."""
     data_uso = data or data_pregao()
     lines = ler_log()
-    trades = extrair_trades(lines)
+    trades_log = extrair_trades(lines)
+    trades = _mesclar_trades(trades_log, extrair_trades_rompimento(data_uso))
     metricas = calcular_metricas(trades)
     plano = gerar_plano(metricas, trades)
     return metricas, plano, trades
@@ -316,7 +426,8 @@ def main():
     print("=" * 80)
 
     lines = ler_log()
-    trades = extrair_trades(lines)
+    trades_log = extrair_trades(lines)
+    trades = _mesclar_trades(trades_log, extrair_trades_rompimento(data_uso))
     metricas = calcular_metricas(trades)
     acoes_agente, decisoes_agente = analisar_agente(lines)
 
@@ -366,7 +477,10 @@ def main():
     print(f"historico_multitf.csv: {len(multitf)} registros")
     print(f"williams_r_historico.csv: {len(williams)} registros")
 
-    cruzado = cruzar_contexto(trades, decisions, contexto, multitf, williams)
+    cruzado = cruzar_contexto(
+        [t for t in trades if t.get("origem") != "rompimento"],
+        decisions, contexto, multitf, williams,
+    )
 
     print("\n--- CONTEXTO DOS TRADES (primeiros 10) ---")
     print(f"{'#':<3} {'Tipo':<5} {'IA':<6} {'Conf':<6} {'ATR':<6} {'RSI':<6} {'Entropia':<9} {'CtxAction':<10} {'M5/M15/M30 WR':<35} {'WR':<8} {'P&L':<8}")
