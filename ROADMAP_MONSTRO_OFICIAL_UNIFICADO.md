@@ -4238,13 +4238,13 @@ autoriza mexer no robo com posicao aberta.
 | # | Item | Estrelas | Depende de | Status |
 |---|---|---|---|---|
 | 1 | C1-C4 robustez do fecho (`robustez-fecho`) | 5 | - | concluido 12/11: 12 testes + fecho real demo PASS (23.36) |
-| 2 | P1 - trailing da Faixa 1 (magic 7008) | 5 | revisao humana + branch | proposta 23.32 |
-| 3 | P2 - backtest de trailing no ORB (4 variantes) | 5 | P1 + dados | proposta 23.32 |
-| 4 | P3 - log "Trailing iniciado" so quando for real | 3 | P1 | proposta 23.32 |
+| 2 | P1 - trailing da Faixa 1 (magic 7008) | 1 | revisao humana + branch | rejeitado 13/11 (23.39): piora PF/exp com slippage; nao ligar |
+| 3 | P2 - backtest de trailing no ORB (4 variantes) | 5 | P1 + dados | concluido 13/11 (23.39): 3 stops x 4 saidas x 3 slippages; nenhuma promovida |
+| 4 | P3 - log "Trailing iniciado" so quando for real | 3 | P1 | pendente (independente do trailing: corrigir log falso) |
 | 5 | T2 - features estacionarias (20 features) | 4 | >=30 trades reais | bloqueado |
 | 6 | Retreino Keras com gates | 4 | >=30 trades reais | bloqueado |
 | 7 | Walk-forward com janelas moveis | 4 | corpus maior | pendente |
-| 8 | P4 - remover/religar codigo morto do trailing | 2 | P1/P2 | proposta 23.32 |
+| 8 | P4 - remover/religar codigo morto do trailing | 2 | P1/P2 | pendente (remocao nao depende de promocao) |
 | 9 | Telemetria do ORB (EOD provisorio) | 2 | - | proposta 23.30 |
 | 10 | Plano do dia: somar Faixa 1 aos fechados | 2 | - | concluido 13/11 (23.38): 12/11 = 4 fechados / R$450 |
 | 11 | Clipping/scaler desatualizado (bid_qty/volume_tick) | 4 | T2/retreino | proposta 23.34 |
@@ -4259,6 +4259,7 @@ autoriza mexer no robo com posicao aberta.
 | 20 | Estudo multi-dia do custo do gate da Faixa 1 (drawdown/trailing/slippage) | 3 | dados multi-dia | proposta 23.37 |
 | 21 | Estudo filtro RSI <= 40 no Sniper BUY (Core 3 tinha RSI 45) | 3 | backtest | proposta 23.37 |
 | 22 | Contraexemplo do `eff >= 0,40` (perdeu +36,5 pts em 12/11) | 2 | - | registrado 23.37 |
+| 23 | Filtro vies da 1a hora + BE (Faixa 1) | 3 | OOS positivo + slip 1,0 | em observacao 23.39: positivo so em slip 0,5 e IS |
 
 ## 23.38 Pacote seguro: monitor + plano do dia (13/11/2026)
 
@@ -4314,4 +4315,123 @@ Pacote concluido e testado. O monitor nao deve mais gerar CRIT falso do
 `Rompimento-FT` nem da janela 17:40-17:55, e o plano do dia passa a refletir o
 resultado real, incluindo a Faixa 1. Proximo item de lucratividade segue sendo o
 **backtest do trailing da Faixa 1** (itens 2/3), que exige dados e revisao humana.
+
+## 23.39 Estudo do trailing e do filtro de vies da Faixa 1 (13/11/2026)
+
+### 23.39.1 Escopo e metodologia
+
+Fechado na madrugada de 13/11 (01:50-02:15), com mercado fechado, **sem posicao
+real** (apenas a fantasma WINV25) e **sem robo rodando**. Estudo **read-only**:
+nenhuma logica de trade foi alterada e o robo nao foi reiniciado.
+
+- Script novo: `backtest/backtest_trailing_faixa1.py` (read-only).
+- Modelo **fiel a producao** (`rompimento_orquestrador.py`):
+  caixa 09:00-10:00; gatilho 10:30-11:00 (janela validada); sinal na **barra M5
+  fechada**; entrada no **close da barra de sinal** + slippage (producao entra a
+  mercado); SL = `max(8, min(dist_da_caixa, 2.5 * ATR14_da_manha))`; TP =
+  `1.5 * tamanho_da_caixa`; EOD 17:30 (ultima barra 17:25); custo R$ 1,20 por
+  contrato por operacao; 1 ponto = R$ 10,00; sempre 1 contrato.
+- **Slippage explicito por lado:** 0 / 0,5 / 1,0 ponto (0 / 1 / 2 ticks).
+- Trailing decidido no **fechamento** da barra e aplicado na barra seguinte (sem
+  look-ahead). SL conferido antes do TP (conservador). BE armado **liquido do
+  slippage de saida**: `entry + 1 + slip` (BUY) / `entry - 1 - slip` (SELL).
+- Amostra: **903 sinais**, 2021-11-12 a 2026-11-12 (1242 dias validos).
+- Teste sintetico da mecanica: `sem`=EOD 0; `trail8_4`=+7; `be8`=+1;
+  `be8_lock70`=+8,4; com slip 1,0 o `be8` segue +1.
+
+Reproducao: `python backtest/backtest_trailing_faixa1.py`
+
+### 23.39.2 Trailing com o stop de producao (10:30-11:00)
+
+Stop = caixa (producao). `exp` em R$ por trade; `total` e `DD` em R$.
+
+| regra | slip | n | WR% | exp R$ | PF | total R$ | maxDD R$ |
+|---|---|---|---|---|---|---|---|
+| sem | 0,0 | 903 | 43,1 | +4,89 | 1,04 | +4.411 | -7.166 |
+| trail8_4 | 0,0 | 903 | 66,6 | +2,02 | 1,03 | +1.824 | -3.935 |
+| be8 | 0,0 | 903 | 73,1 | +5,67 | 1,10 | +5.121 | -3.463 |
+| be8_lock70 | 0,0 | 903 | 73,1 | -0,25 | 1,00 | -228 | -3.215 |
+| sem | 0,5 | 903 | 41,7 | -3,40 | 0,97 | -3.066 | -11.917 |
+| trail8_4 | 0,5 | 903 | 65,1 | -7,32 | 0,91 | -6.610 | -9.331 |
+| be8 | 0,5 | 903 | 71,3 | -3,87 | 0,94 | -3.494 | -8.411 |
+| be8_lock70 | 0,5 | 903 | 71,3 | -8,63 | 0,86 | -7.792 | -9.204 |
+| sem | 1,0 | 903 | 40,4 | -12,76 | 0,90 | -11.526 | -18.676 |
+| trail8_4 | 1,0 | 903 | 63,7 | -15,69 | 0,81 | -14.171 | -16.328 |
+| be8 | 1,0 | 903 | 69,5 | -14,05 | 0,80 | -12.691 | -15.526 |
+| be8_lock70 | 1,0 | 903 | 69,5 | -17,33 | 0,75 | -15.650 | -16.537 |
+
+### 23.39.3 Gate do trailing
+
+Gate: promover so se **melhorar WR e PF** vs `sem` (mesmo stop/slip) **e** ficar
+absolutamente lucrativo (expectancia > 0 e PF > 1,0).
+
+- Com o stop de producao (caixa), **nenhuma variante passa no relativo** em
+  nenhum slippage.
+- O unico PASSA relativo foi `fixed5/be8` com slip 0,5 (dWR +21,3, dPF +0,03,
+  dExp +2,71), mas o absoluto segue **negativo** (exp -4,39, PF 0,88) e falha em
+  slip 1,0.
+- Trailing como substituto do TP e pior; janela de producao 10:00-11:00 e pior
+  (slip 1,0: `sem` PF 0,88, `be8` PF 0,68).
+- **Veredito: trailing rejeitado por ora. Nao ligar.** Item 2 = **1 estrela**.
+  Reabrir apenas se o custo de entrada cair ou o modelo de sinal mudar.
+
+### 23.39.4 Filtro vies da 1a hora (so opera o lado do corpo da caixa)
+
+Regra: `close` da caixa > `open` -> so BUY; `close` < `open` -> so SELL.
+Reduz de 903 para **645 sinais (71%)**.
+
+| stop/regra | slip | WR% | exp R$ | PF | total R$ |
+|---|---|---|---|---|---|
+| caixa/sem | 0,0 | 43,6 | +5,54 | 1,05 | +3.574 |
+| caixa/sem | 0,5 | 42,0 | -3,27 | 0,97 | -2.112 |
+| caixa/sem | 1,0 | 40,9 | -12,41 | 0,91 | -8.006 |
+| caixa/be8 | 0,0 | 75,3 | +12,22 | 1,23 | +7.883 |
+| caixa/be8 | 0,5 | 73,6 | +5,32 | 1,09 | +3.430 |
+| caixa/be8 | 1,0 | 72,1 | -5,44 | 0,91 | -3.511 |
+| 0.5x/sem | 0,0 | 37,2 | +9,52 | 1,09 | +6.137 |
+| 0.5x/sem | 0,5 | 35,3 | -0,82 | 0,99 | -528 |
+| 0.5x/sem | 1,0 | 34,6 | -9,46 | 0,92 | -6.099 |
+| 0.5x/be8 | 0,0 | 69,1 | +13,40 | 1,28 | +8.644 |
+| 0.5x/be8 | 0,5 | 67,4 | +6,16 | 1,12 | +3.974 |
+| 0.5x/be8 | 1,0 | 66,2 | -3,46 | 0,94 | -2.230 |
+
+Comparacao sem vies (mesmo modelo, stop caixa): `be8` slip 0,5 = WR 71,3 /
+exp -3,87 / PF 0,94; slip 1,0 = WR 69,5 / exp -14,05 / PF 0,80. Ou seja, o vies
+**melhora WR e PF em todas as combinacoes e em todos os slippages** (ganho
+relativo consistente), mas:
+
+- em **slip 1,0 tudo continua negativo**;
+- o **OOS 2025-2026 e negativo mesmo em slip 0,5**: caixa/be8 = exp -1,42 /
+  PF 0,98; 0.5x/be8 = exp -2,88 / PF 0,95; `sem` vies = PF 0,92-0,95;
+- 2023 e 2026 sao anos negativos; o resultado positivo depende de 2022 e 2024.
+- `be8` e o que segura o conjunto: o vies sozinho (`sem`) fica entre -0,82 e
+  -3,27 em slip 0,5.
+
+**Veredito: filtro promissor, nao comprovado.** Nao promover agora; item 23 do
+backlog (3 estrelas, em observacao). So reconsiderar com OOS positivo e
+resistencia a 1 tick/lado.
+
+### 23.39.5 Comparacao com o backtest base (entrada otimista)
+
+- `backtest_orb_wdo.py`, 10:30-11:00, stop caixa, EOD: n=874, WR 51,9%,
+  exp +59,32, PF 1,49 (entrada no **nivel da caixa**, otimista).
+- Com confirmacao no fechamento da barra: n=861, WR 48,0%, exp +12,57, PF 1,09
+  (sem slippage). No modelo fiel com custo e slippage 0,5: exp -3,40 / PF 0,97.
+- O filtro `vies + stop 0,5x` no base rendia PF 1,83 (IS 1,80 / OOS 1,91), mas
+  aquilo tambem usava entrada otimista. No modelo fiel o mesmo filtro cai para
+  PF 1,09-1,12 em slip 0,5 e < 1,0 em slip 1,0.
+- **Conclusao metodologica:** o PF alto do base nao e comparavel ao resultado
+  realista; qualquer promocao futura deve usar o modelo fiel com slippage.
+
+### 23.39.6 Veredito final
+
+- **Trailing: rejeitado (1 estrela).** Aumenta WR, mas piora PF e expectancia
+  com slippage; nao protege o lucro de forma lucrativa.
+- **Vies da 1a hora + BE: em observacao (3 estrelas).** Melhora relativa real,
+  mas positiva apenas com 1 tick/lado e dependente de 2022/2024; OOS negativo.
+- **A Faixa 1, como esta, tem edge fragil:** PF ~1,04 sem slippage e < 1,0 com
+  1 tick/lado. O ganho tem que vir de **filtro de regime/sinal**, nao de gestao
+  de saida.
+- Nada foi alterado na logica de trade; robo nao reiniciado; nenhuma ordem
+  enviada.
 
