@@ -4302,6 +4302,11 @@ e relatorio: **nenhuma logica de trade foi alterada** e o robo nao foi reiniciad
   contexto v22), evitando cruzamento falso.
 - Validacao 12/11: `n=4`, `n_fechados=4`, `saldo=450.0`, WR 75%; ate 12:30 =
   1 trade / R$420 (Faixa 1). `main` completo sem Traceback.
+- **Limitacao pre-existente (nao alterada):** `extrair_trades` nao filtra por
+  data; ele assume que `monstro_wdo.log` e da sessao corrente (o robo sobrescreve
+  o log a cada boot). A Faixa 1, por vir do CSV, e filtrada pelo campo `dia`.
+  Logo, rodar a autopsia de um dia antigo depois do novo boot mistura o Core do
+  dia atual; para o plano EOD (mesma sessao) o comportamento esta correto.
 
 ### 23.38.5 Veredito
 
