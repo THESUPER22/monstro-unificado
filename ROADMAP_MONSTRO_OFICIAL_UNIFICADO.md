@@ -5091,6 +5091,10 @@ falha:
   persistir o estado limpo com `_salvar_state(st)` antes de seguir; e/ou
   adicionar guarda de "ja registrado" em `_grava_final` para nao reescrever o
   CSV. Nao tocar enquanto a Faixa 1 estiver suspensa e sem aprovacao.
+- **Nao recorre enquanto suspensa:** `orquestrar()` retorna na linha 519
+  quando `rompimento.ativo=false`, antes de qualquer leitura de estado. O
+  loop so voltaria se a Faixa 1 fosse **religada** com estado velho em disco —
+  por isso o item 33 e **pre-requisito de religacao**.
 
 ### 23.46.4 Achado de modelo: clipping constante do scaler
 
