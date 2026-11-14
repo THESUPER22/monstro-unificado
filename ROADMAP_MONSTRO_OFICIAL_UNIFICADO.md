@@ -4265,7 +4265,9 @@ autoriza mexer no robo com posicao aberta.
 | 26 | Filtros de seletividade da Faixa 1 | 1 | - | rejeitado 13/11 (23.40): so `rng_le_20` marginal em 0,5; falha em 1,0 |
 | 27 | Geometria de saida (TP/EOD) da Faixa 1 | 1 | - | rejeitado 13/11 (23.40): nenhuma combinacao robusta em 1,0 |
 | 28 | Decisao sobre a Faixa 1 (suspender real / demo) | 5 | revisao humana | concluido 13/11 (23.41): suspensa no real e no paper (`rompimento.ativo=false` + `ORB-WDO-FT` desabilitada) |
-| 29 | Pivotar pesquisa para nova tese (reversao/tendencia) | 5 | decisao do usuario | pendente 23.41: ranking = H1 trend (5), VWAP fade (4), book/absorcao (4), cross-asset (3) |
+| 29 | Pivotar pesquisa para nova tese (reversao/tendencia) | 5 | decisao do usuario | concluido 14/11 (23.42): H1 trend testada e **reprovada na robustez** (walk-forward PF 1,01 / t 0,09); seguir para a proxima tese |
+| 30 | Tese 2 - reversao a media no VWAP (fade) | 4 | item 29 + pre-registro | pendente: aguarda escolha humana; exige gate + walk-forward + Monte Carlo desde o inicio |
+| 31 | Tese 3 - microestrutura/absorcao nos extremos (book Herman) | 4 | item 29 + estudo de evento limpo | pendente: maior potencial, mas exige stream de ticks limpa |
 
 ## 23.38 Pacote seguro: monitor + plano do dia (13/11/2026)
 
@@ -4685,4 +4687,127 @@ WDOZ26, SL -16,5 pts, -R$165) e apenas a fantasma WINV25 (magic 123457, inerte).
   no paper/paper FT.
 - Item 29 (pivotar para nova tese): **pendente** — recomendacao acima; aguarda
   escolha humana da tese antes de qualquer codigo.
+
+## 23.42 Tese 1 - tendencia/momentum em H1 (13-14/11/2026)
+
+### 23.42.1 Escopo e metodologia
+
+Fechado entre o fecho de 13/11 e a madrugada de 14/11, com mercado fechado e
+**sem posicao real** (apenas a fantasma WINV25). Estudo **read-only**: nenhuma
+logica de trade foi alterada e o robo nao foi reiniciado.
+
+Pergunta: existe edge de **tendencia em H1** no WDO, com poucos trades e stop
+mais largo, que sobreviva ao custo real e a 1 tick/lado?
+
+- Scripts novos: `backtest/tendencia_h1_wdo.py` (grade) e
+  `backtest/tendencia_h1_robustez.py` (walk-forward, Monte Carlo, controles).
+- Dados: M1 **636.153** barras -> H1 **11.209** barras, **1.248 dias**
+  (2021-11-16 a 2026-11-13). Barras H1 construidas do M1, **somente
+  09:00-17:30** (day trade).
+- Sinal na barra H1 **fechada**; entrada no **primeiro M1 seguinte** (open);
+  SL = `k * ATR14(H1)` (TR nao atravessa o gap overnight); TP = `m * R` ou
+  **EOD 17:30**; **1 trade por dia**; 1 contrato; custo R$ 1,20.
+- **Slippage por lado:** 0 / 0,5 / 1,0 / 1,5 ponto. SL conferido antes do TP
+  dentro da barra M1 (conservador).
+- Sinais pre-registrados: Donchian 12/24/36; EMA 8/21, 12/34, 20/50; momentum
+  6/12. Gate: OOS exp > 0, OOS PF > 1,0, n_OOS >= 40, IS exp > 0 com
+  **slip 1,0**; alem de walk-forward e Monte Carlo.
+
+Reproducao:
+`python backtest/tendencia_h1_wdo.py` e
+`python backtest/tendencia_h1_robustez.py`.
+
+### 23.42.2 Grade primaria (SL 2,0*ATR, TP 3R, slip 1,0)
+
+`exp`/`IS`/`OOS` em R$ por trade; 1 contrato.
+
+| sinal | n | WR% | exp | PF | IS exp | IS PF | OOS n | OOS exp | OOS PF | gate |
+|---|---|---|---|---|---|---|---|---|---|---|
+| donchian_12 | 816 | 46,9 | -9,43 | 0,93 | -11,06 | 0,93 | 293 | -6,54 | 0,94 | nao |
+| donchian_24 | 592 | 47,3 | -3,88 | 0,97 | -13,17 | 0,91 | 216 | +12,28 | 1,12 | nao |
+| donchian_36 | 480 | 47,7 | -3,67 | 0,97 | -11,48 | 0,92 | 176 | +9,80 | 1,09 | nao |
+| ema_8_21 | 426 | 49,1 | +14,42 | 1,15 | +26,11 | 1,25 | 172 | -2,84 | 0,97 | nao |
+| ema_12_34 | 276 | 49,6 | +24,96 | 1,28 | +46,00 | 1,50 | 103 | -10,38 | 0,87 | nao |
+| ema_20_50 | 205 | 48,8 | -0,32 | 1,00 | -2,39 | 0,98 | 87 | +2,48 | 1,03 | nao |
+| mom_6 | 1.244 | 46,7 | -11,86 | 0,92 | -9,93 | 0,94 | 465 | -15,08 | 0,88 | nao |
+| mom_12 | 1.247 | 48,6 | -2,92 | 0,98 | -1,59 | 0,99 | 467 | -5,15 | 0,96 | nao |
+
+- **Nenhum sinal pre-registrado passa o gate em 1,0 pt/lado.**
+- `ema_8_21` e `ema_12_34` tem expectancia total positiva, mas **OOS
+  negativo**: o resultado esta no IS (2022).
+- `donchian_24/36` tem OOS positivo, mas **IS negativo** -> falha no gate.
+- `mom_6/12` e `ema_20_50` nao sustentam nem o total.
+
+### 23.42.3 O caso que parecia promissor: ema_8_21, SL 1,5*ATR, EOD
+
+A sensibilidade mostrou que `ema_8_21` com **SL 1,5*ATR e saida no EOD**
+passa o gate em 1,0 pt/lado. Detalhe ano a ano (slip 1,0):
+
+| ano | n | WR% | exp R$ | PF | total R$ | maxDD R$ |
+|---|---|---|---|---|---|---|
+| 2021 | 12 | 50,0 | +51,85 | 1,52 | +622 | -837 |
+| 2022 | 76 | 55,3 | +94,78 | 1,80 | +7.204 | -1.250 |
+| 2023 | 80 | 55,0 | +12,02 | 1,13 | +961 | -2.016 |
+| 2024 | 86 | 47,7 | -11,91 | 0,87 | -1.024 | -3.432 |
+| 2025 | 91 | 41,8 | +0,16 | 1,00 | +15 | -2.454 |
+| 2026 | 81 | 45,7 | +18,32 | 1,23 | +1.484 | -981 |
+| IS 2021-2024 | 254 | 52,4 | +30,56 | 1,31 | +7.763 | -3.432 |
+| OOS 2025-2026 | 172 | 43,6 | +8,71 | 1,11 | +1.499 | -2.454 |
+| FULL | 426 | 48,8 | +21,74 | 1,23 | +9.262 | -5.149 |
+
+- **O IS e dominado por 2022** (+94,78/trade); 2024 e negativo e 2025 e
+  praticamente zero. O OOS positivo depende de **2026**.
+- Em **slip 1,5** (3 ticks/lado) o OOS vira **-6,16 / PF 0,93** (FULL
+  +10,24 / 1,10): o edge **morre com 3 ticks/lado**.
+- Controles (slip 1,0): normal +21,74 / 1,23; **CTRL-MIRROR -40,09 / 0,67**;
+  CTRL-LONG -8,93 / 0,92; CTRL-SHIFT-1 +11,59 / 1,14. Ou seja, ha **sinal
+  direcional real** (o lado oposto perde forte), mas...
+
+### 23.42.4 Walk-forward e Monte Carlo (o teste decisivo)
+
+Walk-forward ancorado: escolhe (SL, TP) so com o passado e testa no ano
+seguinte.
+
+| ano teste | escolhido no treino | n | exp R$ | PF | total R$ |
+|---|---|---|---|---|---|
+| 2023 | SL 1,5 / TP 3R | 80 | +12,02 | 1,13 | +961 |
+| 2024 | SL 1,5 / TP 3R | 86 | -10,83 | 0,88 | -932 |
+| 2025 | SL 1,5 / TP 3R | 91 | -12,24 | 0,86 | -1.114 |
+| 2026 | SL 1,5 / EOD | 81 | +18,32 | 1,23 | +1.484 |
+| **agregado** | - | **338** | **+1,18** | **1,01** | **+400** |
+
+- Agregado: maxDD -5.491, **t = 0,09**. O edge **desaparece** quando a escolha
+  de SL/TP e honesta.
+- Monte Carlo do candidato (10.000 reamostragens): P(total > 0) = 93,7%,
+  PF mediano 1,23 (p5 0,98), **WR mediano 48,8%** (p5 44,8%), maxDD mediano
+  -3.937 (p5 -7.528). O MC **nao melhora a taxa de acerto**.
+- t-stat: FULL 1,54; IS 1,57; **OOS 0,44** (nao significativo).
+- O unico config que passa em 1,0 foi escolhido **olhando o OOS** (SL 1,5/EOD);
+  o primario pre-registrado (SL 2,0/TP 3R) tem **OOS -2,84 / 0,97**.
+
+### 23.42.5 Veredito
+
+- **Tendencia H1: rejeitada para promocao (2 estrelas).** E a melhor tese
+  testada ate aqui - ha sinal direcional real e o lado oposto perde forte -,
+  mas **nao e robusta**: walk-forward PF 1,01 / t 0,09, dependencia de 2022 e
+  2026, morte em 1,5 tick/lado e OOS t 0,44.
+- Pela regra do Monte Carlo (nao investir se nao melhorar a taxa de acerto),
+  **nao vai para o real nem para paper** agora.
+- Aprendizado metodologico: **IS/OOS sozinho nao basta**. A tese passou no
+  OOS em 1,0 pt/lado apenas por selecao post-hoc; o walk-forward expos o
+  overfit. Todo estudo novo passa a exigir walk-forward desde o inicio.
+- **A Faixa 1 continua suspensa** (23.41). Nada foi alterado na logica de
+  trade; robo nao reiniciado; nenhuma ordem enviada.
+
+### 23.42.6 Proximos passos
+
+- **Tese 2 - reversao a media no VWAP (4 estrelas):** fade do movimento
+  extremo da manha com alvo no VWAP e stop de tempo; pre-registrar antes de
+  rodar, com gate + walk-forward + Monte Carlo.
+- **Tese 3 - microestrutura/absorcao nos extremos com o book do Herman
+  (4 estrelas):** maior potencial, mas exige estudo de evento limpo.
+- **Nao insistir em variantes de H1** sem uma razao economica nova: o
+  walk-forward ja mostrou que o ajuste e instavel.
+- Itens de backlog: 29 atualizado (H1 testada e reprovada na robustez);
+  novos itens 30 (VWAP fade) e 31 (book/absorcao).
 
