@@ -4267,7 +4267,7 @@ autoriza mexer no robo com posicao aberta.
 | 28 | Decisao sobre a Faixa 1 (suspender real / demo) | 5 | revisao humana | concluido 13/11 (23.41): suspensa no real e no paper (`rompimento.ativo=false` + `ORB-WDO-FT` desabilitada) |
 | 29 | Pivotar pesquisa para nova tese (reversao/tendencia) | 5 | decisao do usuario | concluido 14/11 (23.42): H1 trend testada e **reprovada na robustez** (walk-forward PF 1,01 / t 0,09); seguir para a proxima tese |
 | 30 | Tese 2 - reversao a media no VWAP (fade) | 1 | item 29 + pre-registro | **rejeitado 14/11 (23.43)**: negativa em todas as 27 combinacoes, em extremos reais, no mirror e na saida por tempo; WR alto nao e edge |
-| 31 | Tese 3 - microestrutura/absorcao nos extremos (book Herman) | 4 | item 29 + estudo de evento limpo | pendente: maior potencial, mas exige stream de ticks limpa |
+| 31 | Tese 3 - microestrutura/absorcao nos extremos (book) | 4 | ~40-60 sessoes de profundidade arquivada | **bloqueado por dados 14/11 (23.44)**: so 4 sessoes uteis e sem backfill; precisa de arquivador read-only + coleta forward |
 
 ## 23.38 Pacote seguro: monitor + plano do dia (13/11/2026)
 
@@ -4918,4 +4918,74 @@ com custo. O WR alto do fade e uma armadilha de payoff, nao um edge.
 - Alternativa se o book nao estiver limpo: **pausar a pesquisa de edge** e
   manter o sistema como esta (Faixa 1 suspensa, Core no que ja existe) ate
   haver dado novo — em vez de forcar uma tese sem base.
+
+## 23.44 Tese 3 - viabilidade do book/absorcao (14/11/2026)
+
+### 23.44.1 Pergunta
+
+Antes de investir no estudo completo: os dados de microestrutura
+(profundidade de book) existem em **quantidade e qualidade** suficientes para
+um estudo de evento (absorcao/sweep nos extremos) com significancia
+estatistica? Estudo **read-only**; nada de logica de trade foi tocado.
+
+### 23.44.2 Inventario dos dados (numeros reais)
+
+| fonte | linhas | periodo | profundidade | serve? |
+|---|---|---|---|---|
+| `historico_contexto_wdo.csv` (raiz) | 5.013 | 12-13/11 | completa | sim, 2 dias |
+| `logs/...pre_fix.csv` | 5.000 | 10-11/11 | completa | sim, ~1,5 dia |
+| `_arquivo_morto/...pre_reinj_1609` | 4.108 | 17/09 (manha) | completa | sim, meio dia |
+| `_arquivo_morto/...vazio_2809` | 5.001 | 28/09 (tarde) | completa | sim, meio dia |
+| `.sem_timestamp.bak` (x2) | 5.000 cada | ? | completa | **nao** (sem timestamp) |
+| `modelo_monstro_wdo_dados_treino.csv` | 5.405 | julho | completa | **nao** (sem timestamp/ordem) |
+| `logs/treino_corpus_real.csv` | 141 trades | ago-nov | **escoras/top5 100% zero** | nao |
+| `logs/herman_6p/boxes_herman.csv` | 524 | 10-13/11 | so preco (sem book) | nao |
+
+**Total com timestamp e ordem temporal: 19.122 snapshots / 6 sessoes** — mas
+apenas **4 sessoes uteis** (2 cheias: 10/11 e 13/11; 2 parciais: 17/09 e
+28/09; 12/11 tem 22 linhas e 11/11 tem 2). Cadencia ~2 s. Tudo em set/nov.
+
+### 23.44.3 Qualidade das features
+
+- Ha **variancia real**: volume da maior escora 704-2.196 (p5-p95),
+  distancia da escora 1,25-4,75 pts, liquidez top5 2.0k-4.7k, entropia
+  2,83-2,96. Nao sao colunas mortas.
+- ~**18% dos snapshots** tem escora a <=2 pts (candidato a absorcao), mas
+  snapshots a 2 s sao **altamente autocorrelacionados**: o numero de eventos
+  *independentes* e muito menor.
+- A profundidade e **derivada** (top-of-book + maior escora + top5), nao a
+  escada completa do book.
+
+### 23.44.4 Bloqueios
+
+1. **Cobertura:** 4 sessoes uteis, regime estreito (set/nov). Um estudo de
+   evento precisa de centenas de eventos independentes em regimes variados.
+2. **Retencao:** o `historico_contexto_wdo.csv` e resetado/rotacionado (guard
+   de 50 MB + resets manuais). Sem arquivamento diario, **nao acumula**.
+3. **Backfill impossivel:** o MT5 nao guarda profundidade historica
+   (`market_book_get` e so ao vivo); `copy_ticks_range` da preco/bid/ask, nao
+   a escada.
+4. **Corpus de trades inutil para book:** as 141 linhas de
+   `treino_corpus_real.csv` tem escoras/top5 **100% zeradas**.
+
+### 23.44.5 Veredito
+
+- **Book/absorcao: BLOQUEADA POR DADOS (nao rejeitada).** A tese nao pode ser
+  testada com honestidade hoje; qualquer estudo com 4 sessoes seria anedotico
+  e repetiria o erro de julho (regime unico).
+- Nao e falta de ideia nem de codigo: e falta de **historico de
+  profundidade**. Nao gastar tempo em variantes de book com os dados atuais.
+
+### 23.44.6 Caminho honesto (proposta, aguarda revisao humana)
+
+1. **Arquivador read-only diario:** copiar `historico_contexto_wdo.csv` para
+   `logs/contexto_arquivo/YYYY-MM-DD.csv` no fecho (17:35), dedupe por
+   timestamp, **sem tocar em logica de trade**. A rotacao deixa de perder
+   historico.
+2. Coletar **~40-60 sessoes** (1,5-3 meses) antes do estudo completo;
+   **piloto de detector** apos ~10 sessoes, so para validar a definicao de
+   evento (sem conclusao estatistica).
+3. Pre-registrar absorcao/sweep (definicao, entrada, saida, gate) **antes** de
+   rodar; walk-forward + Monte Carlo obrigatorios.
+- Item de backlog 31 marcado como **bloqueado por dados**.
 
