@@ -4267,7 +4267,8 @@ autoriza mexer no robo com posicao aberta.
 | 28 | Decisao sobre a Faixa 1 (suspender real / demo) | 5 | revisao humana | concluido 13/11 (23.41): suspensa no real e no paper (`rompimento.ativo=false` + `ORB-WDO-FT` desabilitada) |
 | 29 | Pivotar pesquisa para nova tese (reversao/tendencia) | 5 | decisao do usuario | concluido 14/11 (23.42): H1 trend testada e **reprovada na robustez** (walk-forward PF 1,01 / t 0,09); seguir para a proxima tese |
 | 30 | Tese 2 - reversao a media no VWAP (fade) | 1 | item 29 + pre-registro | **rejeitado 14/11 (23.43)**: negativa em todas as 27 combinacoes, em extremos reais, no mirror e na saida por tempo; WR alto nao e edge |
-| 31 | Tese 3 - microestrutura/absorcao nos extremos (book) | 4 | ~40-60 sessoes de profundidade arquivada | **bloqueado por dados 14/11 (23.44)**: so 4 sessoes uteis e sem backfill; precisa de arquivador read-only + coleta forward |
+| 31 | Tese 3 - microestrutura/absorcao nos extremos (book) | 4 | ~40-60 sessoes de profundidade arquivada | **em coleta 14/11 (23.45)**: arquivador read-only + tarefa `Contexto-Arquivo`; seed 19.122 linhas / 6 dias; faltam ~40-60 sessoes |
+| 32 | Arquivador read-only da profundidade de book | 4 | aprovacao do usuario | **implementado 14/11 (23.45)**: `arquivar_contexto.py` incremental + tarefa `Contexto-Arquivo` (seg-sex 09:00-18:00, 15 min); idempotente (+0 na 2a execucao) |
 
 ## 23.38 Pacote seguro: monitor + plano do dia (13/11/2026)
 
@@ -4988,4 +4989,51 @@ apenas **4 sessoes uteis** (2 cheias: 10/11 e 13/11; 2 parciais: 17/09 e
 3. Pre-registrar absorcao/sweep (definicao, entrada, saida, gate) **antes** de
    rodar; walk-forward + Monte Carlo obrigatorios.
 - Item de backlog 31 marcado como **bloqueado por dados**.
+
+## 23.45 Arquivador read-only da profundidade de book (14/11/2026)
+
+### 23.45.1 Escopo
+
+Aprovado pelo Mestre apos a viabilidade 23.44. Novo `arquivar_contexto.py`
+**read-only**: consolida o `historico_contexto_wdo.csv` em arquivos diarios
+`logs/contexto_arquivo/YYYY-MM-DD.csv`, de forma incremental e deduplicada.
+**Nao envia ordem, nao altera config, nao toca no robo, nao reinicia nada.**
+`logs/` e gitignored -> os dados nao vao para o repositorio.
+
+### 23.45.2 Por que incremental
+
+- Roda a cada **15 min**, 09:00-18:00, seg-sex. Se o arquivo de origem for
+  resetado no meio do dia, o que ja foi arquivado **nao se perde**.
+- Dedupe por **linha inteira** -> reexecucoes nao duplicam; linhas distintas
+  com o mesmo timestamp sao preservadas.
+- Guarda de janela: fora de seg-sex 09:00-18:10 o script sai sem fazer nada
+  (a menos que `--force`).
+
+### 23.45.3 Carga inicial (seed) e idempotencia
+
+- `--seed` importou os arquivos limpos ja existentes: **19.122 linhas em 6
+  dias** (17/09, 28/09, 10/11, 11/11, 12/11, 13/11).
+- Segunda execucao (incremental) = **+0** (idempotente).
+- Arquivos diarios gerados: `2026-09-17.csv` (4.108), `2026-09-28.csv`
+  (5.001), `2026-11-10.csv` (4.998), `2026-11-11.csv` (2), `2026-11-12.csv`
+  (22), `2026-11-13.csv` (4.991).
+
+### 23.45.4 Agendamento
+
+- Tarefa **`Contexto-Arquivo`**:
+  `C:\AIOFEN\venv310\Scripts\python.exe C:\AIOFEN\arquivar_contexto.py`,
+  working dir `C:\AIOFEN`.
+- Trigger: semanal seg-sex 09:00, repeticao a cada 15 min por 9 h.
+- Executa como `22the` (Interactive, Limited). Proxima: **16/11 09:00**.
+- Teste manual 14/11 02:09: `LastTaskResult=0`; log "fora da janela"
+  (guarda de horario OK).
+
+### 23.45.5 Proximo marco
+
+- Acumular **~40-60 sessoes** (1,5-3 meses) para o estudo completo de
+  absorcao/sweep.
+- **Piloto do detector** apos ~10 sessoes, so para validar a definicao de
+  evento (sem conclusao estatistica).
+- Isso **nao altera** a suspensao da Faixa 1 (23.41) nem a logica de trade.
+- Item de backlog 32 (arquivador) implementado; item 31 passa a **em coleta**.
 
