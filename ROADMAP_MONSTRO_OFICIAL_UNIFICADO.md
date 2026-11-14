@@ -4266,7 +4266,7 @@ autoriza mexer no robo com posicao aberta.
 | 27 | Geometria de saida (TP/EOD) da Faixa 1 | 1 | - | rejeitado 13/11 (23.40): nenhuma combinacao robusta em 1,0 |
 | 28 | Decisao sobre a Faixa 1 (suspender real / demo) | 5 | revisao humana | concluido 13/11 (23.41): suspensa no real e no paper (`rompimento.ativo=false` + `ORB-WDO-FT` desabilitada) |
 | 29 | Pivotar pesquisa para nova tese (reversao/tendencia) | 5 | decisao do usuario | concluido 14/11 (23.42): H1 trend testada e **reprovada na robustez** (walk-forward PF 1,01 / t 0,09); seguir para a proxima tese |
-| 30 | Tese 2 - reversao a media no VWAP (fade) | 4 | item 29 + pre-registro | pendente: aguarda escolha humana; exige gate + walk-forward + Monte Carlo desde o inicio |
+| 30 | Tese 2 - reversao a media no VWAP (fade) | 1 | item 29 + pre-registro | **rejeitado 14/11 (23.43)**: negativa em todas as 27 combinacoes, em extremos reais, no mirror e na saida por tempo; WR alto nao e edge |
 | 31 | Tese 3 - microestrutura/absorcao nos extremos (book Herman) | 4 | item 29 + estudo de evento limpo | pendente: maior potencial, mas exige stream de ticks limpa |
 
 ## 23.38 Pacote seguro: monitor + plano do dia (13/11/2026)
@@ -4810,4 +4810,112 @@ seguinte.
   walk-forward ja mostrou que o ajuste e instavel.
 - Itens de backlog: 29 atualizado (H1 testada e reprovada na robustez);
   novos itens 30 (VWAP fade) e 31 (book/absorcao).
+
+## 23.43 Tese 2 - reversao a media no VWAP (14/11/2026)
+
+### 23.43.1 Escopo e pre-registro
+
+Fechado na madrugada de 14/11, com mercado fechado e **sem posicao real**
+(apenas a fantasma WINV25). Estudo **read-only**: nenhuma logica de trade foi
+alterada, o robo nao foi reiniciado e nenhuma ordem foi enviada.
+
+Pergunta: o **VWAP intradiario** funciona como ancora de valor justo? Quando o
+preco se afasta muito do VWAP, ele reverte (fade lucrativo) ou continua
+(momentum)?
+
+Pre-registro feito **antes de rodar** (para nao repetir a selecao post-hoc do
+23.42):
+
+- Scripts: `backtest/vwap_fade_wdo.py` (grade pre-registrada) e
+  `backtest/vwap_fade_diagnostico.py` (exploratorio, nao promove nada).
+- VWAP do dia = `sum(preco_tipico * tick_volume) / sum(tick_volume)`, desde
+  09:00, reset diario; `preco_tipico = (H+L+C)/3`.
+- `dev = close - vwap`; `sigma = std(dev, 60 barras M1, min 30)`;
+  `z = dev / sigma`.
+- Sinal na barra M1 **fechada**, janela **10:00-12:00**: `|z| >= z_entry`;
+  `z>0 -> SELL` (preco acima do VWAP), `z<0 -> BUY`.
+- Entrada no **open da barra seguinte** + slippage; **alvo = VWAP do instante
+  do sinal** (nivel fixo, sem look-ahead); **stop = k_stop * sigma**;
+  **stop de tempo 15:00**; 1 trade/dia; 1 contrato; custo R$ 1,20.
+- `MIN_DIST = 2,0 pts` (4 ticks) para alvo e stop: com 1,0 pt/lado o slippage
+  de ida e volta ja e 2,0 pts.
+- Grade pre-registrada: `z_entry {1,5; 2,0; 2,5} x k_stop {1,0; 1,5; 2,0}`;
+  primario `z=2,0 / k=1,5`. Slippage 0 / 0,5 / 1,0 / 1,5 pt por lado.
+- Gate (slip 1,0): OOS exp > 0, OOS PF > 1,0, n_OOS >= 40, IS exp > 0; e
+  walk-forward + Monte Carlo obrigatorios.
+
+### 23.43.2 Resultado da grade pre-registrada
+
+**Todas as 27 combinacoes (9 configs x 3 slippages) sao negativas** — inclusive
+com **slippage zero**. Em 1,0 pt/lado:
+
+| z | k_stop | n | WR% | exp R$ | PF | total R$ | IS exp | OOS exp | OOS PF |
+|---|---|---|---|---|---|---|---|---|---|
+| 1,5 | 1,0 | 1214 | 25,9 | -24,75 | 0,54 | -30.045 | -25,44 | -23,57 | 0,47 |
+| 1,5 | 1,5 | 1233 | 37,6 | -22,86 | 0,64 | -28.182 | -22,48 | -23,49 | 0,55 |
+| 1,5 | 2,0 | 1233 | 45,0 | -24,32 | 0,66 | -29.984 | -25,74 | -21,94 | 0,62 |
+| 2,0 | 1,0 | 1208 | 22,9 | -24,93 | 0,55 | -30.111 | -25,01 | -24,78 | 0,46 |
+| 2,0 | 1,5 | 1238 | 34,1 | -24,19 | 0,64 | -29.950 | -23,82 | -24,81 | 0,54 |
+| 2,0 | 2,0 | 1238 | 41,8 | -23,31 | 0,69 | -28.854 | -21,83 | -25,77 | 0,58 |
+| 2,5 | 1,0 | 1172 | 21,0 | -24,51 | 0,56 | -28.727 | -25,12 | -23,48 | 0,48 |
+| 2,5 | 1,5 | 1203 | 30,3 | -25,27 | 0,63 | -30.399 | -26,17 | -23,78 | 0,57 |
+| 2,5 | 2,0 | 1205 | 36,6 | -28,52 | 0,64 | -34.361 | -31,22 | -24,04 | 0,62 |
+
+- Com slippage 0,0 o exp ainda e **-2,85 a -8,90** e PF **0,86-0,96**: o
+  problema nao e o custo, e a **direcao**.
+- Nenhum candidato com IS exp > 0 e n_OOS >= 40 -> **sem walk-forward/MC**
+  (nao ha o que validar).
+
+### 23.43.3 Diagnostico (exploratorio, nao promove nada)
+
+Por que falhou? O "primeiro cruzamento" de z **nao e um extremo**:
+
+| limiar | dias com sinal | % dos dias |
+|---|---|---|
+| z >= 1,5 | 1.242 | 99,5% |
+| z >= 2,5 | 1.208 | 96,8% |
+| z >= 3,0 | 1.116 | 89,4% |
+| z >= 4,0 | 803 | 64,3% |
+| z >= 5,0 | 541 | 43,3% |
+
+Testado ainda: (a) extremos reais z >= 3/4/5; (b) **mirror** (momentum, lado
+oposto com os mesmos alvos); (c) saida **so por tempo** (k=8 sigma ~ sem stop).
+
+- **(a) extremos reais:** todos negativos. z4/k3 = -26,71 / PF 0,71;
+  z5/k2 = -17,75 / PF 0,76. Mesmo a 5 sigma o fade perde.
+- **(b) mirror (momentum):** **tambem perde em toda a grade** — exp -15,34 a
+  -22,60, PF 0,64-0,78. Nao ha edge direcional exploravel no desvio do VWAP.
+- **(c) saida so por tempo:** o fade tem **WR 52-70%**, mas exp -24 a -29 e
+  PF 0,74-0,76. Assinatura classica de reversao a media: **muitos ganhos
+  pequenos e poucas perdas grandes**. O mirror por tempo tambem perde
+  (exp -16 a -18, PF 0,80-0,84).
+
+Conclusao do diagnostico: o desvio do VWAP **nao e preditivo em nenhuma
+direcao** neste periodo; o caminho intradiario do WDO se comporta como ruido
+com custo. O WR alto do fade e uma armadilha de payoff, nao um edge.
+
+### 23.43.4 Veredito
+
+- **VWAP fade: rejeitada (1 estrela).** Falhou no pre-registro, em extremos
+  reais, no lado oposto e na saida por tempo. Nao vai para real, paper nem
+  walk-forward.
+- **Nao insistir em variantes de VWAP** (alvo dinamico, fracao do desvio,
+  bandas) sem uma razao economica nova: o problema e a premissa de reversao,
+  nao o parametro.
+- Aprendizado: **WR alto nao e edge**. Em reversao a media, o PF e a cauda
+  esquerda mandam; medir so acertividade engana.
+- **Faixa 1 continua suspensa** (23.41); nenhuma logica de trade alterada;
+  robo nao reiniciado.
+
+### 23.43.5 Proximos passos
+
+- **Tese 3 - microestrutura/absorcao nos extremos com o book do Herman
+  (4 estrelas):** unica tese de pesquisa ainda de pe. Exige estudo de evento
+  limpo (absorcao/sweep no extremo) e stream de ticks confiavel; pre-registrar
+  antes de rodar, com gate + walk-forward + Monte Carlo.
+- Item de backlog 30 (VWAP fade) marcado como **rejeitado**; item 31
+  (book/absorcao) segue pendente.
+- Alternativa se o book nao estiver limpo: **pausar a pesquisa de edge** e
+  manter o sistema como esta (Faixa 1 suspensa, Core no que ja existe) ate
+  haver dado novo — em vez de forcar uma tese sem base.
 
