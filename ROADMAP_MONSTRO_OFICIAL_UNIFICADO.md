@@ -4269,6 +4269,8 @@ autoriza mexer no robo com posicao aberta.
 | 30 | Tese 2 - reversao a media no VWAP (fade) | 1 | item 29 + pre-registro | **rejeitado 14/11 (23.43)**: negativa em todas as 27 combinacoes, em extremos reais, no mirror e na saida por tempo; WR alto nao e edge |
 | 31 | Tese 3 - microestrutura/absorcao nos extremos (book) | 4 | ~40-60 sessoes de profundidade arquivada | **em coleta 14/11 (23.45)**: arquivador read-only + tarefa `Contexto-Arquivo`; seed 19.122 linhas / 6 dias; faltam ~40-60 sessoes |
 | 32 | Arquivador read-only da profundidade de book | 4 | aprovacao do usuario | **implementado 14/11 (23.45)**: `arquivar_contexto.py` incremental + tarefa `Contexto-Arquivo` (seg-sex 09:00-18:00, 15 min); idempotente (+0 na 2a execucao) |
+| 33 | Corrigir loop de re-registro de estado velho (Faixa 1) | 3 | aprovacao humana (mexe em orquestrador) | **proposta 14/11 (23.46.3)**: persistir `_salvar_state` ao resetar dia + guarda de "ja registrado"; sem risco de capital, CSV integro |
+| 34 | Revisar scaler/clipping das features do modelo | 4 | aprovacao humana + amostra | **proposta 14/11 (23.46.4)**: ~5.000 clips/dia saturam a entrada do modelo; alimenta o item 5 (features estacionarias) |
 
 ## 23.38 Pacote seguro: monitor + plano do dia (13/11/2026)
 
@@ -5036,4 +5038,97 @@ Aprovado pelo Mestre apos a viabilidade 23.44. Novo `arquivar_contexto.py`
   evento (sem conclusao estatistica).
 - Isso **nao altera** a suspensao da Faixa 1 (23.41) nem a logica de trade.
 - Item de backlog 32 (arquivador) implementado; item 31 passa a **em coleta**.
+
+## 23.46 Revisao de logs e warnings da sessao de 13/11 (14/11/2026)
+
+### 23.46.1 Escopo
+
+Revisao **read-only** de todos os logs/estados da sessao de 13/11, com mercado
+fechado e sem posicao real (apenas a fantasma WINV25). Nenhuma logica de trade
+alterada, robo nao reiniciado, nenhuma ordem enviada. Objetivo: separar ruido
+esperado de alerta real e deixar o ambiente limpo para segunda 16/11.
+
+### 23.46.2 Varredura por severidade
+
+| log | ERROR | CRITICAL | Traceback | Observacao |
+|---|---|---|---|---|
+| `monstro_wdo.log` (3,4 MB) | 0 | 0 | 0 | 16.799 INFO + 12.197 WARNING |
+| `agente_autonomo.log` (776 KB) | 0 | 0 | 0 | 151 INFO + 4 WARNING (fecho) |
+| `logs/rompimento/rompimento.log` (3,5 MB) | 0 | 0 | 0 | loop de re-registro (ver 23.46.3) |
+| `logs/rompimento_orb_wdo/orb_wdo.log` | 0 | 0 | 0 | paper sem gatilho em 13/11 |
+| `logs/saude_coletores.log` | 0 | 0 | - | unico nao-OK: WARN 09:00 (grace) |
+
+**Nao ha erro nem traceback em nenhum log do dia.** Os WARNINGs do
+`monstro_wdo.log` sao, na esmagadora maioria, **log de decisao** (vetos), nao
+falha:
+
+- `[normalizar_dados] N valores fora de [0,1] foram clipped` — ~5.000/dia
+  (pico 09-10h); ver 23.46.4.
+- `VETO TOTAL: ... Sem historico suficiente` — 1.105 (bate com o mapa de vetos
+  do relatorio diario).
+- `CONFLUENCIA INSUFICIENTE`, `WILLIAMS %R VETO`, `MULTI-TF VETO` — centenas
+  cada; comportamento normal dos filtros.
+- `MEM: sem snapshot de entrada para o ticket 2591384275` — 244 (ver 23.46.3).
+
+### 23.46.3 Achado real: loop de re-registro de estado velho (Faixa 1)
+
+- Entre **10:00:09 e 10:09:59** de 13/11, o orquestrador da Faixa 1
+  re-registrou o trade de **12/11** (ticket `2591384275`, +R$ 420) a cada
+  ~2 s: **245 linhas `REGISTRO 2026-11-12`** no log, **245 reescritas** do
+  `rompimento_trades.csv` e **244 WARNINGs MEM** (sem snapshot de entrada).
+- **Causa raiz:** o estado de 12/11 nunca foi finalizado naquele dia (a
+  autopsia mostra `fechamento_log=null`, `preco_saida=0.0`). Em 13/11 o
+  `_ciclo` zera o estado **so em memoria** (`st = {}`) quando `dia` difere, mas
+  `_salvar_state` nao e chamado; logo depois recarrega o estado velho do disco
+  e chama `_finaliza` de novo — em todo ciclo. O loop so parou quando o trade
+  novo de 13/11 (ticket `2592409472`) sobrescreveu o estado as 10:10.
+- **Impacto:** **nenhum risco de capital** e **CSV integro** (1 linha por
+  trade; `_rewrite_csv_drop_day` remove o dia antes de regravar). E ruido de
+  log/IO + warning recorrente. A Faixa 1 esta suspensa (23.41), entao nao ha
+  efeito operacional.
+- **PROPOSTA (Fase 1, aguarda revisao humana, nao implementada):** em
+  `rompimento_orquestrador.py::_ciclo`, ao detectar `st["dia"] != dia`,
+  persistir o estado limpo com `_salvar_state(st)` antes de seguir; e/ou
+  adicionar guarda de "ja registrado" em `_grava_final` para nao reescrever o
+  CSV. Nao tocar enquanto a Faixa 1 estiver suspensa e sem aprovacao.
+
+### 23.46.4 Achado de modelo: clipping constante do scaler
+
+- ~5.000 WARNINGs/dia de `valores fora de [0,1] foram clipped`, distribuidos
+  em **todas as horas** (pico na abertura: 1.131 as 09h, 1.444 as 10h).
+- Significa que features ao vivo caem **fora da faixa vista no treino** e o
+  modelo recebe entradas **saturadas em 0/1** — perda de informacao, nao erro
+  de execucao.
+- **PROPOSTA (Fase 1):** revisar o scaler e a estacionariedade das features
+  (volume, preco, tempo em trade) antes de qualquer retreino. Alimenta o item
+  de backlog 5 (features estacionarias), que ja estava bloqueado por amostra.
+  Nao alterar o modelo vivo sem aprovacao.
+
+### 23.46.5 Ruido esperado (nao e incidente)
+
+- **09:00 WARN** do monitor de saude: coletor Herman e robo ainda nao estavam
+  rodando (grace de abertura). Depois disso, `OK` ate 18:00.
+- **17:37 WARNING** do agente: `timeout no shutdown gracioso` + 3
+  `force kill PID ... (arvore)` — matacao controlada no fecho.
+- **`fluxo_resumo_20261113.json`:** `quality=ATRASADO`, `delta=0.0` as 17:35 —
+  esperado com mercado fechado (snapshot com ultimo tick > 5 s). O dia foi
+  `ROTULADOS` com `session_total=2.274.825` e `cumulative_delta=39.555`.
+- **ORB paper 13/11:** iniciou 10:15 e encerrou `sem gatilho na janela`
+  (`registrado=False`), sem trade — comportamento correto.
+- **`config.json` gravado 13/11 10:53:** foi a **propria suspensao** (commit
+  `657003b`), nao o dashboard. Valor atual reconfirmado:
+  `rompimento.ativo=false`. Nenhum processo python/dashboard rodando agora.
+
+### 23.46.6 Veredito da revisao
+
+- **Nenhum incidente novo, nenhum erro, nenhum traceback.** O ambiente esta
+  limpo para segunda 16/11.
+- Dois achados merecem correcao **futura e aprovada**: (a) estado velho da
+  Faixa 1 gerando loop de re-registro; (b) clipping do scaler degradando a
+  entrada do modelo. Ambos ficam como **PROPOSTA**, sem tocar em trade.
+- **Prontidao reconfirmada:** `rompimento.ativo=false`; `ORB-WDO-FT` e
+  `Rompimento-FT` Disabled; `Monstro-Start`/`Fecho`/`Monitor-Coletores`/
+  `Watchdog`/`Quarentena`/`Contexto-Arquivo` Ready; so a fantasma WINV25.
+- Backlog: novos itens 33 (loop de estado velho) e 34 (clipping/scaler),
+  ambos **proposta, aguardando aprovacao humana**.
 
