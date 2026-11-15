@@ -327,6 +327,67 @@ def test_idempotencia():
     checar("RG6 idempotente (1 registro)", len(rows) == 1)
 
 
+def test_estado_velho_nao_re_registra():
+    """RG19: estado de dia anterior ja finalizado nao re-registra em loop.
+
+    Bug de 13/11: a posicao de ontem fechou, mas o estado velho continuou em
+    disco com final=True; a cada ciclo o orquestrador recarregava esse estado
+    e registrava o trade de novo (245 REGISTROs em 10 min). A posicao aberta
+    nao pode ser descartada: final=True so e gravado depois do fechamento.
+    """
+    import json as _json
+    bars = gerar_barras(sem_gatilho=True)
+    tick = {"preco": 99.5}
+    dia_seguinte = DIA + timedelta(days=1)
+    orq, tmp, fake, _ = montar_fixture(
+        bars, [dia_seguinte.replace(hour=10, minute=5)] * 3, tick)
+    # estado de ontem: posicao 1001 fechada no servidor, com deal de saida
+    with open(mod.STATE_JSON, "w", encoding="utf-8") as f:
+        _json.dump({
+            "dia": DIA.strftime("%Y-%m-%d"), "side": "C", "entry": 99.8,
+            "sl_lvl": 98.0, "tp_lvl": 102.0, "ticket": 1001,
+            "final": False, "saida": "ABERTA", "pts": None,
+        }, f)
+    fake.deals[1001] = [_Deal(fake.DEAL_ENTRY_OUT, 102.0)]
+    for _ in range(3):
+        orq.orquestrar()
+    with open(os.path.join(tmp, "rompimento.log"), encoding="utf-8") as f:
+        n_reg = f.read().count("REGISTRO")
+    rows = _ler_csv(tmp)
+    regs = [r for r in rows if r.get("dia") == DIA.strftime("%Y-%m-%d")]
+    checar("RG19 estado velho registra 1 vez", n_reg == 1, "n_reg=%d" % n_reg)
+    checar("RG19 estado velho nao duplica no CSV", len(regs) == 1,
+           "n_csv=%d" % len(regs))
+    checar("RG19 estado velho e limpo apos finalizar",
+           mod._carregar_state() == {}, str(mod._carregar_state()))
+
+
+def test_estado_velho_com_posicao_aberta_preserva():
+    """RG20: estado de dia anterior com posicao AINDA aberta nao e descartado.
+
+    O fix do item 33 nao pode limpar o estado antes do fechamento: senao uma
+    posicao carregada de um dia para o outro ficaria sem gestao/EOD.
+    """
+    import json as _json
+    bars = gerar_barras(sem_gatilho=True)
+    tick = {"preco": 99.5}
+    dia_seguinte = DIA + timedelta(days=1)
+    orq, tmp, fake, _ = montar_fixture(
+        bars, [dia_seguinte.replace(hour=10, minute=5)] * 2, tick)
+    with open(mod.STATE_JSON, "w", encoding="utf-8") as f:
+        _json.dump({
+            "dia": DIA.strftime("%Y-%m-%d"), "side": "C", "entry": 99.8,
+            "sl_lvl": 98.0, "tp_lvl": 102.0, "ticket": 1001,
+            "final": False, "saida": "ABERTA", "pts": None,
+        }, f)
+    fake.positions[1001] = _Pos(1001, 99.8)  # posicao ainda aberta
+    orq.orquestrar()
+    st = mod._carregar_state()
+    checar("RG20 posicao velha aberta preservada",
+           st.get("ticket") == 1001 and st.get("final") is False,
+           str(st))
+
+
 def test_sl_antes_do_tp():
     t = {"hi": 100.0, "lo": 98.0, "rr": 2.0,
          "bars": [(DIA.replace(hour=10, minute=5), 100.1, 103.3, 97.9, 100.0, 100)],  # TP e SL na MESMA vela
@@ -556,6 +617,8 @@ if __name__ == "__main__":
     test_sub_rr_aceita()
     test_ordem_rejeitada()
     test_idempotencia()
+    test_estado_velho_nao_re_registra()
+    test_estado_velho_com_posicao_aberta_preserva()
     test_sl_antes_do_tp()
     test_prep_incompleto()
     test_dfasagem_min()

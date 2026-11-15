@@ -551,6 +551,15 @@ class OrquestradorRompimento:
         if not st.get("ticket"):
             return
         pos = self._pos_aberta(st["ticket"])
+        # BUG 13/11 (item 33): estado de dia anterior ja finalizado era
+        # recarregado do disco e re-registrado a cada ciclo (245 REGISTROs em
+        # 10 min). Se o dia e anterior, o ciclo terminou e nao ha posicao
+        # aberta, descarta o estado. Posicao aberta NUNCA cai aqui: final=True
+        # so e gravado depois do fechamento (e o teste RG19 cobre isso).
+        if (pos is None and st.get("final")
+                and st.get("dia") and st.get("dia") != dia):
+            _salvar_state({})
+            return
         if pos is None:
             exit_p = self._exit_deal(st["ticket"])
             if exit_p is None:

@@ -4269,7 +4269,7 @@ autoriza mexer no robo com posicao aberta.
 | 30 | Tese 2 - reversao a media no VWAP (fade) | 1 | item 29 + pre-registro | **rejeitado 14/11 (23.43)**: negativa em todas as 27 combinacoes, em extremos reais, no mirror e na saida por tempo; WR alto nao e edge |
 | 31 | Tese 3 - microestrutura/absorcao nos extremos (book) | 4 | ~40-60 sessoes de profundidade arquivada | **em coleta 14/11 (23.45)**: arquivador read-only + tarefa `Contexto-Arquivo`; seed 19.122 linhas / 6 dias; faltam ~40-60 sessoes |
 | 32 | Arquivador read-only da profundidade de book | 4 | aprovacao do usuario | **implementado 14/11 (23.45)**: `arquivar_contexto.py` incremental + tarefa `Contexto-Arquivo` (seg-sex 09:00-18:00, 15 min); idempotente (+0 na 2a execucao) |
-| 33 | Corrigir loop de re-registro de estado velho (Faixa 1) | 3 | aprovacao humana (mexe em orquestrador) | **proposta 14/11 (23.46.3)**: persistir `_salvar_state` ao resetar dia + guarda de "ja registrado"; sem risco de capital, CSV integro |
+| 33 | Corrigir loop de re-registro de estado velho (Faixa 1) | 3 | aprovacao humana (mexe em orquestrador) | **implementado 15/11 (23.47)**: guarda em `orquestrar()` apos `_pos_aberta` (sem posicao + finalizado + outro dia -> `_salvar_state({})`); RG19/RG20 passam; sem falha nova; efeito so ao religar |
 | 34 | Revisar scaler/clipping das features do modelo | 4 | aprovacao humana + amostra | **proposta 14/11 (23.46.4)**: ~5.000 clips/dia saturam a entrada do modelo; alimenta o item 5 (features estacionarias) |
 
 ## 23.38 Pacote seguro: monitor + plano do dia (13/11/2026)
@@ -5091,6 +5091,9 @@ falha:
   persistir o estado limpo com `_salvar_state(st)` antes de seguir; e/ou
   adicionar guarda de "ja registrado" em `_grava_final` para nao reescrever o
   CSV. Nao tocar enquanto a Faixa 1 estiver suspensa e sem aprovacao.
+  **ATUALIZADO 15/11:** resolvido por caminho diferente e mais seguro em
+  **23.47** (guarda em `orquestrar()` apos `_pos_aberta`; nao mexe no reset
+  de dia para nao apagar posicao carregada). Testes RG19/RG20 passam.
 - **Nao recorre enquanto suspensa:** `orquestrar()` retorna na linha 519
   quando `rompimento.ativo=false`, antes de qualquer leitura de estado. O
   loop so voltaria se a Faixa 1 fosse **religada** com estado velho em disco —
@@ -5135,4 +5138,72 @@ falha:
   `Watchdog`/`Quarentena`/`Contexto-Arquivo` Ready; so a fantasma WINV25.
 - Backlog: novos itens 33 (loop de estado velho) e 34 (clipping/scaler),
   ambos **proposta, aguardando aprovacao humana**.
+
+## 23.47 Fix do item 33: loop de estado velho (15/11/2026)
+
+### 23.47.1 Autorizacao e escopo
+
+- O usuario autorizou aplicar o item 33 **em producao** com uma condicao:
+  **somente se os testes provassem que a mudanca e segura**.
+- Escopo fechado: **uma unica guarda** em
+  `rompimento_orquestrador.py::orquestrar()`. Nenhuma outra parte do
+  orquestrador foi tocada; nenhuma regra de trade mudou; nada de capital.
+- Rejeitada a alternativa de persistir `_salvar_state({})` no reset de dia
+  (linha 529-532): isso apagaria do disco uma posicao carregada de um dia
+  para o outro, deixando-a **sem gestao/EOD**. O reset em memoria continua
+  como estava.
+
+### 23.47.2 Mudanca aplicada (9 linhas)
+
+- Depois de `pos = self._pos_aberta(st["ticket"])`, antes do `if pos is None`:
+
+  ```python
+  if (pos is None and st.get("final")
+          and st.get("dia") and st.get("dia") != dia):
+      _salvar_state({})
+      return
+  ```
+
+- **Por que e seguro:** a guarda exige simultaneamente (a) **sem posicao
+  aberta no servidor** e (b) estado **ja finalizado** de **outro dia**. Como
+  `final=True` so e gravado **depois** do fechamento, uma posicao viva nunca
+  satisfaz (a); logo nenhuma posicao real pode ser descartada.
+- `_salvar_state` ja grava de forma atomica (`.tmp` + `os.replace`), entao
+  `{}` e uma escrita segura.
+- Efeito: o estado velho finalizado e descartado **uma vez** e o ciclo
+  termina; o proximo ciclo nao encontra mais estado para re-registrar.
+
+### 23.47.3 Evidencia (TDD, harness offline com MT5 mockado)
+
+- `tests/teste_orquestrador_rompimento.py`:
+  - **RG19** (novo): estado de dia anterior ja finalizado -> registra **1x**,
+    CSV **sem duplicata**, estado limpo (`{}`).
+    - **Antes do fix:** `n_reg=3` e estado preso em `final=True`.
+    - **Depois do fix:** `n_reg=1`, 1 linha no CSV, estado `{}`.
+  - **RG20** (novo): estado de dia anterior com posicao **ainda aberta** e
+    **preservado** (`ticket=1001`, `final=False`) — prova que o fix nao
+    limpa posicao viva.
+- Baseline do suite **antes** do fix: **5 falhas pre-existentes**
+  (RG1 "SL = lo caixa", RG2 "SL = hi caixa", RG3 "final EOD", RG3 "pts
+  fechados", RG3 "registro unico no CSV"). Sao **testes desatualizados** em
+  relacao a correcao 5 (`SL = max(piso, min(caixa, 2,5xATR))`), **nao**
+  regressoes.
+- **Depois** do fix: exatamente as **mesmas 5 falhas** + RG19/RG20
+  **PASS**. Nenhuma falha nova. `py_compile` OK nos dois arquivos.
+
+### 23.47.4 O que muda e o que nao muda
+
+- **Nao muda nada operacional agora:** a Faixa 1 esta **suspensa**
+  (`rompimento.ativo=false`, 23.41); `orquestrar()` retorna antes da guarda.
+- **Muda ao religar:** elimina o loop de 245 re-registros/10 min observado
+  em 13/11 e o risco de reescrever o CSV varias vezes. E **pre-requisito de
+  religacao** da Faixa 1.
+- **Nao muda:** regra de entrada/saida, SL/TP, lote, Sub-Trader, memoria,
+  coleta, scheduler. Backtest/expectancia intocados.
+
+### 23.47.5 Backlog
+
+- Item 33: **implementado 15/11 (23.47)**, aguardando apenas a religacao da
+  Faixa 1 (decisao separada, ainda nao tomada).
+- Item 34 (clipping/scaler): segue **proposta**, sem alteracao.
 
