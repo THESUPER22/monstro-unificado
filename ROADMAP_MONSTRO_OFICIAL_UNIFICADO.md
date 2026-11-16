@@ -4272,7 +4272,7 @@ autoriza mexer no robo com posicao aberta.
 | 33 | Corrigir loop de re-registro de estado velho (Faixa 1) | 3 | aprovacao humana (mexe em orquestrador) | **implementado 15/11 (23.47)**: guarda em `orquestrar()` apos `_pos_aberta` (sem posicao + finalizado + outro dia -> `_salvar_state({})`); RG19/RG20 passam; sem falha nova; efeito so ao religar |
 | 34 | Revisar scaler/clipping das features do modelo | 4 | aprovacao humana + amostra | **proposta 14/11 (23.46.4)**: ~5.000 clips/dia saturam a entrada do modelo; alimenta o item 5 (features estacionarias) |
 | 35 | Agente autonomo substituto do Keras (RL/LLM) | 2 | 40-60 sessoes rotuladas + itens 34/23.45 | **bloqueado 15/11 (23.48)**: sem sinal OOS fora de sobreposicao (AUC 0,50; 100% longo = drift); LLM local inviavel no hardware; nao iniciar |
-| 36 | Baseline de regras/GBM em shadow (agente deterministico) | 3 | aprovacao do usuario | **opcional 15/11 (23.48)**: experimento barato, sem capital, mesmo gate; morte antecipada se nao bater o gate |
+| 36 | Baseline de regras/GBM em shadow (agente deterministico) | 3 | aprovacao do usuario | **nao iniciar agora (decisao 15/11)**: modelo mais complexo no mesmo pipeline doente = ruido; proxima frente e o item 34 |
 
 ## 23.38 Pacote seguro: monitor + plano do dia (13/11/2026)
 
@@ -5301,5 +5301,9 @@ manter (Sniper %R + Faixa 1)". Os numeros de 13/11 nao sustentam isso:
 - **Item 36 - Baseline de regras/GBM em shadow:** **3 estrelas**, opcional,
   custo baixo, sem capital; so com aprovacao do usuario e criterio de morte
   antecipada.
+- **Decisao 15/11 (usuario):** o item 36 **nao sera iniciado agora**. Jogar
+  modelo mais complexo sobre o mesmo pipeline doente so gera ruido. A proxima
+  frente e o **item 34 (clipping/scaler)**, na semana de 16/11. O diagnostico
+  23.48 fica registrado como evidencia; nada muda em producao ate la.
 
 
