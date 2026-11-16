@@ -4271,6 +4271,8 @@ autoriza mexer no robo com posicao aberta.
 | 32 | Arquivador read-only da profundidade de book | 4 | aprovacao do usuario | **implementado 14/11 (23.45)**: `arquivar_contexto.py` incremental + tarefa `Contexto-Arquivo` (seg-sex 09:00-18:00, 15 min); idempotente (+0 na 2a execucao) |
 | 33 | Corrigir loop de re-registro de estado velho (Faixa 1) | 3 | aprovacao humana (mexe em orquestrador) | **implementado 15/11 (23.47)**: guarda em `orquestrar()` apos `_pos_aberta` (sem posicao + finalizado + outro dia -> `_salvar_state({})`); RG19/RG20 passam; sem falha nova; efeito so ao religar |
 | 34 | Revisar scaler/clipping das features do modelo | 4 | aprovacao humana + amostra | **proposta 14/11 (23.46.4)**: ~5.000 clips/dia saturam a entrada do modelo; alimenta o item 5 (features estacionarias) |
+| 35 | Agente autonomo substituto do Keras (RL/LLM) | 2 | 40-60 sessoes rotuladas + itens 34/23.45 | **bloqueado 15/11 (23.48)**: sem sinal OOS fora de sobreposicao (AUC 0,50; 100% longo = drift); LLM local inviavel no hardware; nao iniciar |
+| 36 | Baseline de regras/GBM em shadow (agente deterministico) | 3 | aprovacao do usuario | **opcional 15/11 (23.48)**: experimento barato, sem capital, mesmo gate; morte antecipada se nao bater o gate |
 
 ## 23.38 Pacote seguro: monitor + plano do dia (13/11/2026)
 
@@ -5206,4 +5208,98 @@ falha:
 - Item 33: **implementado 15/11 (23.47)**, aguardando apenas a religacao da
   Faixa 1 (decisao separada, ainda nao tomada).
 - Item 34 (clipping/scaler): segue **proposta**, sem alteracao.
+
+## 23.48 Viabilidade de "agente autonomo" no lugar do Keras (15/11/2026)
+
+### 23.48.1 Correcao factual antes da tese
+
+A pergunta partiu da premissa de que "o robo principal ja da lucro e basta
+manter (Sniper %R + Faixa 1)". Os numeros de 13/11 nao sustentam isso:
+
+- **Core (Sniper %R):** 135 fechados, WR 51,1%, **PF 0,86**, net **-R$740**
+  (~-R$5,48/trade).
+- **Faixa 1:** 35 trades, WR 28,6%, **PF 0,57**, net **-R$9.875**.
+- **Correlacao prob do modelo x PnL:** **+0,142** (meta >= 0,15).
+- Ou seja: **nao ha edge comprovado hoje para "preservar"**. O gargalo nao e
+  a arquitetura da rede; e sinal/label/dados.
+
+### 23.48.2 O que foi testado (somente-leitura)
+
+- `backtest/viabilidade_agente.py`: barras M5 dos ticks reais
+  (`williams_r_historico.csv`, 285.696 ticks, 68 dias) + features MTF
+  (`historico_multitf.csv`, 42.961 snapshots) via `merge_asof` backward
+  (sem lookahead). Label = retorno futuro em pontos, dentro do dia.
+  Split temporal 70/30 + walk-forward expanding com embargo; XGBoost.
+- `backtest/viabilidade_agente_diag.py`: **amostra nao sobreposta** (1 a cada
+  H barras), PnL por lado, buy-and-hold e **teste de permutacao** (20x).
+- Custo obrigatorio: **0,12 pt** (R$1,20 ida+volta) + **2,0 pt** de slippage
+  (1,0 pt/lado) = **2,12 pt = R$21,20 por trade**.
+
+### 23.48.3 Resultado
+
+| Cenario | AUC OOS | Lado | Exp. (pt/trade) | Leitura |
+|---|---|---|---|---|
+| H=6, rotulos sobrepostos | 0,605 | misto | +0,19 (margem 0,08) | parece edge |
+| H=12, rotulos sobrepostos | 0,556 | misto | +2,17 (margem 0,02) | parece forte |
+| **H=6, nao sobreposto** | **0,529** | **100% longo** | **-2,798** | so drift |
+| **H=12, nao sobreposto** | **0,500** | **100% longo** | **-2,064** | so drift |
+
+- O "edge" dos rotulos sobrepostos **desaparece** quando se remove a
+  sobreposicao: o modelo passa a prever **100% comprado** (drift de alta do
+  periodo) e perde para o custo. Permutacao: p-valor ~0,4-1,0 (nada
+  significativo).
+- Amostra efetiva: **345** observacoes (H=6) e **147** (H=12) apos remover
+  sobreposicao. Com 23 features, e insuficiente para qualquer modelo.
+- **Conclusao:** com os dados/labels atuais, **nenhum agente** (XGBoost, RL ou
+  rede) passa no gate. Trocar Keras por agente nao cria edge.
+
+### 23.48.4 Veredito por tipo de "agente" (1 a 5 estrelas)
+
+- **LLM local (GPT/Claude rodando na maquina): 1 estrela - rejeitado.**
+  i5-6200U (2 nucleos/4 threads), 12 GB, **sem GPU CUDA**. Roda no maximo
+  modelos 1-3B quantizados a poucos tokens/s; latencia de segundos e
+  alucinacao sao incompativeis com WDO intradiario.
+- **RL (PPO/DQN, Stable-Baselines3): 2 estrelas - bloqueado por dados.**
+  Inferencia e viavel; treino e lento (2 nucleos, sem GPU) e, com 141 trades
+  reais + 5.405 linhas sinteticas, o agente decora o passado. Reavaliar apos
+  40-60 sessoes de dados rotulados.
+- **Agente deterministico por regras/estado + GBM (XGBoost): 3 estrelas -
+  experimento barato e falsificavel.** Nao e "substituto do Keras"; e uma
+  hipotese nova, explicavel, que roda em segundos nesta CPU. Deve passar pelo
+  **mesmo gate** (OOS exp>0, OOS PF>1,0, n_OOS>=40, IS exp>0, slippage
+  1,0 pt/lado, walk-forward + Monte Carlo).
+- **Pipeline de dados/labels + arquivamento de book: 5 estrelas - o gargalo
+  real.** Sem isso, qualquer arquitetura e ruido.
+
+### 23.48.5 A maquina suporta?
+
+- **Inferencia** de regras/GBM: sim, folgado (microssegundos a ms).
+- **Treino** de GBM/redes pequenas: sim, segundos a minutos.
+- **Treino de RL/rede grande:** tecnicamente sim, mas lento e sem proposito
+  enquanto faltar dado.
+- **LLM local em tempo real:** nao.
+
+### 23.48.6 Decisao
+
+- **Nao substituir o Keras agora.** O estudo nao encontrou sinal que pague
+  2,12 pt/trade; a troca de arquitetura nao resolve o gargalo.
+- **Prioridade:** itens 34 (clipping/scaler) e coleta de book (23.45), que
+  atacam o dado de entrada.
+- **Se o usuario quiser prosseguir:** rodar o baseline de regras/GBM em
+  **shadow mode** (CSV proprio, zero capital, zero alteracao no Core) por
+  30-60 pregoes, com criterio de morte antecipada: se nao bater o gate na
+  primeira avaliacao, arquiva como 1 estrela.
+- **O `agente_monstro_core.py` existente nao e um trader:** e vigilante
+  (watchdog, kill-switch, fecho, autopsia), com whitelist vazia desde 16/10.
+  Criar um "agente trader" seria modulo novo, nao reativacao do atual.
+
+### 23.48.7 Backlog
+
+- **Item 35 - Agente autonomo substituto do Keras:** **2 estrelas**,
+  **bloqueado por dados** (141 trades reais; sem sinal OOS). Nao iniciar antes
+  de 40-60 sessoes rotuladas + itens 34/23.45.
+- **Item 36 - Baseline de regras/GBM em shadow:** **3 estrelas**, opcional,
+  custo baixo, sem capital; so com aprovacao do usuario e criterio de morte
+  antecipada.
+
 
