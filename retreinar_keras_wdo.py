@@ -45,12 +45,13 @@ CORPUS_OFFLINE = os.path.join(BASE, "modelo_monstro_wdo_dados_treino.csv")
 CORPUS_REAL = os.path.join(BASE, "logs", "treino_corpus_real.csv")
 HISTORICO_VIVO = os.path.join(BASE, "historico_contexto_wdo.csv")
 
-# Ordem EXATA das 22 features de preparar_dados() em monstro_unificado_v22.py
+# Ordem EXATA das 20 features de preparar_dados() em monstro_unificado_v22.py
+# Item 34 / 23.50: preco_maior_escora_bid/ask sairam (nao estacionarios).
 FEATURES = [
     "bid_qty", "ask_qty", "spread", "volatility", "entropia_book",
     "rsi_14", "volume_tick", "is_in_trade", "floating_profit", "tempo_em_trade",
-    "preco_maior_escora_bid", "volume_maior_escora_bid", "distancia_maior_escora_bid",
-    "preco_maior_escora_ask", "volume_maior_escora_ask", "distancia_maior_escora_ask",
+    "volume_maior_escora_bid", "distancia_maior_escora_bid",
+    "volume_maior_escora_ask", "distancia_maior_escora_ask",
     "liquidez_top5_bid", "liquidez_top5_ask",
     "dolar_casado", "em_janela_ptax", "minutos_para_ptax", "dia_ptax",
 ]
@@ -58,12 +59,12 @@ FEATURES = [
 # Features de book que precisam estar preenchidas para a amostra ser util.
 # (as 4 de ptax sao sempre 0 no CSV; nao entram no gate)
 BOOK_FEATURES = [
-    "preco_maior_escora_bid", "volume_maior_escora_bid", "distancia_maior_escora_bid",
-    "preco_maior_escora_ask", "volume_maior_escora_ask", "distancia_maior_escora_ask",
+    "volume_maior_escora_bid", "distancia_maior_escora_bid",
+    "volume_maior_escora_ask", "distancia_maior_escora_ask",
     "liquidez_top5_bid", "liquidez_top5_ask",
 ]
 
-MIN_BOOK_FEATURES = 6      # exige 6 de 8 features de book nao nulas
+MIN_BOOK_FEATURES = 5      # exige 5 de 6 (antes: 6 de 8 = 75%)
 MIN_HOLDOUT = 30           # abaixo disso a validacao e considerada insuficiente
 EPOCHS_MAX = 60
 PATIENCE = 8

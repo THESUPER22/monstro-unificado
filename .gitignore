@@ -131,3 +131,6 @@ modelo_monstro_wdo_candidato*
 
 # Backups do script de aplicacao C1-C4 (contem copia do fonte; nao versionar)
 patches/backups/
+
+# Backups locais de producao (modelos binarios; nunca versionar)
+backups/

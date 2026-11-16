@@ -5429,4 +5429,133 @@ janela de 30 min):
 segue suspensa; o dia de 16/11 nao autoriza aumento de risco.
 
 
+## 23.50 Frente 1 (janelas ocultas) + item 34 (features 20) - 16/11/2026
+
+Duas frentes autorizadas explicitamente pelo dono do projeto, com backup
+previo, `py_compile`, `pytest`, smoke test e diff apresentado **antes** do
+pregao de 17/11. Nada de logica de trade foi tocado.
+
+Backup: `C:\AIOFEN\backups\23.50_20261116\` (codigo, `config.json`, modelo e
+scaler 22f, artefatos 20f, `retreinar_keras_wdo.py`, `start_all.bat`).
+
+### 23.50.1 Item 34: features do modelo 22 -> 20 (sem retreino)
+
+**Problema (23.49.3):** 19.181 clips/dia. Os precos ABSOLUTOS das escoras
+(`preco_maior_escora_bid/ask`) nao sao estacionarios: o WDO mudou de patamar e
+qualquer valor fora do range de treino satura o scaler em 0,0/1,0, cegando o
+modelo justamente na profundidade do book.
+
+**Solucao escolhida:** remover as 2 colunas de preco absoluto (22 -> 20
+features) com **cirurgia exata de pesos** no modelo existente, sem retreinar.
+As distancias relativas (`distancia_maior_escora_*`) e os volumes permanecem.
+
+- `patches/migrar_features_20.py` (com `--install`): reconstroi a 1a Dense
+  descartando as linhas de peso das 2 features e reescreve `.h5`, `.keras` e o
+  scaler JSON.
+- Prova de equivalencia em `patches/migracao_20f_metricas.json`
+  (5.019 linhas do historico): **`max|delta| = 1,192e-07`** (erro numerico),
+  `clipped_antes = 15.584` -> `clipped_depois = 5.546` (**-64,4%**).
+- Artefatos instalados: `modelo_monstro_wdo.h5` (113.872 B), `.keras`
+  (111.473 B), `modelo_monstro_wdo_scaler.json` com 20 nomes na ordem exata.
+- `config.json`: `aprendizado.n_features` e `ai_settings.n_features` = 20.
+- `retreinar_keras_wdo.py`: `FEATURES` 20, `BOOK_FEATURES` 6 e
+  `MIN_BOOK_FEATURES = 5` (75% de completude preservada).
+- `monstro_unificado_v22.py`: `FEATURES_MODELO` (fonte unica) +
+  `N_FEATURES = len(FEATURES_MODELO)`; `preparar_dados` usa
+  `list(FEATURES_MODELO)`. Historico/CSV continuam com as 22 colunas (nada de
+  dado historico foi apagado).
+
+**O que NAO foi feito (e por que):** `volatility` continua sendo o maior
+clipper (~88% dos eventos). Reescalonar/normalizar exige retreino real, que
+esta bloqueado pelo gate de >= 30 trades com book completo (corpus real tem
+escoras zeradas). Ver 23.50.7.
+
+### 23.50.2 Guardas e throttle (mesma frente)
+
+- **Throttle do clipping:** `_registrar_clipping()` + globals
+  (`_ultimo_aviso_clip`, `_INTERVALO_AVISO_CLIP_S = 600`, `_clip_stats`).
+  No maximo **1 warning a cada 10 min**, com contagem por feature; entre os
+  avisos o evento vai para DEBUG. Antes era 1 warning por tick.
+- **Guarda de dimensao do scaler:** `forcar_recreacao_scaler` recusa JSON cujo
+  `min`/`max`/`feature_names` nao tenha `N_FEATURES` e cai no dummy (evita
+  normalizacao silenciosamente errada).
+- **Guarda NAO destrutiva do modelo:** `carregar_modelo` nao renomeia nem
+  apaga mais o artefato. Se a dimensao de entrada nao bate, tenta o irmao
+  `.keras`; se tambem falhar, devolve `None` com `_CARREGAR_MODELO_FALHOU`.
+- **Startup:** `salvar_modelo` automatico e **ignorado** quando o artefato
+  existia e falhou ao carregar, para nao sobrescrever um modelo treinado por um
+  cerebro novo vazio. Fora do horario de pregao nada e salvo (comportamento
+  antigo mantido).
+- `_migrar_modelo_l2` nao dispara: as 4 Dense do modelo migrado mantem L2.
+
+### 23.50.3 Frente 1: todos os processos de segundo plano 100% ocultos
+
+Unica janela visivel passa a ser o **Dashboard (porta 5001)**, que e uma
+janela GUI do proprio robo (PyWebView, titulo `Monstro Dashboard V2`).
+
+- `hidden.vbs`: wrapper generico `wscript.exe hidden.vbs <log> "<comando>"`,
+  roda `cmd /c` com janela 0 e grava stdout/stderr no log indicado.
+- `run_robot_hidden.vbs` -> `run_robot_hidden.bat` -> `python.exe` com
+  stdout/stderr em `logs\monstro_console.log`. O `.bat` intermediario e
+  obrigatorio: `sh.Run` com aspas internas falhava (rc=1).
+- `start_all.bat`, `all.bat`, `iniciar_monstro.bat`, `iniciar_v22_wdo.bat`:
+  sem `cmd /k`, sem `pause`, robo via VBS oculto.
+- **MT5 abre minimizado** (`start "" /min`), tanto nos `.bat` quanto no agente
+  (`_abrir_mt5_minimizado()`), para nao roubar a tela do Dashboard.
+- `agente_monstro_core.py`: `start_robot()` e coletor Herman com
+  `CREATE_NO_WINDOW` + `stdin=DEVNULL` + stdout/stderr em
+  `logs\monstro_console.log` e `logs\herman_console.log`. Zero
+  `CREATE_NEW_CONSOLE` no arquivo (o Watchdog reiniciava o robo com janela
+  preta).
+- **9/9 tarefas do Agendador** agora usam
+  `wscript.exe C:\AIOFEN\hidden.vbs <log> "<comando>"`:
+  Monstro-Start, Monstro-Watchdog, Monstro-Fecho, Monstro-Monitor-Coletores,
+  Monstro-Quarentena, Contexto-Arquivo, cleanup_monstro_final.bat,
+  ORB-WDO-FT e Rompimento-FT. Gatilhos, principal e `RunLevel` preservados;
+  `ORB-WDO-FT`/`Rompimento-FT` seguem `Disabled`.
+- `Monstro-Watchdog` e `cleanup_monstro_final.bat` tinham ACL de escrita
+  somente para Administrador: alterados via **UAC aprovado pelo usuario**
+  (script elevado, resultado em log, sem tocar em codigo).
+- Telemetria intacta: `logs\monstro_wdo.log` continua recebendo tudo; cada
+  tarefa ganhou seu `*_console.log`; `Monstro-Quarentena` mantem
+  `logs\quarentena_semanal.log`. Fecho gracioso das 17:35 inalterado
+  (`Monstro-Fecho = Ready`).
+
+### 23.50.4 Validacao executada (16/11, pregao fechado, sem posicao WDO)
+
+| check | resultado |
+|---|---|
+| `py_compile` (robo, agente, retreino, migrador) | OK |
+| `pytest tests -q` | **33 passed, 1 failed** - `test_gerenciador_bloqueio.py::test_indentation_error`, placebo pre-existente |
+| `patches/smoke_20f.py` | todos os checks OK (scaler 20, modelo 20, predicao 5.019 linhas, throttle 1 warning/10 min) |
+| L2 nas Dense | 4/4 com L2 (`_migrar_modelo_l2` nao dispara) |
+| `hidden.vbs` | log escrito, **zero janelas** |
+| `CREATE_NO_WINDOW` + redirecionamento | log escrito, zero janelas |
+| stub PyWebView via launcher oculto | **console oculto + janela GUI visivel**, fechamento limpo |
+| `start /min` (MT5) | OK |
+
+### 23.50.5 O que muda na pratica
+
+- Antes: 1 janela CMD do robo + janelas do agente/coletores + MT5 na frente.
+- Depois: **so o Dashboard**. Tudo o mais invisivel, com log por tarefa.
+- Modelo: mesma saida (delta 1e-07), entrada 20 features, 64% menos clipping.
+- Risco assumido: se um dia o artefato em disco ficar incompativel, o robo
+  roda com cerebro novo em memoria, **sem** apagar o arquivo, e grita ERROR no
+  log. E o comportamento desejado (nao destruir evidencia).
+
+### 23.50.6 Backlog aberto por esta frente
+
+- **Primeiro teste real do launcher oculto:** `Monstro-Start` de 17/11 as
+  09:00. Validar: nenhuma janela CMD, janela `Monstro Dashboard V2`, e
+  `logs\monstro_wdo.log` + `logs\monstro_console.log` recebendo telemetria.
+- **Item 34 fase 2 (retreino/volatilidade, 4 estrelas):** bloqueado pelo gate
+  de >= 30 trades com book completo. Sem isso, nao mexer na normalizacao.
+- **Trailing `10016 Invalid stops` (4 estrelas):** clamp/adiar (23.49.6).
+- **Item 36 (shadow do agente)**: segue sem inicio, por decisao de 15/11.
+- **ORB paper (2 estrelas):** religar ou arquivar.
+
+**Regra mantida:** nenhuma mudanca de logica de trade; Faixa 1 suspensa; sem
+aumento de risco; nada em producao sem diff aprovado.
+
+
 

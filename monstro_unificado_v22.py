@@ -1056,8 +1056,18 @@ DEBUG = config.get("web_dashboard", {}).get("debug", True)
 MAGIC_NUMBER = config.get("geral", {}).get("magic_number", 123457)
 # Volume mÃÂ­nimo REAL para considerar nÃÂ­vel vÃÂ¡lido no book (WDO tem menos volume)
 VOLUME_MINIMO = 50
-# Atualizado para 22 features (10 originais + 8 profundidade + 4 ptax/payroll)
-N_FEATURES = 22
+# Item 34 / 23.50: features do modelo (fonte unica).
+# Os precos ABSOLUTOS das escoras (preco_maior_escora_bid/ask) sairam: nao sao
+# estacionarios (WDO mudou de patamar) e saturavam o scaler em 1.0. As
+# distancias relativas permanecem. Historico/CSV continuam com as 22 colunas.
+FEATURES_MODELO = [
+    'bid_qty', 'ask_qty', 'spread', 'volatility', 'entropia_book',
+    'rsi_14', 'volume_tick', 'is_in_trade', 'floating_profit', 'tempo_em_trade',
+    'volume_maior_escora_bid', 'distancia_maior_escora_bid',
+    'volume_maior_escora_ask', 'distancia_maior_escora_ask',
+    'liquidez_top5_bid', 'liquidez_top5_ask',
+    'dolar_casado', 'em_janela_ptax', 'minutos_para_ptax', 'dia_ptax']
+N_FEATURES = len(FEATURES_MODELO)  # 20
 DEVIATION = config.get("geral", {}).get("deviation", 20)
 
 # ConfiguraÃÂ§ÃÂµes B3 - MINI DÃâLAR (WDO)
@@ -2047,7 +2057,36 @@ filtro_horario = None
 # ========== SCALER GLOBAL PARA NORMALIZAÃâ¡ÃÆO CONSISTENTE ==========
 scaler_global = None
 
-# ForÃÂ§a recriaÃÂ§ÃÂ£o do scaler para compatibilidade com 22 features
+# ForÃÂ§a recriaÃÂ§ÃÂ£o do scaler para compatibilidade com N_FEATURES features
+
+
+# Item 34 / 23.50: throttle do aviso de clipping (no maximo 1 a cada 10 min).
+# Entre os avisos o evento vai para DEBUG; o contador por feature e acumulado.
+_ultimo_aviso_clip = 0.0
+_INTERVALO_AVISO_CLIP_S = 600.0
+_clip_stats = {}
+
+
+def _registrar_clipping(n_clip: int, antes, colunas: List[str]) -> None:
+    """Agrega o clipping e loga no maximo 1 warning a cada 10 minutos."""
+    global _ultimo_aviso_clip
+    for i, col in enumerate(colunas):
+        n_fora = int(((antes[:, i] < 0.0) | (antes[:, i] > 1.0)).sum())
+        if n_fora:
+            _clip_stats[col] = _clip_stats.get(col, 0) + n_fora
+    agora = time.time()
+    if agora - _ultimo_aviso_clip >= _INTERVALO_AVISO_CLIP_S:
+        _ultimo_aviso_clip = agora
+        detalhe = ", ".join("%s=%d" % (k, v)
+                            for k, v in sorted(_clip_stats.items()))
+        logging.warning(
+            "[normalizar_dados] %d valores fora de [0,1] clipped nos ultimos "
+            "%.0f min (features: %s)",
+            n_clip, _INTERVALO_AVISO_CLIP_S / 60.0, detalhe or "n/d")
+        _clip_stats.clear()
+    else:
+        logging.debug(
+            "[normalizar_dados] %d valores clipped (aviso suprimido)", n_clip)
 
 
 def resetar_scaler_global():
@@ -2071,6 +2110,16 @@ def forcar_recreacao_scaler():
         try:
             with open(scaler_path, 'r') as f:
                 scaler_info = json_mod.load(f)
+            # Item 34 / 23.50: guarda de dimensao. Scaler antigo (22) com modelo
+            # novo (20) geraria erro de shape ou normalizacao silenciosamente
+            # errada; nesse caso cai no dummy de N_FEATURES.
+            nomes = scaler_info.get('feature_names')
+            if (len(scaler_info['min']) != N_FEATURES
+                    or len(scaler_info['max']) != N_FEATURES
+                    or (nomes is not None and len(nomes) != N_FEATURES)):
+                raise ValueError(
+                    f"scaler com {len(scaler_info['min'])} features, "
+                    f"modelo espera {N_FEATURES}")
             scaler_global = MinMaxScaler()
             mins = np.array(scaler_info['min']).reshape(1, -1)
             maxs = np.array(scaler_info['max']).reshape(1, -1)
@@ -3404,7 +3453,7 @@ def normalizar_dados(df: pd.DataFrame, colunas_numericas: List[str], colunas_cat
             df[colunas_numericas] = df[colunas_numericas].clip(0.0, 1.0)
             n_clip = int((df[colunas_numericas].values != antes).sum())
             if n_clip > 0:
-                logging.warning(f"[normalizar_dados] â ï¸ {n_clip} valores fora de [0,1] foram clipped")
+                _registrar_clipping(n_clip, antes, colunas_numericas)
             logging.debug(f"[normalizar_dados] Scaler aplicado para prediÃÂ§ÃÂ£o")
 
     for col in colunas_categoricas:
@@ -3772,12 +3821,9 @@ def preparar_dados(df: pd.DataFrame, treino: bool = False) -> Tuple[pd.DataFrame
     """Prepara dados para treino ou prediÃÂ§ÃÂ£o."""
     colunas_categoricas = [
     ]  # Removido candle_type para compatibilidade com modelo (10 features)
-    colunas_numericas = ['bid_qty', 'ask_qty', 'spread', 'volatility', 'entropia_book',
-                         'rsi_14', 'volume_tick', 'is_in_trade', 'floating_profit', 'tempo_em_trade',
-                         'preco_maior_escora_bid', 'volume_maior_escora_bid', 'distancia_maior_escora_bid',
-                         'preco_maior_escora_ask', 'volume_maior_escora_ask', 'distancia_maior_escora_ask',
-                         'liquidez_top5_bid', 'liquidez_top5_ask',
-                         'dolar_casado', 'em_janela_ptax', 'minutos_para_ptax', 'dia_ptax']
+    # Item 34 / 23.50: apenas features estacionarias (20). Os precos absolutos
+    # das escoras continuam no CSV/historico, mas nao entram no vetor do modelo.
+    colunas_numericas = list(FEATURES_MODELO)
 
     # Cria uma cÃÂ³pia para evitar modificar o original
     df_work = df.copy()
@@ -3967,38 +4013,68 @@ def salvar_modelo(modelo: Sequential, caminho: str = MODELO_PATH) -> None:
         logging.error(f"Erro ao salvar modelo: {type(e).__name__}: {e}")
 
 
+# Item 34 / 23.50: sinaliza que o artefato existia mas nao pode ser carregado.
+# O startup usa isso para NAO sobrescrever um modelo treinado por um novo vazio.
+_CARREGAR_MODELO_FALHOU = False
+
+
 def carregar_modelo(caminho: str = MODELO_PATH) -> Optional[Sequential]:
-    """Carrega o modelo Keras ou cria um novo se nÃÂ£o existir ou estiver corrompido."""
+    """Carrega o modelo Keras ou cria um novo se nao existir.
+
+    Item 34 / 23.50: guarda NAO destrutiva. Se o artefato carrega mas tem
+    dimensao de entrada diferente de N_FEATURES, ou se o load/predict falha,
+    o arquivo NAO e renomeado nem apagado. A recuperacao oficial continua
+    sendo verificar_e_proteger_modelo()/recuperar_modelo_automaticamente().
+    """
+    global _CARREGAR_MODELO_FALHOU
+    _CARREGAR_MODELO_FALHOU = False
     try:
-        if os.path.exists(caminho):
-            # Tenta carregar o modelo existente
-            modelo = load_model(caminho)
-
-            # Verifica compatibilidade bÃÂ¡sica
-            expected_features = N_FEATURES
-            test_input = np.zeros((1, expected_features), dtype=np.float32)
-            modelo.predict(test_input, verbose=0)
-
-            logging.info(f"Ã¢Åâ¦ Modelo de IA carregado com sucesso de {caminho}")
-            return modelo
-        else:
+        if not os.path.exists(caminho):
             logging.info(
-                "Ã°Å¸ââ Modelo nÃÂ£o encontrado. Criando um novo cÃÂ©rebro do zero...")
+                "[carregar_modelo] Modelo nao encontrado. Criando um novo.")
             return criar_modelo_neural(N_FEATURES)
+
+        modelo = load_model(caminho)
+
+        def _dim_entrada(m):
+            try:
+                return int(m.inputs[0].shape[-1])
+            except Exception:
+                return int(m.input_shape[-1])
+
+        dim = _dim_entrada(modelo)
+        if dim != N_FEATURES:
+            logging.error(
+                "[carregar_modelo] %s tem %d entradas, esperado %d. "
+                "Arquivo preservado (nao renomeado).",
+                caminho, dim, N_FEATURES)
+            alt = caminho.replace(".h5", ".keras")
+            if alt != caminho and os.path.exists(alt):
+                try:
+                    modelo_alt = load_model(alt)
+                    if _dim_entrada(modelo_alt) == N_FEATURES:
+                        logging.info(
+                            "[carregar_modelo] Usando alternativa compativel: %s",
+                            alt)
+                        return modelo_alt
+                except Exception as e_alt:
+                    logging.warning(
+                        "[carregar_modelo] Falha na alternativa %s: %s",
+                        alt, e_alt)
+            _CARREGAR_MODELO_FALHOU = True
+            return None
+
+        test_input = np.zeros((1, N_FEATURES), dtype=np.float32)
+        modelo.predict(test_input, verbose=0)
+
+        logging.info("[carregar_modelo] Modelo carregado de %s", caminho)
+        return modelo
     except Exception as e:
         logging.error(
-            f"Ã¢Å¡Â Ã¯Â¸Â Erro ao carregar modelo ({e}). Resetando para evitar travamento...")
-        # Se o arquivo estiver corrompido, removemos para criar um novo
-        if os.path.exists(caminho):
-            try:
-                # Backup do corrompido antes de deletar
-                os.rename(caminho, f"{caminho}.corrompido_{int(time.time())}")
-            except:
-                try:
-                    os.remove(caminho)
-                except:
-                    pass
-        return criar_modelo_neural(N_FEATURES)
+            "[carregar_modelo] Erro ao carregar %s (%s). "
+            "Artefato preservado no disco.", caminho, e)
+        _CARREGAR_MODELO_FALHOU = True
+        return None
 
 
 def verificar_e_proteger_modelo() -> bool:
@@ -6812,7 +6888,16 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                 modelo_ia_local = criar_modelo_neural(N_FEATURES)
                 logging.info("Novo modelo de IA criado com sucesso")
             print(f"[STARTUP] Chamando salvar_modelo...")
-            salvar_modelo(modelo_ia_local)
+            # Item 34 / 23.50: se o artefato existe mas falhou ao carregar
+            # (incompativel/corrompido), NAO sobrescrever com modelo novo nao
+            # treinado. Só salva quando o load deu certo ou o arquivo nao existe.
+            if modelo_ia_param is None and modelo_ia_local is not None \
+                    and os.path.exists(MODELO_PATH) and _CARREGAR_MODELO_FALHOU:
+                logging.warning(
+                    "[STARTUP] Modelo em disco preservado; save automatico "
+                    "ignorado (artefato nao carregou).")
+            else:
+                salvar_modelo(modelo_ia_local)
             print(f"[STARTUP] salvar_modelo concluido")
         else:
             logging.info("Ã°Å¸Å¡Â« Mercado fechado: carregamento de modelo suspenso.")
@@ -11175,7 +11260,7 @@ if __name__ == "__main__":
     # entre reinÃÂ­cios. SÃÂ³ reative manualmente chamando resetar_memoria_ia() se quiser zerar tudo.
     # resetar_memoria_ia()  # SÃÂ³ reativar manualmente se necessÃÂ¡rio
 
-    # Reseta e recria scaler global para compatibilidade com 22 features
+    # Reseta e recria scaler global para compatibilidade com N_FEATURES features
     resetar_scaler_global()
     _forcar_recreacao_scaler_throttled()
 

@@ -65,7 +65,7 @@
     "aprendizado": {
         "modelo_path": "modelo_monstro_wdo.h5",
         "historico_csv": "historico_contexto_wdo.csv",
-        "n_features": 22,
+        "n_features": 20,
         "min_exp_para_treino": 3,
         "max_experiencias_memoria": 1000,
         "epochs": 3,
@@ -82,7 +82,7 @@
         "horario_after": "18:32"
     },
     "ai_settings": {
-        "n_features": 22,
+        "n_features": 20,
         "min_experiencias_treino": 3,
         "max_experiencias_memoria": 1000,
         "epochs_treino": 3,

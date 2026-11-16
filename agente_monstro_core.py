@@ -300,13 +300,22 @@ def sinalizar_parada_robo():
         log.error(f"falha ao criar parar.txt: {e}")
 
 
+def _abrir_mt5_minimizado():
+    """Abre o terminal64 minimizado e sem console visivel (Frente 1 / 23.50)."""
+    subprocess.Popen(
+        ["cmd", "/c", "start", "", "/min", P["mt5_exe"]],
+        cwd=os.path.dirname(P["mt5_exe"]),
+        creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+
+
 def start_mt5():
     if any("terminal64" in (pr.info.get("name") or "").lower() for pr in psutil.process_iter(["name"])):
         log.info("MT5 ja estava rodando")
         return
     try:
-        subprocess.Popen([P["mt5_exe"]], cwd=os.path.dirname(P["mt5_exe"]))
-        log.info("MT5 iniciado, aguardando 15s")
+        _abrir_mt5_minimizado()
+        log.info("MT5 iniciado (minimizado), aguardando 15s")
         time.sleep(15)
     except Exception as e:
         log.error(f"falha ao iniciar MT5: {e}")
@@ -314,8 +323,21 @@ def start_mt5():
 
 def start_robot():
     cmd = [os.path.join(BASE_DIR, P["python_venv"]), P["robo_script"]]
-    subprocess.Popen(cmd, cwd=BASE_DIR, creationflags=subprocess.CREATE_NEW_CONSOLE)
-    log.info("robo iniciado (script venv310, CWD=C:\\AIOFEN)")
+    # Frente 1 / 23.50: sem console visivel. stdout/stderr vao para o log do
+    # console do robo; a janela GUI do Dashboard continua aparecendo.
+    log_console = os.path.join(BASE_DIR, "logs", "monstro_console.log")
+    try:
+        os.makedirs(os.path.dirname(log_console), exist_ok=True)
+        with open(log_console, "ab") as fout:
+            subprocess.Popen(
+                cmd, cwd=BASE_DIR,
+                stdin=subprocess.DEVNULL,
+                stdout=fout, stderr=subprocess.STDOUT,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+            )
+        log.info("robo iniciado oculto (script venv310, CWD=C:\\AIOFEN)")
+    except Exception as e:
+        log.error(f"falha ao iniciar robo oculto: {e}")
 
 
 def stop_mt5():
@@ -1100,7 +1122,7 @@ def reiniciar_mt5_processo():
         log.error(f"watchdog: taskkill terminal falhou (segue): {e}")
     time.sleep(6)
     try:
-        subprocess.Popen([P["mt5_exe"]], cwd=os.path.dirname(P["mt5_exe"]))
+        _abrir_mt5_minimizado()
         log.info("watchdog: terminal64 reiniciado (coletor destravado)")
     except Exception as e:
         log.error(f"watchdog: falha ao reabrir terminal64: {e}")
@@ -1140,14 +1162,22 @@ def garantir_coletor_herman():
         pass
     try:
         cmd = [os.path.join(BASE_DIR, P["python_venv"]), HERMAN_SCRIPT]
-        proc = subprocess.Popen(cmd, cwd=BASE_DIR,
-                                creationflags=subprocess.CREATE_NEW_CONSOLE)
+        # Frente 1 / 23.50: coletor 100% oculto (sem janela CMD).
+        log_console = os.path.join(BASE_DIR, "logs", "herman_console.log")
+        os.makedirs(os.path.dirname(log_console), exist_ok=True)
+        with open(log_console, "ab") as fout:
+            proc = subprocess.Popen(
+                cmd, cwd=BASE_DIR,
+                stdin=subprocess.DEVNULL,
+                stdout=fout, stderr=subprocess.STDOUT,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+            )
         try:
             with open(HERMAN_PIDFILE, "w", encoding="utf-8") as f:
                 f.write(str(proc.pid))
         except Exception as e:
             log.error(f"herman: pidfile falhou: {e}")
-        log.info(f"herman: coletor iniciado (PID {proc.pid})")
+        log.info(f"herman: coletor iniciado oculto (PID {proc.pid})")
     except Exception as e:
         log.error(f"herman: falha ao iniciar coletor: {e}")
 

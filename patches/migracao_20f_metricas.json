@@ -1,0 +1,15 @@
+{
+  "data": "2026-11-16T18:02:44",
+  "n_features_antes": 22,
+  "n_features_depois": 20,
+  "removidas": [
+    "preco_maior_escora_bid",
+    "preco_maior_escora_ask"
+  ],
+  "linhas_verificacao": 5019,
+  "delta_max": 1.1920928955078125e-07,
+  "delta_medio": 1.5319782775691237e-08,
+  "clipped_antes": 15584,
+  "clipped_depois": 5546,
+  "equivalencia_ok": true
+}
