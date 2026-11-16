@@ -4270,7 +4270,7 @@ autoriza mexer no robo com posicao aberta.
 | 31 | Tese 3 - microestrutura/absorcao nos extremos (book) | 4 | ~40-60 sessoes de profundidade arquivada | **em coleta 14/11 (23.45)**: arquivador read-only + tarefa `Contexto-Arquivo`; seed 19.122 linhas / 6 dias; faltam ~40-60 sessoes |
 | 32 | Arquivador read-only da profundidade de book | 4 | aprovacao do usuario | **implementado 14/11 (23.45)**: `arquivar_contexto.py` incremental + tarefa `Contexto-Arquivo` (seg-sex 09:00-18:00, 15 min); idempotente (+0 na 2a execucao) |
 | 33 | Corrigir loop de re-registro de estado velho (Faixa 1) | 3 | aprovacao humana (mexe em orquestrador) | **implementado 15/11 (23.47)**: guarda em `orquestrar()` apos `_pos_aberta` (sem posicao + finalizado + outro dia -> `_salvar_state({})`); RG19/RG20 passam; sem falha nova; efeito so ao religar |
-| 34 | Revisar scaler/clipping das features do modelo | 4 | aprovacao humana + amostra | **proposta 14/11 (23.46.4)**: ~5.000 clips/dia saturam a entrada do modelo; alimenta o item 5 (features estacionarias) |
+| 34 | Revisar scaler/clipping das features do modelo | 4 | aprovacao humana + amostra | **proposta 14/11 (23.46.4)**: ~5.000 clips/dia saturam a entrada do modelo; alimenta o item 5 (features estacionarias). **Confirmado 16/11 (23.49)**: 6.039 decisoes, 19.181 valores clipados (3,18 por decisao, 100% das linhas) |
 | 35 | Agente autonomo substituto do Keras (RL/LLM) | 2 | 40-60 sessoes rotuladas + itens 34/23.45 | **bloqueado 15/11 (23.48)**: sem sinal OOS fora de sobreposicao (AUC 0,50; 100% longo = drift); LLM local inviavel no hardware; nao iniciar |
 | 36 | Baseline de regras/GBM em shadow (agente deterministico) | 3 | aprovacao do usuario | **nao iniciar agora (decisao 15/11)**: modelo mais complexo no mesmo pipeline doente = ruido; proxima frente e o item 34 |
 
@@ -5305,5 +5305,128 @@ manter (Sniper %R + Faixa 1)". Os numeros de 13/11 nao sustentam isso:
   modelo mais complexo sobre o mesmo pipeline doente so gera ruido. A proxima
   frente e o **item 34 (clipping/scaler)**, na semana de 16/11. O diagnostico
   23.48 fica registrado como evidencia; nada muda em producao ate la.
+
+## 23.49 Pre-autopsia do pregao de 16/11/2026 (WDOZ26): regime, nao edge
+
+Auditoria somente-leitura (log do robo, CSVs, historico do MT5). Nenhum
+processo, config ou codigo alterado. O fecho automatico foi validado depois
+das 17:35, com o robo ja flat.
+
+### 23.49.1 O dia em numeros
+
+- WDOZ26: abertura 5694, minima 5691 (09:01 local), maxima 5810 (15:58
+  local), fechamento 5797. Range 119 pts, drift **+103 pts** (alta
+  unidirecional).
+- 9 entradas, **todas BUY**, todas do Sniper %R (score=2, %R entre -80,0 e
+  -84,2). Nenhuma ordem nasceu do modelo Keras.
+- 9 saidas, **todas magic 123456** (Core/Sniper). Magic 7008 (Faixa 1):
+  **zero** (suspensa desde 13/11).
+- 73,5 pts liquidos = **+R$ 735,00** bruto; comissao/swap R$ 0,00 (demo).
+  As 8 primeiras somavam +R$ 695 as 17:27; a 9a (ticket 2594327912) saiu no
+  fecho as 17:35 a 5797 (+40).
+- Custo canonico: 9 x R$ 1,20 = R$ 10,80. Slippage de 1,0 pt/lado (2 pts
+  por trade = R$ 20,00): R$ 180,00. **Liquido honesto: +R$ 544,20.**
+
+| # | entrada (local) | saida (local) | pts | R$ | tipo |
+|---|---|---|---|---|---|
+| 1 | 09:16 @ 5698,0 | 09:30 @ 5708,0 | +10,0 | +100 | TP |
+| 2 | 09:43 @ 5701,5 | 10:01 @ 5710,0 | +8,5 | +85 | TP |
+| 3 | 10:49 @ 5735,0 | 11:27 @ 5746,0 | +11,0 | +110 | TP |
+| 4 | 11:53 @ 5748,0 | 11:59 @ 5760,0 | +12,0 | +120 | TP |
+| 5 | 12:19 @ 5762,0 | 12:33 @ 5771,5 | +9,5 | +95 | TP |
+| 6 | 13:18 @ 5777,0 | 13:31 @ 5781,0 | +4,0 | +40 | trailing |
+| 7 | 14:24 @ 5793,5 | 15:01 @ 5800,5 | +7,0 | +70 | TP |
+| 8 | 15:23 @ 5802,5 | 15:58 @ 5810,0 | +7,5 | +75 | TP |
+| 9 | 16:14 @ 5793,0 | 17:35 @ 5797,0 | +4,0 | +40 | fecho EOD |
+
+### 23.49.2 Merito vs regime
+
+Historico do Sniper (1.240 sinais simulados, 59 dias, TP 10,2 / SL 8,0,
+janela de 30 min):
+
+| regime | direcao | n | WR | exp (pts) | PF |
+|---|---|---|---|---|---|
+| UP | BUY | 76 | 57,9% | +1,08 | 1,28 |
+| RANGE | BUY | 409 | 58,9% | +1,36 | 1,71 |
+| DOWN | BUY | 14 | 28,6% | -4,68 | -0,17 |
+| DOWN | SELL | 16 | 75,0% | +2,47 | 3,47 |
+| UP | SELL | 47 | 21,3% | -8,81 | 0,11 |
+| RANGE | SELL | 678 | 27,1% | -5,11 | 0,19 |
+
+- Com WR de 57,9% no melhor regime, **9/9 tem p = 0,579^9 = 0,73%**;
+  **>= 8/9 tem p = 5,5%**. O dia foi um evento de cauda (~1 em 18), nao a
+  regra.
+- Valor esperado de 9 trades num dia UP medio: 9 x 1,08 = +9,7 pts brutos,
+  menos 9 x 2,12 = 19,1 pts de custo -> **-9,4 pts (~ -R$ 94)**. O mesmo
+  setup num dia UP comum perde dinheiro.
+- As 9 compras **nao sao 9 apostas independentes**: sao sequenciais, mesmo
+  setup, mesma direcao, no mesmo tape de alta. E **1 aposta direcional com
+  9 entradas**; a correlacao infla o 9/9.
+- **Merito real:** comprar dip raso (%R -80) em vez de perseguir o preco;
+  deixar o lucro correr (TP dinamico/trailing); nenhum SL atingido. Isso e
+  disciplina de execucao, nao edge.
+- **Empurrao do regime:** +103 pts de drift em 119 de range. No regime
+  DOWN o mesmo sinal BUY tem -4,68 pts de expectancia.
+- **Veredito:** o 100% e **regime**. A expectancia repetivel segue +1,08 pt
+  (melhor regime) < 2,12 pts de custo. Nao usar o dia para aumentar tamanho,
+  risco ou confianca no Sniper.
+
+### 23.49.3 Modelo e clipping
+
+- 6.039 decisoes: 420 BUY, 1.174 SELL, 4.445 NADA. Confianca media 0,176.
+- SELL com confianca media 0,668 (224 acima de 0,7) contra BUY 0,666 (84
+  acima de 0,7): **vies de venda de 2,7:1 num dia de +103 pts**. Se o
+  modelo estivesse no comando, teria vendido a perna de alta.
+- Contribuicao do modelo para o resultado de hoje: **zero**.
+- **Clipping: 6.039 warnings, um por decisao; 19.181 valores fora de [0,1];
+  3,18 por decisao; 100% das linhas com clipping.** Nao e caso de borda: o
+  scaler esta saturado de forma sistematica. **Item 34 confirmado como
+  prioridade.**
+
+### 23.49.4 ORB paper
+
+- **Nenhum registro em 16/11.** Tarefa `ORB-WDO-FT = Disabled`.
+- Ultimo registro: 13/11 `registrado=False`; em 12/11 `eff=0.352` ->
+  `BLOQUEIA4`. A 4a variante segue bloqueada e o paper nao produz evidencia
+  desde 13/11.
+- Decisao pendente: **religar o coletor ou arquivar formalmente** (paper
+  parado nao gera amostra e ainda consome atencao).
+
+### 23.49.5 Fecho C1-C4 (validado apos as 17:35)
+
+| item | evidencia | veredito |
+|---|---|---|
+| C1 retry/reconexao | `#2594327912 retcode 10009` na tentativa 1 (17:35:16) | PASS, mas **nao estressado** (sem falha) |
+| C2 sucesso so se flat | `FECHO CONFIRMADO ... 1 fechada(s), flat` (17:35:31); `flat confirmado (1)` (17:36:22); `positions_get=0` | PASS |
+| C3 shutdown nao encerra com posicao | posicao fechada 17:35:17, antes do shutdown; gracioso 17:36:54-55 | PASS no flat; **processo precisou de force kill** |
+| C4 relatorio por deals | 9 deals, +R$ 735,00, magic 123456, comissao 0 | PASS, **bate exato com o MT5** |
+
+- Divergencia "Trades executados: 8": o relatorio foi gravado as **17:36:14**
+  e o 9o marcador "processada e resetada" saiu as **17:36:23** (9 s depois).
+  E **corrida de tempo, nao bug**. O C4 (deals) ja contava 9.
+- Encadeamento do encerramento: timeout 17:38:21 -> force kill PID 20724
+  (17:38:27) -> `parada forcada: ok` -> `FECHO concluido - ambiente pronto`
+  (17:38:37). `Monstro-Fecho = Ready`; sobrou apenas `terminal64`.
+- Erros benignos de kill (PIDs 28324/63920 ja mortos) nao afetaram o fecho.
+
+### 23.49.6 Backlog aberto por esta autopsia
+
+- **Trailing: 19 x `10016 Invalid stops`** entre 09:24:53 e 11:59:13
+  (Freeze=1, distancia minima 1,0). O trailing de 50% calcula o SL a partir
+  do ultimo preco visto; quando o preco recua, o SL cai dentro da zona de
+  freeze e o servidor rejeita. As protecoes que funcionaram foram TP e os
+  moves aceitos. **Proposta (4 estrelas, so apos aprovacao):** clampar o SL
+  em `bid - max(stops_level + buffer, 2 x spread)` e **adiar** o envio em
+  vez de insistir no mesmo tick. Nao e o mesmo assunto do trailing da Faixa
+  1 rejeitado em 23.39: aqui e falha tecnica de execucao no Core.
+- **Relatorio diario (2 estrelas):** gerar o C4 depois do ultimo marcador do
+  loop, ou contar deals na linha "Trades executados".
+- **ORB paper (2 estrelas):** religar ou arquivar; parado desde 13/11.
+- **Item 34 (4 estrelas):** proxima frente. 19.181 clips/dia confirmam que
+  a entrada do modelo esta saturada.
+
+**Regra mantida:** nada muda em producao sem aprovacao humana; a Faixa 1
+segue suspensa; o dia de 16/11 nao autoriza aumento de risco.
+
 
 
