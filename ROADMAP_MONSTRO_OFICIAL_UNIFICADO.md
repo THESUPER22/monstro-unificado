@@ -5558,4 +5558,250 @@ janela GUI do proprio robo (PyWebView, titulo `Monstro Dashboard V2`).
 aumento de risco; nada em producao sem diff aprovado.
 
 
+## 23.51 Autopsia 17/11/2026 - o veredito de 16/11 errou a CAUSA, nao o numero
+
+Rodada somente-leitura durante o pregao (17:24-17:40), com posicao WDO aberta.
+Zero intervencao em processos ou codigo.
+
+### 23.51.1 O dia em numeros (M1, hora local, 09:00-17:30)
+
+| metrica | 16/11 | 17/11 |
+|---|---|---|
+| abertura | 5694,0 | 5793,0 |
+| maxima | 5810,0 (17:2x) | **5825,0 (10:20)** |
+| minima | 5691,0 | **5771,5 (11:00)** |
+| fecho (17:30) | 5799,5 | 5793,5 |
+| range | **119,0** | **53,5** |
+| drift (close-open) | **+98,0** | **+1,5** |
+| caminho (soma abs M1) | **809,5** | **839,0** |
+| eficiencia (drift/caminho) | 0,12106 | **0,00179** |
+| caminho / range | 6,80 | **15,68** |
+| trades fechados | 9 | **17** |
+
+**O achado central:** o caminho foi praticamente **identico** (809,5 vs 839,0
+pts). O que mudou foi o deslocamento liquido. Ou seja: os dois dias ofereceram
+a mesma quantidade de movimento; um era tendencia, o outro era chop puro
+(15,7x mais caminho que deslocamento).
+
+Consequencia direta: **"so funciona em dia de tendencia unidirecional" esta
+falsificado.** O que o setup monetiza e *amplitude/oscilacao* (caminho), nao
+*direcao*. O veredito de 23.49 ("evento de cauda de regime de alta") descreveu
+o dia de 16/11, nao o mecanismo do edge.
+
+O que **nao** esta falsificado: que exista edge liquido repetivel. Ver 23.51.4.
+
+### 23.51.2 Atribuicao dos 17 trades fechados (MT5, deals reais)
+
+7 BUY / 10 SELL. Saidas: **9 TP**, **3 trailing-win** (SL movido a favor),
+**4 SL cheio** (-8,0 pts cada) e **1 fecho de encerramento** (+2,5 pts).
+
+| # | lado | entrada | saida | pts | tipo | hora (local) |
+|---|---|---|---|---|---|---|
+| 1 | SELL | 5796,5 | 5785,5 | +11,0 | TP | 09:15 -> 09:23 |
+| 2 | BUY | 5783,5 | 5796,0 | +12,5 | TP | 09:24 -> 09:31 |
+| 3 | SELL | 5797,0 | 5805,0 | -8,0 | SL | 09:31 -> 09:43 |
+| 4 | BUY | 5789,5 | 5794,0 | +4,5 | trailing | 10:01 -> 10:04 |
+| 5 | BUY | 5809,5 | 5801,5 | -8,0 | SL | 10:49 -> 10:57 |
+| 6 | SELL | 5793,5 | 5786,0 | +7,5 | trailing | 11:18 -> 11:46 |
+| 7 | SELL | 5792,0 | 5800,0 | -8,0 | SL | 11:50 -> 11:53 |
+| 8 | SELL | 5796,5 | 5804,5 | -8,0 | SL | 11:55 -> 12:04 |
+| 9 | SELL | 5807,0 | 5801,5 | +5,5 | trailing | 12:07 -> 12:40 |
+| 10 | SELL | 5804,5 | 5794,0 | +10,5 | TP | 12:50 -> 13:09 |
+| 11 | BUY | 5792,5 | 5802,5 | +10,0 | TP | 13:17 -> 13:23 |
+| 12 | BUY | 5796,0 | 5804,0 | +8,0 | TP | 13:35 -> 13:52 |
+| 13 | SELL | 5801,5 | 5792,5 | +9,0 | TP | 13:55 -> 14:20 |
+| 14 | BUY | 5786,5 | 5795,5 | +9,0 | TP | 14:26 -> 15:11 |
+| 15 | SELL | 5796,0 | 5788,0 | +8,0 | TP | 15:16 -> 15:27 |
+| 16 | BUY | 5784,0 | 5791,5 | +7,5 | TP | 15:34 -> 16:03 |
+| 17 | SELL | 5791,0 | 5788,5 | +2,5 | fecho 17:35 | 16:27 -> 17:35 |
+
+**Todas as 17 entradas foram SNIPER %R** (sobrepondo a IA). O Core ficou
+bloqueado o dia inteiro por `Multi-TF bullish` e `WILLIAMS %R VETO`, enquanto
+o Sniper operou os dois lados. O placar do dia e do Sniper, nao da IA.
+
+| metrica | valor |
+|---|---|
+| trades fechados | **17 (7 BUY / 10 SELL)** |
+| W / L | **13 / 4 = 76,5%** |
+| ganhos / perdas | 105,5 / 32,0 pts |
+| bruto | **+73,5 pts = R$ 735,00** |
+| PF bruto | 3,30 |
+| media win / loss | +8,12 / -8,00 pts |
+| custo (R$ 1,20 x 17) | R$ 20,40 |
+| liquido so com custo | **+71,46 pts = R$ 714,60** |
+| com slippage do gate (2 pts/trade) | **+37,46 pts = R$ 374,60** |
+| expectancia com gate | **+2,20 pts/trade** |
+| PF com gate | 1,87 |
+| p binomial unilateral (13/17) | **2,45%** |
+
+Posicao aberta no momento da coleta (17:24): `#2595744210` SELL 1,0 WDOZ26,
+entrada 5791,0, SL 5799,0, TP **5785,5** (o usuario disse 5786,0; o MT5 mostra
+5785,5), -15,0 pts flutuantes naquele instante. Fechou as 17:35 em **5788,5 =
++2,5 pts (R$ 25,00)** - ver 23.51.8.
+
+### 23.51.3 Slippage medido hoje: zero - e isso NAO e boa noticia
+
+Fills conferidos no log: SELL entrou a 5796,5 = bid exato; TP de 11,0 pts
+saiu a 5785,5 = nivel pedido, sem 1 tick de folga. **Slippage observado: 0.**
+
+Isto **nao** valida execucao real: a conta e `XPMT5-DEMO` e o servidor demo
+preenche de forma idealizada (mesmo motivo pelo qual o gate existe, 23.10).
+O gate de 1,0 pt/lado permanece a referencia; o fill perfeito de hoje e
+artefato do demo, nao evidencia de qualidade de execucao.
+
+### 23.51.4 Historico LIVE completo (10 dias) - a parte desconfortavel
+
+Sair da amostra de 2 dias. Deals reais do MT5 (magic 123456, WDOZ26), 69
+trades fechados entre 03/11 e 17/11:
+
+| dia | trades | bruto pts | custo pts | slippage gate | liquido pts | liquido R$ | acumulado R$ |
+|---|---|---|---|---|---|---|---|
+| 03/11 | 6 | +44,0 | 0,72 | 12,0 | +31,28 | +312,80 | +312,80 |
+| 04/11 | 7 | -18,0 | 0,84 | 14,0 | -32,84 | -328,40 | -15,60 |
+| 05/11 | 6 | -19,5 | 0,72 | 12,0 | -32,22 | -322,20 | -337,80 |
+| 06/11 | 7 | -31,0 | 0,84 | 14,0 | -45,84 | -458,40 | -796,20 |
+| 10/11 | 4 | -15,0 | 0,48 | 8,0 | -23,48 | -234,80 | -1.031,00 |
+| 11/11 | 2 | -3,5 | 0,24 | 4,0 | -7,74 | -77,40 | -1.108,40 |
+| 12/11 | 3 | +3,0 | 0,36 | 6,0 | -3,36 | -33,60 | -1.142,00 |
+| 13/11 | 8 | -18,0 | 0,96 | 16,0 | -34,96 | -349,60 | -1.491,60 |
+| 16/11 | 9 | +73,5 | 1,08 | 18,0 | +54,42 | +544,20 | -947,40 |
+| 17/11 | 17 | +73,5 | 2,04 | 34,0 | +37,46 | +374,60 | **-572,80** |
+| **total** | **69** | **+89,0** | **8,28** | **138,0** | **-57,28** | **-572,80** | |
+
+- Dias positivos / negativos: **4 / 6**.
+- Os 8 dias anteriores a 16/11: 43 trades, **-58,0 pts brutos**.
+- Todo o lucro do periodo veio dos 2 ultimos dias (+R$ 1.470 brutos).
+
+**Sensibilidade ao slippage (10 dias, 69 trades):**
+
+| slippage | liquido pts | R$ | expectancia |
+|---|---|---|---|
+| 0,0 pt/trade | +80,72 | +807,20 | +1,17 |
+| 0,5 pt/trade | +46,22 | +462,20 | +0,67 |
+| **1,0 pt/trade** | **+11,72** | **+117,20** | **+0,17** |
+| 1,5 pt/trade | -22,78 | -227,80 | -0,33 |
+| **2,0 pt/trade (gate)** | **-57,28** | **-572,80** | **-0,83** |
+
+**Break-even de slippage: ~1,2 pt por trade (0,6 pt por lado).** Com o gate
+canonico de 1,0 pt/lado, o historico live de 10 dias e **negativo**.
+
+Leitura honesta: o setup esta **em cima da faca**. Nao e "sem edge" (o bruto
+e positivo e o WR e alto), e tambem nao e "edge provado" (o liquido sob o gate
+e negativo e 2 dias carregam tudo). O que decide e o custo de execucao real -
+que o demo nao mede.
+
+### 23.51.5 Hipotese de filtro por caminho - 2 estrelas, NAO implementado
+
+Se o caminho e o que paga, ele poderia ser filtro. Testado de duas formas:
+
+**(a) Caminho do dia vs resultado** (n=10 dias): correlacao **+0,764**.
+Metade dos dias com menor caminho (med 554): **-R$ 855** em 28 trades
+(-3,05 pts/trade). Metade com maior caminho (med 726): **+R$ 1.720** em 40
+trades (+4,30 pts/trade).
+
+**(b) Caminho dos 60 min anteriores a entrada** - o unico computavel em tempo
+real (n=66 trades): correlacao **+0,053**. Tercis:
+
+| terco (cam60) | n | cam60 med | pts | exp | WR |
+|---|---|---|---|---|---|
+| baixo | 22 | 50 | -2,0 | -0,09 | 54,5% |
+| medio | 22 | 73 | +18,5 | +0,84 | 59,1% |
+| alto | 22 | 114 | +49,0 | +2,23 | 63,6% |
+
+ATR14 nao mostra gradiente nenhum (+0,84 / +1,14 / +1,00 exp).
+
+**Veredito:** a correlacao diaria de +0,764 e em boa parte **ilusao de
+agregacao** - ela morre quando descemos ao nivel do trade (+0,053). O
+gradiente monotono dos tercis de cam60 e sugestivo, mas 22 trades por balde
+nao sustentam nada. Fica como **hipotese 2 estrelas**, para o gate com
+walk-forward e mais dias; **nenhum codigo escrito**. Se algum dia virar
+frente, o caminho de 60 min e a feature a testar - nao ATR, nao drift.
+
+### 23.51.6 Item 34 em producao (features 20 + throttle de clipping)
+
+| metrica | 16/11 (22f) | 17/11 (20f) |
+|---|---|---|
+| celulas clipped no dia | 19.181 | **6.272 (-67%)** |
+| warnings de clipping | - | **25 em 8h22** (1 a cada ~20 min) |
+| formato antigo do aviso | - | **0 ocorrencias** |
+| `scaler_dummy` | - | **0** |
+| `_migrar_modelo_l2` | - | **0** |
+| scaler 20f carregado | - | **7x** |
+
+Por feature: `volatility` 3.442, `bid_qty` 2.389, `ask_qty` 427,
+`volume_tick` 13, `spread` 1. `volatility` continua sendo o maior clipper -
+esperado, e exatamente por isso que reescalonar exige retreino (23.50.2).
+
+Modelo: `[carregar_modelo] Modelo carregado de modelo_monstro_wdo.h5` as
+09:04:10, **uma unica vez**, sem erro e sem recriacao destrutiva.
+
+**Bug cosmetico confirmado (23.51.9):** o headline do aviso usa o `n_clip` da
+*chamada atual* enquanto o detalhe por feature e o total da janela. Por isso
+aparece `1 valores ... (features: bid_qty=108, volatility=58)`. Nao afeta o
+modelo; correcao de 3 linhas proposta, nao aplicada (pregao aberto).
+
+### 23.51.7 Frente 1 em producao (janelas ocultas)
+
+- `logs\start_all_console.log` criado as **09:00:00** (0 bytes: o caminho feliz
+  do `start_all.bat` nao tem `echo` - nao e falha).
+- Cadeia confirmada: `wscript hidden.vbs` -> `cmd /c run_robot_hidden.bat`
+  (PID 85176) -> `python monstro_unificado_v22.py` (PID 151632).
+- **Unica janela visivel: `Monstro Dashboard V2`.** Nenhum CMD/python console.
+- `terminal64` **minimizado = True**.
+- Tarefas via `wscript.exe hidden.vbs`: 9/9. `Monstro-Fecho` = Ready,
+  trigger 17:35, `ORB-WDO-FT` / `Rompimento-FT` = Disabled.
+
+Fecho C1-C4: ver 23.51.8.
+
+### 23.51.8 Fecho C1-C4 (17:35) - a posicao aberta foi encerrada
+
+O encerramento tem **dois caminhos simultaneos** as 17:35, e ambos fecham
+posicao:
+
+1. O proprio robo: `horario_atual >= HORARIO_ENCERRAMENTO` ->
+   `fechar_todas_posicoes("Encerramento automatico 17:35")`.
+2. O agente (`Monstro-Fecho`): cria `parar.txt`; o loop do robo detecta
+   `verificar_parada_gracil()` e chama `fechar_posicao_atual()` antes de sair.
+
+Linha do tempo real de hoje:
+
+| hora (local) | evento |
+|---|---|
+| 17:34:56 | ultimo heartbeat: SELL 5791,0 / atual 5788 / **+4 pts** |
+| 17:35:01 | `ENCERRAMENTO AUTOMATICO AS 17:35 - FECHANDO TODAS AS POSICOES` |
+| 17:35:02 | deal de saida: **5788,5, +R$ 25,00, "fecho robusto"** |
+| 17:35:04 | `[fecho] #2595744210 retcode 10009 (Request executed)` |
+| 17:35:04 | `[fecho] #2595744210 saiu apos tentativa 1` |
+
+**Resultado:** a posicao foi encerrada na **primeira tentativa**, sem orfa,
+com lucro. Nao houve posicao fantasma nova. A unica posicao remanescente no
+terminal e a antiga `WINV25 #2243200971` (magic 123457), conhecida e ignorada.
+
+Confirmacao independente: `mt5.positions_get()` apos o fecho retorna **1**
+posicao (a WINV25), e o deal de saida da WDO existe com `comment='fecho
+robusto'`.
+
+### 23.51.9 Backlog aberto por esta autopsia
+
+- **Headline do clipping (1 estrela, cosmetico):** trocar `n_clip` por
+  `sum(_clip_stats.values())` em `_registrar_clipping`. 3 linhas, zero risco.
+- **`10016 Invalid stops` (4 estrelas):** 18 rejeicoes hoje (19 em 16/11);
+  36 ERROR = 18 detalhes `Freeze=1, Distancia min=1.00000` + 18 falhas de
+  mover SL. O trailing perde o passo quando o preco anda rapido. Clamp/adiar.
+- **Ruido do log (3 estrelas):** 6.591 WARNINGs hoje, dominados por
+  `WILLIAMS %R VETO` (1.135 + 828), `VETO TOTAL` (1.135), `CONFLUENCIA
+  INSUFICIENTE` (755), `MULTI-TF VETO` (398). O throttle limpou so o clipping.
+- **`monstro_console.log` = 0 bytes (2 estrelas):** stdout block-buffered sob
+  redirecionamento. `-u` ou `PYTHONUNBUFFERED=1` tornaria o console vivo.
+- **Filtro de caminho (2 estrelas):** hipotese, ver 23.51.5. Nao codar antes
+  de mais dias e walk-forward.
+- **Slippage real (4 estrelas):** o demo preenche perfeito; qualquer decisao
+  de tamanho/custo depende de medir execucao real. Break-even em ~1,2 pt/trade.
+- **Item 34 fase 2 / volatilidade:** segue bloqueado (gate de book completo).
+- **Item 36 (shadow do agente):** segue sem inicio, por decisao de 15/11.
+
+**Regra mantida:** nenhuma mudanca de logica de trade; Faixa 1 suspensa; sem
+aumento de risco; nada em producao sem diff aprovado.
+
+
 
