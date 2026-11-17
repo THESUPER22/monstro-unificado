@@ -38,6 +38,9 @@ import MetaTrader5 as mt5
 import numpy as np
 import pandas as pd
 
+# P0 17/11: alinhamento de SL ao tick real (modulo puro, sem MT5/TF)
+from precos_wdo import alinhar_sl, tick_do_simbolo
+
 # Silencia logs verbosos do TensorFlow (C++). PRECISA ser definido ANTES de importar o TF.
 # '3' = sÃÂ³ FATAL (esconde a mensagem repetida "NodeDef ... use_unbounded_threadpool").
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -1075,6 +1078,8 @@ TICK_SIZE = config.get("contrato", {}).get(
     "tick_size", 0.5)           # Tamanho do tick WDO
 TICKS_POR_PONTO = config.get("contrato", {}).get(
     "ticks_por_ponto", 1000)    # WDO: 1 ponto = 1000 ticks
+ALINHAR_SL_TICK = config.get("contrato", {}).get(
+    "alinhar_sl_tick", True)    # P0 17/11: SL multiplo de trade_tick_size
 # Volume padrÃÂ£o (1 contrato WDO)
 VOLUME_PADRAO = config.get("volume_padrao", 1.0)
 HORARIO_PREGAO = config.get("horarios", {}).get("pregao", "09:00")
@@ -6072,11 +6077,32 @@ def atualizar_sl(ticket: int, novo_sl: float, eh_breakeen_forcado: bool = False)
     logging.debug(
         f"[atualizar_sl] Ticket: {ticket}, Novo SL: {novo_sl:.2f}, TP: {tp_original:.2f}, Freeze: {freeze_level}")
 
+    # P0 17/11 (10016 Invalid stops): o preco enviado tem de ser multiplo do
+    # tick real do simbolo (trade_tick_size = 0.5), nao de `digits` (3 casas).
+    # Alinha no lado seguro (BUY: floor, SELL: ceil) para nunca aproximar o SL
+    # do preco, e revalida a melhoria porque o alinhamento pode anular 1 tick.
+    if ALINHAR_SL_TICK:
+        _lado = "BUY" if posicao.type == mt5.POSITION_TYPE_BUY else "SELL"
+        _sl_bruto = novo_sl
+        novo_sl = alinhar_sl(novo_sl, _lado, tick_do_simbolo(symbol_info))
+        if novo_sl != _sl_bruto:
+            logging.debug(
+                f"[atualizar_sl] SL alinhado ao tick: {_sl_bruto:.2f} -> {novo_sl:.2f}")
+        if posicao.sl != 0:
+            if _lado == "BUY" and novo_sl <= posicao.sl:
+                logging.debug(
+                    f"SL BUY alinhado nao melhora ({novo_sl:.2f} <= {posicao.sl:.2f}) - aguardando")
+                return False
+            if _lado == "SELL" and novo_sl >= posicao.sl:
+                logging.debug(
+                    f"SL SELL alinhado nao melhora ({novo_sl:.2f} >= {posicao.sl:.2f}) - aguardando")
+                return False
+
     ordem_mod = {
         "action": mt5.TRADE_ACTION_SLTP,
         "position": ticket,
         "symbol": SYMBOL,
-        "sl": round(novo_sl, symbol_info.digits),
+        "sl": novo_sl if ALINHAR_SL_TICK else round(novo_sl, symbol_info.digits),
         "tp": tp_original,  # MantÃÂ©m o TP original da posiÃÂ§ÃÂ£o
         "magic": MAGIC_NUMBER,
         "comment": "Trailing SL Monstro"

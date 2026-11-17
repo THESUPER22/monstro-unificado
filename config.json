@@ -30,7 +30,8 @@
         "prefixo": "WDO",
         "tick_size": 0.5,
         "ticks_por_ponto": 1000,
-        "digits_dolar": 3
+        "digits_dolar": 3,
+        "alinhar_sl_tick": true
     },
     "operacional": {
         "volume_padrao": 1.0,
