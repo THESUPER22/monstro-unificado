@@ -934,12 +934,60 @@ def gerar_relatorio_diario(info_diff=None):
 
 
 def git_commit_dia():
+    """Commit do fecho, RESTRITO a caminhos permitidos (repo publico).
+
+    Regras (P0 17/11, apos o `git add -A` de 17/11 subir 11 scripts sem
+    revisao):
+      - NUNCA `git add -A`. So entra o que casar com git.caminhos_permitidos.
+      - `push` so acontece em branch backup/*; em main o commit fica local.
+      - Se nada casar, nao commita.
+    """
+    cfg = CFG.get("git", {})
+    if not cfg.get("ativo", True):
+        log.info("git_commit_dia desativado (git.ativo=false)")
+        return
+    caminhos = cfg.get("caminhos_permitidos", [])
+    if not caminhos:
+        log.warning("git_commit_dia abortado: git.caminhos_permitidos vazio")
+        return
     try:
-        subprocess.run(["git", "-C", BASE_DIR, "add", "-A"], capture_output=True, timeout=60)
+        branch = subprocess.run(
+            ["git", "-C", BASE_DIR, "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True, text=True, timeout=30).stdout.strip()
+
+        existentes = []
+        for padrao in caminhos:
+            for f in glob.glob(os.path.join(BASE_DIR, padrao.replace("/", os.sep))):
+                rel = os.path.relpath(f, BASE_DIR).replace(os.sep, "/")
+                if rel not in existentes:
+                    existentes.append(rel)
+        if not existentes:
+            log.info("git_commit_dia: nenhum arquivo permitido presente - nada a commitar")
+            return
+
+        add = subprocess.run(["git", "-C", BASE_DIR, "add", "--"] + existentes,
+                             capture_output=True, text=True, timeout=60)
+        if add.returncode != 0:
+            log.warning(f"git add falhou ({add.returncode}): {add.stderr.strip()[:300]}")
+            return
+
+        # Nada novo? `git diff --cached --quiet` retorna 0 quando nao ha mudanca.
+        if subprocess.run(["git", "-C", BASE_DIR, "diff", "--cached", "--quiet"],
+                          capture_output=True, timeout=30).returncode == 0:
+            log.info("git_commit_dia: nada novo nos caminhos permitidos")
+            return
+
         msg = f"fecho autonomo {datetime.now():%Y-%m-%d} (agente Fase 1)"
-        subprocess.run(["git", "-C", BASE_DIR, "commit", "-m", msg], capture_output=True, timeout=60)
-        subprocess.run(["git", "-C", BASE_DIR, "push"], capture_output=True, timeout=120)
-        log.info("git commit+push do dia concluido")
+        subprocess.run(["git", "-C", BASE_DIR, "commit", "-m", msg, "--"] + existentes,
+                       capture_output=True, text=True, timeout=60)
+        log.info(f"git commit do dia: {len(existentes)} caminho(s) permitido(s) em '{branch}'")
+
+        if branch.startswith("backup/") and cfg.get("push_apenas_backup", True):
+            subprocess.run(["git", "-C", BASE_DIR, "push"],
+                           capture_output=True, text=True, timeout=120)
+            log.info(f"git push do dia (branch {branch})")
+        else:
+            log.info(f"git push NAO executado: branch '{branch}' nao e backup/* (commit local)")
     except Exception as e:
         log.error(f"git commit falhou: {e}")
 

@@ -18,6 +18,17 @@
     "ativo": true,
     "gerar_plano": true
   },
+  "git": {
+    "ativo": true,
+    "caminhos_permitidos": [
+      "relatorio_diario_*.txt",
+      "plano_*.txt",
+      "logs/fluxo_resumo_*.json",
+      "ROADMAP_MONSTRO_OFICIAL_UNIFICADO.md"
+    ],
+    "push_apenas_backup": true,
+    "obs": "P0 17/11: o fecho de 17/11 subiu 11 scripts com 'git add -A' sem revisao. Agora o commit aceita SOMENTE os caminhos acima e o push so ocorre em branch backup/* (repo publico)."
+  },
   "rotinas": {
     "graceful_timeout_s": 90,
     "health_timeout_s": 120,
