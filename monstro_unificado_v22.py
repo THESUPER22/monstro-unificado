@@ -42,6 +42,8 @@ import pandas as pd
 from precos_wdo import alinhar_sl, tick_do_simbolo
 # P0 17/11 #2: tetos de exposicao/frequencia (modulo puro, sem MT5/TF)
 from limites_execucao import avaliar_limite, podar_janela
+# P0 17/11 #3: P&L diario a partir dos deals do MT5 (modulo puro, sem MT5/TF)
+from pnl_dia import pnl_de_deals
 
 # Silencia logs verbosos do TensorFlow (C++). PRECISA ser definido ANTES de importar o TF.
 # '3' = sÃÂ³ FATAL (esconde a mensagem repetida "NodeDef ... use_unbounded_threadpool").
@@ -1169,6 +1171,9 @@ def _log_periodico(chave: str, intervalo_s: float) -> bool:
 # Circuit Breakers - ADAPTADO PARA WDO
 MAX_LOSS_DIARIO = config.get("risk_management", {}).get(
     "max_loss_diario", -500.0)   # Limite de perda diÃÂ¡ria em reais
+# P0 17/11 #3: fonte do P&L diario - "mt5" (deals) com fallback "historico"
+PNL_DIA_FONTE = config.get("risk_management", {}).get("pnl_dia_fonte", "mt5")
+PNL_DIA_CACHE_S = config.get("risk_management", {}).get("pnl_dia_cache_s", 30)
 MAX_DRAWDOWN = config.get("risk_management", {}).get(
     "max_drawdown", -250.0)      # Limite de drawdown por operaÃÂ§ÃÂ£o em reais
 # Spread mÃÂ¡ximo em pontos WDO
@@ -8617,6 +8622,45 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
 # region [Circuit Breakers]
 
 
+# P0 17/11 #3: P&L do dia a partir dos deals do MT5 (fonte unica de verdade)
+_PNL_DIA_CACHE = {"dia": None, "ts": 0.0, "valor": None}
+
+
+def pnl_dia_mt5(dia=None, magics=None, forcar=False):
+    """Resultado liquido do dia vindo dos deals do MT5.
+
+    Fonte unica (extrato), com cache curto porque `verificar_circuit_breakers`
+    roda no loop quente. Retorna None se a consulta falhar - o chamador cai
+    para o historico em memoria.
+    """
+    if dia is None:
+        dia = datetime.now().date()
+    if magics is None:
+        magics = (MAGIC_NUMBER, MAGIC_ROMPIMENTO)
+    agora = time.time()
+    if (not forcar and _PNL_DIA_CACHE["dia"] == dia
+            and _PNL_DIA_CACHE["valor"] is not None
+            and agora - _PNL_DIA_CACHE["ts"] < PNL_DIA_CACHE_S):
+        return _PNL_DIA_CACHE["valor"]
+    try:
+        ini = datetime(dia.year, dia.month, dia.day)
+        deals = mt5.history_deals_get(ini, datetime.now() + timedelta(days=1))
+    except Exception as e:
+        if _log_periodico("pnl_dia_falha", 60):
+            logging.warning(f"[pnl_dia] history_deals_get falhou: {e}")
+        return None
+    if deals is None:
+        if _log_periodico("pnl_dia_falha", 60):
+            logging.warning("[pnl_dia] history_deals_get retornou None - usando fallback")
+        return None
+    total, n = pnl_de_deals(deals, dia, magics)
+    _PNL_DIA_CACHE.update({"dia": dia, "ts": agora, "valor": total})
+    if _log_periodico("pnl_dia_mt5", 300):
+        logging.info(
+            f"[pnl_dia] MT5: {n} deals, liquido {total:+.2f} (magics {sorted(magics)})")
+    return total
+
+
 def verificar_circuit_breakers(contexto: Dict[str, Any]) -> Tuple[bool, str]:
     """Verifica condiÃÂ§ÃÂµes de circuit breaker."""
     agora = datetime.now().time()
@@ -8643,7 +8687,10 @@ def verificar_circuit_breakers(contexto: Dict[str, Any]) -> Tuple[bool, str]:
         return True, f"Volume ask insuficiente: {contexto.get('ask_qty', 0)}"
 
     # Verifica drawdown diÃÂ¡rio
-    lucro_dia = sum(historico_lucro[-100:])  # ÃÅ¡ltimas 100 operaÃÂ§ÃÂµes
+    # P0 17/11 #3: fonte unica = deals do MT5; historico so como fallback
+    lucro_dia = pnl_dia_mt5() if PNL_DIA_FONTE == "mt5" else None
+    if lucro_dia is None:
+        lucro_dia = sum(historico_lucro[-100:])  # fallback (ultimas 100 operacoes)
     if lucro_dia < MAX_LOSS_DIARIO:
         return True, f"Stop loss diÃÂ¡rio atingido: {lucro_dia:.2f}"
 

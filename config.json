@@ -54,7 +54,9 @@
         "sl_points": 8,
         "book_ratio_min": 1.3,
         "dol_conf_min": 0.4,
-        "tp_points": 0
+        "tp_points": 0,
+        "pnl_dia_fonte": "mt5",
+        "pnl_dia_cache_s": 30
     },
     "limites_execucao": {
         "ativo": true,
