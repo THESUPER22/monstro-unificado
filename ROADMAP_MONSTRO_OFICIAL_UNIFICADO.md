@@ -5590,6 +5590,14 @@ o dia de 16/11, nao o mecanismo do edge.
 
 O que **nao** esta falsificado: que exista edge liquido repetivel. Ver 23.51.4.
 
+**Por que 16/11 foi 9/9 BUY e hoje operou os dois lados?** Nao foi o mercado:
+foi a guarda `multiTF` do proprio Sniper. Em 16/11 os sinais de SELL saiam
+como `standby | multiTF M15=-1 M30=-1 bloqueia SELL`; hoje os M15/M30 nao
+estavam bearish (RSI 54,7 / 69,0) e a guarda liberou os dois lados. O Core,
+esse sim, ficou bloqueado o dia inteiro (`FORCA SELL BLOQUEADO: Multi-TF
+bullish`) e o Sniper sobrepos. Confirmado que o commit `c4c929c` **nao tocou**
+nenhuma linha de `SNIPER`/`multiTF` (diff filtrado: zero ocorrencias).
+
 ### 23.51.2 Atribuicao dos 17 trades fechados (MT5, deals reais)
 
 7 BUY / 10 SELL. Saidas: **9 TP**, **3 trailing-win** (SL movido a favor),
@@ -5781,6 +5789,16 @@ Confirmacao independente: `mt5.positions_get()` apos o fecho retorna **1**
 posicao (a WINV25), e o deal de saida da WDO existe com `comment='fecho
 robusto'`.
 
+**Ressalva - near-miss no shutdown:** o `Monstro-Fecho` registrou `timeout no
+shutdown gracioso` e disparou `force kill PID 151632 (arvore)`. Mas o robo
+havia concluido o proprio encerramento as **17:36:46**
+(`ENCERRAMENTO GRACIL CONCLUIDO`), depois de salvar o modelo (17:36:43,
+113.872 B) e as experiencias (17:36:46). O kill caiu sobre processos que ja
+estavam saindo. Verificacao do artefato pos-kill: `modelo_monstro_wdo.h5`
+**carrega OK**, entrada `(None, 20)`, saida `(None, 1)`, backup do mesmo
+tamanho, scaler com 20 features. Sem perda de dados hoje - mas por sorte de
+timing, nao por desenho (ver 23.51.9).
+
 ### 23.51.9 Backlog aberto por esta autopsia
 
 - **Headline do clipping (1 estrela, cosmetico):** trocar `n_clip` por
@@ -5788,6 +5806,10 @@ robusto'`.
 - **`10016 Invalid stops` (4 estrelas):** 18 rejeicoes hoje (19 em 16/11);
   36 ERROR = 18 detalhes `Freeze=1, Distancia min=1.00000` + 18 falhas de
   mover SL. O trailing perde o passo quando o preco anda rapido. Clamp/adiar.
+- **Timeout do shutdown gracioso (3 estrelas):** o fecho de hoje declarou
+  `timeout` e disparou force-kill quando o robo ja estava saindo (concluiu as
+  17:36:46). Se o save do H5 fosse mais lento, o kill truncaria o artefato.
+  Aumentar o timeout e/ou detectar a saida pelo PID antes de matar.
 - **Ruido do log (3 estrelas):** 6.591 WARNINGs hoje, dominados por
   `WILLIAMS %R VETO` (1.135 + 828), `VETO TOTAL` (1.135), `CONFLUENCIA
   INSUFICIENTE` (755), `MULTI-TF VETO` (398). O throttle limpou so o clipping.
