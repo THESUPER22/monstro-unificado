@@ -56,6 +56,13 @@
         "dol_conf_min": 0.4,
         "tp_points": 0
     },
+    "limites_execucao": {
+        "ativo": true,
+        "max_posicoes": 2,
+        "max_ordens_por_janela": 3,
+        "janela_ordens_s": 60,
+        "kill_switch_ao_exceder": true
+    },
     "trailing_stop": {
         "ativo": true,
         "intervalo_segundos": 5,

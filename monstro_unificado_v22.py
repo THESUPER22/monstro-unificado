@@ -40,6 +40,8 @@ import pandas as pd
 
 # P0 17/11: alinhamento de SL ao tick real (modulo puro, sem MT5/TF)
 from precos_wdo import alinhar_sl, tick_do_simbolo
+# P0 17/11 #2: tetos de exposicao/frequencia (modulo puro, sem MT5/TF)
+from limites_execucao import avaliar_limite, podar_janela
 
 # Silencia logs verbosos do TensorFlow (C++). PRECISA ser definido ANTES de importar o TF.
 # '3' = sÃÂ³ FATAL (esconde a mensagem repetida "NodeDef ... use_unbounded_threadpool").
@@ -1080,6 +1082,14 @@ TICKS_POR_PONTO = config.get("contrato", {}).get(
     "ticks_por_ponto", 1000)    # WDO: 1 ponto = 1000 ticks
 ALINHAR_SL_TICK = config.get("contrato", {}).get(
     "alinhar_sl_tick", True)    # P0 17/11: SL multiplo de trade_tick_size
+# P0 17/11 #2: tetos de execucao (rede de seguranca, NAO estrategia)
+_LIMITES_EXEC_CFG = config.get("limites_execucao", {})
+LIMITES_EXEC_ATIVO = _LIMITES_EXEC_CFG.get("ativo", True)
+MAX_POSICOES_SIMULTANEAS = _LIMITES_EXEC_CFG.get("max_posicoes", 2)
+MAX_ORDENS_JANELA = _LIMITES_EXEC_CFG.get("max_ordens_por_janela", 3)
+JANELA_ORDENS_S = _LIMITES_EXEC_CFG.get("janela_ordens_s", 60)
+KILL_AO_EXCEDER = _LIMITES_EXEC_CFG.get("kill_switch_ao_exceder", True)
+_ordens_recentes = []  # timestamps (time.time) dos envios aceitos
 # Volume padrÃÂ£o (1 contrato WDO)
 VOLUME_PADRAO = config.get("volume_padrao", 1.0)
 HORARIO_PREGAO = config.get("horarios", {}).get("pregao", "09:00")
@@ -5486,6 +5496,37 @@ def executar_ordem(action, lots=VOLUME_PADRAO, symbol=None, modo_operacional=Non
         if not reconectar_mt5():
             logging.error("Ã¢ÂÅ Falha ao reconectar MT5")
             return None
+
+    # P0 17/11 #2: teto de exposicao e frequencia (rede de seguranca, NAO
+    # estrategia). Normal: 1 posicao e Sniper com cooldown de 120 s. Estouro
+    # => bloqueia a ordem e dispara o kill-switch (parar.txt) do robo.
+    if LIMITES_EXEC_ATIVO:
+        global _ordens_recentes
+        _agora = time.time()
+        _ordens_recentes = podar_janela(
+            _ordens_recentes, _agora, JANELA_ORDENS_S)
+        try:
+            _pos_abertas = len(mt5.positions_get(symbol=symbol) or [])
+        except Exception as _e:
+            logging.warning(
+                f"Teto de execucao: falha ao contar posicoes ({_e}) - seguindo")
+            _pos_abertas = 0
+        _bloqueado, _motivo = avaliar_limite(
+            _pos_abertas, _ordens_recentes, _agora, JANELA_ORDENS_S,
+            MAX_POSICOES_SIMULTANEAS, MAX_ORDENS_JANELA)
+        if _bloqueado:
+            logging.error(
+                f"TETO DE EXECUCAO ESTOURADO - ordem {action} bloqueada: {_motivo}")
+            if KILL_AO_EXCEDER:
+                try:
+                    with open(_caminho_dados("parar.txt"), "w", encoding="utf-8") as _f:
+                        _f.write(f"TETO DE EXECUCAO: {_motivo}")
+                    logging.error(
+                        "parar.txt criado - encerramento coordenado sera executado pelo loop principal")
+                except Exception as _e:
+                    logging.error(f"Erro ao criar parar.txt: {_e}")
+            return None
+        _ordens_recentes.append(_agora)
 
     if modo_operacional and modo_operacional.modo_atual == "DEFESA":
         logging.info("Ã°Å¸âºÂ¡Ã¯Â¸Â Ordem bloqueada - Modo defesa ativo")
