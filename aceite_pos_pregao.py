@@ -124,6 +124,28 @@ def _whitelist(base: str) -> List[str]:
         return []
 
 
+def resolver_log(base: str, dia: date) -> Tuple[str, str]:
+    """Caminho do log DAQUELE dia e o motivo.
+
+    A rotacao do robo renomeia ``monstro_wdo.log`` para
+    ``monstro_wdo_AAAA-MM-DD.log`` somente na INICIALIZACAO seguinte. No dia do
+    pregao o arquivo atual ainda e ``monstro_wdo.log``. Procurar so o datado
+    faria o aceite ler um arquivo inexistente e reportar 0x10016 falso.
+
+    Ordem: datado (sessao ja rotacionada) -> atual com mtime do dia -> nada.
+    """
+    datado = os.path.join(base, f"monstro_wdo_{dia:%Y%m%d}.log")
+    if os.path.exists(datado):
+        return datado, "datado"
+    atual = os.path.join(base, "monstro_wdo.log")
+    if os.path.exists(atual):
+        mtime = datetime.fromtimestamp(os.path.getmtime(atual)).date()
+        if mtime == dia:
+            return atual, "atual (sessao do dia, ainda nao rotacionado)"
+        return "", f"atual e de {mtime.isoformat()}, nao de {dia.isoformat()}"
+    return "", "log do dia nao encontrado"
+
+
 def _deals_mt5(dia: date) -> List:
     try:
         import MetaTrader5 as mt5  # noqa: PLC0415
@@ -142,14 +164,17 @@ def coletar(base: str, dia: date, deals: Optional[Iterable] = None,
             agente_texto: Optional[str] = None,
             commit_info: Optional[dict] = None) -> dict:
     """Mede os 5 numeros e devolve o veredito (sem efeito colateral)."""
+    log_usado, log_motivo = "", "texto fornecido"
     if log_texto is None:
-        log_texto = _ler(os.path.join(base, f"monstro_wdo_{dia:%Y%m%d}.log"))
+        log_usado, log_motivo = resolver_log(base, dia)
+        log_texto = _ler(log_usado) if log_usado else ""
     if agente_texto is None:
         agente_texto = _ler(os.path.join(base, "agente_autonomo.log"))
 
     n10016 = contar_10016(log_texto)
     n_teto = contar_teto(log_texto)
     pnl = ultimo_pnl_mt5(log_texto)
+    log_encontrado = bool(log_texto)
 
     if deals is None and pnl is not None:
         deals = _deals_mt5(dia)
@@ -173,10 +198,13 @@ def coletar(base: str, dia: date, deals: Optional[Iterable] = None,
         commit_info = {"commits": len(shas), "arquivos": sorted(set(arquivos)),
                        "extras": extras, "ok": bool(shas) and not extras}
 
-    ok = (n10016 == 0 and n_teto == 0 and pnl_igual_saidas and parado
-          and encerrou and bool(commit_info.get("ok")))
+    ok = (log_encontrado and n10016 == 0 and n_teto == 0 and pnl_igual_saidas
+          and parado and encerrou and bool(commit_info.get("ok")))
     return {
         "dia": dia.isoformat(),
+        "log_usado": log_usado,
+        "log_motivo": log_motivo,
+        "log_encontrado": log_encontrado,
         "retcode_10016": n10016,
         "teto_estourado": n_teto,
         "pnl_log": pnl,
@@ -195,6 +223,10 @@ def coletar(base: str, dia: date, deals: Optional[Iterable] = None,
 
 def imprimir(r: dict) -> None:
     print(f"ACEITE POS-PREGAO {r['dia']}")
+    if r.get("log_usado"):
+        print(f"  log do dia:                    {r['log_usado']}")
+    else:
+        print(f"  log do dia:                    AUSENTE ({r.get('log_motivo', '')})")
     print(f"  10016 (esperado 0):            {r['retcode_10016']}")
     print(f"  TETO ESTOURADO (esperado 0):   {r['teto_estourado']}")
     p = r["pnl_log"]

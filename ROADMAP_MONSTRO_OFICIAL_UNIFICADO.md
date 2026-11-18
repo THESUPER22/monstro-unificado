@@ -6440,7 +6440,7 @@ isso e ~0,003% do tempo; a ordem nao espera nada disso porque so faz
 Script read-only: `python aceite_pos_pregao.py --dia 2026-11-18`.
 Ele imprime os 5 numeros e um veredito:
 
-1. linhas com `10016` no `monstro_wdo_20261118.log` (esperado **0**);
+1. linhas com `10016` no log do dia (esperado **0**);
 2. linhas `TETO DE EXECUCAO ESTOURADO` (esperado **0**);
 3. ultimo `[pnl_dia] MT5` do log **==** soma dos deals de saida do dia
    (mostra tambem a soma de todos os deals, para separar comissao de entrada);
@@ -6449,6 +6449,23 @@ Ele imprime os 5 numeros e um veredito:
 5. commits entre 17:30 e 23:59 do dia **so** com arquivos da whitelist de
    `agente_config.json` (qualquer arquivo fora aparece como
    `FORA DA WHITELIST`).
+
+**Armadilha do nome do log (medida em 17/11):** a rotacao do robo so
+renomeia `monstro_wdo.log` para `monstro_wdo_AAAA-MM-DD.log` na
+**inicializacao seguinte**. No dia do pregao o arquivo atual ainda e
+`monstro_wdo.log`; em 17/11 o datado `monstro_wdo_20261117.log` nao existia e
+o conteudo do dia estava todo em `monstro_wdo.log`. Procurar apenas o datado
+faria o aceite ler um arquivo inexistente e reportar **0 x 10016 falso**. Por
+isso `resolver_log()` usa: datado se existir; senao `monstro_wdo.log` se o
+mtime for do dia; senao **nao encontrado** — e log ausente reprova o aceite
+(`log_encontrado=false`), nunca "passa por zero". O caminho usado aparece na
+primeira linha da saida.
+
+**Baseline medido de 17/11** (antes do aceite valer): 18 linhas com `10016`,
+0 `TETO DE EXECUCAO ESTOURADO`, nenhum `[pnl_dia] MT5` no log (a correcao 2.2
+foi commitada depois do fecho daquele dia, entao ainda nao rodou), 17 saidas
+somando **+735,00** (sem comissao na demo) e commit do fecho com 41 arquivos
+fora da whitelist. Esse e o "antes" que o aceite de 18/11 precisa virar.
 
 `--sem-mt5` roda so log/arquivos/git (o item 3 fica DIFERENTE por falta dos
 deals; serve para diagnostico). O script nao envia ordem e nao escreve nada.

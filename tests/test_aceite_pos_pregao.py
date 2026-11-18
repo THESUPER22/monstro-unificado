@@ -9,7 +9,7 @@ sys.path.insert(0, BASE)
 
 from aceite_pos_pregao import (coletar, contar_10016, contar_teto,  # noqa: E402
                                encerrou_graciosamente, permitido,
-                               soma_deals, ultimo_pnl_mt5)
+                               resolver_log, soma_deals, ultimo_pnl_mt5)
 
 DIA = date(2026, 11, 18)
 T = datetime(2026, 11, 18, 10, 0, tzinfo=timezone.utc).timestamp()
@@ -86,4 +86,42 @@ def test_coletar_falha_com_10016_ou_commit_fora_da_whitelist(tmp_path):
                 commit_info={"commits": 1, "arquivos": ["monstro_unificado_v22.py"],
                              "extras": ["monstro_unificado_v22.py"], "ok": False})
     assert r["retcode_10016"] == 1
+    assert r["ok"] is False
+
+
+# ------------------------------------------------- log do dia (rotacao) -----
+def test_resolver_log_prefere_o_datado(tmp_path):
+    datado = tmp_path / "monstro_wdo_20261118.log"
+    datado.write_text("x", encoding="utf-8")
+    (tmp_path / "monstro_wdo.log").write_text("y", encoding="utf-8")
+    caminho, motivo = resolver_log(str(tmp_path), DIA)
+    assert caminho == str(datado) and motivo == "datado"
+
+
+def test_resolver_log_usa_o_atual_da_sessao_do_dia(tmp_path):
+    atual = tmp_path / "monstro_wdo.log"
+    atual.write_text("x", encoding="utf-8")
+    mtime = datetime(2026, 11, 18, 12, 0).timestamp()
+    os.utime(atual, (mtime, mtime))
+    caminho, motivo = resolver_log(str(tmp_path), DIA)
+    assert caminho == str(atual) and "ainda nao rotacionado" in motivo
+
+
+def test_resolver_log_nao_usa_atual_de_outro_dia(tmp_path):
+    atual = tmp_path / "monstro_wdo.log"
+    atual.write_text("x", encoding="utf-8")
+    mtime = datetime(2026, 11, 17, 12, 0).timestamp()
+    os.utime(atual, (mtime, mtime))
+    caminho, motivo = resolver_log(str(tmp_path), DIA)
+    assert caminho == ""
+    assert "2026-11-17" in motivo
+
+
+def test_coletar_sem_log_nao_passa_nem_zera_10016(tmp_path):
+    """Sem log nao existe '0 x 10016': o aceite nao pode passar."""
+    r = coletar(str(tmp_path), DIA, deals=DEALS, agente_texto=AGENTE_OK,
+                commit_info={"commits": 1, "arquivos": [], "extras": [],
+                             "ok": True})
+    assert r["log_encontrado"] is False
+    assert r["log_usado"] == ""
     assert r["ok"] is False
