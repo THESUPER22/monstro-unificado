@@ -16,8 +16,14 @@ Modulo puro (sem MT5/TensorFlow), testavel em ``tests/test_escrita_atomica.py``.
 from __future__ import annotations
 
 import os
+import time
 import uuid
 from typing import Callable, TextIO
+
+# Windows: antivirus/indexador pode segurar o arquivo por alguns ms. Sem o
+# retry, um PermissionError passageiro derrubava a gravacao do artefato.
+TENTATIVAS_REPLACE = 5
+ESPERA_REPLACE_S = 0.1
 
 
 def caminho_temporario(caminho: str) -> str:
@@ -31,6 +37,26 @@ def caminho_temporario(caminho: str) -> str:
     raiz, ext = os.path.splitext(nome)
     token = f"{os.getpid()}_{uuid.uuid4().hex[:8]}"
     return os.path.join(pasta, f"{raiz}__tmp_{token}{ext}")
+
+
+def _replace_com_retry(origem: str, destino: str,
+                       tentativas: int = TENTATIVAS_REPLACE,
+                       espera_s: float = ESPERA_REPLACE_S) -> None:
+    """``os.replace`` com retry em ``PermissionError``.
+
+    No Windows o destino pode ficar bloqueado por alguns ms (antivirus,
+    indexador, outro handle de leitura). Cada falha espera ``espera_s`` e
+    tenta de novo; na ultima tentativa a excecao sobe (o chamador limpa o
+    temporario).
+    """
+    for tentativa in range(1, tentativas + 1):
+        try:
+            os.replace(origem, destino)
+            return
+        except PermissionError:
+            if tentativa >= tentativas:
+                raise
+            time.sleep(espera_s)
 
 
 def salvar_atomico(caminho: str,
@@ -52,7 +78,7 @@ def salvar_atomico(caminho: str,
             escritor(f)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp, destino)
+        _replace_com_retry(tmp, destino)
     except BaseException:
         try:
             if os.path.exists(tmp):

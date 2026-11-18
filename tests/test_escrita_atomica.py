@@ -161,6 +161,85 @@ def test_diretorio_inexistente_falha_sem_lixo():
         assert os.listdir(d) == []
 
 
+# ----------------------------------------------------------- retry replace -
+def _com_replace_fake(fake, fn):
+    """Executa fn com escrita_atomica.os.replace/time.sleep trocados."""
+    import escrita_atomica
+    real_replace = escrita_atomica.os.replace
+    real_sleep = escrita_atomica.time.sleep
+    esperas = []
+
+    def fake_sleep(s):
+        esperas.append(s)
+
+    escrita_atomica.os.replace = fake
+    escrita_atomica.time.sleep = fake_sleep
+    try:
+        fn()
+    finally:
+        escrita_atomica.os.replace = real_replace
+        escrita_atomica.time.sleep = real_sleep
+    return esperas
+
+
+def test_replace_retry_vence_permissionerror_temporario():
+    """os.replace bloqueado 3x ainda grava (5 tentativas, 100 ms entre elas)."""
+    with _dir() as d:
+        alvo = os.path.join(d, "saida.txt")
+        real = os.replace
+        chamadas = {"n": 0}
+
+        def fake(origem, destino):
+            chamadas["n"] += 1
+            if chamadas["n"] <= 3:
+                raise PermissionError("arquivo em uso")
+            return real(origem, destino)
+
+        esperas = _com_replace_fake(
+            fake, lambda: salvar_texto_atomico(alvo, "ok"))
+
+        assert chamadas["n"] == 4
+        assert esperas == [0.1, 0.1, 0.1]
+        with open(alvo, encoding="utf-8") as f:
+            assert f.read() == "ok"
+        assert os.listdir(d) == ["saida.txt"]      # nenhum temporario sobrou
+
+
+def test_replace_retry_desiste_apos_5_e_preserva_original():
+    with _dir() as d:
+        alvo = os.path.join(d, "saida.txt")
+        with open(alvo, "w", encoding="utf-8") as f:
+            f.write("original")
+        chamadas = {"n": 0}
+
+        def fake(origem, destino):
+            chamadas["n"] += 1
+            raise PermissionError("bloqueado para sempre")
+
+        try:
+            _com_replace_fake(
+                fake, lambda: salvar_texto_atomico(alvo, "novo"))
+        except PermissionError:
+            pass
+        else:
+            raise AssertionError("PermissionError deveria propagar na 5a")
+
+        assert chamadas["n"] == 5
+        with open(alvo, encoding="utf-8") as f:
+            assert f.read() == "original"
+        assert os.listdir(d) == ["saida.txt"]
+
+
+def test_replace_sem_erro_nao_espera():
+    with _dir() as d:
+        alvo = os.path.join(d, "saida.txt")
+        esperas = _com_replace_fake(
+            os.replace, lambda: salvar_texto_atomico(alvo, "ok"))
+        assert esperas == []
+        with open(alvo, encoding="utf-8") as f:
+            assert f.read() == "ok"
+
+
 # ------------------------------------------------------------- integracao ---
 def _fonte_robo():
     caminho = os.path.join(BASE, "monstro_unificado_v22.py")
