@@ -148,7 +148,7 @@ def test_estrutura_do_dia_17_11():
 
 # ------------------------------------------------------------- integracao ---
 def test_robo_usa_deals_como_fonte_primaria():
-    """Guard: a fonte primaria e pnl_dia_mt5; o historico vira fallback."""
+    """Guard: a fonte primaria e pnl_dia_mt5; a memoria vira fallback."""
     caminho = os.path.join(BASE, "monstro_unificado_v22.py")
     with open(caminho, encoding="utf-8", errors="replace") as f:
         fonte = f.read()
@@ -156,6 +156,34 @@ def test_robo_usa_deals_como_fonte_primaria():
     assert "def pnl_dia_mt5(" in fonte
     assert "lucro_dia = pnl_dia_mt5()" in fonte
     assert "if lucro_dia is None:" in fonte
+
+
+def _fonte():
+    caminho = os.path.join(BASE, "monstro_unificado_v22.py")
+    with open(caminho, encoding="utf-8", errors="replace") as f:
+        return f.read()
+
+
+def test_fallback_global_usa_memoria_do_breaker():
+    """2.2: se o MT5 falhar, o fallback e circuit_breaker.loss_diario_atual."""
+    fonte = _fonte()
+    assert "historico_lucro[-100:]" not in fonte
+    assert ("lucro_dia = circuit_breaker.loss_diario_atual if circuit_breaker"
+            in fonte)
+    assert 'if _log_periodico("pnl_dia_fallback", 3600):' in fonte
+
+
+def test_breaker_da_classe_usa_pnl_do_mt5_e_max_loss():
+    """2.2: CircuitBreakerEssencial le o P&L dos deals, nao so a memoria."""
+    fonte = _fonte()
+    ini = fonte.index("class CircuitBreakerEssencial")
+    fim = fonte.index("LOSS_DIARIO_CB =", ini)  # fim do bloco da classe
+    corpo = fonte[ini:fim]
+    assert "pnl_dia_mt5()" in corpo
+    assert "MAX_LOSS_DIARIO" in corpo
+    assert "-1000.0" not in corpo  # limite nao pode voltar a ser literal
+    assert "self.loss_diario_atual" in corpo  # fallback continua existindo
+    assert 'if _log_periodico("cb_loss_fallback", 3600):' in corpo
 
 
 if __name__ == "__main__":

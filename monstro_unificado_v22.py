@@ -1778,9 +1778,16 @@ class CircuitBreakerEssencial:
         #     return True
 
         # CB2: Loss diÃÂ¡rio excessivo (WDO)
-        if not ignore_max_loss and self.loss_diario_atual <= -1000.0:
+        _pnl = pnl_dia_mt5() if PNL_DIA_FONTE == "mt5" else None
+        if _pnl is None:
+            _pnl = self.loss_diario_atual
+            if _log_periodico("cb_loss_fallback", 3600):
+                logging.error(
+                    "[CB] pnl_dia_mt5 indisponivel - fallback para "
+                    f"loss_diario_atual em memoria ({_pnl:+.2f})")
+        if not ignore_max_loss and _pnl <= MAX_LOSS_DIARIO:
             self.bloqueado = True
-            self.motivo_bloqueio = f"Loss diÃÂ¡rio: R${self.loss_diario_atual:.2f}"
+            self.motivo_bloqueio = f"Loss diario: R${_pnl:.2f}"
             return True
 
         # CB3: Spread muito alto (WDO)
@@ -8725,10 +8732,15 @@ def verificar_circuit_breakers(contexto: Dict[str, Any]) -> Tuple[bool, str]:
         return True, f"Volume ask insuficiente: {contexto.get('ask_qty', 0)}"
 
     # Verifica drawdown diÃÂ¡rio
-    # P0 17/11 #3: fonte unica = deals do MT5; historico so como fallback
+    # P0 17/11 #3 / 2.2: fonte unica = deals do MT5; a memoria do breaker
+    # (loss_diario_atual) so entra se a consulta ao MT5 falhar.
     lucro_dia = pnl_dia_mt5() if PNL_DIA_FONTE == "mt5" else None
     if lucro_dia is None:
-        lucro_dia = sum(historico_lucro[-100:])  # fallback (ultimas 100 operacoes)
+        lucro_dia = circuit_breaker.loss_diario_atual if circuit_breaker else 0.0
+        if _log_periodico("pnl_dia_fallback", 3600):
+            logging.error(
+                "[pnl_dia] MT5 indisponivel - fallback para "
+                f"loss_diario_atual em memoria ({lucro_dia:+.2f})")
     if lucro_dia < MAX_LOSS_DIARIO:
         return True, f"Stop loss diÃÂ¡rio atingido: {lucro_dia:.2f}"
 
