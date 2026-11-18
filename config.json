@@ -60,6 +60,7 @@
     },
     "limites_execucao": {
         "ativo": true,
+        "max_contratos": 2,
         "max_posicoes": 2,
         "max_ordens_por_janela": 3,
         "janela_ordens_s": 60,

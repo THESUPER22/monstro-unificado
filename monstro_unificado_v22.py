@@ -41,7 +41,7 @@ import pandas as pd
 # P0 17/11: alinhamento de SL ao tick real (modulo puro, sem MT5/TF)
 from precos_wdo import alinhar_sl, tick_do_simbolo
 # P0 17/11 #2: tetos de exposicao/frequencia (modulo puro, sem MT5/TF)
-from limites_execucao import avaliar_limite, podar_janela
+from limites_execucao import avaliar_limite, podar_janela, volume_aberto
 # P0 17/11 #3: P&L diario a partir dos deals do MT5 (modulo puro, sem MT5/TF)
 from pnl_dia import pnl_de_deals
 # P0 17/11 #4: escrita atomica de arquivos (modulo puro, sem MT5/TF)
@@ -1093,7 +1093,10 @@ HANDSHAKE_PARADO_OK = _ENCERRAMENTO_CFG.get("handshake_parado_ok", True)
 # P0 17/11 #2: tetos de execucao (rede de seguranca, NAO estrategia)
 _LIMITES_EXEC_CFG = config.get("limites_execucao", {})
 LIMITES_EXEC_ATIVO = _LIMITES_EXEC_CFG.get("ativo", True)
-MAX_POSICOES_SIMULTANEAS = _LIMITES_EXEC_CFG.get("max_posicoes", 2)
+# Conta netting: 1 posicao, entao o teto e em contratos. Fallback para
+# max_posicoes mantem compatibilidade com configs antigos.
+MAX_CONTRATOS = _LIMITES_EXEC_CFG.get(
+    "max_contratos", _LIMITES_EXEC_CFG.get("max_posicoes", 2))
 MAX_ORDENS_JANELA = _LIMITES_EXEC_CFG.get("max_ordens_por_janela", 3)
 JANELA_ORDENS_S = _LIMITES_EXEC_CFG.get("janela_ordens_s", 60)
 KILL_AO_EXCEDER = _LIMITES_EXEC_CFG.get("kill_switch_ao_exceder", True)
@@ -5508,37 +5511,6 @@ def executar_ordem(action, lots=VOLUME_PADRAO, symbol=None, modo_operacional=Non
             logging.error("Ã¢ÂÅ Falha ao reconectar MT5")
             return None
 
-    # P0 17/11 #2: teto de exposicao e frequencia (rede de seguranca, NAO
-    # estrategia). Normal: 1 posicao e Sniper com cooldown de 120 s. Estouro
-    # => bloqueia a ordem e dispara o kill-switch (parar.txt) do robo.
-    if LIMITES_EXEC_ATIVO:
-        global _ordens_recentes
-        _agora = time.time()
-        _ordens_recentes = podar_janela(
-            _ordens_recentes, _agora, JANELA_ORDENS_S)
-        try:
-            _pos_abertas = len(mt5.positions_get(symbol=symbol) or [])
-        except Exception as _e:
-            logging.warning(
-                f"Teto de execucao: falha ao contar posicoes ({_e}) - seguindo")
-            _pos_abertas = 0
-        _bloqueado, _motivo = avaliar_limite(
-            _pos_abertas, _ordens_recentes, _agora, JANELA_ORDENS_S,
-            MAX_POSICOES_SIMULTANEAS, MAX_ORDENS_JANELA)
-        if _bloqueado:
-            logging.error(
-                f"TETO DE EXECUCAO ESTOURADO - ordem {action} bloqueada: {_motivo}")
-            if KILL_AO_EXCEDER:
-                try:
-                    with open(_caminho_dados("parar.txt"), "w", encoding="utf-8") as _f:
-                        _f.write(f"TETO DE EXECUCAO: {_motivo}")
-                    logging.error(
-                        "parar.txt criado - encerramento coordenado sera executado pelo loop principal")
-                except Exception as _e:
-                    logging.error(f"Erro ao criar parar.txt: {_e}")
-            return None
-        _ordens_recentes.append(_agora)
-
     if modo_operacional and modo_operacional.modo_atual == "DEFESA":
         logging.info("Ã°Å¸âºÂ¡Ã¯Â¸Â Ordem bloqueada - Modo defesa ativo")
         return None
@@ -5605,6 +5577,55 @@ def executar_ordem(action, lots=VOLUME_PADRAO, symbol=None, modo_operacional=Non
     # Garante que o volume seja float e no mÃÂ­nimo 1.0
     lote_corrigido = float(max(1, round(params['volume'])))
     logging.info(f"Ã°Å¸âÅ  Volume ajustado: {lote_corrigido:.1f} contratos")
+
+    # P0 17/11 #2 (rev. 2.1): teto de exposicao em CONTRATOS e frequencia.
+    # Roda DEPOIS do volume final (lote_corrigido) e ANTES do order_send.
+    # Conta netting: positions_get devolve 0 ou 1 posicao; o teto soma o
+    # volume aberto + o volume desta ordem. Estouro => bloqueia e dispara o
+    # kill-switch. positions_get None => 1 retry e fail-closed.
+    if LIMITES_EXEC_ATIVO:
+        global _ordens_recentes
+        _agora = time.time()
+        _ordens_recentes = podar_janela(
+            _ordens_recentes, _agora, JANELA_ORDENS_S)
+        try:
+            _pos = mt5.positions_get(symbol=symbol)
+            if _pos is None:
+                time.sleep(0.2)
+                _pos = mt5.positions_get(symbol=symbol)
+        except Exception as _e:
+            logging.error(
+                f"Teto de execucao: positions_get falhou ({_e}) - "
+                "ordem bloqueada (fail-closed)")
+            return None
+        if _pos is None:
+            logging.error(
+                "Teto de execucao: positions_get=None apos retry - "
+                "ordem bloqueada (fail-closed)")
+            return None
+        try:
+            _vol_aberto = volume_aberto(_pos)
+        except Exception as _e:
+            logging.error(
+                f"Teto de execucao: exposicao ilegivel ({_e}) - "
+                "ordem bloqueada (fail-closed)")
+            return None
+        _bloqueado, _motivo = avaliar_limite(
+            _vol_aberto, lote_corrigido, _ordens_recentes, _agora,
+            JANELA_ORDENS_S, MAX_CONTRATOS, MAX_ORDENS_JANELA)
+        if _bloqueado:
+            logging.error(
+                f"TETO DE EXECUCAO ESTOURADO - ordem {action} bloqueada: {_motivo}")
+            if KILL_AO_EXCEDER:
+                try:
+                    with open(_caminho_dados("parar.txt"), "w", encoding="utf-8") as _f:
+                        _f.write(f"TETO DE EXECUCAO: {_motivo}")
+                    logging.error(
+                        "parar.txt criado - encerramento coordenado sera executado pelo loop principal")
+                except Exception as _e:
+                    logging.error(f"Erro ao criar parar.txt: {_e}")
+            return None
+        _ordens_recentes.append(_agora)
 
     # ========== WDO: SL=5 (seguranÃÂ§a), TP=0 (saÃÂ­da dinÃÂ¢mica por Keras+Book) ==========
     # Sniper %R passa SL/TP por ATR (sl_points_override / tp_points_override)
