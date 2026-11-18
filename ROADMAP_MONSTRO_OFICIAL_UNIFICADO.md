@@ -6159,6 +6159,12 @@ git add -f --dry-run exit = 0
 git add    --dry-run exit = 1   (bug antigo)
 ```
 
+**Aceite end-to-end (17/11, 21:50).** O caminho real (`commit_permitido`, sem
+modo dry-run) publicou os 3 primeiros arquivos que o fecho nunca conseguia:
+`relatorio_diario_20261117.txt`, `logs/fluxo_resumo_20261117.json` e
+`relatorio_metricas_2026-11-17.txt` (commit `56a0889`). Antes: **0** relatorios
+e **0** fluxo no git. Depois: 1 de cada, arvore limpa.
+
 **Risco conhecido.** Se dois fechos seguidos falharem, o relatorio do primeiro
 dia fica so no disco. Republicar = rodar uma vez com `janela_horas: null`.
 
