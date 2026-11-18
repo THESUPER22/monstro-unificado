@@ -6401,7 +6401,7 @@ alterado; a coleta de 18/11 ja nasce valida para o criterio pre-registrado.
 ```json
 {"ts":"2026-11-18T13:00:00+00:00","dia":"2026-11-18","sinal":"BUY",
  "operado":true,"ticket":123,"sl_pts":8.0,"tp_pts":0.0,"atr":2.5,
- "magic":123457,"symbol":"WDO","preco":5400.0,
+ "magic":123456,"symbol":"WDOZ26","preco":5400.0,
  "path":[[epoch,bid,ask],...],"n":1800,"completo":true}
 ```
 
