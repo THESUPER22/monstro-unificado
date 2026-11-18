@@ -44,6 +44,8 @@ from precos_wdo import alinhar_sl, tick_do_simbolo
 from limites_execucao import avaliar_limite, podar_janela
 # P0 17/11 #3: P&L diario a partir dos deals do MT5 (modulo puro, sem MT5/TF)
 from pnl_dia import pnl_de_deals
+# P0 17/11 #4: escrita atomica de arquivos (modulo puro, sem MT5/TF)
+from escrita_atomica import salvar_texto_atomico
 
 # Silencia logs verbosos do TensorFlow (C++). PRECISA ser definido ANTES de importar o TF.
 # '3' = sÃÂ³ FATAL (esconde a mensagem repetida "NodeDef ... use_unbounded_threadpool").
@@ -1084,6 +1086,10 @@ TICKS_POR_PONTO = config.get("contrato", {}).get(
     "ticks_por_ponto", 1000)    # WDO: 1 ponto = 1000 ticks
 ALINHAR_SL_TICK = config.get("contrato", {}).get(
     "alinhar_sl_tick", True)    # P0 17/11: SL multiplo de trade_tick_size
+# P0 17/11 #4: escrita atomica + handshake de encerramento (parado.ok)
+_ENCERRAMENTO_CFG = config.get("encerramento", {})
+ESCRITA_ATOMICA = _ENCERRAMENTO_CFG.get("escrita_atomica", True)
+HANDSHAKE_PARADO_OK = _ENCERRAMENTO_CFG.get("handshake_parado_ok", True)
 # P0 17/11 #2: tetos de execucao (rede de seguranca, NAO estrategia)
 _LIMITES_EXEC_CFG = config.get("limites_execucao", {})
 LIMITES_EXEC_ATIVO = _LIMITES_EXEC_CFG.get("ativo", True)
@@ -7127,6 +7133,17 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                         time.sleep(30)
                         continue
 
+                    # P0 17/11 #4: handshake de encerramento - sinaliza ao agente
+                    # que modelo/experiencias foram salvos e nao ha posicao aberta.
+                    # Fica DEPOIS da trava C3: se ela bloqueou, nao chega aqui.
+                    if HANDSHAKE_PARADO_OK:
+                        try:
+                            with open(_caminho_dados("parado.ok"), "w", encoding="utf-8") as _f:
+                                _f.write(datetime.now().isoformat())
+                            logging.info("parado.ok gravado - encerramento confirmado ao agente")
+                        except Exception as e:
+                            logging.error(f"Erro ao gravar parado.ok: {e}")
+
                     logging.info(
                         "Ã¢Åâ¦ ENCERRAMENTO GRACIL CONCLUÃÂDO - Sistema finalizado com seguranÃÂ§a")
                     thread_ativo = False
@@ -9948,8 +9965,13 @@ def salvar_experiencias_json(experiencias: List[Tuple[Dict[str, Any], str, float
                 })
                 experiencias_positivas += 1
 
-        with open(arquivo, 'w') as f:
-            json.dump(dados, f, indent=2)
+        texto = json.dumps(dados, indent=2)
+        if ESCRITA_ATOMICA:
+            # P0 17/11 #4: temporario + os.replace (nunca deixa JSON truncado)
+            salvar_texto_atomico(arquivo, texto)
+        else:
+            with open(arquivo, 'w') as f:
+                f.write(texto)
 
         logging.info(
             f"Ã¢Åâ¦ PA2 FILTRO DE MEMÃâRIA: {experiencias_positivas}/{experiencias_totais} experiÃÂªncias positivas salvas em {arquivo}")

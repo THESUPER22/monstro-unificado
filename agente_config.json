@@ -31,6 +31,7 @@
   },
   "rotinas": {
     "graceful_timeout_s": 90,
+    "handshake_parado_ok": true,
     "health_timeout_s": 120,
     "smoke_test_s": 25,
     "porta_fallback": 5001,

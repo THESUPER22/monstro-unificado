@@ -65,6 +65,10 @@
         "janela_ordens_s": 60,
         "kill_switch_ao_exceder": true
     },
+    "encerramento": {
+        "escrita_atomica": true,
+        "handshake_parado_ok": true
+    },
     "trailing_stop": {
         "ativo": true,
         "intervalo_segundos": 5,

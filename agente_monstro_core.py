@@ -36,6 +36,8 @@ DECISIONS = os.path.join(BASE_DIR, P["decisions_csv"])
 LOG_AGENTE = os.path.join(BASE_DIR, P["log_agente"])
 ESTADO = os.path.join(BASE_DIR, P["estado_agente"])
 PARAR = os.path.join(BASE_DIR, "parar.txt")
+# P0 17/11 #4: handshake de encerramento escrito pelo robo (artefatos salvos)
+PARADO_OK = os.path.join(BASE_DIR, "parado.ok")
 
 # ---------------------------------------------------------------- logging ---
 logging.basicConfig(
@@ -168,7 +170,19 @@ def pids_robo():
     return out
 
 
+def _remover_parado_ok():
+    """Apaga o handshake de um encerramento anterior (evita falso positivo)."""
+    if os.path.exists(PARADO_OK):
+        try:
+            os.remove(PARADO_OK)
+        except Exception as e:
+            log.warning(f"falha ao remover parado.ok antigo: {e}")
+
+
 def parar_gracioso(timeout):
+    handshake = R.get("handshake_parado_ok", True)
+    if handshake:
+        _remover_parado_ok()
     try:
         with open(PARAR, "w") as f:
             f.write("PARAR")
@@ -178,15 +192,26 @@ def parar_gracioso(timeout):
     t0 = time.time()
     while time.time() - t0 < timeout:
         if not pids_robo():
+            ok = os.path.exists(PARADO_OK)
             if os.path.exists(PARAR):
                 try:
                     os.remove(PARAR)
                 except Exception:
                     pass
-            log.info("robo encerrou graciosamente")
+            if handshake and not ok:
+                log.warning("robo saiu SEM parado.ok - artefatos podem estar incompletos")
+            else:
+                log.info("robo encerrou graciosamente" + (" (parado.ok)" if ok else ""))
             return True
         time.sleep(3)
-    log.warning("timeout no shutdown gracioso")
+    # Timeout: o parado.ok diz se o robo chegou ao fim do encerramento antes de
+    # o processo travar. Foi a diferenca do near-miss de 17/11.
+    if os.path.exists(PARADO_OK):
+        log.warning("timeout aguardando o processo sair, mas parado.ok existe - "
+                    "artefatos salvos, force kill e seguro")
+    else:
+        log.warning("timeout no shutdown gracioso SEM parado.ok - "
+                    "artefatos podem estar incompletos")
     return False
 
 
@@ -292,6 +317,8 @@ def sinalizar_parada_robo():
     if not pids_robo():
         log.info("robo ja estava parado - sem sinal necessario")
         return
+    if R.get("handshake_parado_ok", True):
+        _remover_parado_ok()
     try:
         with open(PARAR, "w") as f:
             f.write("PARAR")
