@@ -6249,7 +6249,13 @@ A whitelist publica P&L diario (relatorio, plano, metricas) num repo
 `gh` e sem token na maquina, o agente nao consegue fazer isso sozinho. O fecho
 nao empurra `main`, entao nao ha exposicao automatica ate um push manual.
 
-### 23.54.2 Correcoes aplicadas em 17/11 (aguardando commit)
+### 23.54.2 Correcoes aplicadas em 17/11 (commitadas, sem push)
+
+Commitadas em 17/11 apos o pregao, em commits separados:
+`65c28df` (2.1), `72ac24a` (2.2), `10535bd` (2.3), `ce58684` (2.4 +
+escrita atomica) e `41031f8` (avaliador + 23.54.3). Nada foi empurrado: o
+remoto continua em `2a4298f` e o repo ainda precisa ficar privado antes de
+qualquer push.
 
 Aprovadas com 4 ajustes do usuario: (a) teto de volume roda logo DEPOIS de
 `lote_corrigido` e ANTES do `order_send`, com teste estatico de ordem;
@@ -6360,3 +6366,93 @@ o CSV **nao cobre o fim do pregao** (17:35). O manifest antigo falava em
 09/09/2026, os ticks de corretora ate 29/08/2025. M5 e grosso demais para
 decidir SL 8 x TP 8 **dentro** da barra; serve so para checar se precos e
 horarios fazem sentido. A decisao vem do shadow ao vivo.
+
+## 23.55 Executor shadow de SL/TP (P1 #2) - implementado em 17/11
+
+Implementa a coleta descrita em 23.54.3 **sem tocar na estrategia**. O
+avaliador congelado (`avaliar_shadow_sltp.py`, SHA-256
+`13cf9b16cb74a985dda6d4f73c6c6c04ca4fc8c37bd6a93f5966934c0b68ec3c`) nao foi
+alterado; a coleta de 18/11 ja nasce valida para o criterio pre-registrado.
+
+### 23.55.1 Arquitetura e isolamento
+
+- `shadow_sltp.py`: `ColetorShadow` com **uma thread daemon**
+  (`shadow-sltp`), fila limitada (`fila_max`, padrao 200) e `put_nowait` no
+  caminho da ordem.
+- O hook em `executar_ordem` roda **depois** do teto de execucao e **antes**
+  de `mt5.order_send`; so enfileira. `marcar_operado` roda depois do
+  `TRADE_RETCODE_DONE`. Tudo passa por `notificar_seguro`, que engole
+  qualquer excecao: falha do shadow **nao bloqueia, nao atrasa e nao altera**
+  o pedido.
+- Amostragem (1 tick/s), escrita e rotacao acontecem **somente** na thread do
+  coletor. O loop principal nunca espera o disco.
+- Flag `shadow_sltp.ativo` no `config.json`. Default do modulo = desligado se
+  o bloco nao existir; em producao ficou **ligado** em 17/11 para comecar a
+  coletar em 18/11. Desligar = `"ativo": false`.
+- `logs/shadow_sltp/` no `.gitignore` (dado de coleta, nao codigo).
+- Sinais sem ATR (Rompimento, magic 7008) ficam fora: o shadow e do SL/TP do
+  Sniper. O `atr` gravado e a `volatility` usada pelo Sniper no sinal; para os
+  demais sinais do loop, o ATR calculado no momento da ordem.
+
+### 23.55.2 Formato do JSONL (diario, UTC)
+
+`logs/shadow_sltp/shadow_sltp_AAAA-MM-DD.jsonl`, uma linha por sinal:
+
+```json
+{"ts":"2026-11-18T13:00:00+00:00","dia":"2026-11-18","sinal":"BUY",
+ "operado":true,"ticket":123,"sl_pts":8.0,"tp_pts":0.0,"atr":2.5,
+ "magic":123457,"symbol":"WDO","preco":5400.0,
+ "path":[[epoch,bid,ask],...],"n":1800,"completo":true}
+```
+
+- `path` a 1 s por **1800 s** (30 min), no formato `[epoch, bid, ask]` que o
+  avaliador ja le como UTC.
+- `completo=false` quando o processo encerra antes: `parar()`/`atexit` grava o
+  parcial, nunca perde o sinal.
+- `operado` so vira `true` depois do retcode DONE. Sinal vetado antes do
+  `order_send` nem entra (o shadow e pos-vetos e pos-teto).
+- Rotacao diaria pelo dia UTC do inicio; ~30-40 KB por sinal.
+
+### 23.55.3 Custo medido (nao presumido)
+
+`estatisticas()` expoe `cpu_s` (`time.thread_time()` da thread), `iter_s`
+(tempo de parede dentro das iteracoes), `pct_cpu`, `pct_iter`, `sinais`,
+`gravados`, `amostras`, `descartes` e `falhas`; log a cada 5 min. Medicao de
+17/11 em teste de thread real: **~5 ms por amostra e ~50 ms por sinal**
+(inclui `fsync` da linha). Em um pregao de 30 min por sinal isso e ~0,003% do
+tempo; a ordem nao espera nada disso porque so faz `put_nowait`.
+
+### 23.55.4 Testes
+
+- `tests/test_shadow_sltp.py` (14 testes): falha do shadow nunca altera a
+  ordem, flag desligada nao cria arquivo, JSONL com `ts` UTC/`dia`/`sinal`/
+  `operado`/`sl_pts`/`tp_pts`/`atr`/`path`, rotacao diaria, fila cheia
+  descarta sem levantar, provedor quebrado grava parcial, CPU/wall medidos,
+  hook antes do `order_send` e marcacao depois, config/gitignore.
+- `tests/test_aceite_pos_pregao.py` (7 testes): parsers do aceite.
+- Suite total em 17/11: **199 passed + 1 xfailed**.
+
+### 23.55.5 Aceite pos-pregao (rodar depois de 18/11 17:35 BRT)
+
+Script read-only: `python aceite_pos_pregao.py --dia 2026-11-18`.
+Ele imprime os 5 numeros e um veredito:
+
+1. linhas com `10016` no `monstro_wdo_20261118.log` (esperado **0**);
+2. linhas `TETO DE EXECUCAO ESTOURADO` (esperado **0**);
+3. ultimo `[pnl_dia] MT5` do log **==** soma dos deals de saida do dia
+   (mostra tambem a soma de todos os deals, para separar comissao de entrada);
+4. `parado.ok` presente **e** "encerrou graciosamente" no
+   `agente_autonomo.log` com a data do dia;
+5. commits entre 17:30 e 23:59 do dia **so** com arquivos da whitelist de
+   `agente_config.json` (qualquer arquivo fora aparece como
+   `FORA DA WHITELIST`).
+
+`--sem-mt5` roda so log/arquivos/git (o item 3 fica DIFERENTE por falta dos
+deals; serve para diagnostico). O script nao envia ordem e nao escreve nada.
+
+### 23.55.6 O que NAO mudou
+
+Nenhuma regra de entrada/saida, filtro, alvo, trailing, gestao de posicao ou
+dimensionamento de volume. O hook so observa. A unica alteracao de logica e
+expor `atr` no `sniper_result` e aceitar `atr_override` em `executar_ordem`
+(usado apenas pelo shadow).

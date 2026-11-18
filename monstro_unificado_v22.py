@@ -46,6 +46,8 @@ from limites_execucao import avaliar_limite, podar_janela, volume_aberto
 from pnl_dia import pnl_de_deals
 # P0 17/11 #4: escrita atomica de arquivos (modulo puro, sem MT5/TF)
 from escrita_atomica import salvar_texto_atomico
+# P1 17/11 #2: coletor shadow de SL/TP (thread isolada, read-only)
+from shadow_sltp import criar_coletor_shadow, notificar_seguro
 
 # Silencia logs verbosos do TensorFlow (C++). PRECISA ser definido ANTES de importar o TF.
 # '3' = sÃÂ³ FATAL (esconde a mensagem repetida "NodeDef ... use_unbounded_threadpool").
@@ -341,6 +343,17 @@ def carregar_configuracao():
 
 # Carrega configuraÃÂ§ÃÂ£o
 config = carregar_configuracao()
+
+# P1 17/11 #2: coletor shadow de SL/TP (read-only, thread isolada).
+# Bloco "shadow_sltp" do config.json; ausente => desligado. Falha ao
+# criar NUNCA impede o robo de subir nem altera o caminho da ordem.
+try:
+    _SHADOW_CFG = config.get("shadow_sltp", {}) if isinstance(config, dict) else {}
+    shadow_sltp = criar_coletor_shadow(
+        os.path.join(_caminho_base(), "logs", "shadow_sltp"), _SHADOW_CFG)
+except Exception as _e:
+    logging.warning(f"[SHADOW SL/TP] coletor indisponivel: {_e}")
+    shadow_sltp = None
 
 # ========== v22.2: Faixa 1 Rompimento da 1a Hora (substitui Sete Velas) ==========
 ROMP_CFG = config.get("rompimento", {}) if isinstance(config, dict) else {}
@@ -3374,6 +3387,7 @@ class SniperSupermo:
             'detalhes': detalhes,
             'sl_points': sl_points,
             'tp_points': tp_points,
+            'atr': atr,
         }
 
         # Observabilidade: loga standby/score a cada 60s (o agente via texto de
@@ -5482,6 +5496,7 @@ class ModoOperacional:
 
 def executar_ordem(action, lots=VOLUME_PADRAO, symbol=None, modo_operacional=None, sniper=False,
                    sl_points_override=None, tp_points_override=None,
+                   atr_override=None,
                    magic_override=None, comment=None, shadow=True):
     """Executa uma ordem de compra ou venda com SL/TP calculados. magic_override permite Magic 7008 (Rompimento 1h)."""
 
@@ -5660,6 +5675,18 @@ def executar_ordem(action, lots=VOLUME_PADRAO, symbol=None, modo_operacional=Non
         "type_filling": mt5.ORDER_FILLING_IOC,
     }
 
+    # P1 17/11 #2: shadow SL/TP (read-only). So enfileira (put_nowait)
+    # e NUNCA pode alterar/atrasar o pedido. O caminho bid/ask e coletado
+    # na thread isolada do coletor.
+    _shadow_id = None
+    if atr_override is not None:
+        # Rompimento (magic 7008) nao passa ATR: fora do shadow de SL/TP.
+        _shadow_id = notificar_seguro(
+            shadow_sltp, "registrar_sinal",
+            sinal=action, preco=preco, sl_pts=sl_points_dinamico,
+            tp_pts=tp_points_dinamico, atr=atr_override,
+            magic=magic_final, symbol=symbol)
+
     # Envia ordem
     resultado = mt5.order_send(request)
 
@@ -5677,6 +5704,11 @@ def executar_ordem(action, lots=VOLUME_PADRAO, symbol=None, modo_operacional=Non
     logging.info(f"Ã¢Åâ¦ Ordem {action} executada. Ticket: {resultado.order}")
     logging.info(
         f"   PreÃÂ§o: {preco:.3f} | SL: {sl_calculado:.3f} | TP: {'SEM TP (saÃÂ­da dinÃÂ¢mica)' if tp_calculado == 0 else f'{tp_calculado:.3f}'}")
+
+    # P1 17/11 #2: confirma ao shadow que a ordem foi aceita.
+    if _shadow_id:
+        notificar_seguro(shadow_sltp, "marcar_operado", _shadow_id,
+                         ticket=resultado.order)
 
     # SHADOW MODE: registra prob do Modelo A sem interferir na execucao
     shadow_registrar_entrada(resultado.order, action, symbol)
@@ -8537,10 +8569,13 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                 _volume_exec = SNIPER_SUPERMO_VOLUME if SNIPER_SUPERMO_ATIVO else VOLUME_PADRAO
                 _sl_override = sniper_result.get('sl_points') if SNIPER_SUPERMO_ATIVO else None
                 _tp_override = sniper_result.get('tp_points') if SNIPER_SUPERMO_ATIVO else None
+                _atr_sinal = (sniper_result.get('atr')
+                              if SNIPER_SUPERMO_ATIVO else atr)
                 ticket = executar_ordem(
                     acao_para_executar, lots=_volume_exec, modo_operacional=modo_operacional,
                     sniper=SNIPER_SUPERMO_ATIVO,
-                    sl_points_override=_sl_override, tp_points_override=_tp_override)
+                    sl_points_override=_sl_override, tp_points_override=_tp_override,
+                    atr_override=_atr_sinal)
                 if SNIPER_SUPERMO_ATIVO:
                     logging.info(f"â¡ SNIPER %R: ordem enviada com {_volume_exec}cc, SL/TP por ATR")
                     sniper_supermo.ativar_cooldown()

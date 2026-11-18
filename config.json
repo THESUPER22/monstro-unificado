@@ -181,5 +181,11 @@
     "sniper_wr_sell": -20,
     "mr_rsi_compra": 25.0,
     "mr_rsi_venda": 75.0,
-    "mr_zscore_limiar": 1.5
+    "mr_zscore_limiar": 1.5,
+    "shadow_sltp": {
+        "ativo": true,
+        "duracao_s": 1800,
+        "intervalo_s": 1.0,
+        "fila_max": 200
+    }
 }

@@ -24,6 +24,8 @@ dist/
 *.log
 startup_log.txt
 logs/
+# P1 17/11 #2: caminho bid/ask do shadow SL/TP (dado de coleta, nao codigo)
+logs/shadow_sltp/
 
 # --- Modelos e memória da IA (dados, não código) ---
 *.h5
