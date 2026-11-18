@@ -6018,3 +6018,167 @@ Depois: P2 (quebrar `monstro_thread`, tirar treino do loop quente, limpar
 repo, dashboard em `127.0.0.1`) e, por ultimo, 1 contrato em conta real apenas
 para medir slippage - o demo preenche perfeito e nao ensina nada sobre
 execucao.
+
+## 23.53 P1 17/11 - metricas com IC e o bug do commit do fecho
+
+Dois itens do P1 fechados na mesma noite. O primeiro da o instrumento de
+medicao que faltava; o segundo conserta o mecanismo que deveria publicar essa
+medicao todo dia.
+
+### 23.53.1 Relatorio unico de metricas com intervalo de confianca (P1 #1)
+
+**Por que.** A media sozinha engana. O historico LIVE tinha 69 trades e
++1,29 pt/trade bruto - numero que parece bom e nao decide nada, porque o erro
+padrao e ~1 pt. Qualquer relatorio que mostre so a media esconde exatamente o
+que importa: a incerteza.
+
+**O que entrou.**
+
+| arquivo | papel |
+|---|---|
+| `metricas.py` (354 linhas) | modulo puro: agrupa deals por `position_id`, t de Student, IC95, PF, DD, sequencia de perdas, `por_dia`, `formatar_relatorio`, `veredito` |
+| `relatorio_metricas.py` (108 linhas) | CLI **read-only** (`--dias`, `--magics`, `--saida`, `--json`); nao toca no robo nem no config |
+| `tests/test_metricas.py` (27 testes) | valores conhecidos da tabela t, agrupamento, PF/DD, 17/11 reproduzido, guards do script e da whitelist |
+
+**Fonte e agrupamento.** Deals do MT5 agrupados por `position_id`, somando
+`profit + commission + swap + fee` - nunca o parse do log nem o
+`historico_lucro` em memoria. `position_id = 0` (deposito/ajuste) fica fora.
+Volume normaliza os pontos por contrato (`resultado_rs / (10 * volume)`).
+
+**Tres visoes, custo canonico do projeto:**
+
+- bruto: como veio do extrato;
+- liquido: menos R$ 1,20/contrato (0,60 entrada + 0,60 saida) = 0,12 pt;
+- gate: liquido menos slippage de 1,0 pt por lado (2,0 pt/trade) = **2,12 pt/trade = R$ 21,20**.
+
+**Numeros reais (11/03 a 11/17, magic 123456, 10 sessoes):**
+
+| dia | n | bruto R$ | gate R$ |
+|---|---|---|---|
+| 11-03 | 6 | +440,00 | +312,80 |
+| 11-04 | 7 | -180,00 | -328,40 |
+| 11-05 | 6 | -195,00 | -322,20 |
+| 11-06 | 7 | -310,00 | -458,40 |
+| 11-10 | 4 | -150,00 | -234,80 |
+| 11-11 | 2 | -35,00 | -77,40 |
+| 11-12 | 3 | +30,00 | -33,60 |
+| 11-13 | 8 | -180,00 | -349,60 |
+| 11-16 | 9 | +735,00 | +544,20 |
+| 11-17 | 17 | +735,00 | +374,60 |
+| **total** | **69** | **+890,00** | **-572,80** |
+
+| visao | media pt | IC95 (pt) | total R$ | PF | acerto |
+|---|---|---|---|---|---|
+| bruto | +1,29 | [-0,51, +3,09] | +890,00 | 1,44 | 60,9% |
+| liquido | +1,17 | [-0,63, +2,97] | +807,20 | 1,39 | 60,9% |
+| gate | **-0,83** | **[-2,63, +0,97]** | **-572,80** | 0,78 | 58,0% |
+
+**Veredito (gate): INDISTINGUIVEL de zero** - o IC contem zero. O bruto tambem
+e indistinguivel (`[-0,51, +3,09]`): nao ha edge provado nem edge refutado.
+Break-even do gate e 2,12 pt/trade; a media bruta de +1,29 esta abaixo.
+
+**Cuidado que o relatorio escancara:** sem 16/11 e 17/11, os 43 trades
+anteriores somam **-58,0 pts** (-R$ 580). O resultado positivo inteiro vem de
+duas sessoes. Isso e o oposto de consistencia - e o argumento mais forte para
+nao aumentar risco agora.
+
+**Conferencia de aceite.** 17/11 isolado reproduz a autopsia exatamente:
+17 trades, +735,00 bruto, 714,60 liquido, 374,60 gate (37,46 pts). Um teste
+automatizado trava esses tres numeros.
+
+**O que o relatorio NAO reporta, de proposito:** p-valor binomial contra 50%.
+Em chop o break-even real fica em 50-54%, entao o p-valor parece melhor do que
+e. O unico criterio honesto e o IC do gate contra zero.
+
+Uso: `venv310\Scripts\python.exe relatorio_metricas.py --dias 15`
+(grava `relatorio_metricas_<data>.txt` via `salvar_texto_atomico`).
+
+### 23.53.2 O fecho nunca committou um relatorio (P1 #3)
+
+**Sintoma.** `git_commit_dia` (whitelist de `b5a3223`) logava
+`git add falhou (1)` como *warning* e seguia; os relatorios nao apareciam no
+repo.
+
+**Causa raiz.** `git add -- <lista>` **sem `-f`**. Dois dos quatro padroes
+caem no `.gitignore` (`relatorio_*.txt` L67, `logs/` L26). E `git add` falha a
+**lista inteira** (exit 1) quando *qualquer* caminho e ignorado - nao pula so
+o ignorado. A funcao desistia em silencio no `if add.returncode != 0`.
+
+**Evidencia medida em 17/11:**
+
+| padrao da whitelist | no `.gitignore`? | arquivos no disco | no git |
+|---|---|---|---|
+| `plano_*.txt` | nao | 71 | **71** |
+| `relatorio_diario_*.txt` | sim (L67) | 71 | **0** |
+| `logs/fluxo_resumo_*.json` | sim (L26) | 26 | **0** |
+| `ROADMAP...md` | nao | 1 | 1 |
+
+Os planos mascaravam o bug: alguma coisa era commitada todo dia. Os
+relatorios **nunca** entraram no git - nem antes, porque `git add -A` pula
+ignorados em silencio.
+
+**Nuance importante (corrigida em relacao ao diagnostico inicial).** A
+whitelist entrou as 18:18 de 17/11, *depois* do fecho das 17:35. O codigo com
+o bug **nunca rodou**: e um bug latente, pego antes do primeiro fecho com
+whitelist (18/11 17:35). Nada foi perdido; os 71 relatorios estao no disco.
+
+**Fix.** Logica extraida para `commit_dia.py` (146 linhas, sem MT5/TF) e
+`git_commit_dia` virou casca fina. Duas flags, cada uma desligavel:
+
+| flag | default | efeito |
+|---|---|---|
+| `git.add_forcado` | `true` | `git add -f` (a whitelist e a barreira; `-f` so vence o `.gitignore`) |
+| `git.janela_horas` | `26` | so entra arquivo modificado nas ultimas N h; `null` desliga |
+
+A janela evita que o primeiro fecho publique de uma vez **170** arquivos
+historicos. 26 h e nao 24 h de proposito: se um fecho falhar, o fecho do dia
+seguinte (mesmo horario) ainda alcanca o arquivo de ontem.
+
+Outros dois ajustes de robustez no mesmo patch:
+
+- `git diff --cached --quiet -- <caminhos>` (antes olhava o indice inteiro: um
+  `git add` humano de outro arquivo fazia o fecho tentar commitar);
+- `git commit` agora tem o `returncode` verificado - antes, falha de commit
+  era logada como sucesso.
+
+**Testes (24).** Incluem um **repo git descartavel** que reproduz o bug de
+verdade: `git add` sem `-f` -> exit 1 com "ignored"; com `-f` -> exit 0 e
+commit. Cobrem ainda: nao publica historico, nao toca arquivo fora da
+whitelist (mudanca humana fica pendente), 2a execucao = `nada_novo`, whitelist
+vazia, repo inexistente nao levanta, guarda de que o `git add` manual saiu do
+agente.
+
+**Aceite no repo real (17/11):**
+
+```
+janela 26h -> 5 arquivo(s): ROADMAP, logs/fluxo_resumo_20261117.json,
+              plano_20261117.txt, relatorio_diario_20261117.txt,
+              relatorio_metricas_2026-11-17.txt
+sem janela -> 170 arquivo(s)
+git add -f --dry-run exit = 0
+git add    --dry-run exit = 1   (bug antigo)
+```
+
+**Risco conhecido.** Se dois fechos seguidos falharem, o relatorio do primeiro
+dia fica so no disco. Republicar = rodar uma vez com `janela_horas: null`.
+
+### 23.53.3 O que NAO mudou
+
+- Zero alteracao em `prever_acao`, filtros, alvo, trailing ou gestao de
+  posicao. `metricas.py` e `commit_dia.py` sao read-only em relacao ao robo.
+- `relatorio_metricas.py` nao envia ordem, nao altera `config.json`, nao toca
+  no processo do robo.
+- O fecho continua commitando **somente** a whitelist; `push` continua
+  restrito a `backup/*`.
+- Nenhum aumento de risco.
+
+### 23.53.4 Proximo
+
+1. **P1 #2 - executor shadow de SL/TP ao vivo.** Sobre cada sinal real,
+   simular variantes (ex.: SL = 1,5 x ATR sem piso, TP = SL) e gravar o
+   resultado hipotetico. Sem dinheiro, sem alterar a ordem real. Atencao: os
+   dados de corretora disponiveis acabam em 29/08/2025.
+2. **Primeira medicao honesta com o relatorio novo:** rodar
+   `relatorio_metricas.py --dias 15` todo fecho (ja esta na whitelist) e
+   acompanhar o IC do gate. So pensar em aumentar risco quando o IC inteiro
+   ficar acima de zero por varias semanas - nao por dois dias bons.
