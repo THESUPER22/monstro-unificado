@@ -6299,7 +6299,8 @@ e tratada como UTC. O executor grava UTC no JSONL.
 - SL com **1 tick** de slippage e **gap**: `min(preco, nivel) - 1 tick` no BUY,
   `max(preco, nivel) + 1 tick` no SELL;
 - saida pelo **lado certo do book** (BUY sai no bid, SELL sai no ask);
-- fecho forcado as **17:35 BRT = 20:35 UTC** (Brasil sem DST);
+- fecho forcado as **17:35 America/Sao_Paulo** (o fuso decide o offset; nao
+  hardcodar UTC);
 - reportar em `slippage por lado = {0; 0,5; 1,0}` e custo de **R$ 1,20**
   (0,60 + 0,60) por contrato.
 
@@ -6336,10 +6337,33 @@ mantem A0 e continua coletando.
 
 **Script de avaliacao CONGELADO (antes do 1o dado):**
 `avaliar_shadow_sltp.py`, SHA-256 =
-`13cf9b16cb74a985dda6d4f73c6c6c04ca4fc8c37bd6a93f5966934c0b68ec3c`.
+`ae96911fe2ae007a8651ed86210478c1fe10213b0959fe370fd7671b6327b9b8`.
 O teste `tests/test_avaliar_shadow.py::test_hash_do_avaliador_congelado_no_roadmap`
 falha se o arquivo mudar. Consequencia: **qualquer alteracao no avaliador
 invalida a coleta e recomeca do zero**; nao existe "ajustar depois de ver".
+
+**Errata do congelamento (rev. 4, 18/11 ~17:55, ANTES da 1a execucao sobre
+dado real):** o avaliador foi corrigido no proprio dia da 1a coleta e **nunca
+rodou sobre dado real** — nenhum arquivo de saida do avaliador no projeto,
+zero mencoes a `avaliar_shadow_sltp` em `monstro_wdo.log`, nenhum arquivo
+`--reais` e o historico do shell sem o comando. Por isso **a coleta de 18/11
+continua valida**. O que mudou e por que:
+
+- **fuso**: o fecho era comparado como hora UTC fixa (20:35). Passou a
+  converter para **America/Sao_Paulo** e comparar com 17:35 local; o offset
+  vem do `zoneinfo`, nao de constante.
+- **auditoria do tempo**: `simular()` devolve `quando_brt` (horario de saida
+  no fuso do pregao) e `avaliar()` devolve `janela_brt`; o relatorio imprime
+  `janela (America/Sao_Paulo): inicio -> fim`. Sem isso, um erro de fuso
+  passaria invisivel.
+- **testes de fuso**: 17:30 BRT so fecha quando o path chega as 17:35 BRT;
+  10:00 BRT (13:00 UTC) **nao** fecha; 20:35 UTC = 17:35 BRT; `_quando`
+  numerico/ISO/sem-fuso/com-fuso.
+- **SHA-256 anterior**: `13cf9b16cb74a985dda6d4f73c6c6c04ca4fc8c37bd6a93f5966934c0b68ec3c`
+  (17/11). **Novo**: `ae96911fe2ae007a8651ed86210478c1fe10213b0959fe370fd7671b6327b9b8`.
+
+A partir da **primeira execucao sobre dado real** (pos-filtro), qualquer
+mudanca no avaliador invalida a coleta — inclusive esta secao.
 
 **Regra de parada (congelada junto):**
 - com **>= 200 sinais pareados e >= 15 pregoes** → decide (promove ou mantem
@@ -6379,11 +6403,13 @@ alterado; a coleta de 18/11 ja nasce valida para o criterio pre-registrado.
 - `shadow_sltp.py`: `ColetorShadow` com **uma thread daemon**
   (`shadow-sltp`), fila limitada (`fila_max`, padrao 200) e `put_nowait` no
   caminho da ordem.
-- O hook em `executar_ordem` roda **depois** do teto de execucao e **antes**
-  de `mt5.order_send`; so enfileira. `marcar_operado` roda depois do
-  `TRADE_RETCODE_DONE`. Tudo passa por `notificar_seguro`, que engole
-  qualquer excecao: falha do shadow **nao bloqueia, nao atrasa e nao altera**
-  o pedido.
+- O hook em `executar_ordem` captura o contexto (`ts`, preco, sinal, ATR)
+  **antes** de `mt5.order_send` e chama `registrar_sinal` **depois** do envio
+  (rev. 18/11): a ordem nao espera nem o `put_nowait`. `marcar_operado` roda
+  depois do `TRADE_RETCODE_DONE`. Tudo passa por `notificar_seguro`, que
+  engole qualquer excecao: falha do shadow **nao bloqueia, nao atrasa e nao
+  altera** o pedido. Teste estatico (`test_hook_fica_depois_do_order_send_no_fonte`)
+  quebra se alguem devolver o hook para antes do envio.
 - Amostragem (1 tick/s), escrita e rotacao acontecem **somente** na thread do
   coletor. O loop principal nunca espera o disco.
 - Flag `shadow_sltp.ativo` no `config.json`. Default do modulo = desligado se
@@ -6402,11 +6428,18 @@ alterado; a coleta de 18/11 ja nasce valida para o criterio pre-registrado.
 {"ts":"2026-11-18T13:00:00+00:00","dia":"2026-11-18","sinal":"BUY",
  "operado":true,"ticket":123,"sl_pts":8.0,"tp_pts":0.0,"atr":2.5,
  "magic":123456,"symbol":"WDOZ26","preco":5400.0,
- "path":[[epoch,bid,ask],...],"n":1800,"completo":true}
+ "path":[[epoch,bid,ask],...],"n":1800,"duracao_s":1800.0,
+ "max_gap_s":1.0,"completo":true}
 ```
 
 - `path` a 1 s por **1800 s** (30 min), no formato `[epoch, bid, ask]` que o
   avaliador ja le como UTC.
+- `duracao_s` e gravado em **toda** linha (rev. 18/11): o filtro nao precisa
+  adivinhar a janela de linhas antigas.
+- `max_gap_s` e o maior buraco (s) na linha do tempo, incluindo atraso da
+  primeira amostra e cauda ate `inicio + duracao_s` (rev. 18/11). `null` se o
+  path for ilegivel. E o campo que o filtro usa para descartar coleta com feed
+  parado.
 - `completo=false` quando o processo encerra antes: `parar()`/`atexit` grava o
   parcial, nunca perde o sinal.
 - `operado` so vira `true` depois do retcode DONE. Sinal vetado antes do
@@ -6427,13 +6460,23 @@ isso e ~0,003% do tempo; a ordem nao espera nada disso porque so faz
 
 ### 23.55.4 Testes
 
-- `tests/test_shadow_sltp.py` (14 testes): falha do shadow nunca altera a
+- `tests/test_shadow_sltp.py` (29 testes): falha do shadow nunca altera a
   ordem, flag desligada nao cria arquivo, JSONL com `ts` UTC/`dia`/`sinal`/
-  `operado`/`sl_pts`/`tp_pts`/`atr`/`path`, rotacao diaria, fila cheia
-  descarta sem levantar, provedor quebrado grava parcial, CPU/wall medidos,
-  hook antes do `order_send` e marcacao depois, config/gitignore.
-- `tests/test_aceite_pos_pregao.py` (7 testes): parsers do aceite.
-- Suite total em 17/11: **199 passed + 1 xfailed**.
+  `operado`/`sl_pts`/`tp_pts`/`atr`/`path`/`duracao_s`/`max_gap_s`, rotacao
+  diaria, fila cheia descarta sem levantar, provedor quebrado grava parcial,
+  CPU/wall medidos, hook **depois** do `order_send` (teste estatico), worker
+  travado no provedor nao atrasa a ordem (< 50 ms), `tick_msc` repetido
+  invalidado apos 10 s, config/gitignore.
+- `tests/test_filtrar_completos.py` (14 testes): regra `completo is True` e
+  `max_gap_s <= 10`, limite inclusivo, gap recalculado do `path`, cauda curta
+  reprova, campo desatualizado nao esconde buraco, linha ilegivel descartada,
+  linha mantida preservada byte a byte, array JSON -> JSONL, CLI, e o
+  **SHA-256 congelado** do filtro.
+- `tests/test_avaliar_shadow.py` (28 testes): inclui os testes de fuso
+  (17:30 BRT fecha 17:35 BRT; 10:00 BRT nao fecha; 20:35 UTC = 17:35 BRT;
+  `quando_brt`/`janela_brt`) e o hash congelado do avaliador.
+- `tests/test_aceite_pos_pregao.py` (11 testes): parsers do aceite.
+- Suite total em 18/11 (antes dos commits): **236 passed + 1 xfailed**.
 
 ### 23.55.5 Aceite pos-pregao (rodar depois de 18/11 17:35 BRT)
 
@@ -6476,3 +6519,93 @@ Nenhuma regra de entrada/saida, filtro, alvo, trailing, gestao de posicao ou
 dimensionamento de volume. O hook so observa. A unica alteracao de logica e
 expor `atr` no `sniper_result` e aceitar `atr_override` em `executar_ordem`
 (usado apenas pelo shadow).
+
+### 23.55.7 Correcoes de 18/11 (depois do pregao, antes do commit)
+
+Todas com teste. Nenhuma toca a decisao de trade.
+
+1. **Hook depois do `order_send`** (nao antes). Motivo medido em 18/11:
+   `hook_ms_max = 108,9 ms` e uma linha `[ORDEM]` com `shadow 119,36 ms` no
+   tempo de parede; o trabalho real e de microssegundos, mas qualquer
+   preempcao do SO no meio do `json.dumps`/`fsync` do coletor podia cair
+   dentro da janela do envio. Agora o robo captura `ts`/preco/sinal/ATR
+   **antes** e chama `registrar_sinal` **depois** do `order_send`; a ordem
+   nao espera nem o `put_nowait`. Testes:
+   `test_hook_fica_depois_do_order_send_no_fonte` (estatico, quebra se
+   voltar) e `test_shadow_lento_nao_atrasa_a_ordem` (worker travado 5 s no
+   provedor; hook < 50 ms).
+2. **`tick_msc` no `publicar_preco`**. Dois relogios independentes:
+   `quando` (parede, 3 s) e `tick_msc` (mercado, 10 s). Se o MT5 repete o
+   mesmo `time_msc` por mais de 10 s, o tick nao vira amostra — feed parado
+   nao fabrica caminho plano. `preco_publicado` continua devolvendo `None`
+   (fail-closed) e o track termina `completo=false`.
+3. **`duracao_s` em toda linha do JSONL** e **`max_gap_s`** (maior buraco,
+   incluindo atraso inicial e cauda). Sem `duracao_s`, o filtro teria de
+   adivinhar 1800 s para linhas antigas.
+4. **Filtro PRE-REGISTRADO** `filtrar_completos.py` (SHA-256
+   `c16fd90f2633bc02da1178f84f41ef2deabeaf143a9c6404d85fbcb8fa55f8f8`):
+   mantem somente `completo is True` **e** `max_gap_s <= 10.0`. Fail-closed:
+   vale o **maior** entre o campo gravado e o recalculado do `path`; sem
+   `path` ou ilegivel, descarta. Preserva os bytes das linhas mantidas;
+   le JSONL ou array e escreve JSONL. Linhas de 18/11 (gravadas antes do
+   campo) sao recalculadas com `duracao_s` padrao 1800 s — mesma definicao
+   do coletor, provado em `test_gap_do_coletor_e_o_do_filtro`.
+5. **Avaliador**: ver a errata em 23.54.3 (fuso `America/Sao_Paulo`,
+   `quando_brt`/`janela_brt`, testes de fuso). Hash novo
+   `ae96911fe2ae007a8651ed86210478c1fe10213b0959fe370fd7671b6327b9b8`;
+   nunca rodou sobre dado real.
+
+### 23.55.8 Aceite de 18/11: FALHOU (dois defeitos fora do shadow)
+
+Saida de `aceite_pos_pregao.py --dia 2026-11-18`:
+
+| item | medido | esperado |
+|---|---|---|
+| `10016` | **0** | 0 |
+| `TETO DE EXECUCAO ESTOURADO` | **0** | 0 |
+| ultimo `[pnl_dia] MT5` | **+5,00** (30 deals) | = soma do dia |
+| soma das saidas | **+70,00** (16 deals) | — |
+| `parado.ok` | **sim** | sim |
+| "encerrou graciosamente" | **nao** | sim |
+| commits do fecho | **0** | so whitelist |
+
+A coleta do shadow em si funcionou: **16 sinais, 16 gravados** (15 completos +
+1 parcial gravado no shutdown), **28.781 amostras**, 0 falhas, 0 descartes,
+`cpu_s` 1,42 s (0,0046%), `iter_s` 6,98 s (0,0226%), `hook_ms_max` 108,9 ms,
+arquivo de **836.968 bytes**. O que falhou foi o fecho e a leitura do aceite.
+
+**Defeito 1 - o fecho crashou antes de qualquer commit.**
+`logs/fecho_console.log`: `git diff` devolveu bytes cp1252/latin-1 do fonte do
+robo (0x9D nao existe em cp1252), o `subprocess` com `text=True` levantou
+`UnicodeDecodeError`, `verificar_mudanca_codigo()` recebeu `None` e caiu em
+`AttributeError: 'NoneType' object has no attribute 'strip'`
+(`agente_monstro_core.py:750`, chamado de `run_fecho:840`). Consequencia:
+sem relatorio, sem plano, sem commit da whitelist e **sem o force-kill** do
+fecho. O robo chegou a escrever `ENCERRAMENTO GRACIL CONCLUIDO` as 17:35:58,
+mas o processo continuou vivo (dois `python monstro_unificado_v22.py`, um
+deles segurando a porta 5001) e os coletores tambem. O `start_all.bat` cancela
+a subida se achar um `monstro_unificado_v22` vivo — **19/11 nao teria
+iniciado**. Limpeza manual as 17:47, pregao fechado e sem posicao WDO
+(a unica posicao e a fantasma `WINV25 #2243200971`, magic 123457, alheia ao
+robo): PIDs 154884 e 100608 encerrados, porta 5001 livre; coletores 113492 e
+142264 encerrados (o watchdog sobe novos as 09:05). Correcao proposta (nao
+aplicada, precisa de aprovacao): ler a saida do `git` em **bytes** e decodificar
+com `errors="replace"`, com teste que simula `git diff` com 0x9D.
+
+**Defeito 2 - o item 3 compara um retrato com o total do dia.**
+O ultimo `[pnl_dia]` do log e das **16:58:32** (30 deals, +5,00). Depois disso
+fecharam mais dois deals (entrada 17:02:47 e saida 17:23:14, **+65,00**),
+totalizando **32 deals e +70,00** — comissao **0,00** na demo (medido em
+`history_deals_get`, nao presumido). O `pnl_dia.py` esta correto; o aceite e
+que compara o retrato de 16:58 com o dia inteiro. O invariante valido e
+"ultimo `[pnl_dia]` == deals ate o horario daquela linha", nao "== dia todo".
+Correcao proposta (nao aplicada): filtrar os deals ate o timestamp do ultimo
+`[pnl_dia]` e comparar com esse valor, mantendo o total do dia so como
+informativo.
+
+**Observacao:** o criterio 4 procura "encerrou graciosamente" no
+`agente_autonomo.log`, nao no log do robo. Com o fecho crashado a linha nunca
+foi escrita; o robo registrou `ENCERRAMENTO GRACIL CONCLUIDO`. Os dois logs
+medem coisas diferentes — documentado para nao confundir "robo parou" com
+"agente concluiu".
+

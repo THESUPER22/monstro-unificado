@@ -128,6 +128,46 @@ def test_fechamento_20_35_utc_tem_prioridade():
     assert r["saida"] == 150.0
 
 
+def test_fechamento_e_em_america_sao_paulo_nao_em_utc():
+    """10:00 BRT (13:00 UTC) NAO pode ser tratado como 17:35."""
+    s = _sinal(path=[["2026-11-18T10:00:00-03:00", 100.0, 100.0],
+                     ["2026-11-18T10:01:00-03:00", 100.1, 100.1]])
+    assert simular(s, "A0")["motivo"] == "fim_dados"
+
+    s2 = _sinal(path=[["2026-11-18T17:34:59-03:00", 100.0, 100.0],
+                      ["2026-11-18T17:35:00-03:00", 100.1, 100.1]])
+    assert simular(s2, "A0")["motivo"] == "fechamento"
+
+
+def test_path_das_1730_brt_fecha_as_1735_brt():
+    """Sinal das 17:30 BRT so fecha quando o path chega as 17:35 BRT."""
+    antes = _sinal(path=[["2026-11-18T17:30:00-03:00", 100.0, 100.0],
+                         ["2026-11-18T17:34:59-03:00", 100.0, 100.0]])
+    assert simular(antes, "A0")["motivo"] == "fim_dados"
+
+    depois = _sinal(path=[["2026-11-18T17:30:00-03:00", 100.0, 100.0],
+                          ["2026-11-18T17:34:59-03:00", 100.0, 100.0],
+                          ["2026-11-18T17:35:00-03:00", 100.0, 100.0]])
+    assert simular(depois, "A0")["motivo"] == "fechamento"
+
+
+def test_quando_brt_do_resultado_mostra_o_fuso():
+    """O resultado mostra o horario de saida no fuso do pregao (nao em UTC)."""
+    s = _sinal(path=[["2026-11-18T20:34:00+00:00", 100.0, 100.0],
+                     ["2026-11-18T20:35:00+00:00", 100.0, 100.0]])
+    r = simular(s, "A0")
+    assert r["motivo"] == "fechamento"
+    assert r["quando_brt"] == "2026-11-18T17:35:00-03:00"
+
+
+def test_janela_brt_do_relatorio_usa_sao_paulo():
+    from avaliar_shadow_sltp import _janela_brt
+
+    janela = _janela_brt([_sinal(), {"ts": "2026-11-18T20:35:00+00:00"}])
+    assert janela == ("2026-11-18T07:00:00-03:00",
+                      "2026-11-18T17:35:00-03:00")
+
+
 def test_liquido_desconta_slippage_e_custo():
     assert abs(liquido_pts(8.0, 0.0) - (8.0 - CUSTO_PTS)) < 1e-9
     assert abs(liquido_pts(8.0, 0.5) - (8.0 - 1.0 - CUSTO_PTS)) < 1e-9

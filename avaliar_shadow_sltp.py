@@ -18,12 +18,14 @@ Regras de fill (iguais para todas as variantes, ROADMAP 23.54.3):
   - SL com 1 tick de slippage e respeitando gap: `min(preco, nivel) - 1 tick`
     no BUY e `max(preco, nivel) + 1 tick` no SELL;
   - saida pelo lado certo do book (BUY no bid, SELL no ask);
-  - fecho forcado as 17:35 BRT = **20:35 UTC** (Brasil sem horario de verao);
+  - fecho forcado as 17:35 **America/Sao_Paulo** (o fuso decide o offset;
+    nao hardcodar UTC);
   - custo R$ 1,20/contrato = 0,12 pt (1 pt = R$ 10,00).
 
 Tempo: TODO timestamp e normalizado para UTC. Epoch numerico e lido como
 `datetime.fromtimestamp(ts, tz=UTC)` (relogio do servidor); string sem fuso e
-tratada como UTC. O JSONL do executor grava UTC.
+tratada como UTC. O JSONL do executor grava UTC. A comparacao do fecho e feita
+convertendo para America/Sao_Paulo (17:35), nunca comparando hora UTC com 17:35.
 
 Calibracao: a A0 simulada e comparada com o resultado REAL dos sinais operados
 (`pnl_real_pts` no JSONL ou arquivo `--reais {ticket: pts}`). Se
@@ -49,10 +51,12 @@ import sys
 from datetime import datetime, time, timezone
 from statistics import mean
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from zoneinfo import ZoneInfo
 
 TICK = 0.5
 CUSTO_PTS = 1.20 / 10.0          # R$ 1,20 por contrato / R$ 10,00 por ponto
-HORARIO_FECHO_UTC = time(20, 35)  # 17:35 BRT (UTC-3, sem DST)
+FUSO_BR = ZoneInfo("America/Sao_Paulo")
+HORARIO_FECHO_BR = time(17, 35)   # 17:35 America/Sao_Paulo (offset vem do fuso)
 
 LIMIAR_SINAIS = 200
 LIMIAR_PREGOES = 15
@@ -127,32 +131,39 @@ def simular(sinal: dict, variante: str) -> dict:
 
     motivo = "fim_dados"
     saida = saida_do_lado(path[-1][1], path[-1][2])
+    quando_saida = _quando(path[-1][0])
     for ponto in path[1:]:
         quando = _quando(ponto[0])
         bid, ask = ponto[1], ponto[2]
         preco = saida_do_lado(bid, ask)
-        if quando.time() >= HORARIO_FECHO_UTC:
+        if quando.astimezone(FUSO_BR).time() >= HORARIO_FECHO_BR:
             saida, motivo = preco, "fechamento"
+            quando_saida = quando
             break
         if lado == 1:
             if preco <= sl_nivel:
                 # gap: se abriu abaixo do nivel, piora a partir do preco
                 saida, motivo = min(preco, sl_nivel) - TICK, "sl"
+                quando_saida = quando
                 break
             if tp_pts > 0 and preco >= tp_nivel + TICK:
                 saida, motivo = tp_nivel, "tp"
+                quando_saida = quando
                 break
         else:
             if preco >= sl_nivel:
                 saida, motivo = max(preco, sl_nivel) + TICK, "sl"
+                quando_saida = quando
                 break
             if tp_pts > 0 and preco <= tp_nivel - TICK:
                 saida, motivo = tp_nivel, "tp"
+                quando_saida = quando
                 break
 
     bruto = lado * (saida - entrada)
     return {"bruto_pts": bruto, "motivo": motivo, "sl_pts": sl_pts,
-            "tp_pts": tp_pts, "entrada": entrada, "saida": saida}
+            "tp_pts": tp_pts, "entrada": entrada, "saida": saida,
+            "quando_brt": quando_saida.astimezone(FUSO_BR).isoformat()}
 
 
 def liquido_pts(bruto: float, slippage_lado: float = 0.5) -> float:
@@ -224,6 +235,23 @@ def status_coleta(n_sinais: int, n_pregoes: int) -> str:
     if n_pregoes >= LIMIAR_PREGOES_MAX:
         return "inconclusivo"
     return "coletando"
+
+
+def _janela_brt(sinais: Sequence[dict]) -> Optional[Tuple[str, str]]:
+    """Primeiro e ultimo ``ts`` normalizados e mostrados em America/Sao_Paulo.
+
+    Existe para AUDITORIA do fuso: o relatorio mostra a janela no fuso do
+    pregao, nao em UTC, para que 17:35 apareca como 17:35.
+    """
+    tempos = []
+    for s in sinais:
+        try:
+            tempos.append(_quando(s["ts"]).astimezone(FUSO_BR))
+        except Exception:  # noqa: BLE001 - sinal sem ts nao derruba o relatorio
+            continue
+    if not tempos:
+        return None
+    return (min(tempos).isoformat(), max(tempos).isoformat())
 
 
 # ------------------------------------------------------------------ avaliar -
@@ -322,7 +350,8 @@ def avaliar(sinais: Sequence[dict], slippage_lado: float = 0.5,
     return {"status_coleta": status, "n_pareados": n_pareados,
             "n_pregoes": n_pregoes, "slippage_lado": slippage_lado,
             "calibracao": calibracao, "resumo": resumo,
-            "promovidas": promovidas, "diffs_por_dia": diffs}
+            "promovidas": promovidas, "diffs_por_dia": diffs,
+            "janela_brt": _janela_brt(sinais)}
 
 
 # --------------------------------------------------------------------- CLI --
@@ -332,6 +361,9 @@ def _imprimir(resultado: dict) -> None:
           f"{resultado['n_pregoes']} pregoes)")
     print(f"slippage adicional: {resultado['slippage_lado']:g} pt/lado | "
           f"custo {CUSTO_PTS:g} pt/trade")
+    janela = resultado.get("janela_brt")
+    if janela:
+        print(f"janela (America/Sao_Paulo): {janela[0]} -> {janela[1]}")
     cal = resultado["calibracao"]
     media = "n/d" if cal["media"] is None else f"{cal['media']:+.2f}"
     print(f"calibracao A0: n={cal['n']} media={media} "
