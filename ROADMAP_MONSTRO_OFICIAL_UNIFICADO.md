@@ -5825,5 +5825,196 @@ timing, nao por desenho (ver 23.51.9).
 **Regra mantida:** nenhuma mudanca de logica de trade; Faixa 1 suspensa; sem
 aumento de risco; nada em producao sem diff aprovado.
 
+## 23.52 P0 de 17/11 executado (#1 a #4) - medido, com flag e teste
 
+A autopsia 23.51 abriu quatro itens P0. Os quatro foram implementados no mesmo
+dia, cada um como modulo puro + testes + flag de desligamento + criterio de
+aceite escrito antes. **Nenhum deles toca a logica de trade** (sinal, filtro,
+alvo, trailing): sao correcao de execucao, rede de seguranca e integridade de
+artefato.
 
+| # | commit | entrega | flag (default) |
+|---|---|---|---|
+| 1 | `ff5f950` | SL/TP alinhados ao tick real no envio | `contrato.alinhar_sl_tick` (true) |
+| 2 | `00c0fcf` | teto de exposicao e frequencia + kill-switch | `limites_execucao.ativo` (true) |
+| 3 | `1dac0f8` | P&L do dia vindo dos deals do MT5 | `risk_management.pnl_dia_fonte` ("mt5") |
+| 4 | `04120b5` | escrita atomica + handshake `parado.ok` | `encerramento.escrita_atomica` / `handshake_parado_ok` (true) |
+
+Suite ao fim do P0: **87 passed + 1 failed**. O unico failed e o placebo
+pre-existente `tests/test_gerenciador_bloqueio.py::test_indentation_error`
+(assert proposital que ja falhava antes desta rodada).
+
+### 23.52.1 #1 - SL alinhado ao tick de negociacao (`ff5f950`)
+
+Causa raiz do `10016 Invalid stops`, provada no log e no simbolo: o WDOZ26 tem
+`trade_tick_size = 0.5` (e `digits = 3`, `point = 0.001`), mas o SL era enviado
+com precisao de ponto. **17 dos 18 SLs rejeitados em 17/11 (94%) nao eram
+multiplos de 0,5.** As duas fontes do preco fora do tick:
+
+- trailing de 50% do Sniper: `entrada + 0.5 * lucro_pts`;
+- `TrailingStopInteligente`: `lucro_pontos * 0.7 * TICK_SIZE`.
+
+As duas passam por `atualizar_sl`, que e o ponto unico de envio.
+
+Solucao: modulo puro `precos_wdo.py` (`tick_do_simbolo`, `alinhar_ao_tick`,
+`alinhar_sl`, `alinhar_tp`). O alinhamento acontece **no envio** (BUY floor /
+SELL ceil), nao na origem - assim qualquer fonte futura ja sai alinhada. Depois
+de alinhar, o codigo **revalida a melhoria**: se o SL alinhado nao for melhor
+que o atual, nao envia.
+
+12 testes, incluindo os 18 valores reais extraidos do log.
+
+**Ressalva honesta:** alinhar para o lado seguro deixa o stop ate 0,5 pt mais
+largo (R$ 5,00 por contrato). O risco aumenta um tick, nao diminui. A
+revalidacao de melhoria impede que o alinhamento vire um SL pior que o atual.
+
+**Aceite:** zero ocorrencia de `10016` na proxima sessao (eram 18 em 17/11 e
+19 em 16/11).
+
+### 23.52.2 #2 - teto de exposicao e frequencia (`00c0fcf`)
+
+Rede de seguranca contra loop anomalo, **nao estrategia**. O comportamento
+normal e 1 posicao por vez e Sniper com cooldown de 120 s; os tetos so devem
+disparar em bug (ordem reenviada, dois caminhos abrindo junto, duplicata apos
+timeout).
+
+Decisao em modulo puro `limites_execucao.py`: exposicao primeiro (estado),
+depois frequencia (fluxo); borda estrita de janela (60 s exatos ja libera).
+Wiring no inicio de `executar_ordem`, depois do `mt5.initialize()`: conta
+posicoes do simbolo, poda a janela de envios, e ao estourar bloqueia a ordem,
+loga o motivo e grava `parar.txt` (o kill-switch que ja existia).
+
+Config: `max_posicoes = 2`, `max_ordens_por_janela = 3`,
+`janela_ordens_s = 60`, `kill_switch_ao_exceder = true`.
+
+14 testes, incluindo rajada de 5 ordens (3 passam, a 4a bloqueia, 60 s depois
+libera) e guard estatico de que o teto esta **dentro** de `executar_ordem`.
+
+**Ressalva:** se `positions_get` falhar, o codigo loga warning e **segue**
+(fail-open). Preferi nao bloquear operacao normal por erro de leitura; o
+kill-switch cobre o caso de loop descontrolado.
+
+**Aceite:** zero `TETO DE EXECUCAO ESTOURADO` em dia normal. Se aparecer, o
+log diz qual limite estourou e com que numeros.
+
+### 23.52.3 #3 - P&L diario unico, dos deals (`1dac0f8`)
+
+Antes: `lucro_dia = sum(historico_lucro[-100:])` - lista em memoria, sem
+distincao de dia, sem comissao e poluida por qualquer magic. Agora a fonte
+primaria e o extrato (`history_deals_get`), somando `profit + commission +
+swap + fee` de **todos** os deals do dia e filtrando por magic
+(`MAGIC_NUMBER`, `MAGIC_ROMPIMENTO`). Deal de entrada tem `profit = 0` mas
+pode ter comissao; filtrar so as saidas subestimaria o custo.
+
+Modulo puro `pnl_dia.py` (`data_do_deal`, `pnl_de_deals`). No robo,
+`pnl_dia_mt5()` com cache de 30 s (o `verificar_circuit_breakers` roda no loop
+quente) e fallback para o historico em memoria se o MT5 devolver `None`
+(cold start) - com warning throttled de 60 s.
+
+13 testes.
+
+**Validacao com dados reais de 17/11:** 34 deals (17 entrada / 17 saida),
+`pnl_de_deals = (735.0, 34)`, batendo com a autopsia (+73,5 pts = R$ 735,00).
+Magic 999999 fora; dia anterior = zero.
+
+**Ressalva:** na demo `commission/swap/fee = 0`, entao o limite diario passa a
+ser **bruto**. Em conta real esses campos aparecem nos deals e o numero vira
+liquido. O gate continua aplicando o custo canonico de R$ 1,20 separadamente.
+
+**Aceite:** `[pnl_dia] MT5: N deals, liquido X` bate com o extrato e o fallback
+nao aparece em dia normal.
+
+### 23.52.4 #4 - escrita atomica + handshake `parado.ok` (`04120b5`)
+
+Resolve o near-miss de 23.51.8: o agente declarou `timeout no shutdown
+gracioso` e fez `force kill` as 17:36 enquanto o robo so concluia as 17:36:46.
+
+- **Modelo:** ja era atomico (`modelo.save(tmp)` + `os.replace`, L4009-4024).
+  Verificado no codigo; nada mudou.
+- **Experiencias:** `salvar_experiencias_json` fazia `open(...,'w')` +
+  `json.dump` direto no arquivo final. Agora serializa e grava via
+  `salvar_texto_atomico` (temporario no mesmo diretorio + `os.replace`).
+- **`parado.ok`:** o robo grava o handshake com timestamp **depois da trava
+  C3** (que impede encerrar com posicao aberta) e antes de sair. Se a C3
+  bloqueia, o arquivo nao e escrito - o handshake nunca mente.
+- **Agente:** remove `parado.ok` antigo antes de sinalizar (em
+  `parar_gracioso` e em `sinalizar_parada_robo`), para nao herdar falso
+  positivo. No timeout, o log agora distingue: `parado.ok` presente ->
+  "artefatos salvos, force kill e seguro"; ausente -> "artefatos podem estar
+  incompletos".
+
+Modulo puro `escrita_atomica.py` (`caminho_temporario`, `salvar_atomico`,
+`salvar_texto_atomico`), extensao preservada no temporario (Keras valida
+extensao), `flush` + `fsync` antes do `os.replace`, e limpeza do temporario em
+qualquer excecao. 15 testes, incluindo falha do escritor preservando o original
+e guard da ordem C3 -> `parado.ok` -> saida.
+
+**Ressalva:** a politica de timeout nao mudou. `parar_robo()` ainda cai em
+`parar_forcado()` depois de `graceful_timeout_s = 90`. Esperar
+indefinidamente sem handshake poderia deixar o processo vivo para sempre. O
+ganho e diagnostico: force-kill inofensivo e force-kill destrutivo nunca mais
+vao parecer iguais no log.
+
+**Aceite:** no fecho, `agente_autonomo.log` mostra
+`robo encerrou graciosamente (parado.ok)`; `C:\AIOFEN\parado.ok` existe as
+17:40; nenhum `*__tmp_*` orfao no diretorio.
+
+### 23.52.5 Correcao do fuso do MT5 (medido, nao assumido)
+
+A hipotese anterior - "servidor = local - 3 h" - estava **errada**. O
+`deal.time` do MT5 e o relogio do **servidor codificado como epoch UTC**:
+`utcfromtimestamp` devolve a hora do servidor, `fromtimestamp(ts, UTC)` tambem.
+
+Evidencia: o ultimo deal de 17/11 (`1882256502`) da **17:35:02**, exatamente o
+horario do log do robo para o fechamento (`[fecho] ... 17:35:01/04`). Nenhum
+ajuste de -3 h.
+
+Consequencia pratica: o filtro de dia do `pnl_dia.py` usa
+`datetime.fromtimestamp(ts, timezone.utc).date()`. Usar o fuso local
+deslocaria deals da madrugada e do fim da tarde para o dia errado.
+
+Nota operacional: `history_deals_get` pode retornar `None` em cold start (logo
+apos abrir o terminal). O fallback cobre, e o warning agora e throttled.
+
+### 23.52.6 Armadilha de nome: `ticks_por_ponto` tem dois significados
+
+| chave | valor | significado real | usado por |
+|---|---|---|---|
+| `contrato.ticks_por_ponto` | 1000 | pontos do MT5 por ponto de preco (`point = 0,001`) | robo (conversoes de preco) |
+| `custos_operacionais.wdo.ticks_por_ponto` | 2000 | unidade ambigua (2 ticks de 0,5 por ponto, misturado com 1000) | **ninguem** |
+
+O valor **1000 esta correto** para o uso do robo: `(preco_saida - entrada) /
+point / 1000` = pontos de WDO. Confirmado pelo P&L de hoje: +73,5 pts =
+R$ 735,00 com 1 ponto = R$ 10,00.
+
+O bloco `custos_operacionais` **nao e lido por nenhum .py** (verificado por
+grep). E documentacao morta, e o 2000 nao deve ser "corrigido" no escuro:
+mexer nele nao muda nada hoje. Quando alguem tocar nesse arquivo, renomear as
+chaves para `pontos_mt5_por_ponto` e `ticks_negocio_por_ponto` - o nome atual
+e a armadilha, nao o numero.
+
+### 23.52.7 O que NAO mudou
+
+- Zero alteracao em `prever_acao`, filtros (Williams, multi-TF, confluencia,
+  DOL), alvo de TP, distancia de trailing ou gestao de posicao.
+- Faixa 1 (Rompimento) segue suspensa.
+- Item 34 fase 2 segue bloqueado pelo gate de book completo.
+- Item 36 (shadow do agente) segue sem inicio.
+- Filtro de caminho (23.51.5) segue como hipotese de 2 estrelas, nao codado.
+- Nenhum aumento de risco: #2 e #4 sao rede de seguranca / integridade; #1
+  alarga o stop em no maximo 1 tick e revalida a melhoria antes de enviar.
+
+### 23.52.8 Proximo (P1)
+
+1. **Relatorio unico de metricas com intervalo de confianca.** O numero que
+   importa e a incerteza, nao a media: 69 trades com +1,29 pt/trade e erro
+   padrao ~1 pt nao decide nada. O relatorio deve sair com IC e n declarado.
+2. **Executor shadow de SL/TP ao vivo.** Sobre cada sinal real, simular
+   variantes (ex.: SL = 1,5 x ATR sem piso, TP = SL) e gravar o resultado
+   hipotetico. Sem dinheiro, sem alterar a ordem real. Atencao: os dados de
+   corretora disponiveis acabam em 29/08/2025.
+
+Depois: P2 (quebrar `monstro_thread`, tirar treino do loop quente, limpar
+repo, dashboard em `127.0.0.1`) e, por ultimo, 1 contrato em conta real apenas
+para medir slippage - o demo preenche perfeito e nao ensina nada sobre
+execucao.
