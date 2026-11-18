@@ -6609,3 +6609,19 @@ foi escrita; o robo registrou `ENCERRAMENTO GRACIL CONCLUIDO`. Os dois logs
 medem coisas diferentes — documentado para nao confundir "robo parou" com
 "agente concluiu".
 
+### 23.55.9 Primeira passada do filtro (18/11, depois do congelamento)
+
+`filtrar_completos.py` sobre `shadow_sltp_2026-11-18.jsonl`:
+**16 linhas -> 10 mantidas, 6 descartadas por gap** (0 incompletas, 0
+invalidas). Buracos medidos: **15,65 s** (2 sinais), **19,05 s**, **46,74 s**,
+**15,52 s** e **10,30 s**. As 10 mantidas ficaram entre **1,1 s e 8,3 s**.
+
+Todas as 16 linhas vieram do codigo carregado antes do campo `max_gap_s`
+(mtime 05:09), entao o gap foi **recalculado do `path`** com `duracao_s`
+padrao 1800 s — a mesma definicao do coletor, provada em
+`test_gap_do_coletor_e_o_do_filtro`. Nenhum arquivo do avaliador foi gerado:
+ele continua **sem nunca ter rodado sobre dado real**. O filtro nao foi
+alterado depois de ver o resultado (SHA-256
+`c16fd90f2633bc02da1178f84f41ef2deabeaf143a9c6404d85fbcb8fa55f8f8`).
+
+
