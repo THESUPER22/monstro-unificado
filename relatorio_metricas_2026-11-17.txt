@@ -1,0 +1,28 @@
+RELATORIO DE METRICAS - MONSTRO WDO
+gerado em 2026-11-17 21:08 | periodo 2026-11-02 -> 2026-11-17 (15 dias) | magics [123456]
+
+POR DIA (dia do servidor MT5)
+dia         n   bruto R$    gate R$
+2026-11-03   6     +440.00    +312.80
+2026-11-04   7     -180.00    -328.40
+2026-11-05   6     -195.00    -322.20
+2026-11-06   7     -310.00    -458.40
+2026-11-10   4     -150.00    -234.80
+2026-11-11   2      -35.00     -77.40
+2026-11-12   3      +30.00     -33.60
+2026-11-13   8     -180.00    -349.60
+2026-11-16   9     +735.00    +544.20
+2026-11-17  17     +735.00    +374.60
+
+VISOES (n=69; custo 0,12 pt/trade; gate 2,12 pt/trade)
+visao     n   media pt    IC95 (pt)          total R$     PF   acerto  seq  DD pt
+bruto     69     +1.29  [-0.51, +3.09]         +890.00  1.44   60.9%    5  102.00
+liquido   69     +1.17  [-0.63, +2.97]         +807.20  1.39   60.9%    5  106.44
+gate      69     -0.83  [-2.63, +0.97]         -572.80  0.78   58.0%    5  180.44
+
+LEITURA
+- IC95 = media +- t(gl=n-1) * erro padrao. n pequeno => IC largo, de proposito.
+- O gate cobra 2,12 pt/trade (2,0 de slippage + 0,12 de custo). A media bruta precisa superar isso.
+- p-valor binomial contra 50% nao e reportado: em chop o break-even real
+  fica em 50-54%, entao ele parece melhor do que e.
+- Veredito (gate): INDISTINGUIVEL de zero (IC contem zero).
