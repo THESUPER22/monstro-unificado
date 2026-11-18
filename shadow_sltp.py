@@ -19,7 +19,11 @@ uma linha por sinal:
      "ticket": 123, "sl_pts": 8.0, "tp_pts": 0.0, "atr": 2.5,
      "path": [[epoch, bid, ask], ...], "n": 1800, "completo": true}
 
-Modulo puro (sem MT5 no import); o MT5 e importado apenas no provedor padrao.
+Modulo puro (sem MT5 no import e sem chamar MT5 em producao): o preco vem do
+tick que a thread ``monitorar_spread`` do robo JA le a cada 1 s, publicado por
+``atualizar_preco``. Assim o shadow nao vira mais um caller concorrente do
+pacote MetaTrader5 (que nao tem lock no robo). ``_preco_mt5`` fica disponivel
+apenas para uso manual/teste.
 Testes em ``tests/test_shadow_sltp.py``.
 """
 from __future__ import annotations
@@ -38,10 +42,89 @@ from typing import Callable, Optional
 DURACAO_PADRAO_S = 1800.0   # 30 min
 INTERVALO_PADRAO_S = 1.0
 FILA_PADRAO = 200
+VALIDADE_TICK_S = 3.0       # tick mais velho que isso NAO vira amostra
+VALIDADE_TICK_MS_S = 10.0   # mesmo tick_msc por mais que isso = feed parado
+
+# Ultimo tick publicado pelo loop principal (thread do robo -> thread do
+# coletor). Dicionario pequeno e protegido por lock: escrita de 1 tupla por
+# segundo, leitura na amostragem. Nenhuma chamada ao MT5.
+_ULTIMO_PRECO = {}
+_LOCK_PRECO = threading.Lock()
+
+
+def publicar_preco(symbol, bid, ask, quando=None, tick_msc=None) -> None:
+    """Guarda o ultimo (bid, ask, tick_msc) visto pelo robo. Nunca levanta."""
+    try:
+        t = time.time() if quando is None else float(quando)
+        chave = str(symbol)
+        with _LOCK_PRECO:
+            anterior = _ULTIMO_PRECO.get(chave)
+            if (anterior is not None and tick_msc is not None
+                    and anterior[3] == tick_msc):
+                t_mudanca = anterior[4]
+            else:
+                t_mudanca = t
+            _ULTIMO_PRECO[chave] = (float(bid), float(ask), t,
+                                    tick_msc, t_mudanca)
+    except Exception:  # noqa: BLE001 - publicacao nao pode quebrar nada
+        pass
+
+
+def preco_publicado(symbol, agora=None, validade_s=VALIDADE_TICK_S,
+                    validade_ms_s=VALIDADE_TICK_MS_S):
+    """Ultimo (bid, ask) publicado e AINDA VALIDO, ou ``None``.
+
+    Dois relogios independentes:
+      - ``quando`` (parede): o publicador esta vivo? Tick com mais de 3 s de
+        idade e descartado.
+      - ``tick_msc`` (mercado): o preco realmente mudou? Se o MT5 repete o
+        mesmo ``time_msc`` por mais de 10 s, o feed esta parado e o tick e
+        descartado, mesmo que o publicador continue chamando.
+
+    Sem amostra, o track termina com ``completo=false`` (sinalizado).
+    """
+    try:
+        with _LOCK_PRECO:
+            item = _ULTIMO_PRECO.get(str(symbol))
+        if not item:
+            return None
+        bid, ask, quando, tick_msc, t_mudanca = item
+        agora = time.time() if agora is None else float(agora)
+        if abs(agora - quando) > float(validade_s):
+            return None
+        if (tick_msc is not None
+                and abs(agora - t_mudanca) > float(validade_ms_s)):
+            return None
+        return (bid, ask)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def max_gap_s(inicio, path, duracao_s):
+    """Maior buraco (s) na linha do tempo do path, incluindo inicio e fim.
+
+    Usado pelo filtro pre-registrado: um buraco > 10 s invalida o sinal, mesmo
+    que ``completo`` seja true. Retorna ``None`` se o path for ilegivel
+    (fail-closed: o filtro descarta).
+    """
+    if not path:
+        return 0.0
+    try:
+        tempos = [float(p[0]) for p in path]
+        buracos = [max(0.0, tempos[0] - float(inicio))]
+        buracos += [max(0.0, b - a) for a, b in zip(tempos, tempos[1:])]
+        buracos.append(max(0.0, float(inicio) + float(duracao_s) - tempos[-1]))
+        return round(max(buracos), 3)
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def _preco_mt5(symbol: str):
-    """Provedor padrao: (bid, ask) do MT5. Import tardio para nao exigir MT5."""
+    """Provedor OPCIONAL: (bid, ask) direto do MT5 (manual/teste).
+
+    NAO e o padrao em producao: chamar o MT5 de uma segunda thread adiciona um
+    caller concorrente sem lock. Use ``publicar_preco`` no loop principal.
+    """
     import MetaTrader5 as mt5  # noqa: PLC0415
 
     tick = mt5.symbol_info_tick(symbol)
@@ -81,7 +164,8 @@ class ColetorShadow:
         self.intervalo_s = max(0.001, float(intervalo_s))
         self.n_max = max(1, int(round(self.duracao_s / self.intervalo_s)))
         self.fila = queue.Queue(maxsize=max(1, int(fila_max)))
-        self._provedor = provedor_preco or _preco_mt5
+        # Padrao de producao: le o tick publicado pelo loop principal (sem MT5).
+        self._provedor = provedor_preco or preco_publicado
         self._relogio = relogio or time.time
         self._tracks = {}
         self._lock = threading.Lock()
@@ -90,6 +174,7 @@ class ColetorShadow:
         self._thread = None
         self._cpu_s = 0.0
         self._iter_s = 0.0
+        self._hook_ms_max = 0.0
         self._inicio = self._relogio()
         self._ultimo_log = self._inicio
         self.estat = {"sinais": 0, "gravados": 0, "amostras": 0,
@@ -100,10 +185,20 @@ class ColetorShadow:
             self._thread.start()
 
     # ------------------------------------------------------------ publico --
+    def atualizar_preco(self, symbol, bid, ask, tick_msc=None) -> None:
+        """Publica o ultimo tick lido pelo robo (thread do loop principal).
+
+        Chamado no maximo 1x/s. Nao chama MT5, nao bloqueia e nao levanta:
+        e o unico ponto em que a thread de trading toca o shadow a cada ciclo.
+        ``tick_msc`` permite detectar feed repetindo o mesmo tick.
+        """
+        publicar_preco(symbol, bid, ask, tick_msc=tick_msc)
+
     def registrar_sinal(self, **dados):
         """Enfileira um sinal pos-vetos. Retorna o id ou ``None``."""
         if not self.ativo:
             return None
+        t0 = time.perf_counter()
         try:
             sid = uuid.uuid4().hex[:12]
             item = dict(dados)
@@ -117,6 +212,11 @@ class ColetorShadow:
         except Exception as e:  # noqa: BLE001
             self.estat["falhas"] += 1
             logging.debug(f"[SHADOW SL/TP] registrar_sinal falhou: {e}")
+        finally:
+            # custo real do hook no caminho da ordem (microssegundos)
+            ms = (time.perf_counter() - t0) * 1000.0
+            if ms > self._hook_ms_max:
+                self._hook_ms_max = ms
         return None
 
     def marcar_operado(self, sinal_id: str, ticket=None) -> None:
@@ -139,6 +239,7 @@ class ColetorShadow:
             "ativos": len(self._tracks),
             "cpu_s": round(self._cpu_s, 6),
             "iter_s": round(self._iter_s, 6),
+            "hook_ms_max": round(self._hook_ms_max, 4),
             "wall_s": round(wall, 3),
             "pct_cpu": round(100.0 * self._cpu_s / wall, 4),
             "pct_iter": round(100.0 * self._iter_s / wall, 4),
@@ -215,7 +316,8 @@ class ColetorShadow:
         with self._lock:
             self._tracks[dados["id"]] = {
                 "id": dados["id"],
-                "inicio": self._relogio(),
+                # ts capturado ANTES do order_send (o enfileiramento e depois)
+                "inicio": float(dados.get("ts") or self._relogio()),
                 "meta": dados,
                 "path": [],
                 "operado": False,
@@ -270,11 +372,16 @@ class ColetorShadow:
                 estourou = (agora - t["inicio"]) >= self.duracao_s + 60.0
                 if cheio or estourou:
                     t["completo"] = True
-                    prontos.append(t)
-            for t in prontos:
+                    # "completo" = cobriu a janela inteira. Na saida por tempo,
+                    # tolera ate 10% de amostras perdidas (feed de 1 s com
+                    # jitter nao entrega exatamente 1800); abaixo disso o
+                    # sinal e marcado incompleto e NAO entra na avaliacao.
+                    completo = cheio or len(t["path"]) >= 0.9 * self.n_max
+                    prontos.append((t, completo))
+            for t, _ in prontos:
                 self._tracks.pop(t["id"], None)
-        for t in prontos:
-            self._gravar(t, completo=len(t["path"]) >= self.n_max)
+        for t, completo in prontos:
+            self._gravar(t, completo=completo)
 
     def _flush_parciais(self) -> None:
         with self._lock:
@@ -302,6 +409,9 @@ class ColetorShadow:
                 "preco": meta.get("preco"),
                 "path": track["path"],
                 "n": len(track["path"]),
+                "duracao_s": float(self.duracao_s),
+                "max_gap_s": max_gap_s(track["inicio"], track["path"],
+                                       self.duracao_s),
                 "completo": bool(completo),
             }
             os.makedirs(self.pasta, exist_ok=True)

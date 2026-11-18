@@ -5675,20 +5675,32 @@ def executar_ordem(action, lots=VOLUME_PADRAO, symbol=None, modo_operacional=Non
         "type_filling": mt5.ORDER_FILLING_IOC,
     }
 
-    # P1 17/11 #2: shadow SL/TP (read-only). So enfileira (put_nowait)
-    # e NUNCA pode alterar/atrasar o pedido. O caminho bid/ask e coletado
-    # na thread isolada do coletor.
+    # P1 18/11: o shadow NAO fica mais no caminho do order_send. Captura
+    # o contexto ANTES (ts/preco/sinal) e enfileira DEPOIS do envio.
     _shadow_id = None
+    _shadow_ms = 0.0
+    _shadow_ctx = None
     if atr_override is not None:
         # Rompimento (magic 7008) nao passa ATR: fora do shadow de SL/TP.
-        _shadow_id = notificar_seguro(
-            shadow_sltp, "registrar_sinal",
+        _shadow_ctx = dict(
             sinal=action, preco=preco, sl_pts=sl_points_dinamico,
             tp_pts=tp_points_dinamico, atr=atr_override,
-            magic=magic_final, symbol=symbol)
+            magic=magic_final, symbol=symbol, ts=time.time())
 
     # Envia ordem
+    _t_send = time.perf_counter()
     resultado = mt5.order_send(request)
+    _ms_send = (time.perf_counter() - _t_send) * 1000.0
+    if _shadow_ctx is not None:
+        _t_hook = time.perf_counter()
+        _shadow_id = notificar_seguro(
+            shadow_sltp, "registrar_sinal", **_shadow_ctx)
+        _shadow_ms = (time.perf_counter() - _t_hook) * 1000.0
+    # P1 18/11: ordem primeiro, shadow depois; os dois tempos na mesma linha.
+    logging.info(
+        f"[ORDEM] order_send {action} em {_ms_send:.1f} ms | "
+        f"shadow {_shadow_ms:.2f} ms | "
+        f"retcode {getattr(resultado, 'retcode', None)}")
 
     # Ã°Å¸âÂ§ CORREÃâ¡ÃÆO CRÃÂTICA 3: Verificar se resultado nÃÂ£o ÃÂ© None
     if resultado is None:
@@ -11120,6 +11132,13 @@ def monitorar_spread() -> None:
                 symbol_info = get_cached_symbol_info(SYMBOL)
 
                 if tick and symbol_info:
+                    # P1 #2: alimenta o shadow com o tick que esta thread JA
+                    # le a cada 1 s. Nenhuma chamada nova ao MT5 e nenhum
+                    # lock novo: o shadow deixa de ser um caller concorrente.
+                    if shadow_sltp is not None and shadow_sltp.ativo:
+                        notificar_seguro(shadow_sltp, "atualizar_preco",
+                                         SYMBOL, tick.bid, tick.ask,
+                                         tick_msc=getattr(tick, "time_msc", None))
                     spread_atual = (tick.ask - tick.bid) / symbol_info.point
                     spread_em_pontos = spread_atual / TICKS_POR_PONTO
 

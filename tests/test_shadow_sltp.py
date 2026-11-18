@@ -7,14 +7,28 @@ JSONL, a rotacao diaria, a fila limitada e o custo de CPU medido.
 import json
 import os
 import sys
+import time
 from datetime import datetime, timezone
+
+import pytest
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE)
 
+import shadow_sltp  # noqa: E402
 from shadow_sltp import ColetorShadow, notificar_seguro  # noqa: E402
 
 T0 = 1794936900.0   # 2026-11-17 17:35:00 UTC
+
+
+@pytest.fixture(autouse=True)
+def _limpa_tick_publicado():
+    """O ultimo tick e global do modulo: cada teste comeca do zero."""
+    with shadow_sltp._LOCK_PRECO:
+        shadow_sltp._ULTIMO_PRECO.clear()
+    yield
+    with shadow_sltp._LOCK_PRECO:
+        shadow_sltp._ULTIMO_PRECO.clear()
 
 
 def _iso(epoch):
@@ -142,6 +156,208 @@ def test_dois_sinais_geram_duas_linhas(tmp_path):
     assert len(_linhas(tmp_path)) == 2
 
 
+# ------------------------------------------- tick publicado (sem MT5) ------
+def test_provedor_padrao_e_o_tick_publicado(tmp_path):
+    """Producao: o coletor NAO chama MT5; le o tick publicado pelo robo."""
+    from shadow_sltp import preco_publicado
+
+    c = ColetorShadow(str(tmp_path), ativo=True, iniciar=False)
+    assert c._provedor is preco_publicado
+
+
+def test_sem_tick_publicado_nao_inventa_amostra(tmp_path):
+    relogio = Relogio()
+    c = ColetorShadow(str(tmp_path), ativo=True, iniciar=False,
+                      relogio=relogio, duracao_s=1.0)
+    c.registrar_sinal(sinal="BUY", symbol="WDOZ26")
+    c.processar_agora()
+    assert c.estat["amostras"] == 0
+    c.parar()
+    d = _linhas(tmp_path)[0]
+    assert d["path"] == [] and d["completo"] is False
+
+
+def test_atualizar_preco_alimenta_as_amostras(tmp_path):
+    relogio = Relogio()
+    c = ColetorShadow(str(tmp_path), ativo=True, iniciar=False,
+                      relogio=relogio, duracao_s=3.0)
+    c.registrar_sinal(sinal="BUY", symbol="WDOZ26")
+    c.atualizar_preco("WDOZ26", 5797.5, 5798.0)
+    c.processar_agora()
+    c.atualizar_preco("WDOZ26", 5798.0, 5798.5)
+    relogio.t = T0 + 1
+    c.processar_agora()
+    c.atualizar_preco("WDOZ26", 5798.5, 5799.0)
+    relogio.t = T0 + 2
+    c.processar_agora()
+    d = _linhas(tmp_path)[0]
+    assert d["path"] == [[T0, 5797.5, 5798.0],
+                         [T0 + 1, 5798.0, 5798.5],
+                         [T0 + 2, 5798.5, 5799.0]]
+    assert d["n"] == 3 and d["completo"] is True
+    assert d["max_gap_s"] == 1.0
+
+
+def test_max_gap_s_registrado_no_jsonl(tmp_path):
+    """Buraco de 30 s no feed tem que aparecer no arquivo."""
+    relogio = Relogio()
+    c = ColetorShadow(str(tmp_path), ativo=True, iniciar=False,
+                      relogio=relogio, duracao_s=31.0)
+    c.registrar_sinal(sinal="BUY", symbol="WDOZ26")
+    shadow_sltp.publicar_preco("WDOZ26", 5797.5, 5798.0)
+    c.processar_agora()
+    relogio.t = T0 + 30
+    c.processar_agora()
+    c.parar()
+    d = _linhas(tmp_path)[0]
+    assert d["n"] == 2
+    assert d["max_gap_s"] == 30.0
+
+
+def test_shadow_lento_nao_atrasa_a_ordem(tmp_path):
+    """Worker travado no provedor nao pode segurar o caminho da ordem."""
+    import threading
+
+    liberar = threading.Event()
+
+    def provedor_lento(symbol):
+        liberar.wait(5.0)
+        return (5400.0, 5400.5)
+
+    c = ColetorShadow(str(tmp_path), ativo=True, duracao_s=60.0,
+                      intervalo_s=0.01, provedor_preco=provedor_lento)
+    c.registrar_sinal(sinal="BUY", symbol="WDO")
+    time.sleep(0.2)   # deixa o worker entrar no provedor e travar
+    t0 = time.perf_counter()
+    sid = c.registrar_sinal(sinal="SELL", symbol="WDO")
+    enviado = True    # equivale ao mt5.order_send logo depois
+    ms = (time.perf_counter() - t0) * 1000.0
+    liberar.set()
+    c.parar(timeout=2.0)
+    assert sid is not None and enviado is True
+    assert ms < 50.0, f"hook do shadow levou {ms:.1f} ms"
+
+
+def test_atualizar_preco_nao_levanta_com_lixo(tmp_path):
+    c = ColetorShadow(str(tmp_path), ativo=True, iniciar=False)
+    c.atualizar_preco(None, None, None)
+    c.atualizar_preco("WDOZ26", "x", object())
+    c.parar()
+
+
+def test_tick_velho_nao_vira_amostra(tmp_path):
+    """Feed parado nao pode fabricar caminho plano (dado invalido disfarcado)."""
+    from shadow_sltp import preco_publicado, publicar_preco
+
+    publicar_preco("WDOZ26", 5797.5, 5798.0, quando=T0)
+    assert preco_publicado("WDOZ26", agora=T0 + 2.9) == (5797.5, 5798.0)
+    assert preco_publicado("WDOZ26", agora=T0 + 10.0) is None
+
+
+def test_feed_repetindo_o_mesmo_tick_invalida_apos_10s():
+    """Publicador vivo, mas time_msc parado: o preco nao pode ser reamostrado."""
+    from shadow_sltp import preco_publicado, publicar_preco
+
+    publicar_preco("WDOZ26", 1.0, 2.0, quando=T0, tick_msc=1000)
+    for k in range(1, 10):
+        publicar_preco("WDOZ26", 1.0, 2.0, quando=T0 + k, tick_msc=1000)
+    assert preco_publicado("WDOZ26", agora=T0 + 9) == (1.0, 2.0)
+
+    publicar_preco("WDOZ26", 1.0, 2.0, quando=T0 + 11, tick_msc=1000)
+    assert preco_publicado("WDOZ26", agora=T0 + 11) is None
+
+    # tick novo zera o relogio de mercado
+    publicar_preco("WDOZ26", 1.5, 2.5, quando=T0 + 11.5, tick_msc=1500)
+    assert preco_publicado("WDOZ26", agora=T0 + 11.5) == (1.5, 2.5)
+
+
+def test_sem_tick_msc_usa_so_o_relogio_de_parede():
+    from shadow_sltp import preco_publicado, publicar_preco
+
+    publicar_preco("WDOZ26", 1.0, 2.0, quando=T0)
+    assert preco_publicado("WDOZ26", agora=T0 + 2) == (1.0, 2.0)
+    assert preco_publicado("WDOZ26", agora=T0 + 4) is None
+
+
+def test_atualizar_preco_aceita_tick_msc(tmp_path):
+    from shadow_sltp import preco_publicado
+
+    c = ColetorShadow(str(tmp_path), ativo=True, iniciar=False)
+    c.atualizar_preco("WDOZ26", 1.0, 2.0, tick_msc=123)
+    assert preco_publicado("WDOZ26") == (1.0, 2.0)
+
+
+def test_ts_do_sinal_e_o_capturado_antes_do_envio(tmp_path):
+    relogio = Relogio()
+    c = ColetorShadow(str(tmp_path), ativo=True, iniciar=False,
+                      relogio=relogio, duracao_s=3.0)
+    c.registrar_sinal(sinal="BUY", symbol="WDOZ26", ts=T0 - 5)
+    c.atualizar_preco("WDOZ26", 1.0, 2.0)
+    c.processar_agora()
+    c.parar()
+    d = _linhas(tmp_path)[0]
+    assert d["ts"].startswith("2026-11-17T17:34:55")
+
+
+def test_hook_fica_depois_do_order_send_no_fonte():
+    """Estatico: registrar_sinal so pode aparecer DEPOIS do order_send."""
+    caminho = os.path.join(BASE, "monstro_unificado_v22.py")
+    with open(caminho, "rb") as f:
+        fonte = f.read().decode("latin-1")
+    inicio = fonte.index("def executar_ordem(")
+    fim = fonte.index("\ndef ", inicio + 10)
+    bloco = fonte[inicio:fim]
+    captura = bloco.index("_shadow_ctx = dict(")
+    envio = bloco.index("resultado = mt5.order_send(request)")
+    hook = bloco.index('"registrar_sinal"')
+    assert captura < envio < hook
+
+
+def test_timeout_com_90_por_cento_marca_completo(tmp_path):
+    from shadow_sltp import publicar_preco
+
+    relogio = Relogio()
+    c = ColetorShadow(str(tmp_path), ativo=True, iniciar=False,
+                      relogio=relogio, duracao_s=10.0, intervalo_s=1.0)
+    c.registrar_sinal(sinal="BUY", symbol="WDOZ26")
+    publicar_preco("WDOZ26", 5797.5, 5798.0)
+    for k in range(9):
+        relogio.t = T0 + k
+        c.processar_agora()
+    # feed para: o 10o slot nao pode ser preenchido com tick velho
+    publicar_preco("WDOZ26", 5797.5, 5798.0, quando=time.time() - 10)
+    relogio.t = T0 + 80
+    c.processar_agora()
+    d = _linhas(tmp_path)[0]
+    assert d["n"] == 9 and d["completo"] is True
+
+
+def test_feed_parado_termina_completo_false(tmp_path):
+    from shadow_sltp import publicar_preco
+
+    relogio = Relogio()
+    c = ColetorShadow(str(tmp_path), ativo=True, iniciar=False,
+                      relogio=relogio, duracao_s=3.0)
+    c.registrar_sinal(sinal="BUY", symbol="WDOZ26")
+    agora_real = time.time()
+    publicar_preco("WDOZ26", 5797.5, 5798.0, quando=agora_real)
+    c.processar_agora()
+    # feed morre: o ultimo tick envelhece e nao pode mais ser reamostrado
+    publicar_preco("WDOZ26", 5797.5, 5798.0, quando=agora_real - 10)
+    relogio.t = T0 + 120
+    c.processar_agora()
+    d = _linhas(tmp_path)[0]
+    assert d["n"] == 1 and d["completo"] is False
+
+
+def test_modulo_nao_importa_mt5_no_topo():
+    caminho = os.path.join(BASE, "shadow_sltp.py")
+    with open(caminho, encoding="utf-8") as f:
+        linhas = f.read().splitlines()
+    topo = [l for l in linhas if l.startswith(("import ", "from "))]
+    assert not any("MetaTrader5" in l for l in topo)
+
+
 def test_rotacao_diaria_por_utc(tmp_path):
     relogio = Relogio()
     c = _coletor(tmp_path, relogio=relogio, duracao_s=1.0)
@@ -206,14 +422,13 @@ def test_cpu_e_wall_medidos(tmp_path):
 
 
 # ------------------------------------------------------- hook no robo ------
-def test_hook_fica_antes_do_order_send_e_marca_depois():
+def test_marca_operado_depois_do_registrar_e_atr_do_sniper():
     caminho = os.path.join(BASE, "monstro_unificado_v22.py")
     with open(caminho, encoding="latin-1") as f:
         txt = f.read()
     i_reg = txt.index('shadow_sltp, "registrar_sinal"')
-    i_send = txt.index("resultado = mt5.order_send(request)")
     i_op = txt.index('notificar_seguro(shadow_sltp, "marcar_operado"')
-    assert i_reg < i_send < i_op
+    assert i_reg < i_op
     # ATR do Sniper e o mesmo usado no dimensionamento do sinal
     assert "'atr': atr," in txt
     assert "atr=atr_override" in txt
