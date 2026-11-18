@@ -6417,10 +6417,13 @@ alterado; a coleta de 18/11 ja nasce valida para o criterio pre-registrado.
 
 `estatisticas()` expoe `cpu_s` (`time.thread_time()` da thread), `iter_s`
 (tempo de parede dentro das iteracoes), `pct_cpu`, `pct_iter`, `sinais`,
-`gravados`, `amostras`, `descartes` e `falhas`; log a cada 5 min. Medicao de
-17/11 em teste de thread real: **~5 ms por amostra e ~50 ms por sinal**
-(inclui `fsync` da linha). Em um pregao de 30 min por sinal isso e ~0,003% do
-tempo; a ordem nao espera nada disso porque so faz `put_nowait`.
+`gravados`, `amostras`, `descartes` e `falhas`; log a cada 5 min. No Windows
+`thread_time()` tem granularidade de ~15 ms, entao `cpu_s` pode aparecer 0,0
+em janelas curtas; `iter_s` (`perf_counter`) e o numero de referencia para o
+custo. Medicao de 17/11 em teste de thread real: **~5 ms por amostra e
+~50 ms por sinal** (inclui `fsync` da linha). Em um pregao de 30 min por sinal
+isso e ~0,003% do tempo; a ordem nao espera nada disso porque so faz
+`put_nowait`.
 
 ### 23.55.4 Testes
 
