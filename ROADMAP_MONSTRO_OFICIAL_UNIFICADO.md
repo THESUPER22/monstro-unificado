@@ -5963,11 +5963,15 @@ vao parecer iguais no log.
 
 A hipotese anterior - "servidor = local - 3 h" - estava **errada**. O
 `deal.time` do MT5 e o relogio do **servidor codificado como epoch UTC**:
-`utcfromtimestamp` devolve a hora do servidor, `fromtimestamp(ts, UTC)` tambem.
+`fromtimestamp(ts, UTC)` devolve a hora do servidor; o "local" do Windows
+(UTC-3) mostra 3 h a menos.
 
-Evidencia: o ultimo deal de 17/11 (`1882256502`) da **17:35:02**, exatamente o
-horario do log do robo para o fechamento (`[fecho] ... 17:35:01/04`). Nenhum
-ajuste de -3 h.
+Evidencia reimpressa em 23.54.1: o ultimo deal de 17/11 tem **ticket
+`1882256502`** e **`time = 1794936902`** (`time_msc = 1794936902632`).
+Convertido como UTC: **2026-11-17 17:35:02**. O log local do robo registra o
+fechamento as **17:35:04**. O numero `1882256502` citado na primeira versao
+desta secao era o **ticket**, nao o epoch: convertido como epoch daria
+24/08/2029. A conclusao nao muda; a evidencia agora e a certa.
 
 Consequencia pratica: o filtro de dia do `pnl_dia.py` usa
 `datetime.fromtimestamp(ts, timezone.utc).date()`. Usar o fuso local
@@ -6182,9 +6186,177 @@ dia fica so no disco. Republicar = rodar uma vez com `janela_horas: null`.
 
 1. **P1 #2 - executor shadow de SL/TP ao vivo.** Sobre cada sinal real,
    simular variantes (ex.: SL = 1,5 x ATR sem piso, TP = SL) e gravar o
-   resultado hipotetico. Sem dinheiro, sem alterar a ordem real. Atencao: os
-   dados de corretora disponiveis acabam em 29/08/2025.
+   resultado hipotetico. Sem dinheiro, sem alterar a ordem real. Criterio
+   pre-registrado em **23.54.3**. Atencao a duas fontes diferentes: o CSV M5
+   filtrado vai ate 09/09/2026; os ticks de corretora, ate 29/08/2025. O
+   manifest antigo misturava as duas.
 2. **Primeira medicao honesta com o relatorio novo:** rodar
    `relatorio_metricas.py --dias 15` todo fecho (ja esta na whitelist) e
    acompanhar o IC do gate. So pensar em aumentar risco quando o IC inteiro
    ficar acima de zero por varias semanas - nao por dois dias bons.
+
+## 23.54 Revisao humana do P0/P1 e pre-registro do shadow de SL/TP (17/11/2026)
+
+Revisao do usuario sobre os commits `ff5f950..36ee3a6`. Nenhuma mudanca de
+**codigo** desta secao foi aplicada antes da aprovacao; o que ja esta no
+codigo aparece como "atual" e o que muda aparece como "proposto". As medicoes
+foram feitas na conta 55265364 (XPMT5-DEMO) em 17/11, apos o fecho.
+
+### 23.54.1 Achados da revisao (medidos, nao assumidos)
+
+**1. O teto de exposicao conta posicoes, nao volume - confirmado.**
+`mt5.account_info().margin_mode = 0` (`ACCOUNT_MARGIN_MODE_RETAIL_NETTING`):
+a conta e netting. Nela, `len(positions_get(symbol))` e **1** mesmo com 665
+contratos empilhados - exatamente o incidente de 03/09. O limite
+`max_posicoes: 2` nunca dispara; so a frequencia (3 ordens/60 s) protege.
+Correcao proposta: `avaliar_limite(volume_aberto, volume_novo, ...)` com
+`volume_aberto + volume_novo <= max_contratos` e teste "1 posicao de volume 5
+bloqueia". Se `positions_get` falhar, **fail-closed**: uma nova tentativa e,
+se falhar de novo, a entrada e bloqueada (perder uma entrada custa menos que
+empilhar). Detalhe medido: `calcular_volume_inteligente()` devolve 1,0 / 1,5 /
+2,0 conforme o book, entao a checagem tem de rodar **depois** de
+`params['volume']`, senao mede o volume errado. `positions_get` devolve `()`
+(sem posicao) e nao `None`: o fail-closed testa `is None`, senao bloquearia o
+dia inteiro no caso normal.
+
+**2. O limite diario da classe `CircuitBreakerEssencial` era outro - confirmado.**
+`verificar_circuit_breakers` (L1767) nao usava o extrato: comparava
+`self.loss_diario_atual` (memoria, zera no restart) com o literal `-1000.0`
+(L1778). A funcao global `verificar_circuit_breakers` ja usava `pnl_dia_mt5()`
+desde `1dac0f8`. Correcao proposta: a classe passa a usar o mesmo
+`pnl_dia_mt5()` e o `MAX_LOSS_DIARIO` do `config.json`, com a memoria apenas
+como fallback quando o extrato falha.
+
+**3. O fuso: a conclusao estava certa, o numero citado nao.**
+O deal do fecho tem **ticket `1882256502`** e **`time = 1794936902`**
+(`time_msc = 1794936902632`). Convertido como UTC: **2026-11-17 17:35:02**. O
+log local do robo: **17:35:04**. O valor `1882256502` citado em 23.52.5 era o
+ticket; como epoch daria 24/08/2029. 23.52.5 corrigido. Risco pratico baixo:
+no horario do pregao qualquer fuso razoavel cai no mesmo dia.
+
+**4. Higiene do commit - confirmado.**
+`commit_permitido` executava `git add` + `git commit` de verdade; foi assim
+que `56a0889` saiu de uma execucao acidental. Proposta: separar a checagem
+pura (`caminhos_permitidos`, sem git) da acao (`executar_commit`, com
+`dry_run=True` para simular sem tocar no indice). O teste placebo
+`test_indentation_error` vira `xfail(strict=True)` - CI vermelho por design
+ensina a ignorar vermelho.
+
+**5. Privacidade - bloqueado no usuario.**
+A whitelist publica P&L diario (relatorio, plano, metricas) num repo
+**publico**. Push em `backup/*` nao muda isso. O repo precisa ficar privado
+(Settings -> Danger Zone -> Change visibility) antes de qualquer push. Sem
+`gh` e sem token na maquina, o agente nao consegue fazer isso sozinho. O fecho
+nao empurra `main`, entao nao ha exposicao automatica ate um push manual.
+
+### 23.54.2 Correcoes aplicadas em 17/11 (aguardando commit)
+
+Aprovadas com 4 ajustes do usuario: (a) teto de volume roda logo DEPOIS de
+`lote_corrigido` e ANTES do `order_send`, com teste estatico de ordem;
+(b) fallback do P&L usa a memoria do breaker, nao `historico_lucro[-100:]`;
+(c) `os.replace` com retry; (d) hash + regra de parada congelados antes da
+coleta (23.54.3).
+
+| # | arquivo | mudanca | teste |
+|---|---|---|---|
+| 1 | `limites_execucao.py` + robo + `config.json` | teto por volume (`volume_aberto`, soma aberto + novo), fail-closed com 1 retry, `max_contratos: 2` com fallback `max_posicoes` | 23 testes; ordem estatica `volume -> teto -> order_send`; `positions_get=None` bloqueia |
+| 2 | robo (`CircuitBreakerEssencial` e breaker global) | `pnl_dia_mt5()` + `MAX_LOSS_DIARIO`; memoria do breaker so como fallback, `ERROR` 1x/hora | guardas de fonte e de ausencia do literal `-1000.0` |
+| 3 | `escrita_atomica.py` | `os.replace` com 5 tentativas / 100 ms em `PermissionError` | fake que falha 3x (grava), 5x (desiste e limpa), 0x (nao dorme) |
+| 4 | `commit_dia.py` + `agente_monstro_core.py` + `agente_config.json` | `caminhos_permitidos` puro + `executar_commit(dry_run)`; `dry_run: false` em producao | 26 testes; dry-run nao toca no indice |
+| 5 | `tests/test_gerenciador_bloqueio.py` | `xfail(strict=True)` | suite sem vermelho por design |
+
+Nenhuma mudanca toca `prever_acao`, filtros, alvo, trailing ou gestao de
+posicao. Todas tem flag no `config.json`/`agente_config.json`.
+
+### 23.54.3 P1 #2 - criterio PRE-REGISTRADO (escrito antes do 1o dado)
+
+Regra do projeto: nada entra na estrategia sem shadow e criterio de aceite
+escrito antes. Este e o criterio. Nenhuma variante nova depois de ver
+resultado; qualquer mudanca aqui invalida a coleta e recomeca.
+
+**Variantes (no maximo 4, fixas):**
+
+| id | SL | TP | observacao |
+|---|---|---|---|
+| A0 | producao (`sl_points = 8`, TP atual = 0/sem TP) | producao | controle |
+| B | `1,5 x ATR`, sem piso, minimo 3 pts | `3 x ATR` | assimetrica |
+| C | 8 pts | 8 pts | simetrica |
+| D | 8 pts | 12 pts | assimetrica curta |
+
+**Tempo (rev. 3a):** todo timestamp e normalizado para **UTC**. Epoch
+numerico = `fromtimestamp(ts, tz=UTC)` (relogio do servidor); string sem fuso
+e tratada como UTC. O executor grava UTC no JSONL.
+
+**Fill conservador (igual para todas):**
+- entrada com **0,5 pt contra** o sinal;
+- TP so conta se o preco **ultrapassar 1 tick** do nivel; `TP=0` = **sem TP**;
+- SL com **1 tick** de slippage e **gap**: `min(preco, nivel) - 1 tick` no BUY,
+  `max(preco, nivel) + 1 tick` no SELL;
+- saida pelo **lado certo do book** (BUY sai no bid, SELL sai no ask);
+- fecho forcado as **17:35 BRT = 20:35 UTC** (Brasil sem DST);
+- reportar em `slippage por lado = {0; 0,5; 1,0}` e custo de **R$ 1,20**
+  (0,60 + 0,60) por contrato.
+
+**ATR (rev. 3e):** o campo `atr` do JSONL e a **volatility usada pelo Sniper
+no sinal** (mesmo valor que dimensiona SL/TP no momento), nao um ATR
+recalculado depois.
+
+**Unidade de analise:** cada sinal pos-vetos e avaliado de forma independente
+em cada variante, com a marca `foi_operado` (o sinal que o robo realmente
+executou). Relatorio em duas visoes: (a) todos os sinais; (b) so os operados.
+A decisao usa (b); (a) serve para medir o custo dos vetos.
+
+**Dados:** gravar o caminho **bid/ask a 1 s por 30 min** apos cada sinal
+(pequeno o bastante para guardar meses). Isso permite reavaliar qualquer grade
+depois, sem mexer no robo. A decisao so pode usar o grid pre-registrado acima.
+
+**Isolamento:** thread separada, `try/except` com log, **nunca** no caminho da
+ordem, flag `shadow_sltp.ativo` no `config.json` para desligar. Falha do
+shadow nao pode bloquear nem atrasar a ordem real.
+
+**Calibracao (rev. 3c):** a A0 simulada e comparada com o resultado **real**
+dos sinais operados (`pnl_real_pts` no JSONL ou `--reais {ticket: pts}`).
+`|media(sim - real)| <= 0,5 pt`; acima disso o status e **"simulador
+invalido"** e nada e promovido. Sem dados reais tambem nao promove.
+
+**Promocao para demo/1 contrato real:** diferenca **pareada** de expectativa
+liquida contra A0 (a 0,5 pt/lado), com **>= 200 sinais pareados e >= 15
+pregoes**. O IC 95% por **bootstrap em blocos de dia** precisa ter limite
+inferior **> 0** e media **>= +0,5 pt**, com resultado positivo em **>= 60%
+dos dias**, e correcao de **Holm** para as 3 comparacoes (B, C, D contra A0).
+Alem disso (rev. 3b), cada variante precisa passar no criterio **ABSOLUTO**:
+liquido > 0 com **limite inferior do IC95 > 0** a 0,5 pt/lado. Se nao passar,
+mantem A0 e continua coletando.
+
+**Script de avaliacao CONGELADO (antes do 1o dado):**
+`avaliar_shadow_sltp.py`, SHA-256 =
+`13cf9b16cb74a985dda6d4f73c6c6c04ca4fc8c37bd6a93f5966934c0b68ec3c`.
+O teste `tests/test_avaliar_shadow.py::test_hash_do_avaliador_congelado_no_roadmap`
+falha se o arquivo mudar. Consequencia: **qualquer alteracao no avaliador
+invalida a coleta e recomeca do zero**; nao existe "ajustar depois de ver".
+
+**Regra de parada (congelada junto):**
+- com **>= 200 sinais pareados e >= 15 pregoes** → decide (promove ou mantem
+  A0);
+- antes disso → **coletando** (nao decide, nao promove);
+- se em **40 pregoes** nao houver 200 sinais pareados → encerra como
+  **inconclusivo**: mantem A0, nao estende a coleta e nao promove por
+  "quase". Implementado em `status_coleta()` e testado
+  (`test_status_coleta_congelado`).
+
+**O que o shadow NAO mede:** trajetoria de preco, nao execucao. O slippage
+real da demo continua desconhecido; isso so se resolve no P2, com 1 contrato
+real. O shadow tambem nao prova que o preco estava disponivel no book - por
+isso o fill conservador e obrigatorio.
+
+### 23.54.4 Sanidade dos dados M5 (nao decide nada)
+
+`backtest/dados_mt5/baixa_tudo/filtrados/WDO_FULL_M5_2021_2026.csv`:
+94.985 linhas, passo de 300 s, de **2021-09-10T12:00Z** a
+**2026-09-09T18:25Z**, 1.247 dias, 1.248 lacunas (a maior de 4,77 dias, nos
+Carnavais). Os horarios vao de 12 a 18 UTC, ou seja **09:00 a 15:25 local**:
+o CSV **nao cobre o fim do pregao** (17:35). O manifest antigo falava em
+"dados ate 29/08/2025": sao fontes diferentes - o CSV filtrado vai ate
+09/09/2026, os ticks de corretora ate 29/08/2025. M5 e grosso demais para
+decidir SL 8 x TP 8 **dentro** da barra; serve so para checar se precos e
+horarios fazem sentido. A decisao vem do shadow ao vivo.
