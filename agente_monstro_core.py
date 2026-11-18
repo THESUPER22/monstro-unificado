@@ -26,7 +26,7 @@ import requests
 BASE = os.path.dirname(os.path.abspath(__file__))
 # P1 17/11 #3: selecao/commit restrito vivem em modulo puro e testavel.
 sys.path.insert(0, BASE)
-from commit_dia import commit_permitido, mensagem_fecho  # noqa: E402
+from commit_dia import executar_commit, mensagem_fecho  # noqa: E402
 CFG = json.load(open(os.path.join(BASE, "agente_config.json"), encoding="utf-8-sig"))
 P = CFG["paths"]
 D = CFG["decisao"]
@@ -974,6 +974,7 @@ def git_commit_dia():
     .gitignore e o add normal falha a lista inteira, calado - o fecho nunca
     committou relatorio) e, por padrao, so entram arquivos modificados nas
     ultimas 26 h (sem isso o 1o fecho publicaria 170 arquivos historicos).
+    2.3: `git.dry_run=true` mostra o que seria commitado sem tocar no indice.
     """
     cfg = CFG.get("git", {})
     if not cfg.get("ativo", True):
@@ -988,13 +989,18 @@ def git_commit_dia():
             ["git", "-C", BASE_DIR, "rev-parse", "--abbrev-ref", "HEAD"],
             capture_output=True, text=True, timeout=30).stdout.strip()
 
-        r = commit_permitido(
+        r = executar_commit(
             BASE_DIR, caminhos, mensagem_fecho(),
             janela_horas=cfg.get("janela_horas", 26),
-            add_forcado=cfg.get("add_forcado", True))
+            add_forcado=cfg.get("add_forcado", True),
+            dry_run=cfg.get("dry_run", False))
         if r["status"] == "commitado":
             log.info(f"git commit do dia: {len(r['arquivos'])} caminho(s) "
                      f"permitido(s) em '{branch}'")
+        elif r["status"] == "dry_run":
+            log.info(f"git_commit_dia dry_run: {len(r['arquivos'])} caminho(s) "
+                     f"seriam commitados - nada foi alterado")
+            return
         elif r["status"] in ("add_falhou", "commit_falhou"):
             log.warning(f"git_commit_dia {r['status']}: {r['detalhe']}")
             return

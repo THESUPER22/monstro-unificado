@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Selecao e commit restrito dos artefatos do fecho (P1 17/11 #3).
+"""Selecao e commit restrito dos artefatos do fecho (P1 17/11 #3, rev. 2.3).
 
 Por que existe: ate 17/11 o ``git_commit_dia`` fazia ``git add -- <arquivos>``
 sem ``-f``. Dois dos quatro padroes da whitelist caem no ``.gitignore``
@@ -14,7 +14,7 @@ A whitelist entrou em 17/11 18:18, DEPOIS do fecho daquele dia (17:35), entao
 o codigo com o bug nunca chegou a rodar: este fix pega o problema antes do
 primeiro fecho com whitelist (18/11 17:35).
 
-Duas correcoes, cada uma com flag propria:
+Correcoes, cada uma com flag propria:
 
   - ``add_forcado``: usa ``git add -f`` (a whitelist ja e a barreira; o
     ``-f`` so vence o ``.gitignore``).
@@ -24,6 +24,12 @@ Duas correcoes, cada uma com flag propria:
     26 h e nao 24 h de proposito: se um fecho falhar, o fecho do dia seguinte
     (mesmo horario) ainda alcanca o arquivo de ontem. ``None`` desliga o
     filtro.
+  - ``dry_run``: ``executar_commit`` apenas informa o que seria commitado,
+    sem tocar no indice nem criar commit.
+
+Rev. 2.3 separa a CHECAGEM (``caminhos_permitidos``, pura: so le o disco e o
+relogio) da ACAO (``executar_commit``, unico ponto que chama ``git add`` /
+``git commit``). Assim a checagem pode ser testada de verdade, sem placebo.
 
 Modulo sem MT5/TensorFlow; testavel em ``tests/test_commit_dia.py`` (inclui um
 repo git descartavel que reproduz o bug e prova o fix).
@@ -38,11 +44,13 @@ from typing import Iterable, List, Optional, Sequence
 
 JANELA_HORAS_PADRAO = 26.0
 
+STATUS_OK = "ok"
 STATUS_NADA_PRESENTE = "nada_presente"
 STATUS_NADA_NOVO = "nada_novo"
 STATUS_ADD_FALHOU = "add_falhou"
 STATUS_COMMIT_FALHOU = "commit_falhou"
 STATUS_COMMITADO = "commitado"
+STATUS_DRY_RUN = "dry_run"
 
 
 def _rel(base_dir: str, caminho: str) -> str:
@@ -83,6 +91,31 @@ def selecionar_arquivos(padroes: Iterable[str],
     return sorted(saida)
 
 
+def caminhos_permitidos(padroes: Iterable[str],
+                        base_dir: str,
+                        agora: Optional[datetime] = None,
+                        janela_horas: Optional[float] = JANELA_HORAS_PADRAO) -> dict:
+    """Checagem PURA: quais arquivos da whitelist seriam commitados agora.
+
+    Nao chama git e nao escreve nada. Retorna
+    ``{"status": STATUS_OK | STATUS_NADA_PRESENTE, "arquivos": [...],
+    "detalhe": str}``. A acao fica em ``executar_commit``.
+    """
+    lista = list(padroes or ())
+    if not lista:
+        return {"status": STATUS_NADA_PRESENTE, "arquivos": [],
+                "detalhe": "whitelist vazia"}
+
+    arquivos = selecionar_arquivos(lista, base_dir, agora, janela_horas)
+    if not arquivos:
+        return {"status": STATUS_NADA_PRESENTE, "arquivos": [],
+                "detalhe": "nenhum arquivo permitido presente"
+                            + ("" if janela_horas is None
+                               else f" nas ultimas {float(janela_horas):g} h")}
+
+    return {"status": STATUS_OK, "arquivos": arquivos, "detalhe": ""}
+
+
 def _git(base_dir: str, args: Sequence[str], timeout: float = 60):
     return subprocess.run(["git", "-C", base_dir] + list(args),
                           capture_output=True, text=True, timeout=timeout,
@@ -94,32 +127,33 @@ def _resumo(proc) -> str:
     return texto.replace("\n", " ")[:300]
 
 
-def commit_permitido(base_dir: str,
-                     caminhos_permitidos: Iterable[str],
-                     msg: str,
-                     agora: Optional[datetime] = None,
-                     janela_horas: Optional[float] = JANELA_HORAS_PADRAO,
-                     add_forcado: bool = True) -> dict:
+def executar_commit(base_dir: str,
+                    padroes: Iterable[str],
+                    msg: str,
+                    agora: Optional[datetime] = None,
+                    janela_horas: Optional[float] = JANELA_HORAS_PADRAO,
+                    add_forcado: bool = True,
+                    dry_run: bool = False) -> dict:
     """Faz add + commit APENAS dos caminhos permitidos.
 
     Retorna ``{"status": ..., "arquivos": [...], "detalhe": str}``. Nunca
     levanta por falha do git: o fecho precisa continuar (relatorio e plano ja
     foram gravados) e o motivo fica registrado no log pelo chamador.
 
+    ``dry_run=True`` para depois da checagem: devolve ``STATUS_DRY_RUN`` com a
+    lista, sem ``git add`` e sem commit (o indice fica intocado).
+
     ``git commit -- <caminhos>`` mantem a garantia de que nada fora da
     whitelist entra, mesmo que o indice ja tenha algo staged por um humano.
     """
-    padroes = list(caminhos_permitidos or ())
-    if not padroes:
-        return {"status": STATUS_NADA_PRESENTE, "arquivos": [],
-                "detalhe": "whitelist vazia"}
+    selecao = caminhos_permitidos(padroes, base_dir, agora, janela_horas)
+    if selecao["status"] != STATUS_OK:
+        return selecao
+    arquivos = selecao["arquivos"]
 
-    arquivos = selecionar_arquivos(padroes, base_dir, agora, janela_horas)
-    if not arquivos:
-        return {"status": STATUS_NADA_PRESENTE, "arquivos": [],
-                "detalhe": "nenhum arquivo permitido presente"
-                            + ("" if janela_horas is None
-                               else f" nas ultimas {float(janela_horas):g} h")}
+    if dry_run:
+        return {"status": STATUS_DRY_RUN, "arquivos": arquivos,
+                "detalhe": "dry_run: nada foi adicionado nem commitado"}
 
     add_args = ["add"] + (["-f"] if add_forcado else []) + ["--"] + arquivos
     add = _git(base_dir, add_args)

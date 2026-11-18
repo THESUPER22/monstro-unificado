@@ -20,8 +20,9 @@ BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE)
 
 from commit_dia import (STATUS_ADD_FALHOU, STATUS_COMMIT_FALHOU,  # noqa: E402
-                        STATUS_COMMITADO, STATUS_NADA_NOVO, STATUS_NADA_PRESENTE,
-                        commit_permitido, mensagem_fecho, selecionar_arquivos)
+                        STATUS_COMMITADO, STATUS_DRY_RUN, STATUS_NADA_NOVO,
+                        STATUS_NADA_PRESENTE, STATUS_OK, caminhos_permitidos,
+                        executar_commit, mensagem_fecho, selecionar_arquivos)
 
 ONTEM = datetime.now() - timedelta(days=1)
 VELHO = datetime.now() - timedelta(days=3)
@@ -156,7 +157,7 @@ def test_mensagem_fecho_usa_a_data():
         "fecho autonomo 2026-11-17 (agente Fase 1)"
 
 
-# ------------------------------------------------------- commit_permitido ----
+# ------------------------------------------------------- executar_commit ----
 def test_bug_de_17_11_add_normal_falha_em_arquivo_ignorado():
     """Prova a causa raiz: `git add` sem -f retorna 1 em caminho do .gitignore."""
     with repo_temporario({"relatorio_diario_20261117.txt": "hoje"}) as d:
@@ -165,10 +166,10 @@ def test_bug_de_17_11_add_normal_falha_em_arquivo_ignorado():
         assert "ignored" in (add.stderr or "").lower()
 
 
-def test_commit_permitido_vence_o_gitignore():
+def test_executar_commit_vence_o_gitignore():
     with repo_temporario({"relatorio_diario_20261117.txt": "hoje",
                           "plano_20261117.txt": "plano"}) as d:
-        r = commit_permitido(d, ["relatorio_diario_*.txt", "plano_*.txt"],
+        r = executar_commit(d, ["relatorio_diario_*.txt", "plano_*.txt"],
                              "teste", add_forcado=True)
         assert r["status"] == STATUS_COMMITADO, r
         assert sorted(r["arquivos"]) == ["plano_20261117.txt",
@@ -181,7 +182,7 @@ def test_commit_permitido_vence_o_gitignore():
 
 def test_sem_add_forcado_falha_com_status_explicito():
     with repo_temporario({"relatorio_diario_20261117.txt": "hoje"}) as d:
-        r = commit_permitido(d, ["relatorio_diario_*.txt"], "teste",
+        r = executar_commit(d, ["relatorio_diario_*.txt"], "teste",
                              add_forcado=False)
         assert r["status"] == STATUS_ADD_FALHOU, r
         assert "ignored" in r["detalhe"].lower()
@@ -194,7 +195,7 @@ def test_nao_publica_historico_do_disco():
                 for i in range(1, 13)}
     arquivos["relatorio_diario_20261117.txt"] = "hoje"
     with repo_temporario(arquivos) as d:
-        r = commit_permitido(d, ["relatorio_diario_*.txt"], "teste")
+        r = executar_commit(d, ["relatorio_diario_*.txt"], "teste")
         assert r["status"] == STATUS_COMMITADO, r
         assert r["arquivos"] == ["relatorio_diario_20261117.txt"], r
         assert _arquivos_no_head(d) == ["relatorio_diario_20261117.txt"]
@@ -206,7 +207,7 @@ def test_nao_toca_em_arquivo_fora_da_whitelist():
         _git(d, "add", "-f", "--", "codigo.py", ".gitignore")
         _git(d, "commit", "-q", "-m", "base")
         _tocar(os.path.join(d, "codigo.py"), "v2")   # mudanca humana, fora da whitelist
-        r = commit_permitido(d, ["relatorio_diario_*.txt"], "teste")
+        r = executar_commit(d, ["relatorio_diario_*.txt"], "teste")
         assert r["status"] == STATUS_COMMITADO, r
         assert _arquivos_no_head(d) == [".gitignore", "codigo.py",
                                         "relatorio_diario_20261117.txt"]
@@ -217,31 +218,80 @@ def test_nao_toca_em_arquivo_fora_da_whitelist():
 
 def test_segunda_execucao_e_nada_novo():
     with repo_temporario({"relatorio_diario_20261117.txt": "hoje"}) as d:
-        assert commit_permitido(d, ["relatorio_diario_*.txt"], "t1")["status"] \
+        assert executar_commit(d, ["relatorio_diario_*.txt"], "t1")["status"] \
             == STATUS_COMMITADO
-        r2 = commit_permitido(d, ["relatorio_diario_*.txt"], "t2")
+        r2 = executar_commit(d, ["relatorio_diario_*.txt"], "t2")
         assert r2["status"] == STATUS_NADA_NOVO, r2
         assert _git(d, "rev-list", "--count", "HEAD").stdout.strip() == "1"
 
 
 def test_whitelist_vazia_nao_faz_nada():
     with repo_temporario({"relatorio_diario_20261117.txt": "hoje"}) as d:
-        r = commit_permitido(d, [], "teste")
+        r = executar_commit(d, [], "teste")
         assert r["status"] == STATUS_NADA_PRESENTE, r
         assert _git(d, "rev-list", "--count", "HEAD").returncode != 0   # sem commit
 
 
 def test_repo_sem_arquivo_permitido_nao_commita():
     with repo_temporario({"codigo.py": "v1"}) as d:
-        r = commit_permitido(d, ["relatorio_diario_*.txt"], "teste")
+        r = executar_commit(d, ["relatorio_diario_*.txt"], "teste")
         assert r["status"] == STATUS_NADA_PRESENTE, r
 
 
 def test_repo_inexistente_nao_levanta():
-    r = commit_permitido(os.path.join(tempfile.gettempdir(), "nao_existe_xyz"),
+    r = executar_commit(os.path.join(tempfile.gettempdir(), "nao_existe_xyz"),
                          ["relatorio_*.txt"], "teste")
     assert r["status"] in (STATUS_NADA_PRESENTE, STATUS_ADD_FALHOU,
                            STATUS_COMMIT_FALHOU), r
+
+
+# --------------------------------------------------- caminhos_permitidos ---
+def test_caminhos_permitidos_e_puro():
+    """2.3: a checagem so le o disco; nao chama git nem cria commit."""
+    with repo_temporario({"relatorio_diario_20261117.txt": "hoje"}) as d:
+        r = caminhos_permitidos(["relatorio_diario_*.txt"], d)
+        assert r["status"] == STATUS_OK, r
+        assert r["arquivos"] == ["relatorio_diario_20261117.txt"], r
+        assert _git(d, "rev-list", "--count", "HEAD").returncode != 0
+        assert _git(d, "ls-files").stdout.strip() == ""
+        assert _git(d, "diff", "--cached", "--quiet").returncode == 0
+        # arquivo ignorado nao aparece nem como untracked: nada mudou no git
+        assert "relatorio_diario" not in _git(d, "status", "--porcelain").stdout
+
+
+def test_caminhos_permitidos_whitelist_vazia():
+    with repo_temporario({"relatorio_diario_20261117.txt": "hoje"}) as d:
+        r = caminhos_permitidos([], d)
+        assert r["status"] == STATUS_NADA_PRESENTE, r
+
+
+def test_caminhos_permitidos_respeita_janela():
+    with repo_temporario({"relatorio_diario_20261117.txt": ("hoje", VELHO)}) as d:
+        assert caminhos_permitidos(["relatorio_diario_*.txt"], d)["status"] \
+            == STATUS_NADA_PRESENTE
+        assert caminhos_permitidos(["relatorio_diario_*.txt"], d,
+                                   janela_horas=None)["status"] == STATUS_OK
+
+
+# --------------------------------------------------------------- dry_run ----
+def test_dry_run_nao_toca_no_indice():
+    """2.3: dry_run devolve a lista e deixa o repo exatamente como estava."""
+    with repo_temporario({"relatorio_diario_20261117.txt": "hoje"}) as d:
+        antes = _git(d, "status", "--porcelain").stdout
+        r = executar_commit(d, ["relatorio_diario_*.txt"], "teste",
+                            dry_run=True)
+        assert r["status"] == STATUS_DRY_RUN, r
+        assert r["arquivos"] == ["relatorio_diario_20261117.txt"], r
+        assert _git(d, "status", "--porcelain").stdout == antes
+        assert _git(d, "rev-list", "--count", "HEAD").returncode != 0
+        assert _git(d, "ls-files").stdout.strip() == ""
+
+
+def test_dry_run_sem_arquivo_mantem_nada_presente():
+    with repo_temporario({"codigo.py": "v1"}) as d:
+        r = executar_commit(d, ["relatorio_diario_*.txt"], "teste",
+                            dry_run=True)
+        assert r["status"] == STATUS_NADA_PRESENTE, r
 
 
 # ------------------------------------------------------------- integracao ----
@@ -249,8 +299,9 @@ def test_agente_usa_o_modulo_e_nao_add_sem_f():
     caminho = os.path.join(BASE, "agente_monstro_core.py")
     with open(caminho, encoding="utf-8", errors="replace") as f:
         fonte = f.read()
-    assert "from commit_dia import commit_permitido, mensagem_fecho" in fonte
-    assert "commit_permitido(" in fonte
+    assert "from commit_dia import executar_commit, mensagem_fecho" in fonte
+    assert "executar_commit(" in fonte
+    assert 'dry_run=cfg.get("dry_run", False)' in fonte
     # o add manual (sem -f) saiu do agente
     assert '"add", "--"' not in fonte
     assert '"git", "-C", BASE_DIR, "add"' not in fonte
@@ -262,6 +313,7 @@ def test_config_tem_as_flags_do_patch():
         cfg = json.load(f)["git"]
     assert cfg["add_forcado"] is True
     assert cfg["janela_horas"] == 26
+    assert cfg["dry_run"] is False  # 2.3: desligado em producao
     for padrao in ("relatorio_diario_*.txt", "plano_*.txt",
                    "logs/fluxo_resumo_*.json",
                    "ROADMAP_MONSTRO_OFICIAL_UNIFICADO.md",

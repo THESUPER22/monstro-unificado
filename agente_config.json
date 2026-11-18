@@ -29,6 +29,7 @@
     ],
     "push_apenas_backup": true,
     "add_forcado": true,
+    "dry_run": false,
     "janela_horas": 26,
     "obs": "P0 17/11: o fecho de 17/11 subiu 11 scripts com 'git add -A' sem revisao. Agora o commit aceita SOMENTE os caminhos acima e o push so ocorre em branch backup/* (repo publico). P1 17/11 #3: add_forcado=true usa 'git add -f' (os padroes casam com o .gitignore, o add normal falhava calado); janela_horas=26 restringe a arquivos modificados nas ultimas 26h (evita publicar 170 arquivos historicos de uma vez e ainda recupera um fecho perdido no dia anterior); janela_horas=null desliga o filtro."
   },
