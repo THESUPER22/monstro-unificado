@@ -3051,7 +3051,7 @@ interromper o coletor Herman). Log após o restart:
 
 #### 23.22.5 Diagnóstico read-only que confirmou o ambiente
 
-- Conta: **55265364 / XPMT5-DEMO** (demo, `trade_mode=0`, saldo R$ 838.534,21).
+- Conta: **conta demo / XPMT5-DEMO** (demo, `trade_mode=0`, saldo demo).
 - Contrato correto: **WDOZ26** (vence 30/11/2026). `WDO$` retornou tick `0.0`
   neste teste — mais um motivo para o robô usar o contrato mensal explícito.
 - Book nativo: 20 níveis após `market_book_add`.
@@ -3464,7 +3464,7 @@ seção impressa corretamente. `py_compile` OK e 21/21 testes verdes.
 
 **Data:** 11/11/2026
 **Severidade:** alta (posição ficou aberta após o encerramento)
-**Conta:** demo 55265364 / XPMT5-DEMO (trade_mode=0) — sem dinheiro real
+**Conta:** conta demo / XPMT5-DEMO (trade_mode=0) — sem dinheiro real
 
 ### 23.27.1 O que aconteceu
 
@@ -4076,7 +4076,7 @@ dentro da janela das 18:30, em vez de esperar sexta.
 ### 23.36.3 Resultado
 
 ```
-conta=55265364 XPMT5-DEMO trade_mode=0
+conta=demo XPMT5-DEMO trade_mode=0
 posicao de teste aberta: #2592223021 WDOZ26 vol=1.0
 [fecho] #2592223021 retcode 10009 (Request executed)
 [fecho] #2592223021 saiu apos tentativa 1
@@ -6200,7 +6200,7 @@ dia fica so no disco. Republicar = rodar uma vez com `janela_horas: null`.
 Revisao do usuario sobre os commits `ff5f950..36ee3a6`. Nenhuma mudanca de
 **codigo** desta secao foi aplicada antes da aprovacao; o que ja esta no
 codigo aparece como "atual" e o que muda aparece como "proposto". As medicoes
-foram feitas na conta 55265364 (XPMT5-DEMO) em 17/11, apos o fecho.
+foram feitas na conta demo (XPMT5-DEMO) em 17/11, apos o fecho.
 
 ### 23.54.1 Achados da revisao (medidos, nao assumidos)
 
@@ -6944,3 +6944,85 @@ ou volume. O registro de inicio so escreve dois arquivos de controle; o
 `log.exception` so age quando ja haveria falha; o `.bat` so muda o codigo de
 saida do aborto; a variavel de ambiente so muda o destino do log do agente.
 O aceite continua read-only. `parado.ok` segue untracked e fora do diff.
+
+---
+
+## 23.59 Guarda de conteudo sensivel no fecho (19/11/2026)
+
+### 23.59.1 O problema
+
+O `commit_dia.executar_commit` validava apenas whitelist, janela de 26 h e
+`git add -f`. Nao olhava o conteudo. Um `relatorio_diario_*.txt` gerado pelo
+robo pode trazer numero de conta e saldo; um `plano_*.txt` pode trazer um
+token colado por engano. O fecho commitava assim mesmo.
+
+### 23.59.2 O que a varredura procura
+
+`tools/verificar_sensivel.py` (somente leitura, sem MT5 e sem logging):
+
+- **conta**: 6+ digitos imediatamente depois de conta/account/login/usuario/
+  user. Aceita no meio apenas `:`, `=`, `-`, `**` de markdown e a palavra
+  `demo`. A forma reversa (`<numero> (conta demo)`) tambem e aceita.
+- **saldo**: a palavra `saldo` e um valor em `R$` na mesma linha.
+- **segredo**: password/passwd/senha/token/api_key/apikey/secret/
+  client_secret com valor literal de 4+ caracteres. Placeholders (`null`,
+  `os.environ[...]`, `***`, `${TOKEN}`, "exemplo") nao contam.
+
+O achado guarda apenas `arquivo`, `linha` e `tipo`; o valor casado nunca e
+guardado, impresso ou logado. Arquivos binarios e maiores que 2 MB sao
+ignorados (o maior arquivo da whitelist em 19/11 tinha 1.359 bytes).
+
+### 23.59.3 Por que o regex de conta e estrito (medido)
+
+A versao frouxa ("palavra + 6 digitos em ate 60 caracteres") foi medida nos
+170 arquivos da whitelist e gerou **3 falsos positivos** no ROADMAP:
+`magic=123456`, `ticket=2243200971` e `magic=123457`. A versao estrita acerta
+as 4 linhas reais de conta e ignora magic/ticket. O regex de saldo exige a
+palavra `saldo` justamente para nao bloquear custos legitimos como
+`R$ 1,20/contrato` e `R$ 10,00/ponto`.
+
+Medicao final com o modulo real, antes da redacao: **5 achados**, todos no
+ROADMAP (4 de conta e 1 de saldo na mesma linha); **0** nos 169 demais
+arquivos da whitelist.
+
+### 23.59.4 Onde bloqueia
+
+`executar_commit` varre a whitelist selecionada **e** o indice
+(`git diff --cached`, lendo o blob com `git show :caminho`) **antes** do
+`git add`. Se houver achado, devolve `status="sensivel"` com a lista de
+achados e nao toca no indice nem no historico. `dry_run` tambem denuncia.
+O agente loga uma linha `ERROR` por achado (`arquivo:linha (tipo)`), sem o
+valor. A flag `git.verificar_sensivel` (padrao `true`) permite desligar em
+emergencia; `tests/test_verificar_sensivel.py` prova os dois caminhos.
+
+### 23.59.5 Redacao dos documentos
+
+As 4 linhas do ROADMAP que traziam o numero da conta passaram a usar
+"conta demo"; a linha que trazia o saldo passou a usar "saldo demo". Sem isso
+o guard bloquearia o proprio ROADMAP, que esta na whitelist do fecho.
+
+**Remocao do indice (19/11, item 4):** o arquivo `relatorio .txt` (nome com
+espaco) estava **rastreado** e continha numero de conta e nome do titular.
+Saiu do indice com `git rm --cached` e entrou no `.gitignore`; continua apenas
+no disco, como arquivo local nao versionado. O historico anterior **nao** foi
+reescrito, entao os commits antigos seguem expondo o conteudo ate uma limpeza
+propria.
+
+**Melhoria futura:** o termo com o nome do titular que permanece nesse arquivo
+local (nao versionado) deve ser sanitizado na origem, para que o proprio
+arquivo de trabalho deixe de carregar dado pessoal. Nao e bloqueante para o
+fecho, porque o arquivo nao esta mais no git.
+
+### 23.59.6 Testes
+
+`tests/test_verificar_sensivel.py` (18): formatos reais de conta, os 3 falsos
+positivos medidos, saldo com e sem `R$`, segredo literal e placeholders,
+linha/tipo corretos, garantia de que o valor nao aparece em `formatar` nem no
+`repr`, binario ignorado, staged lido do indice (nao do disco), bloqueio do
+commit, flag desligada, staged fora da whitelist e `dry_run`.
+
+### 23.59.7 O que NAO mudou
+
+Nenhuma regra de entrada/saida, filtro, alvo, trailing, gestao de posicao ou
+volume. A whitelist do fecho continua a mesma; o guard so acrescenta uma
+barreira de conteudo antes do `add`. `parado.ok` segue untracked.
