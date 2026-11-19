@@ -26,6 +26,9 @@ Correcoes, cada uma com flag propria:
     filtro.
   - ``dry_run``: ``executar_commit`` apenas informa o que seria commitado,
     sem tocar no indice nem criar commit.
+  - ``verificar_sensivel``: antes do ``git add``, varre a whitelist e o indice
+    (``tools/verificar_sensivel.py``). Conta, saldo em R$ ou segredo literal
+    bloqueiam o commit e o chamador loga arquivo/linha/tipo, nunca o valor.
 
 Rev. 2.3 separa a CHECAGEM (``caminhos_permitidos``, pura: so le o disco e o
 relogio) da ACAO (``executar_commit``, unico ponto que chama ``git add`` /
@@ -42,6 +45,8 @@ import subprocess
 from datetime import datetime, timedelta
 from typing import Iterable, List, Optional, Sequence
 
+from tools.verificar_sensivel import varrer as varrer_sensivel
+
 JANELA_HORAS_PADRAO = 26.0
 
 STATUS_OK = "ok"
@@ -51,6 +56,7 @@ STATUS_ADD_FALHOU = "add_falhou"
 STATUS_COMMIT_FALHOU = "commit_falhou"
 STATUS_COMMITADO = "commitado"
 STATUS_DRY_RUN = "dry_run"
+STATUS_SENSIVEL = "sensivel"
 
 
 def _rel(base_dir: str, caminho: str) -> str:
@@ -133,7 +139,8 @@ def executar_commit(base_dir: str,
                     agora: Optional[datetime] = None,
                     janela_horas: Optional[float] = JANELA_HORAS_PADRAO,
                     add_forcado: bool = True,
-                    dry_run: bool = False) -> dict:
+                    dry_run: bool = False,
+                    verificar_sensivel: bool = True) -> dict:
     """Faz add + commit APENAS dos caminhos permitidos.
 
     Retorna ``{"status": ..., "arquivos": [...], "detalhe": str}``. Nunca
@@ -143,6 +150,10 @@ def executar_commit(base_dir: str,
     ``dry_run=True`` para depois da checagem: devolve ``STATUS_DRY_RUN`` com a
     lista, sem ``git add`` e sem commit (o indice fica intocado).
 
+    ``verificar_sensivel=True`` (padrao) varre a whitelist e o indice ANTES do
+    ``git add``. Achado de conta/saldo/segredo devolve ``STATUS_SENSIVEL`` com
+    ``achados`` (arquivo, linha, tipo - nunca o valor) e nada e commitado.
+
     ``git commit -- <caminhos>`` mantem a garantia de que nada fora da
     whitelist entra, mesmo que o indice ja tenha algo staged por um humano.
     """
@@ -150,6 +161,14 @@ def executar_commit(base_dir: str,
     if selecao["status"] != STATUS_OK:
         return selecao
     arquivos = selecao["arquivos"]
+
+    if verificar_sensivel:
+        achados = varrer_sensivel(base_dir, arquivos, incluir_staged=True)
+        if achados:
+            return {"status": STATUS_SENSIVEL, "arquivos": arquivos,
+                    "detalhe": f"{len(achados)} achado(s) sensivel(is) - "
+                               "nada foi adicionado nem commitado",
+                    "achados": achados}
 
     if dry_run:
         return {"status": STATUS_DRY_RUN, "arquivos": arquivos,

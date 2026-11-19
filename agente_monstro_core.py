@@ -26,7 +26,7 @@ import requests
 BASE = os.path.dirname(os.path.abspath(__file__))
 # P1 17/11 #3: selecao/commit restrito vivem em modulo puro e testavel.
 sys.path.insert(0, BASE)
-from commit_dia import executar_commit, mensagem_fecho  # noqa: E402
+from commit_dia import STATUS_SENSIVEL, executar_commit, mensagem_fecho  # noqa: E402
 CFG = json.load(open(os.path.join(BASE, "agente_config.json"), encoding="utf-8-sig"))
 P = CFG["paths"]
 D = CFG["decisao"]
@@ -1104,10 +1104,19 @@ def git_commit_dia():
             BASE_DIR, caminhos, mensagem_fecho(),
             janela_horas=cfg.get("janela_horas", 26),
             add_forcado=cfg.get("add_forcado", True),
-            dry_run=cfg.get("dry_run", False))
+            dry_run=cfg.get("dry_run", False),
+            verificar_sensivel=cfg.get("verificar_sensivel", True))
         if r["status"] == "commitado":
             log.info(f"git commit do dia: {len(r['arquivos'])} caminho(s) "
                      f"permitido(s) em '{branch}'")
+        elif r["status"] == STATUS_SENSIVEL:
+            achados = r.get("achados", [])
+            log.error(f"git_commit_dia BLOQUEADO: {len(achados)} achado(s) "
+                      f"sensivel(is) - nada foi commitado")
+            for a in achados:
+                log.error(f"  sensivel em {a['arquivo']}:{a['linha']} "
+                          f"({a['tipo']})")
+            return
         elif r["status"] == "dry_run":
             log.info(f"git_commit_dia dry_run: {len(r['arquivos'])} caminho(s) "
                      f"seriam commitados - nada foi alterado")

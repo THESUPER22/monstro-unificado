@@ -299,9 +299,10 @@ def test_agente_usa_o_modulo_e_nao_add_sem_f():
     caminho = os.path.join(BASE, "agente_monstro_core.py")
     with open(caminho, encoding="utf-8", errors="replace") as f:
         fonte = f.read()
-    assert "from commit_dia import executar_commit, mensagem_fecho" in fonte
+    assert "from commit_dia import STATUS_SENSIVEL, executar_commit, mensagem_fecho" in fonte
     assert "executar_commit(" in fonte
     assert 'dry_run=cfg.get("dry_run", False)' in fonte
+    assert "verificar_sensivel=cfg.get(\"verificar_sensivel\", True)" in fonte
     # o add manual (sem -f) saiu do agente
     assert '"add", "--"' not in fonte
     assert '"git", "-C", BASE_DIR, "add"' not in fonte
