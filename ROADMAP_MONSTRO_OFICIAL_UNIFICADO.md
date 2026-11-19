@@ -6624,4 +6624,323 @@ ele continua **sem nunca ter rodado sobre dado real**. O filtro nao foi
 alterado depois de ver o resultado (SHA-256
 `c16fd90f2633bc02da1178f84f41ef2deabeaf143a9c6404d85fbcb8fa55f8f8`).
 
+### 23.56 Correcoes da noite de 18/11 (aprovacao pendente, sem commit)
 
+Quatro correcoes, cada uma com teste, feitas com o pregao fechado e sem
+posicao WDO aberta. Nenhuma toca a decisao de trade. A suite foi de
+**236 passed + 1 xfailed** para **255 passed + 1 xfailed** (19 testes novos).
+
+#### 23.56.1 Fecho: cada etapa isolada e leitura tolerante do git
+
+O fecho de 18/11 crashou em `verificar_mudanca_codigo`: o `git diff` do
+fonte tem bytes cp1252/latin-1 (0x9D), o `subprocess.run(..., text=True)`
+sem `encoding` usou o codec do console, a thread leitora estourou
+`UnicodeDecodeError`, `p.stdout` virou `None` e a linha
+`if not diff.strip()` caiu em `AttributeError`. Reproduzido num repo
+temporario: `stdout is None` -> `AttributeError: 'NoneType' object has no
+attribute 'strip'`.
+
+Grep no agente (3 ocorrencias de `text=True`):
+- `_git` — agora `encoding="utf-8", errors="replace"` e
+  `p.stdout or ""`;
+- `git_commit_dia` (`rev-parse`) — idem, com `or ""`;
+- `git_commit_dia` (`push`) — idem.
+
+`run_fecho` passou a chamar cada etapa por `_etapa_fecho(nome, fn)`, que
+loga "iniciada/concluida" e captura qualquer excecao devolvendo o
+sentinela `_FALHOU`. Um erro em relatorio/plano/commit nao pula as
+etapas seguintes, inclusive `parar_robo` e `parar_coletor_herman`.
+Teste: `tests/test_agente_fecho_tolerante.py` (5 testes), incluindo o
+diff com 0x9D e a regra AST "todo `text=True` declara `encoding` e
+`errors`".
+
+#### 23.56.2 Raiz do zumbi: o processo agora sai sozinho
+
+Depois de `ENCERRAMENTO GRACIL CONCLUIDO` o codigo so fazia
+`thread_ativo = False` e `break` no ponto do encerramento. A `monstro_thread`
+retornava, mas a thread principal continuava presa em `webview.start()` — o processo ficava vivo e o shadow seguia logando.
+
+Ordem nova, no ponto do encerramento:
+1. `pnl_dia_mt5(forcar=True, logar_sempre=True)` — `[pnl_dia]` final
+   **antes** do `parado.ok` (item 23.56.4);
+2. grava `parado.ok` (handshake existente);
+3. `_encerrar_processo_de_verdade()`:
+   - `shadow_sltp.parar()` (flush dos tracks parciais, join de ate 3 s);
+   - log da saida agendada;
+   - `flush()` em todos os handlers do root logger;
+   - `t = threading.Timer(5, os._exit, (0,))`; `t.daemon = True`;
+     `t.start()`.
+
+**Por que 5 s e seguro:** tudo o que precisa sobreviver ja foi gravado
+antes (modelo, experiencias, `parado.ok`, `[pnl_dia]` final e os tracks
+parciais do shadow). O `os._exit(0)` nao roda `atexit`, por isso o
+`parar()` e o `flush()` sao explicitos. O Timer existe apenas para vencer
+a thread do webview. Se o Timer falhar ao ser criado, o fallback e
+`os._exit(0)` imediato.
+
+Teste estatico: `tests/test_encerramento_zumbi.py` (3 testes) — quebra se
+a ordem `parado.ok -> shadow.parar() -> flush -> Timer` voltar atras, se o
+`daemon` vier depois do `start()` ou se o `[pnl_dia]` final deixar de ser
+antes do `parado.ok`.
+
+#### 23.56.3 start_all.bat: robo vivo x zumbi
+
+O `.bat` antigo abortava com qualquer processo do robo. Em 18/11 isso
+teria cancelado a subida de 19/11. Agora ele chama `start_guard.py`:
+
+- **zumbi** = `parado.ok` existe e e **mais novo** que o `create_time` do
+  processo (ou seja: ja encerrou, mas nao saiu) -> `terminate()`, espera
+  5 s, `kill()` se preciso, e segue;
+- **vivo de verdade** (`parado.ok` ausente ou mais antigo que o processo)
+  -> aborta e registra em `logs/start_all.log` a hora, o PID, o inicio do
+  processo, o mtime do `parado.ok` e a comparacao;
+- mistura de zumbi e vivo -> aborta sem matar ninguem;
+- `--dry-run` mostra a decisao sem matar.
+
+**Como testar sem tocar em processo real:** `python start_guard.py
+--dry-run` no ambiente atual (medido em 18/11 18:09:54: "nenhum robo vivo -
+subida liberada") e `tests/test_start_guard.py` (9 testes), que injeta
+`listar` e `matar_fn` falsos. Nenhum teste chama `psutil` de verdade.
+
+#### 23.56.4 Aceite item 3: snapshot nao e o dia inteiro
+
+O aceite agora extrai o timestamp da propria linha `[pnl_dia]` e compara
+com a soma dos deals **ate aquele horario**. O total do dia continua
+impresso, mas como informativo. Medicao real de 18/11 (read-only):
+
+```
+[pnl_dia] MT5:                 +5.00 (30 deals, magics [7008, 123456], as 16:58:32)
+deals ate o [pnl_dia]:         +5.00 (30 deals) OK
+saidas ate o [pnl_dia]:        +5.00 (15 deals)
+total do dia (informativo):    +70.00 (32 deals)
+```
+
+O defeito antigo (`+5,00` vs `+70,00` -> DIFERENTE) desapareceu. O
+`[pnl_dia]` final do encerramento faz o snapshot coincidir com o dia
+quando nao ha deal depois dele. Testes: `tests/test_aceite_pos_pregao.py`
+(13 testes), incluindo a reproducao exata do caso 16:58:32 + dois deals
+posteriores.
+
+**Observacao medida:** rodando o aceite depois dos commits manuais desta
+noite, o item 5 acusa 4 commits (8 arquivos) fora da whitelist — os
+commits do proprio trabalho de 18/11, que caem na janela 17:30-23:59. O
+aceite nao distingue commit do fecho de commit manual na mesma janela;
+isso continua em aberto.
+
+#### 23.56.5 O que NAO mudou
+
+Nenhuma regra de entrada/saida, filtro, alvo, trailing, gestao de posicao
+ou volume. O `start_guard` so age quando o processo ja gravou `parado.ok`.
+O `[pnl_dia]` final e o mesmo calculo de sempre, apenas logado sem o
+throttle de 300 s. O aceite continua read-only.
+
+### 23.57 Segunda rodada da noite de 18/11 (aprovacao pendente, sem commit)
+
+Quatro correcoes em cima da 23.56, todas com teste. Suite:
+**255 passed + 1 xfailed -> 272 passed + 1 xfailed** (17 testes novos).
+Nenhuma toca a decisao de trade.
+
+#### 23.57.1 Watchdog: encerramento gracioso nao e queda
+
+O `run_watchdog` reiniciava sempre que nao havia processo do robo. Em
+18/11, depois do `parado.ok` das 17:35:58, a proxima execucao (se houvesse)
+ressuscitaria o robo e anularia o encerramento.
+
+**Cadencia medida** (`Get-ScheduledTask`): tarefa `Monstro-Watchdog`,
+trigger 09:05, `Repetition.Interval=PT15M`, `Repetition.Duration=PT8H15M`
+-> **a cada 15 minutos, de 09:05 a 17:20 (34 execucoes/dia)**.
+
+Regra nova (`robo_encerrou_graciosamente`, em `agente_monstro_core.py`):
+`parado.ok` existe, e do **mesmo dia** de `agora` e **nao e mais antigo**
+que o ultimo inicio do robo (`logs/robo_inicio.txt` ou `create_time` de
+processo vivo). Atendida, o watchdog loga
+`robo encerrou graciosamente (parado.ok) - sem reinicio` e retorna.
+`parado.ok` de outro dia e lixo de sessao anterior e nao bloqueia.
+
+Os dois caminhos de start invalidam o arquivo:
+- `start_robot()`: `_remover_parado_ok()` + grava o marcador;
+- `start_all.bat`: `del /f /q parado.ok` **somente** quando o guard libera;
+  o guard grava o marcador (o `.bat` nao precisa saber o formato).
+
+**Medicao real (18/11 18:26:42)**: `parado.ok` de 17:35:58, sem marcador
+(`ultimo_inicio_robo=None`) -> `robo_encerrou_graciosamente=True`.
+Testes com relogio falso (`tests/test_watchdog_parado_ok.py`, 6): 17:37 com
+`parado.ok` nao reinicia; sem `parado.ok` reinicia (chama `start_mt5` e
+`start_robot`); `parado.ok` de outro dia nao bloqueia; `parado.ok` mais
+antigo que o marcador nao bloqueia; `start_robot` apaga o arquivo e grava o
+marcador.
+
+#### 23.57.2 Robo: flag `encerramento.sair_sozinho`
+
+`_encerrar_processo_de_verdade` sempre agendava `Timer(5, os._exit)`.
+Agora `SAIR_SOZINHO = _ENCERRAMENTO_CFG.get("sair_sozinho", True)`:
+com `false`, a funcao faz o `shadow_sltp.parar()`, o flush e **retorna sem
+agendar** o `os._exit` (processo fica vivo; uso em depurador). O
+`config.json` ganhou `"sair_sozinho": true` explicito.
+
+Teste comportamental (`tests/test_encerramento_zumbi.py`): o corpo real da
+funcao e executado com `threading`/`logging` falsos - com `false` nenhum
+Timer e criado; com `true` um Timer de 5 s com `os._exit` e `(0,)` e criado
+e iniciado. Nada de `os._exit` real.
+
+#### 23.57.3 start_guard: codigos 0/10/11/12
+
+| codigo | significado | `.bat` |
+|---|---|---|
+| 0 | liberado (sem robo, ou zumbis encerrados) | segue e apaga `parado.ok` |
+| 10 | robo vivo de verdade | aborta, mensagem propria |
+| 11 | erro interno (try/except global) | aborta, mensagem propria |
+| 12 | psutil ausente | aborta, mensagem propria |
+
+O `.bat` usa `set "RC=%errorlevel%"` (expansao fora do bloco) e mensagem
+por codigo; `exit /b 0` sem apagar `parado.ok` quando aborta. `--dry-run`
+nao mata **e nao grava** o marcador de inicio.
+
+**Teste com processo real inofensivo**: `python -c "time.sleep(60)"
+monstro_unificado_v22` (nome no cmdline, sem porta/MT5). `listar_processos`
+detecta o PID; o `finally` mata e o teste confirma que sumiu. Os testes de
+decisao continuam com `listar`/`matar_fn` injetados (nada real).
+
+#### 23.57.4 Fecho e aceite: falhas visiveis e commits identificados
+
+- `run_fecho` mantem `_FALHAS_FECHO` (limpo no inicio); `_etapa_fecho`
+  registra o nome ao capturar excecao. No fim:
+  `fecho: N etapa(s) com falha: ...` em **ERROR** (ou "todas as etapas
+  concluidas sem erro" em INFO). Antes, cada falha ficava isolada e o
+  resumo do dia nao dizia o que quebrou.
+- `commits_do_fecho` agora le `%H%x09%s` desde 00:00 do dia e mantem so as
+  mensagens que comecam com `fecho autonomo AAAA-MM-DD` (o texto de
+  `commit_dia.mensagem_fecho()`). A janela 17:30-23:59 sozinha pegava
+  commit manual: no aceite de 18/11 deu **4 commits / 8 arquivos fora da
+  whitelist**. Teste em repo temporario: 2 commits (1 manual + 1 do fecho)
+  -> so o do fecho entra.
+
+#### 23.57.5 Testes nao escrevem mais no log de producao (incidente medido)
+
+O `agente_monstro_core` chama `logging.basicConfig(filename=agente_autonomo.log,
+force=True)` no import; `log = logging.getLogger()` (raiz). Rodar a suite
+gravava as linhas de teste no **log real do dia**. Medido nesta noite: as
+linhas `fecho: etapa 'falha'...` (18:09, 18:10, 18:26) e
+`watchdog: robo encerrou graciosamente (parado.ok) - sem reinicio` (18:25,
+18:26) entraram no `agente_autonomo.log` e fizeram o **item 4 do aceite
+passar por engano** (a busca era por substring "encerrou graciosamente").
+
+Duas correcoes:
+1. `tests/conftest.py` (novo): fixture autouse de sessao remove os
+   `FileHandler` da raiz depois da coleta e adiciona `NullHandler`. A suite
+   roda 272 testes e o log fica **byte a byte igual** (803659 bytes antes
+   e depois; ultima linha segue `17:35:10,951 - parar.txt criado`).
+2. `encerrou_graciosamente` agora exige que a **mensagem** comece com
+   `robo encerrou graciosamente` (`linha.split(" - ", 2)[2]`). A linha do
+   watchdog comeca com `watchdog:` e nao conta - ela observa o `parado.ok`,
+   nao confirma que o fecho concluiu.
+
+As linhas de teste ja gravadas no log de 18/11 (de 18:09:08 em diante)
+foram removidas; o arquivo termina na ultima linha legitima do fecho
+(`17:35:10,951 - parar.txt criado - shutdown gracioso solicitado`). Aceite
+remedido depois: item 4 volta a **NAO** e item 5 a **0 commits** (correto:
+o fecho de 18/11 crashou e nao commitou).
+
+#### 23.57.6 O que NAO mudou
+
+Nenhuma regra de entrada/saida, filtro, alvo, trailing, gestao de posicao
+ou volume. O watchdog so muda de comportamento quando `parado.ok` é do dia;
+o `start_guard` continua sem tocar em processo vivo; o `sair_sozinho=false`
+e opt-in. O aceite continua read-only.
+
+
+### 23.58 Terceira rodada da noite de 18/11 (aprovacao pendente, sem commit)
+
+Quatro correcoes de robustez do start e do agente, todas com teste. Suite:
+**272 passed + 1 xfailed -> 290 passed + 1 xfailed** (18 testes novos).
+Nenhuma toca a decisao de trade.
+
+#### 23.58.1 Robo: qualquer start registra o inicio
+
+O unico ponto que invalidava o `parado.ok` e gravava `logs/robo_inicio.txt`
+era o `start_all.bat` e o `start_robot()` do agente. O ponto de entrada
+real do robo (`if __name__ == "__main__":`) nao fazia
+nada. Um start manual direto (atalho, linha de comando, IDE) deixava um
+`parado.ok` velho no disco; se o processo caia, `pids_robo()` ficava vazio e
+`robo_encerrou_graciosamente()` devolvia `True` -> o watchdog **nao
+reiniciava apos uma queda real**.
+
+Correcao: `_registrar_inicio_processo(base=None)`, definida logo apos
+`_caminho_dados()`. Ela remove `parado.ok` (tolerante a falha) e
+grava `logs/robo_inicio.txt` com `datetime.now().isoformat()`; erro de I/O
+nao impede o robo de subir (vai para `print`/`monstro_console.log`).
+
+A chamada fica no `__main__` **depois** do mutex de instancia unica e
+**antes** de `setup_logging()`:
+- depois do mutex: uma segunda instancia nao pode apagar o handshake de um
+  robo vivo;
+- antes do logging: o start efetivo fica registrado mesmo se o logging
+  falhar.
+
+Testes (`tests/test_inicio_processo.py`, 5):
+- estatico: a chamada existe no `__main__`, depois de `_sys.exit(0)` e
+  antes de `setup_logging()`;
+- comportamental (corpo real da funcao, sem importar o robo): remove
+  `parado.ok` e grava o marcador; sem `parado.ok` nao falha; `parado.ok`
+  como diretorio (remove falha) ainda grava o marcador; marcador antigo e
+  sobrescrito.
+
+#### 23.58.2 Agente: traceback completo por modo
+
+`main()` chamava `run_pausa/run_fecho/run_watchdog` direto. O crash de 18/11
+(`UnicodeDecodeError 0x9D` -> `AttributeError` em `verificar_mudanca_codigo`)
+so apareceu no stderr; o `agente_autonomo.log` parou em
+`### agente iniciado no modo: fecho` e o Agendador mostra apenas o codigo de
+saida.
+
+Correcao: `_executar_modo(nome, fn)` envolve os tres modos com
+`log.exception("modo '<nome>': excecao nao tratada - abortando")` e `raise`
+(preserva rc != 0). `dryrun` continua fora do wrapper (nao mexe em nada).
+
+Testes (`tests/test_agente_log_exception.py`, 5): para fecho, watchdog e
+pausa, a excecao injetada aparece com `Traceback (most recent call last)` e
+o tipo/mensagem no log capturado; `main()` propaga a falha do fecho e
+envolve watchdog/pausa; `dryrun` segue sem wrapper.
+
+#### 23.58.3 start_all.bat: aborto propaga o codigo
+
+O bloco `if not "%RC%"=="0" (` terminava em `exit /b 0`: o Agendador
+mostrava **sucesso** mesmo com o start cancelado (robo vivo = 10, erro
+interno = 11, psutil ausente = 12). Agora termina em `exit /b %RC%`
+(expandido fora do bloco, na linha `set "RC=%errorlevel%"`). O `.bat`
+continua **sem** apagar `parado.ok` no aborto.
+
+Testes (`tests/test_start_all_bat.py`, 3): o bloco do aborto contem
+`exit /b %RC%` e nao `exit /b 0`; nao apaga `parado.ok`; `%RC%` e capturado
+antes do bloco.
+
+#### 23.58.4 Log do agente por ambiente (suite isolada de verdade)
+
+`LOG_AGENTE` era fixo em `C:\AIOFEN\agente_autonomo.log`. A fixture da
+23.57.5 removia o `FileHandler` **depois** do import, mas o arquivo de
+producao ja havia sido aberto e o isolamento dependia de a fixture rodar
+antes do primeiro log.
+
+Correcao:
+- `LOG_AGENTE = os.environ.get("MONSTRO_AGENTE_LOG", <path do config>)`;
+- `tests/conftest.py` define `MONSTRO_AGENTE_LOG` no nivel do modulo (antes
+  da coleta importar o agente) para
+  `%TEMP%\monstro_agente_teste_<pid>.log`, mantem a fixture que remove o
+  `FileHandler` e apaga o temporario no fim da sessao.
+
+Testes (`tests/test_agente_log_env.py`, 3): o caminho do agente e o do
+ambiente e aponta para o temporario; um subprocesso com
+`MONSTRO_AGENTE_LOG` trocado imprime exatamente o caminho pedido no import
+(prova o override real); o fonte contem a leitura da variavel.
+
+**Medicao da suite completa:** `290 passed, 1 xfailed in 33.12s`;
+`agente_autonomo.log` com **803659 bytes antes e depois** (byte a byte
+igual). `py_compile` rc=0 nos arquivos alterados.
+
+#### 23.58.5 O que NAO mudou
+
+Nenhuma regra de entrada/saida, filtro, alvo, trailing, gestao de posicao
+ou volume. O registro de inicio so escreve dois arquivos de controle; o
+`log.exception` so age quando ja haveria falha; o `.bat` so muda o codigo de
+saida do aborto; a variavel de ambiente so muda o destino do log do agente.
+O aceite continua read-only. `parado.ok` segue untracked e fora do diff.
