@@ -136,3 +136,7 @@ patches/backups/
 
 # Backups locais de producao (modelos binarios; nunca versionar)
 backups/
+
+# --- Dado pessoal local (nao versionar) ---
+# 19/11: relatorio .txt traz conta e nome do titular; saiu do indice (git rm --cached)
+/relatorio .txt
