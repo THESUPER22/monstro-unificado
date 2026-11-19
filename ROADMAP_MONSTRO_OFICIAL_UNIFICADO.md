@@ -7026,3 +7026,93 @@ commit, flag desligada, staged fora da whitelist e `dry_run`.
 Nenhuma regra de entrada/saida, filtro, alvo, trailing, gestao de posicao ou
 volume. A whitelist do fecho continua a mesma; o guard so acrescenta uma
 barreira de conteudo antes do `add`. `parado.ok` segue untracked.
+
+---
+
+## 23.60. Estado desconhecido do MT5 no fecho (19/11)
+
+### 23.60.1 O defeito medido
+
+`patches/robustez_fecho_helpers.py` fazia:
+
+```python
+pos = mt5.positions_get()
+if not pos:          # None e () caem no mesmo ramo
+    return []
+```
+
+Com `positions_get() is None` (falha de leitura), a C3 recebia `[]` e
+interpretava **flat confirmado**: gravava `parado.ok` e chamava
+`_encerrar_processo_de_verdade()` (Timer -> `os._exit`). O mesmo padrao
+aparecia em `ticket_aberto` (`positions_get() or []`) e na C2, que logava
+"flat confirmado" sem ter lido nada.
+
+### 23.60.2 Contrato novo dos helpers
+
+- `posicoes_do_robo` / `posicoes_restantes`: `[]` = flat confirmado;
+  `None` = **estado desconhecido** (leitura devolveu `None` ou levantou).
+- `posicoes_restantes_com_retry`: insiste; entre tentativas chama
+  `reconnect()` (em producao `reconectar_mt5` -> `mt5.initialize()`) e dorme
+  com backoff exponencial (2 s, 4 s, 8 s...). Devolve `None` so se todas
+  falharem.
+- `restantes_ate_saber`: repete o ciclo ate saber; em producao
+  (`max_ciclos=None`) **nunca** devolve `None`.
+- `confirmar_flat_para_encerrar`: fluxo da C3 (ler -> fechar -> reler).
+- `fechar_todas_robusto`: devolve `restantes=None` quando nao conseguiu ler;
+  o chamador nao pode tratar como flat.
+- `ticket_aberto`: tri-estado (True/False/None); `fechar_posicao_robusto`
+  so confirma fecho com `False` e nunca conta sucesso em `None`.
+
+### 23.60.3 C3 e C2 no robo
+
+- C3 usa `confirmar_flat_para_encerrar`; com `None` loga
+  "SHUTDOWN BLOQUEADO: estado das posicoes desconhecido" e faz `continue`.
+  `parado.ok` e `_encerrar_processo_de_verdade()` ficam **depois** dessa
+  barreira.
+- `MONSTRO_FORCE_SHUTDOWN` **nao** libera estado desconhecido: o guard de
+  `None` vem antes do teste da variavel. Ele continua valendo apenas para
+  posicoes comprovadamente abertas.
+- C2 usa `posicoes_restantes_com_retry`; em `None` loga
+  "flat NAO confirmado" em vez de "flat confirmado".
+- `fechar_todas_posicoes` loga "FECHO NAO CONFIRMADO" em `None` e nao
+  dispara telemetria de tickets que nao sabe se fecharam.
+
+### 23.60.4 Item 6 do aceite (read-only)
+
+`aceite_pos_pregao.py` passou a medir, depois do fecho:
+
+```
+posicoes abertas apos o fecho: N
+```
+
+- Le `positions_get()` e filtra pelos magics do ultimo `[pnl_dia]`.
+- `0` = OK; `> 0` = FALHOU; leitura falhou, sem magics ou `--sem-mt5` =
+  `NAO VERIFICADO` e veredito **FALHOU**. Falha de leitura nunca vira zero.
+- Nao envia ordem, nao escreve no repo e nao importa o robo.
+
+### 23.60.5 Testes
+
+`tests/test_robustez_fecho.py` (+9): `None` nao e flat; retry reconecta e
+confirma; retry esgotado devolve `None` com backoff 2/4; `restantes_ate_saber`
+repete apos a pausa; esgotamento so com `max_ciclos` de teste; trava nao
+libera encerramento em `None`; trava fecha e confirma; `fechar_todas_robusto`
+devolve `None`; `fechar_posicao_robusto` nao confirma em `None`.
+
+`tests/test_aceite_pos_pregao.py` (+7): conta so magics do robo; sem magics
+nao vira zero; posicao aberta reprova; leitura falhou nao passa por zero;
+`--sem-mt5` = NAO VERIFICADO; texto impresso do item 6; no modo MT5 o item 6
+realmente consulta as posicoes (regressao do `consultar_mt5`).
+
+Suite completa no HEAD + diff: **327 passed, 1 xfailed** em 31,62 s.
+
+### 23.60.6 O que NAO mudou / rejeitado
+
+- Nenhuma regra de entrada/saida, filtro, alvo, trailing, gestao ou volume.
+- `patches/aplicar_robustez_fecho.py` (aplicador historico de 11/11) ficou
+  como esta: exige a branch `robustez-fecho` e nao roda no fecho. Se for
+  reutilizado, precisa ser atualizado antes, sob pena de regravar o codigo
+  antigo da C3.
+- O `continue` de "posicoes ainda abertas" ja consumia o `parar.txt` antes
+  desta mudanca; registrado, sem alterar.
+- Rejeitado transformar estado desconhecido em "flat por timeout": o
+  processo fica vivo ate o MT5 responder. Watchdog e operador podem agir.

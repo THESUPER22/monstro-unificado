@@ -1,0 +1,28 @@
+==================================================================
+RELATORIO DIARIO MONSTRO - 19/11/2026
+==================================================================
+Decisoes hoje: 5194 | Sinais BUY/SELL: 1764 | Trades executados: 26 (v22=26 + Faixa1=0)
+Trades fechados (deals MT5): 27 | PnL realizado: R$ -1025.00
+dataset_reward_fill: 39.02439024390244% (n=41)  [NAO e win rate de trade]
+  win rate de TRADE (deals MT5): ver plano_ do dia seguinte / autopsia
+Entropia med: 2.925192655989586 | ATR med: 4.582544442206356 | Spread med: 0.5
+Book ratio med: 1.185145917395991
+
+FAIXA 1 - ROMPIMENTO 1H (magic 7008):
+  (sem trade/registro hoje)
+
+MAPA DE VETOS (bloqueios do dia):
+  williams_r         4089
+  veto_total         1151
+  sinal_neutro       998
+  sniper_wr_standby  224
+  multi_tf           187
+  sniper_inicia      27
+
+PARAMETROS ATUAIS (whitelist):
+
+MUDANCA ESTRUTURAL DETECTADA NO FONTE:
+  +34 / -13 linhas
+  diff completo: diff_estrutural_20261119.txt
+
+Nota: alteracoes estruturais de codigo ficam como PROPOSTA p/ revisao humana (Fase 1).
