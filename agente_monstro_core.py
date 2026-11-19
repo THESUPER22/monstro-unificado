@@ -35,7 +35,10 @@ BASE_DIR = P["base"]
 CONFIG_ROBO = os.path.join(BASE_DIR, P["config_robo"])
 LOG_ROBO = os.path.join(BASE_DIR, P["log_robo"])
 DECISIONS = os.path.join(BASE_DIR, P["decisions_csv"])
-LOG_AGENTE = os.path.join(BASE_DIR, P["log_agente"])
+# [AGENTE 18/11] override por ambiente: a suite aponta para um arquivo
+# temporario (tests/conftest.py) e nao contamina o log de producao.
+LOG_AGENTE = os.environ.get(
+    "MONSTRO_AGENTE_LOG", os.path.join(BASE_DIR, P["log_agente"]))
 ESTADO = os.path.join(BASE_DIR, P["estado_agente"])
 PARAR = os.path.join(BASE_DIR, "parar.txt")
 # P0 17/11 #4: handshake de encerramento escrito pelo robo (artefatos salvos)
