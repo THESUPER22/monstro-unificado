@@ -40,6 +40,9 @@ ESTADO = os.path.join(BASE_DIR, P["estado_agente"])
 PARAR = os.path.join(BASE_DIR, "parar.txt")
 # P0 17/11 #4: handshake de encerramento escrito pelo robo (artefatos salvos)
 PARADO_OK = os.path.join(BASE_DIR, "parado.ok")
+# [WATCHDOG 18/11] marcador do ultimo inicio do robo (mtime = hora do start).
+# Gravado por start_robot() e por start_guard.py (que cobre o start_all.bat).
+MARCADOR_INICIO = os.path.join(BASE_DIR, "logs", "robo_inicio.txt")
 
 # ---------------------------------------------------------------- logging ---
 logging.basicConfig(
@@ -179,6 +182,56 @@ def _remover_parado_ok():
             os.remove(PARADO_OK)
         except Exception as e:
             log.warning(f"falha ao remover parado.ok antigo: {e}")
+
+
+def _agora_local():
+    """Relogio injetavel: os testes trocam por uma hora falsa."""
+    return datetime.now()
+
+
+def ultimo_inicio_robo(base=None):
+    """Epoch do ultimo inicio conhecido do robo.
+
+    Duas evidencias, a maior vence: o marcador gravado pelos starts
+    (`logs/robo_inicio.txt`) e o `create_time` de algum processo vivo.
+    Sem nenhuma das duas -> None (nao da para afirmar que houve start).
+    """
+    base = base or BASE_DIR
+    candidatos = []
+    try:
+        candidatos.append(os.path.getmtime(
+            os.path.join(base, "logs", "robo_inicio.txt")))
+    except OSError:
+        pass
+    try:
+        for pid in pids_robo():
+            candidatos.append(psutil.Process(pid).create_time())
+    except Exception:  # noqa: BLE001 - psutil pode negar acesso
+        pass
+    return max(candidatos) if candidatos else None
+
+
+def robo_encerrou_graciosamente(base=None, agora=None):
+    """True se o robo terminou o dia DE PROPOSITO (nao caiu).
+
+    Regras (18/11/2026): `parado.ok` existe, e do MESMO dia de `agora` e
+    nao e mais antigo que o ultimo inicio do robo. `parado.ok` de outro dia
+    e lixo de sessao anterior e nao pode bloquear o restart; `parado.ok`
+    anterior a um start tambem nao (o start apaga, mas a comparacao e a
+    rede de seguranca se alguem esquecer).
+    """
+    base = base or BASE_DIR
+    parado = os.path.join(base, "parado.ok")
+    if not os.path.exists(parado):
+        return False
+    agora = agora or _agora_local()
+    mtime = datetime.fromtimestamp(os.path.getmtime(parado))
+    if mtime.date() != agora.date():
+        return False
+    inicio = ultimo_inicio_robo(base)
+    if inicio is not None and mtime.timestamp() < inicio:
+        return False
+    return True
 
 
 def parar_gracioso(timeout):
@@ -352,6 +405,15 @@ def start_mt5():
 
 def start_robot():
     cmd = [os.path.join(BASE_DIR, P["python_venv"]), P["robo_script"]]
+    # [WATCHDOG 18/11] Um start novo invalida o parado.ok anterior e marca o
+    # inicio. Sem isso o watchdog confundiria "encerrou ontem" com "caido".
+    _remover_parado_ok()
+    try:
+        os.makedirs(os.path.dirname(MARCADOR_INICIO), exist_ok=True)
+        with open(MARCADOR_INICIO, "w", encoding="utf-8") as f:
+            f.write(_agora_local().isoformat())
+    except Exception as e:
+        log.warning(f"falha ao gravar marcador de inicio do robo: {e}")
     # Frente 1 / 23.50: sem console visivel. stdout/stderr vao para o log do
     # console do robo; a janela GUI do Dashboard continua aparecendo.
     log_console = os.path.join(BASE_DIR, "logs", "monstro_console.log")
@@ -1390,6 +1452,12 @@ def run_watchdog():
                           f"ciclo de restart (marker: {marker})")
             return
     if not pids_robo():
+        # [WATCHDOG 18/11] Encerramento gracioso NAO e queda: se o robo gravou
+        # parado.ok depois do ultimo start, ele terminou o dia de proposito.
+        # Reiniciar aqui anularia o encerramento (foi o risco do zumbi 18/11).
+        if robo_encerrou_graciosamente():
+            log.info("watchdog: robo encerrou graciosamente (parado.ok) - sem reinicio")
+            return
         if em_backoff():
             return
         log.warning("watchdog: robo caido - reiniciando")
