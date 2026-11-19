@@ -714,12 +714,22 @@ def run_pausa():
         log.info(f"apos rollback, robo: {ok2} ({m2})")
 
 
-def _git(*args):
-    """git com path do repo fixado. Retorna (rc, stdout)."""
+def _git(*args, base=None):
+    """git com path do repo fixado. Retorna (rc, stdout).
+
+    18/11/2026 - POR QUE encoding/errors: `text=True` sem encoding usa o
+    codec do console (cp1252 no Windows). O fonte do robo tem bytes que nao
+    existem em cp1252 (0x9D), a thread leitora do subprocess estoura
+    UnicodeDecodeError, `p.stdout` vira None e o fecho cai em
+    `AttributeError: 'NoneType' object has no attribute 'strip'`.
+    Leitura tolerante: nunca deixa o diff derrubar o fecho.
+    """
+    base = base or BASE_DIR
     try:
-        p = subprocess.run(["git", "-C", BASE_DIR, *args],
-                           capture_output=True, text=True, timeout=60)
-        return p.returncode, p.stdout
+        p = subprocess.run(["git", "-C", base, *args],
+                           capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=60)
+        return p.returncode, (p.stdout or "")
     except Exception as e:
         log.error(f"git falhou ({' '.join(args)}): {e}")
         return 1, ""
@@ -742,6 +752,7 @@ def verificar_mudanca_codigo():
     if not os.path.exists(os.path.join(BASE_DIR, P["robo_script"])):
         return None
     rc, diff = _git("diff", "HEAD", "--", P["robo_script"])
+    diff = diff or ""
     if rc != 0:
         # arquivo fora do git: sem baseline confiavel, nao inventa alarme
         log.warning("git diff indisponivel p/ %s - mudanca estrutural NAO avaliada",
@@ -829,32 +840,66 @@ def resumo_fluxo_dia():
         log.error(f"fluxo: falha ao salvar resumo: {e}")
 
 
+_FALHOU = object()
+# [FECHO 18/11] nomes das etapas que falharam NESTE fecho (resumo no final).
+_FALHAS_FECHO = []
+
+
+def _etapa_fecho(nome, fn, *args, **kwargs):
+    """Executa UMA etapa do fecho; erro numa etapa nao pula as outras.
+
+    18/11/2026: o crash em `verificar_mudanca_codigo` (UnicodeDecodeError ->
+    AttributeError) abortou relatorio, plano, commit e force-kill. Cada etapa
+    agora tem o seu proprio try/except e o fecho continua; o nome vai para
+    `_FALHAS_FECHO` e o resumo sai em ERROR no fim.
+    """
+    log.info(f"fecho: etapa '{nome}' iniciada")
+    try:
+        resultado = fn(*args, **kwargs)
+    except Exception as e:  # noqa: BLE001
+        _FALHAS_FECHO.append(nome)
+        log.error(f"fecho: etapa '{nome}' FALHOU ({type(e).__name__}: {e}) - seguindo")
+        return _FALHOU
+    log.info(f"fecho: etapa '{nome}' concluida")
+    return resultado
+
+
 def run_fecho():
+    _FALHAS_FECHO.clear()
     log.info("=" * 60)
     log.info("FECHO 17:35 - autopsia e consolidacao do dia")
     # 1) Sinaliza parada IMEDIATAMENTE: robo encerra em paralelo (se o fecho
     #    for abortado, o robo ainda para sozinho).
-    sinalizar_parada_robo()
+    _etapa_fecho("sinalizar parada do robo", sinalizar_parada_robo)
     # 2) Artefatos do dia gerados cedo -> sobrevivem mesmo se o processo for
     #    morto (ex: abort 0x8007042B no pregao 06/08).
-    info_diff = verificar_mudanca_codigo()
-    if info_diff:
+    info_diff = _etapa_fecho("verificar mudanca de codigo",
+                             verificar_mudanca_codigo)
+    if info_diff is _FALHOU:
+        log.error("fecho: mudanca de codigo NAO avaliada - seguindo sem o diff")
+        info_diff = None
+    elif info_diff:
         log.info(f"MUDANCA ESTRUTURAL NAO COMMITADA no fonte: +{info_diff['add']}/-{info_diff['rem']} "
                  f"(diff em {info_diff['nome']})")
     else:
         log.info("codigo-fonte sem diff contra HEAD (git)")
-    ult = ultimo_commit_robo()
-    if ult:
+    ult = _etapa_fecho("ultimo commit do robo", ultimo_commit_robo)
+    if ult and ult is not _FALHOU:
         log.info(f"ultimo commit no fonte: {ult[0]} {ult[1]} {ult[2]} - {ult[3]}")
-    gerar_relatorio_diario(info_diff)
-    resumo_fluxo_dia()
+    _etapa_fecho("relatorio diario", gerar_relatorio_diario, info_diff)
+    _etapa_fecho("resumo de fluxo", resumo_fluxo_dia)
     autopsia_eod = CFG.get("autopsia_eod", {})
     if autopsia_eod.get("ativo", True):
-        gerar_plano_dia_seguinte()
-    git_commit_dia()
+        _etapa_fecho("plano do dia seguinte", gerar_plano_dia_seguinte)
+    _etapa_fecho("commit do dia", git_commit_dia)
     # 3) Por ultimo: aguarda o robo encerrar e fecha o MT5.
-    parar_coletor_herman()
-    parar_robo()
+    _etapa_fecho("parar coletores herman", parar_coletor_herman)
+    _etapa_fecho("parar robo", parar_robo)
+    if _FALHAS_FECHO:
+        log.error(f"fecho: {len(_FALHAS_FECHO)} etapa(s) com falha: "
+                  f"{', '.join(_FALHAS_FECHO)}")
+    else:
+        log.info("fecho: todas as etapas concluidas sem erro")
     log.info("FECHO concluido - ambiente pronto para amanha")
 
 
@@ -985,9 +1030,10 @@ def git_commit_dia():
         log.warning("git_commit_dia abortado: git.caminhos_permitidos vazio")
         return
     try:
-        branch = subprocess.run(
+        branch = (subprocess.run(
             ["git", "-C", BASE_DIR, "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True, text=True, timeout=30).stdout.strip()
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=30).stdout or "").strip()
 
         r = executar_commit(
             BASE_DIR, caminhos, mensagem_fecho(),
@@ -1010,7 +1056,8 @@ def git_commit_dia():
 
         if branch.startswith("backup/") and cfg.get("push_apenas_backup", True):
             subprocess.run(["git", "-C", BASE_DIR, "push"],
-                           capture_output=True, text=True, timeout=120)
+                           capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=120)
             log.info(f"git push do dia (branch {branch})")
         else:
             log.info(f"git push NAO executado: branch '{branch}' nao e backup/* (commit local)")
@@ -1400,18 +1447,33 @@ def dryrun():
         print(f"SIMULACAO: {param} {atual} -> {novo} (limites {W['min']}..{W['max']})")
 
 
+def _executar_modo(nome, fn):
+    """Roda um modo do agente e grava o traceback completo antes de sair.
+
+    18/11/2026: o fecho morreu com UnicodeDecodeError (0x9D) -> AttributeError
+    e o agente_autonomo.log parou em "agente iniciado no modo: fecho"; o
+    Agendador mostra apenas o codigo de saida. `log.exception` grava a pilha
+    inteira e o `raise` preserva rc != 0 para o Agendador.
+    """
+    try:
+        return fn()
+    except Exception:  # noqa: BLE001 - queremos o traceback e a falha
+        log.exception(f"modo '{nome}': excecao nao tratada - abortando")
+        raise
+
+
 def main():
     modo = sys.argv[1].lower() if len(sys.argv) > 1 else "dryrun"
     log.info(f"### agente iniciado no modo: {modo}")
     if modo == "pausa":
-        run_pausa()
+        _executar_modo("pausa", run_pausa)
     elif modo == "fecho":
-        run_fecho()
+        _executar_modo("fecho", run_fecho)
     elif modo == "watchdog":
         if not R.get("watchdog_enabled"):
             log.info("watchdog desabilitado no config (watchdog_enabled=false) - abortando")
             return
-        run_watchdog()
+        _executar_modo("watchdog", run_watchdog)
     elif modo == "dryrun":
         dryrun()
     else:
