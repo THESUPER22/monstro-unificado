@@ -325,6 +325,31 @@ def _caminho_dados(nome):
     """Retorna caminho absoluto para um arquivo de dados."""
     return os.path.join(_caminho_base(), nome)
 
+
+def _registrar_inicio_processo(base=None):
+    """Marca o inicio do processo em QUALQUER forma de subir.
+
+    start_all.bat e start_robot() (agente) ja faziam isso, mas um start
+    manual (atalho, linha de comando, IDE) deixava um parado.ok velho no
+    disco. O watchdog entao achava que o robo havia encerrado de proposito
+    e nao reiniciava apos uma queda real (18/11/2026). Falha de I/O aqui
+    NAO pode impedir o robo de subir.
+    """
+    base = base or _caminho_base()
+    parado = os.path.join(base, "parado.ok")
+    try:
+        if os.path.exists(parado):
+            os.remove(parado)
+    except Exception as e:
+        print(f"[INICIO] falha ao remover parado.ok antigo: {e}")
+    marcador = os.path.join(base, "logs", "robo_inicio.txt")
+    try:
+        os.makedirs(os.path.dirname(marcador), exist_ok=True)
+        with open(marcador, "w", encoding="utf-8") as f:
+            f.write(datetime.now().isoformat())
+    except Exception as e:
+        print(f"[INICIO] falha ao gravar {marcador}: {e}")
+
 # Carrega configuraÃÂ§ÃÂ£o especÃÂ­fica do WDO
 CONFIG_FILE = _caminho_dados("config.json")
 
@@ -1103,6 +1128,9 @@ ALINHAR_SL_TICK = config.get("contrato", {}).get(
 _ENCERRAMENTO_CFG = config.get("encerramento", {})
 ESCRITA_ATOMICA = _ENCERRAMENTO_CFG.get("escrita_atomica", True)
 HANDSHAKE_PARADO_OK = _ENCERRAMENTO_CFG.get("handshake_parado_ok", True)
+# [WATCHDOG 18/11] saida forcada do processo no encerramento (o webview nao
+# segura). false = nao agenda os._exit (depurador / deixar o processo vivo).
+SAIR_SOZINHO = _ENCERRAMENTO_CFG.get("sair_sozinho", True)
 # P0 17/11 #2: tetos de execucao (rede de seguranca, NAO estrategia)
 _LIMITES_EXEC_CFG = config.get("limites_execucao", {})
 LIMITES_EXEC_ATIVO = _LIMITES_EXEC_CFG.get("ativo", True)
@@ -7208,6 +7236,13 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     # P0 17/11 #4: handshake de encerramento - sinaliza ao agente
                     # que modelo/experiencias foram salvos e nao ha posicao aberta.
                     # Fica DEPOIS da trava C3: se ela bloqueou, nao chega aqui.
+                    # [ACEITE 18/11] P&L FINAL antes do parado.ok: o aceite
+                    # compara o ultimo [pnl_dia] do log com os deals ate ele.
+                    try:
+                        pnl_dia_mt5(forcar=True, logar_sempre=True)
+                    except Exception as e:
+                        logging.error(f"[pnl_dia] falha ao logar o P&L final: {e}")
+
                     if HANDSHAKE_PARADO_OK:
                         try:
                             with open(_caminho_dados("parado.ok"), "w", encoding="utf-8") as _f:
@@ -7215,6 +7250,10 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                             logging.info("parado.ok gravado - encerramento confirmado ao agente")
                         except Exception as e:
                             logging.error(f"Erro ao gravar parado.ok: {e}")
+
+                    # [ZUMBI 18/11] parado.ok gravado: para o shadow, faz flush
+                    # dos logs e agenda a saida do processo (webview nao segura).
+                    _encerrar_processo_de_verdade()
 
                     logging.info(
                         "Ã¢Åâ¦ ENCERRAMENTO GRACIL CONCLUÃÂDO - Sistema finalizado com seguranÃÂ§a")
@@ -8718,7 +8757,7 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
 _PNL_DIA_CACHE = {"dia": None, "ts": 0.0, "valor": None}
 
 
-def pnl_dia_mt5(dia=None, magics=None, forcar=False):
+def pnl_dia_mt5(dia=None, magics=None, forcar=False, logar_sempre=False):
     """Resultado liquido do dia vindo dos deals do MT5.
 
     Fonte unica (extrato), com cache curto porque `verificar_circuit_breakers`
@@ -8747,7 +8786,7 @@ def pnl_dia_mt5(dia=None, magics=None, forcar=False):
         return None
     total, n = pnl_de_deals(deals, dia, magics)
     _PNL_DIA_CACHE.update({"dia": dia, "ts": agora, "valor": total})
-    if _log_periodico("pnl_dia_mt5", 300):
+    if logar_sempre or _log_periodico("pnl_dia_mt5", 300):
         logging.info(
             f"[pnl_dia] MT5: {n} deals, liquido {total:+.2f} (magics {sorted(magics)})")
     return total
@@ -11074,6 +11113,49 @@ def fechar_conexoes_seguras() -> None:
         logging.error(f"Ã¢ÂÅ Erro ao fechar conexÃÂµes: {e}")
 
 
+def _encerrar_processo_de_verdade(delay_s: float = 5.0) -> None:
+    """Fecha o que o os._exit nao fecha e agenda a saida do processo.
+
+    POR QUE EXISTE (18/11/2026): no encerramento gracioso o loop so fazia
+    thread_ativo=False e break. A thread monstro_thread terminava, mas a
+    thread principal ficava presa em webview.start() e o processo nunca
+    saia - o shadow continuava logando e o start_all.bat cancelava o dia
+    seguinte por achar um robo vivo.
+
+    POR QUE 5 s E SEGURO: tudo o que precisa sobreviver ja foi gravado
+    antes desta chamada (parado.ok, modelo, experiencias e o [pnl_dia]
+    final). shadow_sltp.parar() faz flush dos tracks parciais e espera o
+    worker por ate 3 s; o flush abaixo grava os handlers; o Timer so
+    existe para vencer a thread do webview. os._exit(0) NAO roda atexit,
+    por isso o parar() e o flush sao explicitos aqui.
+    """
+    try:
+        if shadow_sltp is not None:
+            shadow_sltp.parar()
+            logging.info("[SHADOW SL/TP] tracks parciais gravados no encerramento")
+    except Exception as e:
+        logging.error(f"[SHADOW SL/TP] falha ao parar no encerramento: {e}")
+    for handler in logging.getLogger().handlers:
+        try:
+            handler.flush()
+        except Exception:
+            pass
+    # [WATCHDOG 18/11] flag `encerramento.sair_sozinho` (default true).
+    # false = encerramento gracioso sem os._exit: o processo fica vivo (uso
+    # em depurador). Tudo acima (parado.ok, shadow, flush) ja foi gravado.
+    if not SAIR_SOZINHO:
+        logging.info("sair_sozinho=false - processo NAO sera encerrado")
+        return
+    logging.info(f"saida do processo agendada em {delay_s:.0f}s (webview nao segura)")
+    try:
+        t = threading.Timer(delay_s, os._exit, (0,))
+        t.daemon = True
+        t.start()
+    except Exception as e:
+        logging.error(f"falha ao agendar a saida: {e}")
+        os._exit(0)
+
+
 def encerramento_seguro_completo(modelo_ia_local: Optional[Sequential], memoria_experiencias: MemoriaExperiencias) -> None:
     """Executa encerramento completo e seguro do sistema."""
     try:
@@ -11471,6 +11553,10 @@ if __name__ == "__main__":
         except Exception:
             pass
         _sys.exit(0)
+
+    # [WATCHDOG 18/11] qualquer start efetivo (bat, agente ou manual)
+    # invalida o parado.ok anterior e marca o inicio lido pelo watchdog.
+    _registrar_inicio_processo()
 
     # Inicializa logging
     setup_logging()

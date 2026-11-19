@@ -68,7 +68,8 @@
     },
     "encerramento": {
         "escrita_atomica": true,
-        "handshake_parado_ok": true
+        "handshake_parado_ok": true,
+        "sair_sozinho": true
     },
     "trailing_stop": {
         "ativo": true,
