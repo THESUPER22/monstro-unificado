@@ -49,6 +49,26 @@ def test_flag_sair_sozinho_default_true():
     assert 'SAIR_SOZINHO = _ENCERRAMENTO_CFG.get("sair_sozinho", True)' in FONTE
 
 
+def test_parar_txt_so_consumido_depois_da_trava_flat():
+    """23.60.11 item 1: o sinal nao pode sumir antes de confirmar flat."""
+    i_trava = FONTE.index("confirmar_flat_para_encerrar(",
+                          FONTE.index("def verificar_parada_gracil"))
+    i_remove = FONTE.index("remover_sinal_parada(")
+    i_parado = FONTE.index('with open(_caminho_dados("parado.ok")')
+    assert i_trava < i_remove < i_parado
+    # nenhuma remocao antecipada (a antiga ficava antes da trava)
+    bloco = FONTE[FONTE.index("def verificar_parada_gracil"):i_trava]
+    assert 'os.remove(_caminho_dados("parar.txt"))' not in bloco
+
+
+def test_estado_desconhecido_continua_sem_sair():
+    bloco = FONTE[FONTE.index("_restantes is None"):
+                  FONTE.index("_restantes and not os.environ")]
+    assert "continue" in bloco
+    assert "_encerrar_processo_de_verdade" not in bloco
+    assert "parado.ok" not in bloco
+
+
 def _carregar_encerrar(sair_sozinho, registro):
     """Executa o corpo REAL da funcao com threading/logging falsos.
 

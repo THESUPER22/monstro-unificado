@@ -7182,12 +7182,10 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                 if verificar_parada_gracil():
                     logging.info(
                         "Ã°Å¸âºâ PARADA GRACIL SOLICITADA - Encerrando sistema com seguranÃÂ§a...")
-                    # Consome o sinal: remove parar.txt para nao bloquear a proxima inicializacao
-                    try:
-                        os.remove(_caminho_dados("parar.txt"))
-                        logging.info("Ã°Å¸Â§Â¹ parar.txt consumido e removido.")
-                    except Exception:
-                        pass
+                    # [23.60.11] parar.txt NAO e consumido aqui: o sinal so
+                    # pode ser removido depois da trava C3 confirmar flat.
+                    # Se positions_get() falhar, o `continue` abaixo volta ao
+                    # loop e verificar_parada_gracil() reexecuta o encerramento.
 
                     # Fecha posiÃÂ§ÃÂµes ativas se houver
                     if posicao_aberta and ticket_ordem_atual:
@@ -7202,7 +7200,8 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     if modelo_ia_local:
                         logging.info("Ã°Å¸âÂ¾ Salvando modelo IA...")
                         try:
-                            salvar_modelo(modelo_ia_local)
+                            _SALVAMENTO_FINAL.executar(
+                                "modelo", lambda: salvar_modelo(modelo_ia_local))
                         except Exception as e:
                             logging.error(f"Ã¢ÂÅ Erro ao salvar modelo: {e}")
 
@@ -7210,20 +7209,28 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     if memoria_experiencias:
                         logging.info("Ã°Å¸âÅ¡ Salvando experiÃÂªncias...")
                         try:
-                            salvar_experiencias_json(
-                                memoria_experiencias.experiencias)
+                            _SALVAMENTO_FINAL.executar(
+                                "experiencias",
+                                lambda: salvar_experiencias_json(
+                                    memoria_experiencias.experiencias))
                         except Exception as e:
                             logging.error(
                                 f"Ã¢ÂÅ Erro ao salvar experiÃÂªncias: {e}")
 
                     # [C1-C4] C3: trava de shutdown - nao encerra com posicao aberta.
-                    _restantes = posicoes_restantes(mt5, MAGICS_ROBO)
-                    if _restantes:
+                    # [SENSIVEL 19/11] positions_get() None = estado DESCONHECIDO:
+                    # nao grava parado.ok nem agenda os._exit; reinicializa o MT5
+                    # com backoff e repete a leitura ate confirmar.
+                    _restantes = confirmar_flat_para_encerrar(
+                        mt5, MAGICS_ROBO, log=logging,
+                        reconnect=reconectar_mt5,
+                        fechar=lambda: fechar_todas_posicoes("Trava de shutdown"))
+                    if _restantes is None:
                         logging.critical(
-                            "SHUTDOWN BLOQUEADO: posicoes abertas %s - tentando fechar",
-                            _restantes)
-                        fechar_todas_posicoes("Trava de shutdown")
-                        _restantes = posicoes_restantes(mt5, MAGICS_ROBO)
+                            "SHUTDOWN BLOQUEADO: estado das posicoes "
+                            "desconhecido - processo permanece vivo")
+                        time.sleep(30)
+                        continue
 
                     if _restantes and not os.environ.get("MONSTRO_FORCE_SHUTDOWN"):
                         logging.critical(
@@ -7232,6 +7239,11 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                             "para forcar.", len(_restantes))
                         time.sleep(30)
                         continue
+
+                    # [23.60.11 item 1] So agora, com flat CONFIRMADO (ou
+                    # shutdown forçado explicito), o sinal e consumido.
+                    remover_sinal_parada(
+                        _restantes, _caminho_dados("parar.txt"), log=logging)
 
                     # P0 17/11 #4: handshake de encerramento - sinaliza ao agente
                     # que modelo/experiencias foram salvos e nao ha posicao aberta.
@@ -7326,8 +7338,15 @@ def monstro_thread(mt5_ativo_param=None, modelo_ia_param=None):
                     memoria_experiencias_global = memoria_experiencias
 
                     # [C1-C4] C2: so loga sucesso se positions_get() confirmar flat.
-                    _restantes = posicoes_restantes(mt5, MAGICS_ROBO)
-                    if _restantes:
+                    # [SENSIVEL 19/11] None = desconhecido: nao loga "flat confirmado".
+                    _restantes = posicoes_restantes_com_retry(
+                        mt5, MAGICS_ROBO, log=logging,
+                        reconnect=reconectar_mt5)
+                    if _restantes is None:
+                        logging.critical(
+                            "POSICOES: estado desconhecido as %s - flat NAO confirmado",
+                            HORARIO_ENCERRAMENTO)
+                    elif _restantes:
                         logging.critical(
                             "POSICOES AINDA ABERTAS AS %s: %s - fecho NAO confirmado",
                             HORARIO_ENCERRAMENTO, _restantes)
@@ -10970,13 +10989,20 @@ def agendar_rechecagem_fecho(ticket, intervalos=(15, 30)):
 
 
 # [C1-C4] Robustez do fecho (patch 2026-11-11, ROADMAP 23.27/23.28).
-# Helpers testados em patches/robustez_fecho_helpers.py (12 testes).
+# Helpers testados em tests/test_robustez_fecho.py.
 # Import fail-fast de proposito: melhor nao iniciar do que iniciar sem fecho.
 from patches.robustez_fecho_helpers import (
+    confirmar_flat_para_encerrar,
     contar_deals_reais_hoje,
     fechar_todas_robusto,
-    posicoes_restantes,
+    posicoes_restantes_com_retry,
+    remover_sinal_parada,
+    SalvamentoUnico,
 )
+
+# [23.62 item 4] modelo/experiencias salvados UMA unica vez por encerramento,
+# mesmo que a trava C3 bloqueie e o bloco seja reexecutado varias vezes.
+_SALVAMENTO_FINAL = SalvamentoUnico(logging)
 
 MAGICS_ROBO = tuple(
     {MAGIC_NUMBER} | ({MAGIC_ROMPIMENTO} if ROMPIMENTO_ATIVO else set())
@@ -10996,7 +11022,8 @@ def fechar_todas_posicoes(motivo: str = "Encerramento automatico") -> int:
     """
     tickets_antes = []
     try:
-        for _p in (mt5.positions_get() or []):
+        _pos_antes = mt5.positions_get()
+        for _p in (_pos_antes if _pos_antes is not None else []):
             if _p.magic in MAGICS_ROBO:
                 tickets_antes.append(_p.ticket)
     except Exception:
@@ -11019,12 +11046,16 @@ def fechar_todas_posicoes(motivo: str = "Encerramento automatico") -> int:
     try:
         if "_telemetria_capturar_pnl" in globals():
             for _ticket in tickets_antes:
-                if _ticket not in restantes:
+                if restantes is not None and _ticket not in restantes:
                     _telemetria_capturar_pnl(_ticket)
     except Exception:
         pass
 
-    if restantes:
+    if restantes is None:
+        logging.critical(
+            "FECHO NAO CONFIRMADO (%s): estado das posicoes desconhecido "
+            "(positions_get None)", motivo)
+    elif restantes:
         logging.critical(
             "FECHO INCOMPLETO (%s): %d posicao(oes) ainda aberta(s): %s",
             motivo, len(restantes), restantes)
@@ -11032,6 +11063,8 @@ def fechar_todas_posicoes(motivo: str = "Encerramento automatico") -> int:
         logging.info(
             "FECHO CONFIRMADO (%s): %d fechada(s), flat.", motivo, fechadas)
     return fechadas
+
+
 def salvar_dados_finais(modelo_ia_local: Optional[Sequential], memoria_experiencias: MemoriaExperiencias) -> None:
     """Salva todos os dados importantes antes do encerramento."""
     try:

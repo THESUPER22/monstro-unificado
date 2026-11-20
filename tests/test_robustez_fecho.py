@@ -59,8 +59,15 @@ class FakeMT5:
         # handler(req, n) -> retcode | None. None => comportamento padrão (fecha).
         self.handler = None
         self._n = 0
+        # >0: positions_get() devolve None N vezes; -1: sempre None.
+        self.posicoes_none = 0
 
     def positions_get(self, ticket=None):
+        if self.posicoes_none == -1:
+            return None
+        if self.posicoes_none > 0:
+            self.posicoes_none -= 1
+            return None
         if ticket is not None:
             return tuple(p for p in self._positions if p.ticket == ticket)
         return tuple(self._positions)
@@ -243,6 +250,110 @@ def test_posicoes_restantes_so_do_robo():
     assert rh.posicoes_restantes(fake, set()) == []
 
 
+# ===== C3: None = estado desconhecido (nunca flat) =====
+def test_posicoes_none_e_desconhecido_nao_flat():
+    fake = FakeMT5([FakePos(1, magic=MAGIC_CORE)])
+    fake.posicoes_none = -1
+    assert rh.posicoes_do_robo(fake, {MAGIC_CORE}) is None
+    assert rh.posicoes_restantes(fake, {MAGIC_CORE}) is None
+    assert rh.ticket_aberto(fake, 1) is None
+
+
+def test_retry_reconecta_e_confirma_flat():
+    fake = FakeMT5([])
+    fake.posicoes_none = 1          # 1ª leitura falha, 2ª confirma flat
+    rec, sleeps, log = [], [], FakeLog()
+    r = rh.posicoes_restantes_com_retry(
+        fake, {MAGIC_CORE}, log=log, reconnect=lambda: rec.append(1),
+        sleep=sleeps.append)
+    assert r == []
+    assert len(rec) == 1 and sleeps == [2.0]
+    assert not log.tem("critical")
+
+
+def test_retry_esgotado_devolve_none():
+    fake = FakeMT5([])
+    fake.posicoes_none = -1
+    rec, sleeps, log = [], [], FakeLog()
+    r = rh.posicoes_restantes_com_retry(
+        fake, {MAGIC_CORE}, log=log, reconnect=lambda: rec.append(1),
+        tentativas=3, backoff_s=2.0, sleep=sleeps.append)
+    assert r is None
+    assert len(rec) == 2                 # reconecta entre as tentativas
+    assert sleeps == [2.0, 4.0]          # backoff exponencial
+    assert log.tem("critical")
+
+
+def test_restantes_ate_saber_repete_ate_saber():
+    fake = FakeMT5([])
+    fake.posicoes_none = 4               # 1º ciclo inteiro falha
+    sleeps, log = [], FakeLog()
+    r = rh.restantes_ate_saber(
+        fake, {MAGIC_CORE}, log=log, reconnect=lambda: True,
+        tentativas=4, backoff_s=2.0, pausa_s=30.0, sleep=sleeps.append,
+        max_ciclos=2)
+    assert r == []
+    assert sleeps == [2.0, 4.0, 8.0, 30.0]
+
+
+def test_restantes_ate_saber_esgota_so_em_teste():
+    fake = FakeMT5([])
+    fake.posicoes_none = -1
+    r = rh.restantes_ate_saber(
+        fake, {MAGIC_CORE}, log=FakeLog(), reconnect=lambda: True,
+        tentativas=2, backoff_s=2.0, pausa_s=30.0, sleep=lambda s: None,
+        max_ciclos=2)
+    assert r is None
+
+
+def test_trava_shutdown_none_nao_libera_encerramento():
+    fake = FakeMT5([])
+    fake.posicoes_none = -1
+    fechou = []
+    log = FakeLog()
+    r = rh.confirmar_flat_para_encerrar(
+        fake, {MAGIC_CORE}, log=log, reconnect=lambda: True,
+        fechar=lambda: fechou.append(1), tentativas=2, backoff_s=2.0,
+        pausa_s=30.0, sleep=lambda s: None, max_ciclos=1)
+    assert r is None                 # desconhecido: C3 não pode encerrar
+    assert fechou == []              # não tenta fechar o que não consegue ler
+    assert log.tem("critical")
+
+
+def test_trava_shutdown_posicao_aberta_fecha_e_confirma():
+    fake = FakeMT5([FakePos(321, tipo=1)])
+
+    def fechar():
+        fake.fechar(321)
+
+    r = rh.confirmar_flat_para_encerrar(
+        fake, {MAGIC_CORE}, log=FakeLog(), reconnect=lambda: True,
+        fechar=fechar, sleep=lambda s: None)
+    assert r == []
+
+
+def test_fechar_todas_none_nao_finge_flat():
+    fake = FakeMT5([FakePos(9, tipo=1)])
+    fake.posicoes_none = -1
+    fechadas, restantes, rec, sleeps, log = _rodar(fake, {MAGIC_CORE})
+    assert (fechadas, restantes) == (0, None)
+    assert fake.sent == []
+    assert log.tem("warning")
+
+
+def test_fechar_posicao_none_nao_confirma_fecho():
+    fake = FakeMT5([FakePos(10, tipo=1)])
+    fake.posicoes_none = -1
+    rec, sleeps, log = [], [], FakeLog()
+    ok = rh.fechar_posicao_robusto(
+        fake, FakePos(10), reconnect=lambda: rec.append(1), log=log,
+        tentativas=2, sleep=sleeps.append)
+    assert ok is False
+    assert fake.sent == []
+    assert len(rec) == 2 and sleeps == [5.0, 5.0]
+    assert log.tem("critical")
+
+
 # ===== fillings =====
 def test_fillings_bitmask():
     assert rh.fillings_disponiveis(FakeMT5(filling_mode=2), "WDOZ26") == [
@@ -278,6 +389,66 @@ def test_contar_deals_sem_historico():
     fake = FakeMT5([])
     fake.deals = []
     assert rh.contar_deals_reais_hoje(fake, {MAGIC_CORE}, 0, 1) == (0, 0.0)
+
+
+# ===== 23.60.11: teto de 30 s, batimento e sinal so apos flat =====
+def test_backoff_teto_30s():
+    fake = FakeMT5([])
+    fake.posicoes_none = -1
+    sleeps = []
+    r = rh.posicoes_restantes_com_retry(
+        fake, {MAGIC_CORE}, log=FakeLog(), reconnect=lambda: True,
+        tentativas=7, backoff_s=2.0, sleep=sleeps.append)
+    assert r is None
+    # 2,4,8,16 crescem; depois o teto de 30 s impede 32,64,...
+    assert sleeps == [2.0, 4.0, 8.0, 16.0, 30.0, 30.0]
+
+
+def test_batimento_e_pausa_com_teto_a_cada_ciclo():
+    fake = FakeMT5([])
+    fake.posicoes_none = -1
+    sleeps, log = [], FakeLog()
+    r = rh.restantes_ate_saber(
+        fake, {MAGIC_CORE}, log=log, reconnect=lambda: True,
+        tentativas=1, pausa_s=120.0, sleep=sleeps.append, max_ciclos=3)
+    assert r is None
+    assert sleeps == [30.0, 30.0]       # teto aplicado tambem na pausa
+    batimentos = [m for lvl, m in log.records
+                  if lvl == "critical" and "BATIMENTO" in m]
+    assert len(batimentos) == 2         # um CRITICAL por ciclo
+    assert "ciclo 1" in batimentos[0] and "ciclo 2" in batimentos[1]
+
+
+def test_loop_producao_nao_desiste_ate_saber():
+    fake = FakeMT5([])
+    fake.posicoes_none = 2              # duas leituras falham, depois flat
+    sleeps, log = [], FakeLog()
+
+    def sleep(s):
+        sleeps.append(s)
+        fake.posicoes_none = 0          # feed volta
+
+    # max_ciclos=None (producao): nao pode devolver None, so repete.
+    r = rh.restantes_ate_saber(
+        fake, {MAGIC_CORE}, log=log, reconnect=lambda: True,
+        tentativas=1, pausa_s=30.0, sleep=sleep, max_ciclos=None)
+    assert r == []
+    assert sleeps == [30.0]             # um ciclo desconhecido, depois voltou
+    assert any("BATIMENTO" in m for lvl, m in log.records if lvl == "critical")
+
+
+def test_parar_txt_so_removido_apos_flat(tmp_path):
+    sinal = tmp_path / "parar.txt"
+    sinal.write_text("PARAR", encoding="utf-8")
+    log = FakeLog()
+    # estado desconhecido e posicao aberta: sinal sobrevive
+    assert rh.remover_sinal_parada(None, str(sinal), log=log) is False
+    assert sinal.exists()
+    assert rh.remover_sinal_parada([999], str(sinal), log=log) is False
+    assert sinal.exists()
+    # so com flat confirmado o sinal e consumido
+    assert rh.remover_sinal_parada([], str(sinal), log=log) is True
+    assert not sinal.exists()
 
 
 if __name__ == "__main__":

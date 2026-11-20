@@ -72,6 +72,9 @@ def check(log):
     log.info("=== CHECK (read-only) ===")
     log.info("posicoes abertas: %d", len(mt5.positions_get() or []))
     robo = posicoes_do_robo(mt5, MAGICS_ROBO)
+    if robo is None:
+        log.error("posicoes do robo: estado desconhecido (positions_get None)")
+        return 1
     log.info("posicoes do robo (123456/7008): %d", len(robo))
     for p in (mt5.positions_get() or []):
         log.info("  #%s %s magic=%s vol=%s", p.ticket, p.symbol, p.magic, p.volume)
@@ -170,6 +173,9 @@ def fechar_emergencia(log, symbol):
 def run(log, symbol):
     log.info("=== RUN REAL (demo) %s ===", symbol)
     robo = posicoes_do_robo(mt5, MAGICS_ROBO)
+    if robo is None:
+        log.error("ABORTADO: estado das posicoes desconhecido (positions_get None)")
+        return 1
     if robo:
         log.error("ABORTADO: ha posicao do robo aberta: %s",
                   [p.ticket for p in robo])
