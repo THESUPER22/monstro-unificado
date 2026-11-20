@@ -9,9 +9,10 @@ BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE)
 
 from aceite_pos_pregao import (coletar, commits_do_fecho,  # noqa: E402
-                               contar_10016, contar_teto,
-                               encerrou_graciosamente, permitido,
-                               resolver_log, soma_deals, ultimo_pnl_mt5)
+                               contar_10016, contar_posicoes_abertas,
+                               contar_teto, encerrou_graciosamente, imprimir,
+                               permitido, resolver_log, soma_deals,
+                               ultimo_kill_switch, ultimo_pnl_mt5)
 
 DIA = date(2026, 11, 18)
 T = datetime(2026, 11, 18, 10, 0, tzinfo=timezone.utc).timestamp()
@@ -21,7 +22,16 @@ LOG_OK = (
     "2026-11-18 10:05:00,000 - INFO - [pnl_dia] MT5: 3 deals, liquido +11.74 (magics [123457, 7008])\n"
     "2026-11-18 17:35:00,000 - INFO - [pnl_dia] MT5: 3 deals, liquido +11.74 (magics [123457, 7008])\n"
 )
-AGENTE_OK = "2026-11-18 17:35:39 - INFO - robo encerrou graciosamente\n"
+AGENTE_OK = (
+    "2026-11-18 17:35:30,000 - INFO - kill-switch: loss hoje +11.74 "
+    "(limites -250/-400) - ok\n"
+    "2026-11-18 17:35:39 - INFO - robo encerrou graciosamente\n"
+)
+AGENTE_5 = (
+    "2026-11-18 16:58:32,000 - INFO - kill-switch: loss hoje +5.00 "
+    "(limites -250/-400) - ok\n"
+    "2026-11-18 17:35:39 - INFO - robo encerrou graciosamente\n"
+)
 
 DEALS = [
     {"time": T, "profit": 10.0, "commission": 0.0, "swap": 0.0,
@@ -75,10 +85,10 @@ def test_permitido_usa_whitelist():
     assert not permitido("monstro_unificado_v22.py", padroes)
 
 
-def test_coletar_ok_quando_os_5_numeros_batem(tmp_path):
+def test_coletar_ok_quando_os_6_numeros_batem(tmp_path):
     (tmp_path / "parado.ok").write_text("ok", encoding="utf-8")
     r = coletar(str(tmp_path), DIA, deals=DEALS, log_texto=LOG_OK,
-                agente_texto=AGENTE_OK,
+                agente_texto=AGENTE_OK, posicoes=[],
                 commit_info={"commits": 1, "arquivos": ["ROADMAP_MONSTRO_OFICIAL_UNIFICADO.md"],
                              "extras": [], "ok": True})
     assert r["retcode_10016"] == 0
@@ -87,6 +97,7 @@ def test_coletar_ok_quando_os_5_numeros_batem(tmp_path):
     assert r["pnl_igual_saidas"] is False
     assert r["pnl_igual_todos"] is True
     assert r["parado_ok"] is True and r["encerrou_graciosamente"] is True
+    assert r["posicoes_abertas"] == 0 and r["posicoes_ok"] is True
     assert r["ok"] is True
 
 
@@ -162,7 +173,7 @@ def test_coletar_18_11_snapshot_vale_so_ate_o_horario_da_linha(tmp_path):
                   "fee": 0.0, "magic": 123456, "entry": 1})
     (tmp_path / "parado.ok").write_text("ok", encoding="utf-8")
     r = coletar(str(tmp_path), DIA, deals=deals, log_texto=log,
-                agente_texto=AGENTE_OK,
+                agente_texto=AGENTE_5, posicoes=[],
                 commit_info={"commits": 1, "arquivos": [], "extras": [],
                              "ok": True})
     assert r["pnl_log"]["liquido"] == 5.0
@@ -218,3 +229,197 @@ def test_commits_do_fecho_filtra_pela_mensagem(tmp_path):
 def test_commits_do_fecho_de_outro_dia_nao_entra(tmp_path):
     repo = _repo_com_dois_commits(tmp_path)
     assert commits_do_fecho(str(repo), date(2026, 11, 17)) == []
+
+
+# ---------------------------------------- item 6: posicoes apos o fecho ---
+def _ok_kwargs(posicoes):
+    return dict(deals=DEALS, log_texto=LOG_OK, agente_texto=AGENTE_OK,
+                posicoes=posicoes,
+                commit_info={"commits": 1, "arquivos": [], "extras": [],
+                             "ok": True})
+
+
+def test_item6_conta_so_magics_do_robo():
+    assert contar_posicoes_abertas([{"magic": 123457}], [123457, 7008]) == 1
+    assert contar_posicoes_abertas([{"magic": 999}], [123457, 7008]) == 0
+    assert contar_posicoes_abertas([], [123457, 7008]) == 0
+
+
+def test_item6_sem_magics_nao_vira_zero():
+    assert contar_posicoes_abertas([], None) is None
+    assert contar_posicoes_abertas([{"magic": 123457}], []) is None
+
+
+def test_item6_posicao_aberta_reprova(tmp_path):
+    (tmp_path / "parado.ok").write_text("ok", encoding="utf-8")
+    r = coletar(str(tmp_path), DIA,
+                **_ok_kwargs([{"magic": 123457, "ticket": 1}]))
+    assert r["posicoes_abertas"] == 1
+    assert r["posicoes_ok"] is False
+    assert r["ok"] is False
+
+
+def test_item6_leitura_falhou_nao_passa_por_zero(tmp_path):
+    (tmp_path / "parado.ok").write_text("ok", encoding="utf-8")
+    r = coletar(str(tmp_path), DIA, **_ok_kwargs(None))
+    assert r["posicoes_abertas"] is None
+    assert r["posicoes_ok"] is False
+    assert r["ok"] is False
+
+
+def test_item6_sem_mt5_e_nao_verificado(tmp_path):
+    (tmp_path / "parado.ok").write_text("ok", encoding="utf-8")
+    r = coletar(str(tmp_path), DIA, deals=[], log_texto=LOG_OK,
+                agente_texto=AGENTE_OK,
+                commit_info={"commits": 1, "arquivos": [], "extras": [],
+                             "ok": True})
+    assert r["posicoes_abertas"] is None
+    assert r["ok"] is False
+
+
+def test_imprimir_mostra_o_item6(tmp_path, capsys):
+    (tmp_path / "parado.ok").write_text("ok", encoding="utf-8")
+    imprimir(coletar(str(tmp_path), DIA, **_ok_kwargs([])))
+    saida = capsys.readouterr().out
+    assert "posicoes abertas apos o fecho: 0" in saida
+
+    imprimir(coletar(str(tmp_path), DIA, **_ok_kwargs(None)))
+    saida = capsys.readouterr().out
+    assert "posicoes abertas apos o fecho: NAO VERIFICADO" in saida
+    assert "FALHOU" in saida
+
+
+def test_item6_modo_mt5_le_as_posicoes(tmp_path, monkeypatch):
+    """Sem `deals` fornecidos, o item 6 consulta o MT5 (nao fica sem ler)."""
+    import aceite_pos_pregao as ap
+
+    (tmp_path / "parado.ok").write_text("ok", encoding="utf-8")
+    chamadas = []
+    monkeypatch.setattr(ap, "_deals_mt5", lambda dia: DEALS)
+    monkeypatch.setattr(ap, "_posicoes_mt5",
+                        lambda magics: chamadas.append(magics) or [])
+    r = ap.coletar(str(tmp_path), DIA, log_texto=LOG_OK,
+                   agente_texto=AGENTE_OK,
+                   commit_info={"commits": 1, "arquivos": [], "extras": [],
+                                "ok": True})
+    assert chamadas == [[123457, 7008]]
+    assert r["posicoes_abertas"] == 0
+    assert r["ok"] is True
+
+
+# ------------------------------------------ item 7: kill-switch x [pnl_dia] --
+def _ok_kwargs_agente(agente_texto):
+    return dict(deals=DEALS, log_texto=LOG_OK, agente_texto=agente_texto,
+                posicoes=[],
+                commit_info={"commits": 1, "arquivos": [], "extras": [],
+                             "ok": True})
+
+
+def test_ultimo_kill_switch_ignora_outro_dia_e_pega_o_mais_recente():
+    txt = (
+        "2026-11-17 17:35:30,000 - INFO - kill-switch: loss hoje -900.00 - ok\n"
+        "2026-11-18 17:34:00,000 - INFO - kill-switch: loss hoje +1.00 - ok\n"
+        "2026-11-18 17:35:30,000 - INFO - kill-switch: loss hoje +11.74 - ok\n"
+    )
+    ks = ultimo_kill_switch(txt, DIA)
+    assert ks == {"loss": 11.74,
+                  "quando": datetime(2026, 11, 18, 17, 35, 30)}
+    assert ultimo_kill_switch(txt, date(2026, 11, 17))["loss"] == -900.0
+
+
+def test_item7_kill_switch_igual_pnl_passa(tmp_path):
+    (tmp_path / "parado.ok").write_text("ok", encoding="utf-8")
+    r = coletar(str(tmp_path), DIA, **_ok_kwargs_agente(AGENTE_OK))
+    assert r["kill_switch_ok"] is True
+    assert r["kill_switch_zero_com_deals"] is False
+    assert r["ok"] is True
+
+
+def test_item7_divergencia_maior_que_um_reprova(tmp_path):
+    (tmp_path / "parado.ok").write_text("ok", encoding="utf-8")
+    agente = AGENTE_OK.replace("+11.74", "+9.00")
+    r = coletar(str(tmp_path), DIA, **_ok_kwargs_agente(agente))
+    assert r["kill_switch_igual_pnl"] is False
+    assert r["kill_switch_ok"] is False
+    assert r["ok"] is False
+
+
+def test_item7_zero_com_deals_no_dia_reprova(tmp_path):
+    """Defeito medido em 19/11: 0.00 no log enquanto havia 54 deals."""
+    (tmp_path / "parado.ok").write_text("ok", encoding="utf-8")
+    agente = AGENTE_OK.replace("+11.74", "0.00")
+    r = coletar(str(tmp_path), DIA, **_ok_kwargs_agente(agente))
+    assert r["kill_switch"]["loss"] == 0.0
+    assert r["kill_switch_zero_com_deals"] is True
+    assert r["kill_switch_ok"] is False
+    assert r["ok"] is False
+
+
+def test_item7_zero_com_saidas_zeradas_nao_reprova(tmp_path):
+    """Dia que fecha em 0 com trades nao e o defeito '0.00 as cegas'."""
+    (tmp_path / "parado.ok").write_text("ok", encoding="utf-8")
+    log = ("2026-11-18 17:36:04,008 - INFO - [pnl_dia] MT5: 2 deals, "
+           "liquido 0.00 (magics [123457])\n")
+    agente = ("2026-11-18 17:35:30,000 - INFO - kill-switch: loss hoje 0.00 "
+              "(limites -250/-400) - ok\n"
+              "2026-11-18 17:35:39 - INFO - robo encerrou graciosamente\n")
+    deals = [
+        {"time": T, "profit": 0.0, "commission": 0.0, "swap": 0.0,
+         "fee": 0.0, "magic": 123457, "entry": 0},
+        {"time": T, "profit": 0.0, "commission": 0.0, "swap": 0.0,
+         "fee": 0.0, "magic": 123457, "entry": 1},
+    ]
+    r = coletar(str(tmp_path), DIA, deals=deals, log_texto=log,
+                agente_texto=agente, posicoes=[],
+                commit_info={"commits": 1, "arquivos": [], "extras": [],
+                             "ok": True})
+    assert r["kill_switch_deals_ate"] == 2
+    assert r["kill_switch_saidas_com_resultado_ate"] == 0
+    assert r["kill_switch_zero_com_deals"] is False
+    assert r["kill_switch_ok"] is True
+    assert r["ok"] is True
+
+
+def test_item7_kill_switch_ausente_reprova(tmp_path):
+    (tmp_path / "parado.ok").write_text("ok", encoding="utf-8")
+    agente = "2026-11-18 17:35:39 - INFO - robo encerrou graciosamente\n"
+    r = coletar(str(tmp_path), DIA, **_ok_kwargs_agente(agente))
+    assert r["kill_switch"] is None
+    assert r["kill_switch_ok"] is False
+    assert r["ok"] is False
+
+
+def test_item7_compara_com_deals_ate_a_linha_do_kill_switch(tmp_path):
+    """Trade fechado depois do kill-switch nao pode reprovar o item 7."""
+    ks = ("2026-11-18 12:50:02,000 - INFO - kill-switch: loss hoje -260.00 "
+          "(limites -250/-400) - ok\n"
+          "2026-11-18 17:35:39 - INFO - robo encerrou graciosamente\n")
+    log = ("2026-11-18 17:36:04,008 - INFO - [pnl_dia] MT5: 54 deals, "
+           "liquido -1025.00 (magics [123457, 7008])\n")
+    cedo = datetime(2026, 11, 18, 12, 45, tzinfo=timezone.utc).timestamp()
+    tarde = datetime(2026, 11, 18, 17, 20, tzinfo=timezone.utc).timestamp()
+    deals = [{"time": cedo, "profit": -260.0, "commission": 0.0, "swap": 0.0,
+              "fee": 0.0, "magic": 123457, "entry": 1},
+             {"time": tarde, "profit": -765.0, "commission": 0.0, "swap": 0.0,
+              "fee": 0.0, "magic": 123457, "entry": 1}]
+    (tmp_path / "parado.ok").write_text("ok", encoding="utf-8")
+    r = coletar(str(tmp_path), DIA, deals=deals, log_texto=log,
+                agente_texto=ks, posicoes=[],
+                commit_info={"commits": 1, "arquivos": [], "extras": [],
+                             "ok": True})
+    assert r["kill_switch_soma_ate"] == -260.0
+    assert r["kill_switch_deals_ate"] == 1
+    assert r["kill_switch_ok"] is True
+    assert r["ok"] is True
+
+
+def test_imprimir_mostra_o_item7(tmp_path, capsys):
+    (tmp_path / "parado.ok").write_text("ok", encoding="utf-8")
+    imprimir(coletar(str(tmp_path), DIA, **_ok_kwargs_agente(AGENTE_OK)))
+    assert "kill-switch: loss hoje:        +11.74" in capsys.readouterr().out
+
+    agente = AGENTE_OK.replace("+11.74", "0.00")
+    imprimir(coletar(str(tmp_path), DIA, **_ok_kwargs_agente(agente)))
+    saida = capsys.readouterr().out
+    assert "0.00 COM SAIDA COM RESULTADO - FALHOU" in saida
+    assert "VEREDITO: FALHOU" in saida

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Aceite pos-pregao (READ-ONLY) - imprime os 5 numeros do fecho.
+"""Aceite pos-pregao (READ-ONLY) - imprime os 7 numeros do fecho.
 
 Roda depois do fecho (17:35 BRT) e responde, com numero medido:
 
@@ -9,7 +9,12 @@ Roda depois do fecho (17:35 BRT) e responde, com numero medido:
      daquela linha (o total do dia e informativo);
   4. ``parado.ok`` presente + "encerrou graciosamente" no agente_autonomo.log;
   5. commits do fecho (mensagem "fecho autonomo AAAA-MM-DD") so com
-     arquivos da whitelist.
+     arquivos da whitelist;
+  6. posicoes abertas dos magics do robo depois do fecho (esperado: 0).
+     Falha de leitura NAO vira zero: o item reprova;
+  7. ultimo ``kill-switch: loss hoje X`` do agente == deals ATE o horario
+     daquela linha (tolerancia R$ 1). ``0.00`` so reprova quando ha SAIDA
+     com resultado liquido != 0 ate la; entradas e saidas zeradas nao contam.
 
 Nao envia ordem, nao escreve no repo, nao importa o robo. Usa o mesmo
 ``pnl_de_deals`` do P0 #3. Testes em ``tests/test_aceite_pos_pregao.py``.
@@ -38,6 +43,12 @@ RE_PNL = re.compile(
     r"(?P<liquido>[+-]?\d+(?:\.\d+)?)"
     r"(?: \(magics \[(?P<magics>[0-9, ]*)\])?",
     re.MULTILINE)
+# [23.61 item 2] ultimo "kill-switch: loss hoje X" do AGENTE, no dia do aceite.
+RE_KS = re.compile(
+    r"^(?P<quando>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:,\d{3})?)"
+    r".*?kill-switch: loss hoje (?P<loss>[+-]?\d+(?:\.\d+)?)",
+    re.MULTILINE)
+KS_TOLERANCIA = 1.0
 ENTRY_OUT = 1  # mt5.DEAL_ENTRY_OUT
 
 
@@ -77,6 +88,21 @@ def ultimo_pnl_mt5(texto: str) -> Optional[dict]:
             "magics": lista or None,
             "quando": datetime.strptime(m.group("quando"),
                                         "%Y-%m-%d %H:%M:%S,%f")}
+
+
+def ultimo_kill_switch(texto: str, dia: date) -> Optional[dict]:
+    """Ultimo ``kill-switch: loss hoje X`` do agente NAQUELE dia.
+
+    Linha de outro dia e lixo de sessao anterior: nao pode validar o aceite.
+    """
+    ultimo = None
+    for m in RE_KS.finditer(texto or ""):
+        quando = datetime.strptime(m.group("quando")[:19],
+                                   "%Y-%m-%d %H:%M:%S")
+        if quando.date() != dia:
+            continue
+        ultimo = {"loss": float(m.group("loss")), "quando": quando}
+    return ultimo
 
 
 def encerrou_graciosamente(texto: str, dia: date) -> bool:
@@ -131,6 +157,29 @@ def soma_deals(deals: Iterable, dia: date, magics: Optional[Sequence[int]] = Non
         deals = [d for d in (deals or ())
                  if _quando_do_deal(d) is None or _quando_do_deal(d) <= ate]
     return pnl_de_deals(deals, dia, magics)
+
+
+def contar_saidas_com_resultado(deals: Iterable, dia: date,
+                                magics: Optional[Sequence[int]] = None,
+                                ate: Optional[datetime] = None) -> int:
+    """Saidas com resultado liquido != 0 (profit + comissao + swap + fee).
+
+    Usado pelo item 7 para nao reprovar um dia que fecha exatamente em zero:
+    entrada tem ``profit=0`` por definicao e uma saida tambem pode fechar em
+    zero. So um fechamento com resultado nao nulo prova que ``0.00`` no
+    kill-switch e leitura cega.
+    """
+    n = 0
+    for deal in deals or ():
+        if int(_campo(deal, "entry", -1)) != ENTRY_OUT:
+            continue
+        quando = _quando_do_deal(deal)
+        if ate is not None and quando is not None and quando > ate:
+            continue
+        liquido, _ = pnl_de_deals([deal], dia, magics)
+        if liquido != 0.0:
+            n += 1
+    return n
 
 
 def permitido(caminho: str, padroes: Iterable[str]) -> bool:
@@ -216,11 +265,46 @@ def _deals_mt5(dia: date) -> List:
         return []
 
 
+def _posicoes_mt5(magics: Optional[Sequence[int]]) -> Optional[List]:
+    """Posicoes abertas agora (READ-ONLY); ``None`` = NAO VERIFICADO.
+
+    ``positions_get()`` devolve ``None`` quando a leitura falha. Nesse caso
+    o item 6 reprova: "nao deu para ler" nunca pode ser impresso como 0.
+    """
+    if not magics:
+        return None
+    try:
+        import MetaTrader5 as mt5  # noqa: PLC0415
+
+        if not mt5.initialize():
+            return None
+        pos = mt5.positions_get()
+    except Exception:  # noqa: BLE001
+        return None
+    if pos is None:
+        return None
+    return list(pos)
+
+
+_NAO_LIDO = object()
+
+
+def contar_posicoes_abertas(posicoes: Optional[Iterable],
+                            magics: Optional[Sequence[int]]) -> Optional[int]:
+    """Quantas posicoes abertas pertencem aos magics; ``None`` = desconhecido."""
+    if posicoes is None or not magics:
+        return None
+    alvo = set(int(m) for m in magics)
+    return sum(1 for p in posicoes
+               if int(_campo(p, "magic", -1)) in alvo)
+
+
 def coletar(base: str, dia: date, deals: Optional[Iterable] = None,
             log_texto: Optional[str] = None,
             agente_texto: Optional[str] = None,
-            commit_info: Optional[dict] = None) -> dict:
-    """Mede os 5 numeros e devolve o veredito (sem efeito colateral)."""
+            commit_info: Optional[dict] = None,
+            posicoes=_NAO_LIDO) -> dict:
+    """Mede os 7 numeros e devolve o veredito (sem efeito colateral)."""
     log_usado, log_motivo = "", "texto fornecido"
     if log_texto is None:
         log_usado, log_motivo = resolver_log(base, dia)
@@ -233,10 +317,17 @@ def coletar(base: str, dia: date, deals: Optional[Iterable] = None,
     pnl = ultimo_pnl_mt5(log_texto)
     log_encontrado = bool(log_texto)
 
+    consultar_mt5 = deals is None
     if deals is None and pnl is not None:
         deals = _deals_mt5(dia)
     deals = list(deals or ())
     magics = pnl["magics"] if pnl else None
+    if posicoes is _NAO_LIDO:
+        # Mesmo modo dos deals: so consulta o MT5 quando o chamador nao
+        # forneceu os dados (``--sem-mt5`` passa deals=[] -> NAO VERIFICADO).
+        posicoes = _posicoes_mt5(magics) if consultar_mt5 else None
+    posicoes_abertas = contar_posicoes_abertas(posicoes, magics)
+    posicoes_ok = posicoes_abertas == 0
     quando = pnl["quando"] if pnl else None
     soma_saidas, n_saidas = soma_deals(deals, dia, magics, apenas_saida=True)
     soma_todos, n_todos = soma_deals(deals, dia, magics, apenas_saida=False)
@@ -250,6 +341,19 @@ def coletar(base: str, dia: date, deals: Optional[Iterable] = None,
     pnl_igual_saidas = (bool(pnl)
                         and abs(pnl["liquido"] - soma_saidas_ate_log) <= 0.01)
     pnl_igual_todos = bool(pnl) and abs(pnl["liquido"] - soma_todos) <= 0.01
+
+    # Item 7: o kill-switch le os deals ATE o horario da sua propria linha.
+    # O [pnl_dia] final (17:36) e posterior ao ultimo kill-switch (17:20):
+    # comparar com ele reprovaria sempre que um trade fecha nesse intervalo.
+    ks = ultimo_kill_switch(agente_texto, dia)
+    ks_quando = ks["quando"] if ks else None
+    soma_ate_ks, n_ate_ks = soma_deals(deals, dia, magics, ate=ks_quando)
+    n_saidas_com_resultado = contar_saidas_com_resultado(
+        deals, dia, magics, ate=ks_quando)
+    ks_igual_pnl = bool(ks and abs(ks["loss"] - soma_ate_ks) <= KS_TOLERANCIA)
+    ks_zero_com_deals = bool(ks and abs(ks["loss"]) <= 0.005
+                             and n_saidas_com_resultado > 0)
+    ks_ok = ks_igual_pnl and not ks_zero_com_deals
 
     parado = os.path.exists(os.path.join(base, "parado.ok"))
     encerrou = encerrou_graciosamente(agente_texto, dia)
@@ -265,7 +369,8 @@ def coletar(base: str, dia: date, deals: Optional[Iterable] = None,
                        "extras": extras, "ok": bool(shas) and not extras}
 
     ok = (log_encontrado and n10016 == 0 and n_teto == 0 and pnl_igual_log
-          and parado and encerrou and bool(commit_info.get("ok")))
+          and parado and encerrou and bool(commit_info.get("ok"))
+          and posicoes_ok and ks_ok)
     return {
         "dia": dia.isoformat(),
         "log_usado": log_usado,
@@ -286,8 +391,17 @@ def coletar(base: str, dia: date, deals: Optional[Iterable] = None,
         "pnl_igual_log": pnl_igual_log,
         "pnl_igual_saidas": pnl_igual_saidas,
         "pnl_igual_todos": pnl_igual_todos,
+        "kill_switch": ks,
+        "kill_switch_soma_ate": soma_ate_ks,
+        "kill_switch_deals_ate": n_ate_ks,
+        "kill_switch_saidas_com_resultado_ate": n_saidas_com_resultado,
+        "kill_switch_igual_pnl": ks_igual_pnl,
+        "kill_switch_zero_com_deals": ks_zero_com_deals,
+        "kill_switch_ok": ks_ok,
         "parado_ok": parado,
         "encerrou_graciosamente": encerrou,
+        "posicoes_abertas": posicoes_abertas,
+        "posicoes_ok": posicoes_ok,
         "commit_fecho": commit_info,
         "ok": bool(ok),
     }
@@ -319,12 +433,30 @@ def imprimir(r: dict) -> None:
     print(f"  parado.ok:                     {'SIM' if r['parado_ok'] else 'NAO'}")
     print(f"  encerrou graciosamente:        "
           f"{'SIM' if r['encerrou_graciosamente'] else 'NAO'}")
+    n_abertas = r.get("posicoes_abertas")
+    valor = "NAO VERIFICADO" if n_abertas is None else str(n_abertas)
+    print(f"  posicoes abertas apos o fecho: {valor}"
+          f"{'' if r.get('posicoes_ok') else '  (FALHOU)'}")
     c = r["commit_fecho"]
     print(f"  commits do fecho:              {c.get('commits', 0)} "
           f"({len(c.get('arquivos', []))} arquivos) "
           f"{'OK' if c.get('ok') else 'FALHOU'}")
     if c.get("extras"):
         print(f"    FORA DA WHITELIST:           {c['extras']}")
+    ks = r.get("kill_switch")
+    if ks:
+        ks_txt = f"{ks['loss']:+.2f} as {ks['quando']:%H:%M:%S}"
+    else:
+        ks_txt = "AUSENTE no log do agente"
+    detalhe = ""
+    if r.get("kill_switch_zero_com_deals"):
+        detalhe = "  (0.00 COM SAIDA COM RESULTADO - FALHOU)"
+    print(f"  kill-switch: loss hoje:        {ks_txt}"
+          f"{'' if r.get('kill_switch_ok') else '  (FALHOU)'}{detalhe}")
+    if ks:
+        print(f"  deals ate o kill-switch:       {r['kill_switch_soma_ate']:+.2f} "
+              f"({r['kill_switch_deals_ate']} deals, "
+              f"{r['kill_switch_saidas_com_resultado_ate']} com resultado)")
     print(f"VEREDITO: {'OK' if r['ok'] else 'FALHOU'}")
 
 
