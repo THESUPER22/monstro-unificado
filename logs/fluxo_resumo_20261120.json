@@ -1,0 +1,14 @@
+{
+  "data": "20261120",
+  "quality": "INDISPONIVEL",
+  "erro": null,
+  "fonte": "http",
+  "symbol": "WDOZ26",
+  "capture_method": "COPY_TICKS_FLAGS",
+  "tick_count": 0,
+  "session_total": 0.0,
+  "delta": 0.0,
+  "cumulative_delta": 0.0,
+  "veredito_rotulos": "SEM_FEED",
+  "suggestion": "DADO_INSUFICIENTE"
+}

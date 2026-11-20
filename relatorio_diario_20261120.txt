@@ -1,0 +1,19 @@
+==================================================================
+RELATORIO DIARIO MONSTRO - 20/11/2026
+==================================================================
+Decisoes hoje: 0 | Sinais BUY/SELL: 0 | Trades executados: 0 (v22=0 + Faixa1=0)
+Trades fechados (deals MT5): 0 | PnL realizado: R$ +0.00
+dataset_reward_fill: 26.923076923076923% (n=26)  [NAO e win rate de trade]
+  win rate de TRADE (deals MT5): ver plano_ do dia seguinte / autopsia
+Entropia med: None | ATR med: None | Spread med: None
+Book ratio med: None
+
+FAIXA 1 - ROMPIMENTO 1H (magic 7008):
+  (sem trade/registro hoje)
+
+MAPA DE VETOS (bloqueios do dia):
+  (nenhum veto registrado)
+
+PARAMETROS ATUAIS (whitelist):
+
+Nota: alteracoes estruturais de codigo ficam como PROPOSTA p/ revisao humana (Fase 1).
