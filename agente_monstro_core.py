@@ -18,7 +18,7 @@ import re
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, time as dt_time, timezone
 
 import psutil
 import requests
@@ -27,6 +27,7 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 # P1 17/11 #3: selecao/commit restrito vivem em modulo puro e testavel.
 sys.path.insert(0, BASE)
 from commit_dia import STATUS_SENSIVEL, executar_commit, mensagem_fecho  # noqa: E402
+from pnl_dia import pnl_de_deals  # noqa: E402
 CFG = json.load(open(os.path.join(BASE, "agente_config.json"), encoding="utf-8-sig"))
 P = CFG["paths"]
 D = CFG["decisao"]
@@ -1323,28 +1324,155 @@ def dentro_do_expediente():
 
 
 # ------------------------------------------------------------ kill switch -----
-RE_DEAL_SAIDA = re.compile(r"Deal de sa.da encontrado.*?Lucro=(-?\d+\.?\d*)")
+# [23.61/23.62] NUNCA parsear "Deal de saida ... Lucro=" do log: a linha real
+# de 19/11 tem o "i" corrompido e o regex antigo nao casa. Fonte = deals MT5.
+# O [pnl_dia] e ~5 min mais antigo que a checagem: serve SO para alertar e para
+# o pior-caso; a acao usa min(deals, snapshot), nunca "cego" por divergencia.
+RE_PNL_DIARIO = re.compile(
+    r"^(?P<quando>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})"
+    r".*?\[pnl_dia\] MT5: (?P<deals>\d+) deals, liquido "
+    r"(?P<liquido>[+-]?\d+(?:\.\d+)?)")
+KILL_TOLERANCIA = 1.0
+
+
+def magics_do_robo():
+    """Magics do robo lidos do config (mesmos usados no fecho/read-only)."""
+    cfg = carregar_config_robo()
+    magics = {int(cfg.get("geral", {}).get("magic_number", 123456))}
+    try:
+        magics.add(int((cfg.get("rompimento") or {}).get("magic", 7008)))
+    except (TypeError, ValueError):
+        pass
+    return magics
+
+
+def ultimo_pnl_dia_do_log(dia=None, caminho=None):
+    """Ultimo ``[pnl_dia] MT5`` do dia, com horario; None se ausente/ilegivel.
+
+    O horario da linha e essencial: a comparacao usa os deals ATE ele (o
+    snapshot nao inclui trades que fecharam depois).
+    """
+    alvo = (dia or datetime.now().date()).isoformat()
+    ultimo = None
+    try:
+        with open(caminho or LOG_ROBO, encoding="utf-8", errors="replace") as f:
+            for linha in f:
+                if not linha.startswith(alvo):
+                    continue
+                m = RE_PNL_DIARIO.search(linha)
+                if m:
+                    ultimo = {
+                        "liquido": float(m.group("liquido")),
+                        "deals": int(m.group("deals")),
+                        "quando": datetime.strptime(
+                            m.group("quando"), "%Y-%m-%d %H:%M:%S,%f"),
+                    }
+    except Exception:  # noqa: BLE001
+        return None
+    return ultimo
+
+
+def hora_do_deal_kill(deal):
+    """Horario de parede do deal, igual ao de ``pnl_dia``/aceite (UTC do servidor)."""
+    bruto = (deal.get("time") if isinstance(deal, dict)
+             else getattr(deal, "time", None))
+    if bruto is None:
+        return None
+    return datetime.fromtimestamp(float(bruto), timezone.utc).replace(tzinfo=None)
+
+
+def deals_ate(deals, quando):
+    """Deals com horario <= ``quando``; ``None`` = todos (sem filtro)."""
+    if quando is None:
+        return list(deals or ())
+    return [d for d in (deals or ())
+            if (hora_do_deal_kill(d) is None or hora_do_deal_kill(d) <= quando)]
+
+
+def pnl_deals_hoje(dia=None):
+    """Deals MT5 do dia (lista); None = leitura DESCONHECIDA (nunca 0.0).
+
+    ``dia`` e injetavel para o teste de realidade (19/11) sobre deals REAIS.
+    """
+    dia = dia or datetime.now().date()
+    try:
+        import MetaTrader5 as mt5  # noqa: PLC0415
+
+        if not mt5.initialize():
+            log.error("kill-switch: MT5 nao inicializou - estado desconhecido")
+            return None
+        try:
+            ini = datetime.combine(dia, dt_time.min)
+            fim = datetime.combine(dia, dt_time(23, 59, 59))
+            deals = mt5.history_deals_get(ini, fim)
+            if deals is None:
+                log.error("kill-switch: history_deals_get() None - estado "
+                          "desconhecido")
+                return None
+            return list(deals)
+        finally:
+            mt5.shutdown()
+    except Exception as e:  # noqa: BLE001
+        log.error("kill-switch: leitura de deals falhou (%s) - estado "
+                  "desconhecido", e)
+        return None
+
+
+def calcular_loss_com_deals(deals, dia, magics, snapshot=None, agora=None):
+    """Acao = pior valor entre deals ATE ``agora`` e o ultimo [pnl_dia].
+
+    A comparacao (deals ATE o horario da linha X snapshot) e SO alerta: um
+    trade fechado entre o log e a checagem NUNCA desliga o nivel 1. Sem
+    snapshot, 0 deals = 0.00 valido (nao e estado desconhecido).
+    """
+    agora = agora or datetime.now()
+    pnl_deals, n_deals = pnl_de_deals(deals_ate(deals, agora), dia, magics)
+    if snapshot:
+        pnl_ate, _ = pnl_de_deals(
+            deals_ate(deals, snapshot["quando"]), dia, magics)
+        divergencia = round(pnl_ate - snapshot["liquido"], 2)
+        acao = min(pnl_deals, snapshot["liquido"])
+    else:
+        pnl_ate, divergencia = None, None
+        acao = pnl_deals
+    return {
+        "acao": round(acao, 2),
+        "pnl_deals": pnl_deals,
+        "n_deals": n_deals,
+        "snapshot": snapshot,
+        "pnl_ate_snapshot": pnl_ate,
+        "divergencia": divergencia,
+        "sem_snapshot": snapshot is None,
+    }
 
 
 def calcular_loss_acumulado_hoje():
-    """Soma os Lucro= dos Deals de saida reais do log para o dia atual.
-    Conta SOMENTE 'Deal de saida encontrado' (nao 'Experiencia salva' nem
-    'Resultado confluencia', que triplicariam o valor)."""
-    hoje = datetime.now().strftime("%Y-%m-%d")
-    total = 0.0
-    if not os.path.exists(LOG_ROBO):
-        return 0.0
-    try:
-        with open(LOG_ROBO, "r", encoding="utf-8", errors="replace") as f:
-            for line in f:
-                if not line.startswith(hoje):
-                    continue
-                m = RE_DEAL_SAIDA.search(line)
-                if m:
-                    total += float(m.group(1))
-    except Exception as e:
-        log.error(f"erro ao calcular loss acumulado: {e}")
-    return total
+    """Valor de acao do kill-switch: ``min(deals MT5, ultimo [pnl_dia])``.
+
+    None SO quando a leitura dos deals falhou. Divergencia entre deals e o
+    snapshot e alerta (WARNING), nunca interruptor da protecao de capital.
+    """
+    deals = pnl_deals_hoje()
+    if deals is None:
+        return None
+    info = calcular_loss_com_deals(
+        deals, datetime.now().date(), magics_do_robo(),
+        snapshot=ultimo_pnl_dia_do_log())
+    if (info["divergencia"] is not None
+            and abs(info["divergencia"]) > KILL_TOLERANCIA):
+        log.warning("kill-switch: divergencia informativa de R$ %.2f entre os "
+                    "deals ate o [pnl_dia] (%s) e o snapshot (%s) - SO ALERTA; "
+                    "acao sobre o pior valor %.2f",
+                    info["divergencia"], info["pnl_ate_snapshot"],
+                    info["snapshot"]["liquido"], info["acao"])
+    elif info["sem_snapshot"] and info["n_deals"] == 0:
+        log.info("kill-switch: sem [pnl_dia] e 0 deals - 0.00 valido")
+    else:
+        log.info("kill-switch: deals %s (%d deals), [pnl_dia] %s, acao %.2f",
+                 info["pnl_deals"], info["n_deals"],
+                 info["snapshot"]["liquido"] if info["snapshot"] else "ausente",
+                 info["acao"])
+    return info["acao"]
 
 
 def kill_switch_ja_ativado():
@@ -1358,6 +1486,85 @@ def marcar_kill_switch_ativado():
     salvar_estado(st)
 
 
+def fechar_posicoes_kill_switch():
+    """Zera as posicoes do robo antes do N2. (fechadas, restantes) ou None.
+
+    ``restantes is None`` = estado DESCONHECIDO: o chamador NAO pode seguir.
+    Nenhuma funcao do robo e importada; usa so o helper read-only de MT5.
+    """
+    try:
+        import MetaTrader5 as mt5  # noqa: PLC0415
+        from patches.robustez_fecho_helpers import fechar_todas_robusto
+
+        magics = magics_do_robo()
+        if not magics:
+            log.critical("KILL-SWITCH N2: sem magics - nao da para zerar posicoes")
+            return None
+        if not mt5.initialize():
+            log.critical("KILL-SWITCH N2: MT5 nao inicializou - sem zerar posicoes")
+            return None
+        try:
+            return fechar_todas_robusto(
+                mt5, magics, reconnect=mt5.initialize, log=log,
+                deviation=20, tentativas=5, backoff_s=5.0)
+        finally:
+            mt5.shutdown()
+    except Exception as e:  # noqa: BLE001
+        log.critical("KILL-SWITCH N2: falha ao zerar posicoes (%s)", e)
+        return None
+
+
+def nivel2_parar_com_flat():
+    """Ordem segura do N2: zerar -> parar_robo -> stop_mt5 so com flat.
+
+    Sem prova de flat, loga CRITICAL e deixa o TERMINAL VIVO: fechar o MT5 com
+    posicao aberta e pior do que nao agir.
+    """
+    fechamento = fechar_posicoes_kill_switch()
+    if fechamento is None or fechamento[1] is None:
+        log.critical("KILL-SWITCH NIVEL 2: flat DESCONHECIDO apos tentar zerar "
+                     "posicoes - MT5 NAO sera fechado; terminal vivo")
+        return False
+    fechadas, restantes = fechamento
+    if restantes:
+        log.critical("KILL-SWITCH NIVEL 2: %d posicao(oes) seguem abertas "
+                     "(%d fechadas) - MT5 NAO sera fechado; terminal vivo",
+                     len(restantes), fechadas)
+        return False
+    log.warning("KILL-SWITCH NIVEL 2: %d posicao(oes) zeradas - solicitando "
+                "parada do robo", fechadas)
+    if not parar_robo():
+        log.critical("KILL-SWITCH NIVEL 2: parar_robo falhou sem prova de flat "
+                     "- MT5 NAO sera fechado; terminal vivo")
+        return False
+    if not flat_confirmado_para_fecho():
+        log.critical("KILL-SWITCH NIVEL 2: flat NAO confirmado apos parar_robo "
+                     "- MT5 NAO sera fechado; terminal vivo")
+        return False
+    stop_mt5()
+    log.error("KILL-SWITCH NIVEL 2: robo parado e MT5 fechado com flat confirmado")
+    return True
+
+
+def _criar_parar_txt(motivo):
+    """Cria ``parar.txt`` uma unica vez; True se o sinal ja esta presente.
+
+    Chamado tanto no N1 quanto no N2: o N2 e um superconjunto do N1 e nao pode
+    deixar o robo operando se a tentativa de zerar posicoes falhar.
+    """
+    try:
+        if os.path.exists(PARAR):
+            log.info("kill-switch: parar.txt ja existe - nao reescrito")
+            return True
+        with open(PARAR, "w", encoding="utf-8") as f:
+            f.write(motivo)
+        log.warning("kill-switch: parar.txt criado (%s)", motivo)
+        return True
+    except Exception as e:  # noqa: BLE001
+        log.error("falha ao criar parar.txt: %s", e)
+        return False
+
+
 def verificar_kill_switch():
     """Pilar 1 - protege o capital: se loss diario cruza limite_1 cria parar.txt;
     se cruza limite_2 para o robo + MT5. Ativacao unica por dia. Retorna True se parou."""
@@ -1369,6 +1576,12 @@ def verificar_kill_switch():
         return False
 
     loss_hoje = calcular_loss_acumulado_hoje()
+    if loss_hoje is None:
+        # Estado desconhecido: NENHUMA acao cega (nem N1, nem N2, nem parar.txt).
+        # O operador e alertado; a proxima checagem tenta ler de novo.
+        log.error("kill-switch: estado desconhecido - sem acao (nunca "
+                  "'ok' com 0.00)")
+        return False
     limite_1 = float(ks.get("limite_1", -100))
     limite_2 = float(ks.get("limite_2", -150))
     # Consistencia: N2 deve permitir MAIS perda que N1 (N1 so para ordens,
@@ -1377,22 +1590,32 @@ def verificar_kill_switch():
         limite_2 = limite_1
         log.warning(f"kill-switch: limite_2 ajustado p/ {limite_2} (nao pode ser mais agressivo que N1)")
 
+    # Linha padrao SEMPRE (inclusive ao acionar): o aceite item 7 le o ultimo
+    # "kill-switch: loss hoje X" do dia para comparar com os deals ate ele.
+    acao_txt = (" - NIVEL 2" if loss_hoje <= limite_2 else
+                " - NIVEL 1" if loss_hoje <= limite_1 else " - ok")
+    log.info("kill-switch: loss hoje %.2f (limites %.0f/%.0f)%s",
+             loss_hoje, limite_1, limite_2, acao_txt)
+
+    if loss_hoje <= limite_1:
+        # N2 e superconjunto do N1: o sinal de parada de entradas vai PRIMEIRO,
+        # antes de tentar zerar posicoes. Se o N2 falhar, o robo ja esta
+        # impedido de abrir novas operacoes.
+        _criar_parar_txt(f"KILL-SWITCH LOSS DIARIO: {loss_hoje:.2f}")
+
     if loss_hoje <= limite_2:
-        log.error(f"KILL-SWITCH NIVEL 2: loss {loss_hoje:.2f} <= {limite_2:.2f}. Parando robo e MT5.")
-        marcar_kill_switch_ativado()
-        parar_robo()
-        stop_mt5()
-        return True
-    elif loss_hoje <= limite_1:
-        log.warning(f"KILL-SWITCH NIVEL 1: loss {loss_hoje:.2f} <= {limite_1:.2f}. Criando parar.txt.")
-        try:
-            if not os.path.exists(PARAR):
-                with open(PARAR, "w", encoding="utf-8") as f:
-                    f.write(f"KILL-SWITCH LOSS DIARIO: {loss_hoje:.2f}")
-        except Exception as e:
-            log.error(f"falha ao criar parar.txt: {e}")
-    else:
-        log.info(f"kill-switch: loss hoje {loss_hoje:.2f} (limites {limite_1:.0f}/{limite_2:.0f}) - ok")
+        log.error(f"KILL-SWITCH NIVEL 2: loss {loss_hoje:.2f} <= {limite_2:.2f}. "
+                  "N1 aplicado; zerando posicoes, parando robo e MT5 so com flat.")
+        # So marca o dia como ativado DEPOIS do sucesso: se faltou flat, a
+        # proxima checagem de 15 em 15 min deve tentar de novo.
+        parou = nivel2_parar_com_flat()
+        if parou:
+            marcar_kill_switch_ativado()
+        return parou
+
+    if loss_hoje <= limite_1:
+        log.warning(f"KILL-SWITCH NIVEL 1: loss {loss_hoje:.2f} <= {limite_1:.2f}. "
+                    "parar.txt aplicado - sem acao de fechamento.")
     return False
 
 
