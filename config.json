@@ -3,7 +3,7 @@
     "volume_padrao": 1.0,
     "sl_points": 8,
     "tp_points": 0,
-    "max_loss_diario": -1000.0,
+    "max_loss_diario": -400.0,
     "max_spread": 5,
     "min_volume_book": 200,
     "sniper_volume_min": 400,
@@ -43,7 +43,7 @@
         "tp_max_pontos": 0
     },
     "risk_management": {
-        "max_loss_diario": -1000.0,
+        "max_loss_diario": -400.0,
         "max_drawdown": -100.0,
         "max_spread_pontos": 5,
         "max_losses_sequencia": 3,

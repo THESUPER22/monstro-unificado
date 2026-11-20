@@ -12,7 +12,7 @@
     "ativo": true,
     "limite_1": -250,
     "limite_2": -400,
-    "obs": "Alinhado ao max_loss_diario do robo (-1000) em 01/09/2026. limite_1 cria parar.txt (25%); limite_2 mata processo e MT5 (40%). Ativacao unica/dia."
+    "obs": "Provisorio 20/11/2026: alinhado ao max_loss_diario do robo (-400, chave risk_management). limite_1 cria parar.txt; limite_2 zera posicoes, para o robo e so fecha MT5 com flat confirmado. Ativacao unica/dia."
   },
   "autopsia_eod": {
     "ativo": true,
