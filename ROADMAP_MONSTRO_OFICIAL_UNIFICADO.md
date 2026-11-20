@@ -7116,3 +7116,346 @@ Suite completa no HEAD + diff: **327 passed, 1 xfailed** em 31,62 s.
   desta mudanca; registrado, sem alterar.
 - Rejeitado transformar estado desconhecido em "flat por timeout": o
   processo fica vivo ate o MT5 responder. Watchdog e operador podem agir.
+
+### 23.60.7 Aceite de 19/11 (medido apos as 17:35)
+
+Comando: `python aceite_pos_pregao.py --dia 2026-11-19` (exit=1).
+
+```
+10016: 0 | TETO: 0 | [pnl_dia] -1025,00 (54 deals, 17:36:04) OK
+parado.ok: SIM | encerrou graciosamente: NAO
+posicoes abertas apos o fecho: 0
+commits do fecho: 1 (4 arquivos) OK
+VEREDITO: FALHOU
+```
+
+O unico item que derrubou foi "encerrou graciosamente". Evidencia em
+`agente_autonomo.log`: linha 10120 (`parar.txt criado`, 17:35:48), linha
+10121 (17:37:23: `timeout aguardando o processo sair, mas parado.ok existe -
+artefatos salvos, force kill e seguro`), linha 10122 (`parada forcada: ok`),
+linha 10124 (`fecho: todas as etapas concluidas sem erro`, 17:37:26).
+`parar_gracioso` so escreve "robo encerrou graciosamente" quando o processo
+sai dentro do timeout (agente_monstro_core.py:251-263); como houve timeout e
+force kill, a ausencia da frase e correta e o aceite reprova com razao.
+
+Checklist medido: `logs/start_all.log` 09:00:03 "nenhum robo vivo - subida
+liberada" (guard RC=0); `logs/robo_inicio.txt` 09:02:28; `parado.ok`
+17:36:04; `pids_robo() == []` e porta 5001 sem conexoes; commit
+`72bae4c` 17:35:37 com 4 arquivos, todos no whitelist; `git push NAO
+executado` (linha 10113); 27 linhas `[ORDEM]` com shadow em ms (min 0,08 /
+mediana 0,29 / max 226,14 ms); 0 linhas de 10016, TETO ou fail-closed. O pico
+de 226,14 ms de shadow esta na linha 18319, na mesma ordem cujo
+`order_send` levou 1728,3 ms; como o hook fica DEPOIS do envio, ele nao
+entrou na latencia da ordem.
+
+**Importante:** o codigo novo desta secao 23.60 ainda NAO foi commitado,
+portanto nao estava no ar em 19/11. O `flat confirmado (0)` da linha 27070
+do log veio da logica antiga; o item 6 do aceite mediu 0 posicoes agora, mas
+isso nao prova o fail-closed em producao.
+
+### 23.60.8 Flake do teste do watchdog (diagnosticado e isolado)
+
+Sintoma: 1 falencia em 4 execucoes da suite completa com o codigo final:
+`FAILED tests/test_watchdog_parado_ok.py::test_parado_ok_mais_novo_que_o_start_bloqueia`
+(1 failed, 326 passed, 1 xfailed); 3 execucoes seguintes limpas e 30/30
+execucoes isoladas do teste passaram. O traceback completo nao foi capturado
+na primeira execucao (o comando recortou as ultimas 3 linhas) — o ID do teste
+e o numero de falhas acima sao o que foi medido.
+
+Causa: `robo_encerrou_graciosamente` chama `ultimo_inicio_robo`, que junta
+ao mtime do marcador o `create_time()` de processos REAIS devolvidos por
+`pids_robo()` (agente_monstro_core.py:195-214, 231-236). O teste injetava
+mtimes falsos de 18/11, mas NAO injetava `pids_robo`: se o robo estivesse vivo,
+o `create_time()` de 19/11 vencia o `parado.ok` de 18/11 e a funcao devolvia
+False. Reproducao controlada, sem tocar em arquivos: com `pids_robo()==[]`
+devolve True; com um processo criado hoje devolve False. Nao era relogio,
+ordem dos testes nem timeout — era estado externo compartilhado.
+
+Correcao (somente teste): `tests/test_watchdog_parado_ok.py` agora injeta
+`monkeypatch.setattr(ag, "pids_robo", lambda: [])` nos dois testes que
+comparam mtimes (o que falhou e o irmao `...mais_antigo...`, que passava pelo
+motivo errado). Nenhuma logica do agente foi alterada e nenhum timeout foi
+aumentado. Suite apos a correcao: 327 passed, 1 xfailed.
+
+### 23.60.9 Limpeza do temporario
+
+`add_roadmap_2327.py` foi apagado de `%TEMP%\opencode` apos confirmacao.
+Nova varredura do diretorio: **0 arquivos** contendo o numero da conta.
+
+### 23.60.10 Resposta aos quatro pendentes de 19/11
+
+Medicoes feitas em 19/11/2026. **Nada aqui usa logs de 20/11 (feriado na B3).**
+
+1. **Perda de 19/11.** `monstro_wdo.log:27079`, 17:36:04:
+   `[pnl_dia] MT5: 54 deals, liquido -1025.00 (magics [7008, 123456])`.
+   O Circuit Breaker do robo disparou de 17:09 a 17:14 (linhas 27010,
+   27017, 27025, 27032, 27039, 27050): `Stop loss diario atingido:
+   -1025.00`. Aceite independente: -1025,00 em 54 deals. O prejuizo e
+   real e nao foi causado pelo fecho.
+
+2. **Kill-switch do agente (falhou por causa diferente).**
+   `agente_autonomo.log:9991-10087`: `kill-switch: loss hoje 0.00
+   (limites -250/-400) - ok` a cada 15 min, o dia inteiro. Medido agora:
+   `ag.calcular_loss_acumulado_hoje() == 0.0`. Causa: a funcao
+   (`agente_monstro_core.py:1155-1173`) so soma linhas que casam com
+   `RE_DEAL_SAIDA = re.compile(r"Deal de sa.da encontrado.*?Lucro=(-?\d+\.?\d*)")`
+   (linha 1152). Em 19/11 existem **0** linhas `Deal de saida encontrado`
+   no `monstro_wdo.log` (há 78 linhas com `Lucro=`, em formato diverso).
+   Portanto os limites -250/-400 nunca cruzaram para o agente, embora o
+   robo visse -1025. **Nao alterado nesta entrega**: e proteção de capital
+   e merece diff proprio, com teste, lendo `[pnl_dia]` como fonte e o regex
+   antigo como fallback. Registrado como pendente aberto.
+
+3. **`os._exit` que nao ocorreu.** `monstro_wdo.log:27080` (`parado.ok
+   gravado`), `:27081` (flush do shadow), `:27082` (`saida do processo
+   agendada em 5s (webview nao segura)`), `:27083` (`ENCERRAMENTO GRACIL
+   CONCLUIDO`). O `Timer` esta correto no fonte
+   (`monstro_unificado_v22.py:11173-11175`: `daemon=True` antes de
+   `start()`), mas nao venceu a thread principal presa em
+   `webview.start()`. No agente: `agente_autonomo.log:10120` (17:35:48
+   `parar.txt criado`), `:10121` (17:37:23 timeout), `:10122`
+   (`parada forcada: ok`). Artefatos salvos; saida graciosa NAO
+   confirmada — o aceite reprovou com razao.
+
+4. **Fixture do `pids_robo`.** `test_parado_ok_mais_novo_que_o_start_bloqueia`
+   falhou 1 vez em 4 suites (1 failed, 326 passed, 1 xfailed) e passou
+   30/30 isolado. Causa: `ultimo_inicio_robo()` (`agente_monstro_core.py:
+   195-214`) inclui o `create_time()` de processos REAIS; o teste injetava
+   mtimes de 18/11 mas nao o `pids_robo()`. Corrigido so no teste com
+   `monkeypatch.setattr(ag, "pids_robo", lambda: [])` nos dois testes que
+   comparam mtimes; sem mudanca de logica e sem aumento de timeout.
+
+### 23.60.11 Fecho fail-closed — tres correcoes com teste
+
+Todas com diff pequeno e teste. Nenhuma toca entrada/saida, filtros,
+alvos, trailing, volume ou a estrategia.
+
+1. **`parar.txt` so e consumido apos flat confirmado.** Antes, o C3
+   removia o sinal em `monstro_unificado_v22.py:7186-7191`, ANTES da
+   trava (`:7223-7240`). Com `positions_get() -> None`, o `continue`
+   voltava ao loop e `verificar_parada_gracil()` (`:7182`) nao achava
+   mais o arquivo: o encerramento nao repetia. Agora o helper
+   `remover_sinal_parada()` (em `patches/robustez_fecho_helpers.py`) so
+   apaga quando `restantes == []`, e e chamado DEPOIS da trava. Testes:
+   `test_parar_txt_so_removido_apos_flat`,
+   `test_parar_txt_so_consumido_depois_da_trava_flat` (ordem no fonte) e
+   `test_estado_desconhecido_continua_sem_sair`.
+
+2. **Agente nao force-killa sem prova de flat.** `parar_robo()`
+   (`agente_monstro_core.py:362-368`) chamava `parar_forcado()`
+   cegamente apos o timeout — foi o caminho de 19/11 (`:10121-10122`).
+   Agora `flat_confirmado_para_fecho()` devolve True somente com
+   `parado.ok` do dia ou `positions_get() == []` nos magics do config;
+   `None` e erro viram False (nunca "passa por zero"). Sem isso, loga
+   CRITICAL, nao mata o robo e nao fecha o MT5. `run_fecho()` registra
+   falha quando `parar_robo()` devolve False, para nao logar "todas as
+   etapas concluidas sem erro". O terminal **ja nao era fechado no
+   fecho** (`stop_mt5()` so existe no kill-switch N2, linha 1210) e
+   continua sem ser: teste `test_fecho_do_agente_nao_fecha_mt5` trava
+   esse invariante. Kill-switch N2 nao foi alterado (e protecao de
+   capital de emergencia, escopo diferente do fecho).
+
+3. **Teto de 30 s no backoff e batimento por ciclo.**
+   `_espera_com_teto()` limita `backoff_s * 2**(tent-1)` a 30 s; a pausa
+   entre ciclos tambem e limitada a 30 s. Cada ciclo desconhecido emite
+   um CRITICAL `[fecho][BATIMENTO] loop principal VIVO - ciclo N`,
+   provando que o processo segue ativo em vez de travar ou sair. Testes:
+   `test_backoff_teto_30s`, `test_batimento_e_pausa_com_teto_a_cada_ciclo`
+   e `test_loop_producao_nao_desiste_ate_saber` (com `max_ciclos=None`,
+   nunca devolve None).
+
+**Rejeitado:** transformar estado desconhecido em "flat por timeout";
+aumentar timeout sem explicar; repetir a suite ate passar; usar logs de
+20/11 (feriado) para calibrar qualquer coisa.
+
+### 23.61 Kill-switch cego, aceite item 7 e identidade do PID
+
+Implementado em 20/11/2026 (feriado na B3). **Nenhuma correcao usa log de
+20/11**: toda a evidencia e de 19/11, medida antes da mudanca de data.
+
+**Causa raiz medida em 19/11**
+
+- `agente_monstro_core.py:1217-1235` somava `Lucro=` de linhas
+  `Deal de sa.da encontrado` do log. A linha real `monstro_wdo.log:1179`
+  tem o "i" corrompido (`sa` + U+FFFD + literal `\x83` + soft hyphen),
+  entao `RE_DEAL_SAIDA` nao casa: 0 linhas no dia. O agente logou
+  `kill-switch: loss hoje 0.00` (`agente_autonomo.log:9991-10087`) enquanto
+  `monstro_wdo.log:27079` registrou `-1025,00` em 54 deals.
+- O aceite tinha 6 itens; nao comparava o kill-switch com o `[pnl_dia]`.
+- `parar_gracioso()` esperava `pids_robo()` generico e `parar_forcado()`
+  logava so o PID; o robo gravava `logs/robo_inicio.txt`, sem PID.
+- `monstro_unificado_v22.py:1222` le `risk_management.max_loss_diario`;
+  a chave de topo nao e lida pelo robo. As duas estavam em `-1000.0`.
+
+**Correcoes (sem tocar entrada/saida, filtros ou estrategia)**
+
+1. **Kill-switch por deals do MT5.** `pnl_de_deals_hoje()` usa
+   `history_deals_get()` + `pnl_dia.pnl_de_deals()` com os magics do config;
+   `RE_DEAL_SAIDA` foi removido. Falha de initialize, `history_deals_get() ->
+   None` ou excecao retornam `None` e logam ERROR: estado desconhecido nunca
+   vira `0.00`. `calcular_loss_acumulado_hoje()` compara com o ultimo
+   `[pnl_dia]` do dia e exige tolerancia de R$ 1; divergencia maior
+   (ou snapshot ausente) gera ERROR `kill-switch cego` e retorna `None`.
+   `verificar_kill_switch()` nesse caso nao cria `parar.txt`, nao mata o
+   robo e nao fecha o MT5. Testes em `tests/test_kill_switch_deals.py`,
+   incluindo a linha REAL de 19/11 com o "i" corrompido e um deal de
+   `-1025,00`: o resultado e `-1025,00`, nao o `Lucro=-85.00` do texto.
+
+2. **Aceite item 7.** `ultimo_kill_switch()` le o ultimo
+   `kill-switch: loss hoje X` do dia no log do agente e compara com o
+   ultimo `[pnl_dia]` do robo (tolerancia R$ 1). `0.00` com deals no dia,
+   divergencia, linha ausente ou leitura sem MT5 reprovam. O veredito e a
+   impressao agora mostram o item 7. Testes em
+   `tests/test_aceite_pos_pregao.py` (`test_item7_*`).
+
+3. **PID do robo no fecho.** `_registrar_inicio_processo()` grava
+   `logs/robo_pid.txt` com `pid=` e `create_time=` no start. `parar_gracioso()`
+   usa `ler_pid_robo()` e espera esse PID (com `create_time` para nao confundir
+   reaproveitamento); sem arquivo, mantem fallback com aviso. Timeout e
+   `parar_forcado()` logam PID, create_time e cmdline truncada a 120 chars
+   de cada processo. Testes em `tests/test_pid_parada.py`; o teste
+   `test_parada_pid_inexistente` foi ajustado para a leitura extra de
+   diagnostico (2 -> 3 chamadas de `pids_robo`). Nenhum processo real foi
+   morto nos testes. Os testes que chamam `parar_gracioso()` agora injetam
+   `PARADO_OK`; na primeira rodada o marcador real foi apagado como efeito
+   colateral, foi restaurado com o conteudo/mtime de 19/11 e a suite final
+   confirmou `parado.ok preservado`.
+
+4. **Provisorio em `config.json`.** `max_loss_diario` passou de `-1000.0`
+   para `-400.0` nas duas chaves (top-level e `risk_management`). So a
+   aninhada e lida pelo robo; a de topo foi alinhada para evitar ambiguidade.
+   Reverter quando o kill-switch estiver provado em pregao.
+
+**Verificacao:** 367 passed, 1 xfailed em 30,00 s; 46 testes novos/afetados
+passaram isolados em 3,40 s; `py_compile OK`; `git diff --check OK`.
+Nenhum commit e nenhum push foram feitos nesta etapa.
+
+**Rejeitado:** voltar a parsear `Lucro=` do log; aceitar `0.00` sem prova;
+confiar em PID sem `create_time`; usar logs de 20/11; alterar a estrategia
+para "compensar" o kill-switch.
+
+### 23.62 Revisao do kill-switch: min(), alvo unico, N2 com flat e aceite por linha
+
+Implementado em 20/11/2026 (feriado, mercado fechado). **Nenhuma calibracao
+usa log de 20/11**: a evidencia e toda de 19/11. Nenhum commit e nenhum push.
+
+**Tres pontos em que a 23.61 nao fazia o que o relatorio afirmava (medidos
+pelo revisor no disco, antes desta edicao)**
+
+1. `calcular_loss_acumulado_hoje()` devolvia `None` quando deals e
+   `[pnl_dia]` divergiam em mais de R$ 1. O robo loga o snapshot a cada
+   ~5 min e o agente confere de 15 em 15 min: um trade fechado no intervalo
+   desligava a protecao. Estimativa do revisor: ~1 checagem em 4.
+2. `_pendentes_parada()` devolvia `[222]` com o alvo morto e outro processo
+   cuja cmdline continha `monstro_unificado_v22`: so o diagnostico do timeout
+   tinha sido implementado; a espera ainda era por "qualquer processo".
+3. O nivel 2 chamava `parar_robo()` e `stop_mt5()` sem zerar posicao e sem
+   exigir flat: com `parar_robo()` fail-closed, o MT5 podia ser fechado com
+   posicao aberta. Alem disso, o C3 regravava modelo/experiencias a cada
+   tentativa (~28 s o modelo em 19/11).
+
+**Correcoes (rode apenas no fecho; entrada/saida e estrategia intactos)**
+
+1. **Acao = pior leitura.** `agente_monstro_core.py:calcular_loss_com_deals()`
+   usa `min(deals ate agora, ultimo [pnl_dia])`. A comparacao e feita com os
+   deals **ATE o horario da linha do log** e serve SO para WARNING
+   (`SO ALERTA`); divergencia nunca mais devolve `None` nem cria o estado
+   `kill-switch cego`. `None` agora significa apenas falha de leitura do MT5.
+   Nesse caso o agente **nao age**: nao cria `parar.txt`, nao fecha posicoes e
+   nao encerra o MT5; apenas loga CRITICAL/ERROR para o operador. Sem
+   `[pnl_dia]` e 0 deals, o valor `0.00` e valido e logado como tal.
+   `verificar_kill_switch()` passou a logar a linha padrao
+   `kill-switch: loss hoje X` mesmo ao acionar N1/N2 (o aceite item 7 le essa
+   linha). Testes: `tests/test_kill_switch_deals.py`, inclusive trade fechado
+   entre o log e a checagem (perda e lucro) sem desligar o N1.
+
+   **REGRA EXPLICITA DO `min()`:** e conservador de proposito. Se o dia ja
+   tocou o limite, o N1 continua acionado mesmo que um lucro posterior melhore
+   o valor atual — o snapshot pior vence. Exemplo real de 19/11: as 14:35 os
+   deals marcavam `-700.00` enquanto o log so registrou isso as 14:37; a acao
+   deve ser `-700.00`, nao o valor "melhorado" depois. Parar e a direcao
+   segura; nao ha compensacao de perda ja registrada.
+
+2. **So o alvo bloqueia.** `_pendentes_parada(alvo, pids)` considera apenas
+   `PID + create_time` do `logs/robo_pid.txt`; outro processo com o nome do
+   script gera WARNING `processo de fora ignorado` e nao impede o fecho.
+   PID reaproveitado (create_time diferente) tambem nao e o alvo. Testes em
+   `tests/test_pid_parada.py`.
+
+3. **Nivel 2 em ordem segura.** Novo `fechar_posicoes_kill_switch()` usa
+   `fechar_todas_robusto` com os magics do config; `nivel2_parar_com_flat()`
+   faz zerar -> `parar_robo()` -> `stop_mt5()` **so com flat confirmado**.
+   Sem flat (restantes, `None` ou `parar_robo()` falho): CRITICAL, MT5 nao e
+   fechado e o dia **nao** e marcado como ativado, para a proxima checagem
+   tentar de novo. Testes com fakes em `tests/test_kill_switch_nivel2.py`.
+   **N1 primeiro, sempre:** `_criar_parar_txt()` e chamado antes de
+   `nivel2_parar_com_flat()`, de forma idempotente. Assim o N2 e um
+   superconjunto do N1: se faltar flat, o `parar.txt` ja impediu novas entradas
+   antes de qualquer ordem de fechamento. Testes cobrem N2 falho e N2 ok.
+   Durante a revisão detectou-se que um teste sem `PARAR` isolado chegou a
+   gravar o `parar.txt` real; o arquivo foi removido na hora e uma fixture
+   `autouse` agora aponta sempre para `tmp_path`. Nenhum processo foi afetado.
+
+4. **C3 idempotente.** `SalvamentoUnico` em
+   `patches/robustez_fecho_helpers.py` envolve `salvar_modelo` e
+   `salvar_experiencias_json` no bloco de shutdown do robo: cada chave e
+   gravada uma vez por encerramento; erro propaga e permite nova tentativa.
+   Testes em `tests/test_salvamento_unico.py`.
+
+5. **Aceite item 7 por horario da linha.** `coletar()` agora compara o ultimo
+   `kill-switch: loss hoje X` com os deals **ate o horario daquela linha**,
+   nao com o `[pnl_dia]` final das 17:36. `0.00` so reprova quando ha saida
+   com resultado liquido != 0 ate la; entradas e saidas zeradas nao sao falso
+   positivo. Novo teste reproduz kill-switch as 12:50 (-260) com deals de
+   -1025 ate o fecho.
+
+6. **`agente_config.json`**: o texto obs nao diz mais "alinhado a -1000";
+   registra o `-400` provisorio e a nova ordem do nivel 2.
+
+7. **Teste de realidade sem nome fixo de log.** O script agora usa
+   `aceite_pos_pregao.resolver_log(BASE, DIA)` (datado -> atual), imprime o
+   arquivo e o motivo, e nao depende de `monstro_wdo.log` ainda nao rotacionado.
+
+**`-400` PROVISORIO:** as duas chaves de `config.json` e os limites do agente
+(`-250/-400`) coincidem hoje: o robo bloqueia entradas no mesmo valor em que o
+N2 age. Isso e desejavel, mas nao e calibracao definitiva. O `-400` continua
+provisorio ate um PREGAO REAL provar o kill-switch; a evidencia atual e toda de
+19/11 e de testes com fakes.
+
+**TESTE DE REALIDADE (read-only, 20/11/2026).** Script
+`tools/teste_realidade_kill_switch.py`: MT5 so para `history_deals_get`,
+data injetada 2026-11-19, nenhuma acao de parada e nenhum arquivo tocado
+(`assert parar.txt inalterado`). Resultado medido:
+
+- `DEALS REAIS 19/11 (MT5): -1025.00 / 54 deals (magics [7008, 123456])`.
+- 62 linhas `[pnl_dia]` no log de 19/11 (ultima 17:36:04, -1025.00).
+- Grade real do agente: 09:05, 09:20, 09:35, 09:50, ... 17:20 (15 em 15,
+   com minutos 05/20/35/50).
+
+Trecho da tabela reproduzida (acao = `min(deals, [pnl_dia])`):
+
+| HORA | deals | P&L deals | [pnl_dia] | ACAO | nivel |
+|---|---:|---:|---:|---:|---|
+| 12:20 | 20 | -30.00 | -30.00 | -30.00 | - |
+| 12:35 | 23 | -150.00 | -150.00 | -150.00 | - |
+| **12:50** | **25** | **-260.00** | **-260.00** | **-260.00** | **N1** |
+| 13:05 | 26 | -350.00 | -350.00 | -350.00 | N1 |
+| 13:50 | 30 | -380.00 | -380.00 | -380.00 | N1 |
+| 14:05 | 33 | -460.00 | -460.00 | -460.00 | N2 |
+| 16:50 | 54 | -1025.00 | -1025.00 | -1025.00 | N2 |
+
+**Primeiro acionamento: 12:50 -> N1 com -260.00**, exatamente o esperado.
+Nota: nas 34 checagens a divergencia foi `0.00` porque o robo logava o
+snapshot a cada few minutos; os casos de divergencia estao nos testes
+sinteticos (inclusive a linha corrompida de 19/11).
+
+**Riscos:** (a) N2 agora envia ordens de fechamento pelo agente — apenas no
+N2, com magics do config e sem tocar a estrategia; (b) o guarda de salvamento
+e por processo, entao um restart no mesmo processo exigiria novo `import`
+(na pratica o fecho encerra o processo); (c) `-400` continua provisorio ate
+o kill-switch ser provado em pregao real.
+
+**Rejeitado (23.61 corrigida):** divergencia > R$ 1 => estado cego/sem acao;
+esperar qualquer processo que case com o nome do script; fechar MT5 sem flat;
+marcar o dia como ativado apos falha do N2; regravar modelo em cada tentativa
+do C3; comparar o item 7 com o `[pnl_dia]` final; usar logs de 20/11.
