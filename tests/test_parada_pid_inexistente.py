@@ -41,7 +41,8 @@ def test_parar_forcado_pid_inexistente_nao_quebra(monkeypatch, tmp_path, caplog)
 
 
 def test_parar_robo_pid_inexistente_cai_para_forcado(monkeypatch, tmp_path, caplog):
-    monkeypatch.setattr(ag, "pids_robo", _pids_que_some(2))
+    # 3 leituras: parar_robo, diagnostico do timeout e parar_forcado.
+    monkeypatch.setattr(ag, "pids_robo", _pids_que_some(3))
     monkeypatch.setattr(ag, "PARAR", str(tmp_path / "parar.txt"))
     monkeypatch.setattr(ag, "PARADO_OK", str(tmp_path / "parado.ok"))
     monkeypatch.setitem(ag.R, "graceful_timeout_s", 0)

@@ -46,6 +46,8 @@ PARADO_OK = os.path.join(BASE_DIR, "parado.ok")
 # [WATCHDOG 18/11] marcador do ultimo inicio do robo (mtime = hora do start).
 # Gravado por start_robot() e por start_guard.py (que cobre o start_all.bat).
 MARCADOR_INICIO = os.path.join(BASE_DIR, "logs", "robo_inicio.txt")
+# [23.61 item 3] identidade do processo gravada pelo proprio robo no start.
+PID_ROBO = os.path.join(BASE_DIR, "logs", "robo_pid.txt")
 
 # ---------------------------------------------------------------- logging ---
 logging.basicConfig(
@@ -178,6 +180,84 @@ def pids_robo():
     return out
 
 
+def ler_pid_robo(base=None):
+    """(pid, create_time) gravados pelo robo no start; None se invalido."""
+    caminho = (os.path.join(base, "logs", "robo_pid.txt") if base
+               else PID_ROBO)
+    try:
+        dados = {}
+        with open(caminho, encoding="utf-8") as f:
+            for linha in f:
+                chave, sep, valor = linha.strip().partition("=")
+                if sep:
+                    dados[chave.strip()] = valor.strip()
+        pid = int(dados["pid"])
+        bruto = dados.get("create_time", "")
+        return pid, (float(bruto) if bruto else None)
+    except Exception:  # noqa: BLE001 - arquivo ausente/corrompido e desconhecido
+        return None
+
+
+def _estado_create_time(pid):
+    """('ok'|'ausente'|'erro', valor). Nunca confunde erro com 'processo foi'."""
+    try:
+        return "ok", float(psutil.Process(pid).create_time())
+    except psutil.NoSuchProcess:
+        return "ausente", None
+    except Exception:  # noqa: BLE001
+        return "erro", None
+
+
+def _mesmo_processo(pid, create_time):
+    estado, atual = _estado_create_time(pid)
+    if estado != "ok":
+        return False
+    return create_time is None or abs(atual - create_time) <= 1.0
+
+
+def _pendentes_parada(alvo, pids=None):
+    """So o ALVO (PID + create_time) bloqueia; outros com o nome nao bloqueiam.
+
+    Outro processo cuja cmdline contem o nome do script e ruido (ex.: teste ou
+    instancia antiga): vira WARNING no chamador, nunca impedimento do fecho.
+    """
+    pids = list(pids if pids is not None else pids_robo())
+    if not alvo:
+        return pids
+    alvo_pid, alvo_ct = alvo
+    pendentes = []
+    for pid in pids:
+        if pid != alvo_pid:
+            continue
+        estado, atual = _estado_create_time(pid)
+        if estado == "ausente":
+            continue
+        # PID reaproveitado (create_time diferente) NAO e o alvo.
+        if (alvo_ct is not None and estado == "ok"
+                and abs(atual - alvo_ct) > 1.0):
+            continue
+        pendentes.append(pid)
+    return pendentes
+
+
+def _descrever_processos(pids):
+    """Linhas de diagnostico com PID, create_time e cmdline (<= 120 chars)."""
+    descricoes = []
+    for pid in pids or []:
+        estado, ct = _estado_create_time(pid)
+        if estado == "ausente":
+            descricoes.append(f"PID={pid} create_time=AUSENTE cmdline=AUSENTE")
+            continue
+        try:
+            cmd = " ".join(psutil.Process(pid).cmdline() or [])
+        except Exception as e:  # noqa: BLE001
+            cmd = f"ERRO: {e}"
+        cmd = cmd.replace("\n", " ").replace("\r", " ")[:120]
+        quando = f"{ct:.3f}" if ct is not None else estado
+        descricoes.append(f"PID={pid} create_time={quando} cmdline={cmd!r}")
+    return descricoes
+
+
 def _remover_parado_ok():
     """Apaga o handshake de um encerramento anterior (evita falso positivo)."""
     if os.path.exists(PARADO_OK):
@@ -247,9 +327,27 @@ def parar_gracioso(timeout):
         log.info("parar.txt criado - shutdown gracioso solicitado")
     except Exception as e:
         log.error(f"falha ao criar parar.txt: {e}")
+
+    # [23.61 item 3] espera o PID gravado pelo robo, nao qualquer processo
+    # cuja cmdline contenha o nome do script. Sem arquivo, mantem o fallback.
+    alvo = ler_pid_robo()
+    if alvo:
+        log.info("parar_gracioso: aguardando PID=%s create_time=%s",
+                 alvo[0], alvo[1])
+    else:
+        log.warning("parar_gracioso: PID_ROBO ausente/invalido - usando "
+                    "pids_robo() como fallback")
+
     t0 = time.time()
     while time.time() - t0 < timeout:
-        if not pids_robo():
+        pids = list(pids_robo())
+        pendentes = _pendentes_parada(alvo, pids)
+        if not pendentes:
+            # Alvo ja saiu: processos alheios sao informativos, nao bloqueiam.
+            outros = [p for p in pids if not alvo or p != alvo[0]]
+            for detalhe in _descrever_processos(outros):
+                log.warning("parar_gracioso: processo de fora ignorado (%s)",
+                            detalhe)
             ok = os.path.exists(PARADO_OK)
             if os.path.exists(PARAR):
                 try:
@@ -262,8 +360,17 @@ def parar_gracioso(timeout):
                 log.info("robo encerrou graciosamente" + (" (parado.ok)" if ok else ""))
             return True
         time.sleep(3)
+
     # Timeout: o parado.ok diz se o robo chegou ao fim do encerramento antes de
     # o processo travar. Foi a diferenca do near-miss de 17/11.
+    pendentes = _pendentes_parada(alvo)
+    detalhes = _descrever_processos(pendentes)
+    if detalhes:
+        log.warning("timeout no shutdown gracioso - processos pendentes: %s",
+                    " | ".join(detalhes))
+    else:
+        log.warning("timeout no shutdown gracioso - nenhum processo pendente "
+                    "na ultima leitura")
     if os.path.exists(PARADO_OK):
         log.warning("timeout aguardando o processo sair, mas parado.ok existe - "
                     "artefatos salvos, force kill e seguro")
@@ -274,7 +381,12 @@ def parar_gracioso(timeout):
 
 
 def parar_forcado():
-    for pid in pids_robo():
+    pids = list(pids_robo())
+    # [23.61 item 3] diagnostico ANTES do kill: sem create_time/cmdline nao da
+    # para saber depois o que foi morto (ou se o PID foi reaproveitado).
+    for detalhe in _descrever_processos(pids):
+        log.warning("parar_forcado: %s", detalhe)
+    for pid in pids:
         try:
             pr = psutil.Process(pid)
             # mata a arvore inteira (filhos primeiro) - evita zumbis segurando
@@ -365,6 +477,15 @@ def parar_robo():
         return True
     if parar_gracioso(R["graceful_timeout_s"]):
         return True
+    # [23.60.11 item 2] Timeout do shutdown gracioso NAO autoriza force kill.
+    # Sem parado.ok do dia e sem positions_get() == [], o estado do terminal e
+    # desconhecido: matar o processo (e, por extensao, fechar o MT5) poderia
+    # abandonar posicao aberta sem controle. Fail-closed: deixa vivo e loga.
+    if not flat_confirmado_para_fecho():
+        log.critical("FECHO SEGURO: sem parado.ok e sem flat confirmado - "
+                     "force kill do robo e fechamento do MT5 BLOQUEADOS; "
+                     "processo deixado vivo para o operador")
+        return False
     return parar_forcado()
 
 
@@ -545,6 +666,54 @@ def contar_trades_reais_hoje():
     except Exception as e:
         log.warning(f"contar_trades_reais_hoje indisponivel: {e}")
         return None, 0.0
+
+
+def _parado_ok_do_dia():
+    """parado.ok existe e e do dia de hoje (lixo de sessao anterior nao vale)."""
+    try:
+        if not os.path.exists(PARADO_OK):
+            return False
+        return (datetime.fromtimestamp(os.path.getmtime(PARADO_OK)).date()
+                == datetime.now().date())
+    except OSError:
+        return False
+
+
+def flat_confirmado_para_fecho():
+    """True so com parado.ok do dia OU ``positions_get() == []`` nos magics.
+
+    [23.60.11 item 2] ``None`` de ``positions_get()`` e estado DESCONHECIDO e
+    conta como False — nunca "passa por zero". O agente so pode force-killar
+    o robo / fechar o MT5 quando ha prova de flat.
+    """
+    if _parado_ok_do_dia():
+        return True
+    try:
+        import MetaTrader5 as mt5
+        from patches.robustez_fecho_helpers import posicoes_restantes
+
+        cfg = carregar_config_robo()
+        magics = {int(cfg.get("geral", {}).get("magic_number", 123456))}
+        try:
+            magics.add(int((cfg.get("rompimento") or {}).get("magic", 7008)))
+        except (TypeError, ValueError):
+            pass
+        if not mt5.initialize():
+            log.critical("FECHO SEGURO: MT5 nao inicializou - flat NAO confirmado")
+            return False
+        try:
+            restantes = posicoes_restantes(mt5, magics)
+        finally:
+            mt5.shutdown()
+        if restantes == []:
+            return True
+        log.critical("FECHO SEGURO: posicoes do robo %r - flat NAO confirmado",
+                     restantes)
+        return False
+    except Exception as e:  # noqa: BLE001
+        log.critical("FECHO SEGURO: leitura de posicoes falhou (%s) - flat NAO "
+                     "confirmado", e)
+        return False
 
 
 def contar_executados_hoje():
@@ -959,7 +1128,12 @@ def run_fecho():
     _etapa_fecho("commit do dia", git_commit_dia)
     # 3) Por ultimo: aguarda o robo encerrar e fecha o MT5.
     _etapa_fecho("parar coletores herman", parar_coletor_herman)
-    _etapa_fecho("parar robo", parar_robo)
+    # [23.60.11 item 2] retorno False nao e excecao: sem flat confirmado o
+    # robo fica vivo de proposito. Tem de constar como falha, senao o resumo
+    # mentiria dizendo que "todas as etapas concluidas sem erro".
+    if _etapa_fecho("parar robo", parar_robo) is False:
+        _FALHAS_FECHO.append("parar robo (flat nao confirmado)")
+        log.critical("fecho: robo NAO foi parado - flat nao confirmado")
     if _FALHAS_FECHO:
         log.error(f"fecho: {len(_FALHAS_FECHO)} etapa(s) com falha: "
                   f"{', '.join(_FALHAS_FECHO)}")

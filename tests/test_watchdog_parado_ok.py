@@ -71,16 +71,23 @@ def test_parado_ok_de_outro_dia_nao_bloqueia(monkeypatch, tmp_path):
         str(tmp_path), agora=AGORA) is False
 
 
-def test_parado_ok_mais_antigo_que_o_start_nao_bloqueia(tmp_path):
+def test_parado_ok_mais_antigo_que_o_start_nao_bloqueia(monkeypatch, tmp_path):
     _preparar(tmp_path, parado_em=datetime(2026, 11, 18, 17, 0, 0),
               inicio_em=datetime(2026, 11, 18, 17, 20, 0))
+    # Este teste so testa a comparacao de mtimes: nao pode depender de um
+    # processo real do robo vivo (create_time de hoje venceria o parado.ok).
+    monkeypatch.setattr(ag, "pids_robo", lambda: [])
     assert ag.robo_encerrou_graciosamente(
         str(tmp_path), agora=AGORA) is False
 
 
-def test_parado_ok_mais_novo_que_o_start_bloqueia(tmp_path):
+def test_parado_ok_mais_novo_que_o_start_bloqueia(monkeypatch, tmp_path):
     _preparar(tmp_path, parado_em=datetime(2026, 11, 18, 17, 35, 58),
               inicio_em=datetime(2026, 11, 18, 9, 0, 0))
+    # Sem esta injecao, pids_robo() le processos REAIS: se o robo estiver
+    # vivo, create_time() de hoje > mtime de 18/11 e o teste falha so por
+    # causa do estado da maquina (flake medido em 19/11).
+    monkeypatch.setattr(ag, "pids_robo", lambda: [])
     assert ag.robo_encerrou_graciosamente(
         str(tmp_path), agora=AGORA) is True
 

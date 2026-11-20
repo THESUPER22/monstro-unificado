@@ -349,6 +349,22 @@ def _registrar_inicio_processo(base=None):
             f.write(datetime.now().isoformat())
     except Exception as e:
         print(f"[INICIO] falha ao gravar {marcador}: {e}")
+    # [23.61 item 3] identidade do processo: o agente espera ESTE PID (e o
+    # create_time evita confundir um PID reaproveitado com o mesmo start).
+    pid = os.getpid()
+    try:
+        import psutil as _psutil
+        create_time = _psutil.Process(pid).create_time()
+    except Exception as e:
+        create_time = ""
+        print(f"[INICIO] falha ao ler create_time: {e}")
+    identidade = os.path.join(base, "logs", "robo_pid.txt")
+    try:
+        os.makedirs(os.path.dirname(identidade), exist_ok=True)
+        with open(identidade, "w", encoding="utf-8") as f:
+            f.write(f"pid={pid}\ncreate_time={create_time}\n")
+    except Exception as e:
+        print(f"[INICIO] falha ao gravar {identidade}: {e}")
 
 # Carrega configuraÃÂ§ÃÂ£o especÃÂ­fica do WDO
 CONFIG_FILE = _caminho_dados("config.json")
