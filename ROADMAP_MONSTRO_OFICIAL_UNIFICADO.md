@@ -7795,3 +7795,67 @@ nao ha "tentar mais uma". A infraestrutura continua como plataforma de
 pesquisa e o projeto encerra com resultado negativo valido. 23/11 segue sem
 exigencia nova do robo: apenas as 3 linhas do `agente_autonomo.log` e a demo
 rodando. Sem push.
+
+---
+
+## 23.64 RELATORIO FINAL DO PROGRAMA (21/11/2026) — DECISAO A
+
+**Decisao do dono: A — encerrar a pesquisa de sinal em preço.** Registrar a
+conclusao, manter a demo rodando ate 23/11 apenas para validar o kill-switch,
+e depois desligar o robo de trading. **Dinheiro real: NAO.** O C (reaproveitar
+kill-switch/aceite/triagem/pre-registro em outro projeto) fica como
+consequencia natural; o B (book/fluxo por 60 dias) nao tem hipotese economica
+nova e adicionaria comparacoes sem justificativa.
+
+### Metodo
+
+- **Atrito:** entrada na abertura da barra M5 seguinte + 0,5 contra; custo
+  0,12 pt (R$ 1,20); slippage 0 / 0,5 / 1,0 pt por lado; SL e TP na mesma
+  barra => cenario pessimista como resultado oficial; gap no stop com fill
+  no open; saida por tempo as 15:25.
+- **Dados/periodos:** M5 09:00-15:25 `WDO_FULL_M5_2021_2026.csv`; IS
+  2021-2024 / OOS 2025-2026. Deals reais do MT5 (magic 123456) para o vivo.
+- **Pre-registro:** `backtest/PRE_REGISTRO_FAMILIAS_23-11-2026.md` fechado as
+  03:51:50 (SHA `E1E85B90...0326`); script as 03:53:56; sem ajuste pos-OOS.
+  O erro mecanico da 1a execucao (alvo como nivel, nao distancia) foi corrigido
+  antes de aceitar numeros, sem mudar regra ou parametro.
+- **Multiplas comparacoes:** 6 novas + 9 anteriores = **15**; α_ajustado =
+  0,05/15 = 0,00333 (Bonferroni); aceite exige E_OOS@1,0 > 0, n_OOS >= 40,
+  PF_OOS > 1 e t_OOS > t_crit.
+
+### Resultados
+
+| frente | numero que decide | veredito |
+|---|---|---|
+| Sniper ao vivo | 112 trades (03-19/11): -0,06 pt bruto, -1,18 pt liquido | reprovado; os +1,29 pt dos 69 eram ruido |
+| Proxy M5 do Sniper | casa so 9/112 (8%) sinais reais; E -2,56 pt | nao calibra nada; so triagem grosseira |
+| ORB / Faixa 1 | PF 1,09-1,96 vinha do fill no nivel da caixa; com abertura+0,5 cai 80-90% e negativo em 3/5 anos | suspensao de 13/11 confirmada |
+| 3 familias / 6 variantes | OOS@1,0: V1 -2,06, V2 -1,90, R1 -2,38, R2 -1,39, C1 -3,55, C2 -3,28; PF 0,56-0,80 | nenhuma passou |
+
+Mesmo a E@0 e quase toda negativa: o resultado **nao depende de custo
+exagerado**. V2 (+0,10) e R2 (+0,61) so aparecem com slippage zero.
+
+### Conclusao
+
+**NAO OPERAR.** Sem proxima familia, sem ajuste de parametro, sem nova
+variante. Qualquer teste futuro exige aprovacao explicita do dono e entra na
+contagem de comparacoes, hoje **15**. Nenhuma variante nova sera criada sem
+essa aprovacao.
+
+### O que NAO foi testado
+
+Microestrutura (book, fluxo, DOL), outros horarios e outros ativos. Esses
+dados so existem ao vivo e, com latencia de varejo (`order_send` ~120 ms,
+cauda 4 s), o movimento esperado em segundos fica abaixo de 1 tick (0,5 pt)
+contra atrito de ida e volta >= 1 tick. Nao e evidencia de que nada funcionaria
+nesses dominios — e evidencia de que **nao foi medido**.
+
+### Pendencia 23/11 (sem codigo novo)
+
+Conferir no `agente_autonomo.log`: (1) linhas `kill-switch:` a cada 15 min
+com `0.00 valido` e `loss hoje 0.00 (limites -250/-400) - ok`; (2) nenhuma
+`estado desconhecido`; (3) `loss hoje` batendo com `[pnl_dia]` do
+`monstro_wdo.log`. Hoje (21/11) a conferencia final ainda nao existe: o log
+termina no fecho gracioso de 20/11 (17:37:15, `parado.ok`), sem
+`estado desconhecido`, com `[pnl_dia] 0 deals / +0.00`; `parar.txt` ausente.
+A demonstracao segue rodando ate a conferencia de segunda. Sem push.
