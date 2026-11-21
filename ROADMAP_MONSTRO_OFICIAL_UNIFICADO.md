@@ -7872,11 +7872,22 @@ nenhum push foi feito. Estado read-only em 21/11: `Monstro-Start`,
 `python monstro_unificado_v22` nem `terminal.exe` (MT5) rodando neste momento
 (fora do pregao).
 
-1. **23/11 (segunda): unico teste real que falta.** Com a demo rodando, conferir
-   no `agente_autonomo.log`: (a) linhas `kill-switch:` a cada 15 min com
-   `0.00 valido` e `loss hoje ... - ok`; (b) nenhuma `estado desconhecido`;
-   (c) `loss hoje` igual a `[pnl_dia]` de `monstro_wdo.log`. Somente depois
-   disso autorizar o desligamento.
+1. **23/11 (segunda), depois das 17:45: unico teste real que falta.** Com a demo
+   rodando, no PowerShell:
+
+   ```powershell
+   Select-String C:\AIOFEN\agente_autonomo.log -Pattern "kill-switch" | Select-Object -Last 6
+   Select-String C:\AIOFEN\agente_autonomo.log -Pattern "estado desconhecido|kill-switch cego" | Select-Object -Last 3
+   Select-String C:\AIOFEN\monstro_wdo.log -Pattern "\[pnl_dia\]" | Select-Object -Last 2
+   cd C:\AIOFEN; .\venv310\Scripts\python.exe aceite_pos_pregao.py --dia 2026-11-23
+   ```
+
+   Esperado: linhas `kill-switch: deals ... acao ...` a cada 15 min; nenhuma
+   `estado desconhecido` nem `kill-switch cego`; `loss hoje` igual ao ultimo
+   `[pnl_dia]`. O `aceite_pos_pregao.py` **pode** reprovar apenas o item de saida
+   graciosa por causa da demora de ~50 s do `os._exit` (ja anotada em 23.62);
+   isso **nao invalida** o teste do kill-switch. Somente depois disso autorizar
+   o desligamento. Se algo vier diferente, colar as linhas antes de desligar.
 2. **Depois da conferencia, como administrador:** desabilitar as tarefas com
    `Disable-ScheduledTask -TaskName "Monstro-Start","Monstro-Watchdog","Monstro-Fecho"`
    e confirmar que nao ha `python monstro_unificado_v22` nem `terminal.exe`
