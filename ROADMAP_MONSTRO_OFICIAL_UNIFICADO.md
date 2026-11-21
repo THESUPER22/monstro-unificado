@@ -1,8 +1,8 @@
 # 🚀 ROADMAP OFICIAL — MONSTRO TRADER V2
-**Última atualização:** 10/11/2026
-**Versão:** Monstro Unificado V22 (Engine v22.4 — Faixa 1: Rompimento da 1ª Hora + Sub-Trader Corpo 1H + autópsia P1–P6)
+**Última atualização:** 21/11/2026
+**Versão:** Monstro Unificado V22 (Engine v22.4 — Sniper %R + Sub-Trader Corpo 1H; Faixa 1 suspensa em 13/11)
 **Arquivo principal:** `monstro_unificado_v22.py`
-**Status geral:** v22.4 em produção; Faixa 1 (Rompimento 1ª Hora, magic 7008) com janela REAL 09–11h ativa desde 16/09/2026; autópsias de 16/09 (P1–P5) e 17/09 (P6 — bug crítico `positions_get(magic=...)` + posição fantasma) concluídas
+**Status geral:** v22.4 em produção; **Faixa 1 (magic 7008) SUSPENSA desde 13/11 (23.41)**; **Sniper e ORB REPROVADOS sob atrito realista (23.62.2/23.62.3)** — nenhuma variante nova será testada; infra de kill-switch/aceite/shadow/triagem preservada como plataforma de pesquisa. AVISO: números de PF anteriores a 21/11 usavam fill idealizado e **não** representam edge negociável; ver 23.63.
 
 ---
 
@@ -18,7 +18,7 @@
 | Monitor | `monitor_saude_coletores.py` a cada 10 min, toast + arquivo de alerta |
 | Rompimento FT | fuso corrigido, selftest 172/172, ativo em 11/11 às 09:00 |
 | CI GitHub | YAML inválido (linha 46, `PYEOF` órfão) corrigido + Flask/requests no CI (pytest 21/21) |
-| Pesquisa ORB WDO | 5 anos, 1.242 sessões: ORB base PF 1,09 (fraco); gatilho 10:30–11:00 (EUA) PF 1,50–1,96, 6/6 anos positivos (23.20/23.21) |
+| Pesquisa ORB WDO | 5 anos, 1.242 sessões: ORB base PF 1,09 (fraco); gatilho 10:30–11:00 (EUA) PF 1,50–1,96, 6/6 anos positivos (23.20/23.21). **REPROVADO 21/11 (23.62.3): PF vinha do fill no nível da caixa; com abertura +0,5 contra cai 80–90% e vira negativo em 3/5 anos. Não usar como evidência de edge.** |
 
 **Regra reafirmada:** coletor silencioso é falha. Todo coletor tem que estar no
 monitor e neste roadmap. Dados nunca são demais.
@@ -680,7 +680,7 @@ Nº de features proporcional aos dados de treino. Adicionar INCREMENTAL e medir 
 | Dashboard | `http://localhost:5001` |
 
 ### ✅ Aprovados e Operacionais
-- **Sniper %R + vetos multi-TF:** edge estatístico principal do robô.
+- **Sniper %R + vetos multi-TF:** era descrito como "edge estatístico principal do robô". **REPROVADO 21/11 (23.62.2): 112 trades ao vivo (03–19/11) deram -0,06 pt bruto e -1,18 pt líquido; os +1,29 pt dos primeiros 69 eram ruído. Nenhuma variante nova de SL/TP.**
 - **Log de contexto com timestamp:** primeira coluna do `historico_contexto_wdo.csv` — prepara o Modelo B (book/microestrutura + regime).
 - **Infraestrutura:** rotação de logs diária, watchdog, kill-switch, cooldown, SL floor.
 
@@ -1058,7 +1058,7 @@ python -c "from tensorflow.keras.models import load_model; m=load_model('modelo_
 - **EOD**: posição ainda aberta à `hora_eod` 17:30 BRT → fechada a mercado (antes do encerramento 17:35).
 
 ## Validação (backtest WDO 2021–2026, sem noturnas)
-- Combo oficial: SL=lo / TP=1.5 / janela=60min. n≈1000, todos os anos positivos (2021-25 + 2026), PF 1.12–1.77 por ano; publicado em `backtest/resultados/rompimento_1hora_wdo.txt`.
+- Combo oficial: SL=lo / TP=1.5 / janela=60min. n≈1000, todos os anos positivos (2021-25 + 2026), PF 1.12–1.77 por ano; publicado em `backtest/resultados/rompimento_1hora_wdo.txt`. **REPROVADO 21/11 (23.62.3): esse PF dependia de fill idealizado no nível da caixa; com abertura +0,5 contra o edge desaparece. Número histórico, não evidence de edge negociável.**
 - Referência do módulo: `python rompimento_orquestrador.py --selftest`.
 
 ## Novos arquivos
@@ -2702,11 +2702,13 @@ a informação direcional chega com os EUA. Isso explica por que o gatilho misto
 | ponto fraco | stop apertado, ruído | depende do catalisador; WR baixo com stop curto |
 
 **Veredito preto no branco:** ORB genérico no WDO **não é edge** (PF 1,06,
-2026 negativo). ORB **restrito à janela pós-EUA** é um candidato real
-(PF 1,48 puro; 1,63 com stop 0,5×; 1,83–1,93 com filtro + stop 0,5×; 1,77 com
-stop fixo de 5 pts), com 6 anos positivos e OOS positivo — mas ainda é **1
-hipótese**, não uma verdade: foram ~20 variantes testadas, então existe risco de
-seleção. Próximo passo obrigatório: paper 20–30 dias antes de qualquer capital.
+2026 negativo). ORB **restrito à janela pós-EUA** chegou a ser tratado como
+candidato real (PF 1,48 puro; 1,63 com stop 0,5×; 1,83–1,93 com filtro + stop
+0,5×; 1,77 com stop fixo de 5 pts), com 6 anos positivos e OOS positivo — mas
+isso foi **antes** da correção do fill (23.62.3). **REPROVADO 21/11:** os PFs
+acima vêm de entrada no nível da caixa; com abertura da barra seguinte + 0,5
+contra, o edge cai 80–90% e fica negativo em 3 dos 5 anos. Foram ~20 variantes
+testadas — o risco de seleção se confirmou. Próximo passo obrigatório: paper 20–30 dias antes de qualquer capital.
 O custo de R$ 1,20 **não** muda o veredito (era R$ 0,80; a diferença é ~0,04
 ponto/trade). O stop de 5 pts **é lucrativo**, mas com WR baixo (17–21%): é um
 perfil de "poucos acertos grandes", não de acertividade alta.
@@ -2824,6 +2826,12 @@ sempre 1 contrato):
 > 1 ponto = R$ 10,00.
 
 #### 23.21.1 Ranking (o que vale a pena)
+
+> **REVOGADO em 21/11 (23.62.3/23.62.4).** As recomendações "implementar agora"
+> abaixo eram baseadas em fill no nível da caixa. A Faixa 1 foi suspensa em
+> 13/11 (23.41) e a causa mecânica foi confirmada em 23.62.3. O ranking fica
+> como registro histórico — **nenhuma linha aqui autoriza reativar ou testar
+> nova variante de ORB.**
 
 | # | Iniciativa | ★ | Impacto esperado | Evidência | Decide |
 |---|---|---:|---|---|---|
@@ -5696,7 +5704,9 @@ canonico de 1,0 pt/lado, o historico live de 10 dias e **negativo**.
 Leitura honesta: o setup esta **em cima da faca**. Nao e "sem edge" (o bruto
 e positivo e o WR e alto), e tambem nao e "edge provado" (o liquido sob o gate
 e negativo e 2 dias carregam tudo). O que decide e o custo de execucao real -
-que o demo nao mede.
+que o demo nao mede. **ATUALIZACAO 21/11 (23.62.2):** a ambiguidade foi
+resolvida com 112 trades — o bruto virou **-0,06 pt/trade** e o liquido
+**-1,18 pt/trade**. Os +1,29 pt dos 69 trades eram ruido de amostra pequena.
 
 ### 23.51.5 Hipotese de filtro por caminho - 2 estrelas, NAO implementado
 
@@ -6080,6 +6090,8 @@ Volume normaliza os pontos por contrato (`resultado_rs / (10 * volume)`).
 **Veredito (gate): INDISTINGUIVEL de zero** - o IC contem zero. O bruto tambem
 e indistinguivel (`[-0,51, +3,09]`): nao ha edge provado nem edge refutado.
 Break-even do gate e 2,12 pt/trade; a media bruta de +1,29 esta abaixo.
+**ATUALIZACAO 21/11 (23.62.2):** com 112 trades o edge foi **refutado** —
+bruto -0,06 pt e liquido -1,18 pt/trade. Encerrada a disputa estatistica.
 
 **Cuidado que o relatorio escancara:** sem 16/11 e 17/11, os 43 trades
 anteriores somam **-58,0 pts** (-R$ 580). O resultado positivo inteiro vem de
@@ -7714,3 +7726,72 @@ e nenhuma nova variante de ORB (item 29 segue pendente para tese nova).
 sem push. Em 23/11 conferir no `agente_autonomo.log` as linhas
 `kill-switch: deals ... acao ...` a cada 15 min, nenhum `estado desconhecido`
 e `loss hoje` batendo com `[pnl_dia]` de `monstro_wdo.log`.
+
+---
+
+## 23.63 Fim do foco em Sniper/ORB — próxima fase pré-registrada (21/11/2026)
+
+### 23.63.1 Decisão e pré-registro (escrito ANTES de qualquer backtest novo)
+
+Decisão do dono: **nenhuma das duas linhas tem edge depois do atrito**. Sniper
+e ORB saem do foco; nao havera variante nova de SL/TP, stop, reteste, filtro
+ou gatilho ORB. O que foi construido (kill-switch, aceite, shadow, triagem com
+atrito) fica como plataforma de pesquisa honesta — nao como justificativa para
+seguir operando as teses reprovadas.
+
+Pre-registro congelado: `backtest/PRE_REGISTRO_FAMILIAS_23-11-2026.md`
+(3 familias de baixa frequencia, 2 parametros cada, hipoteses escritas antes
+de rodar, sem ajuste posterior). **SHA-256 no momento do fechamento:**
+`E1E85B900B6097D309CC67DAEECD75839E00F0D1FDC8A7844F1A4728BB9D0326`
+(21/11/2026 03:51:50 -03). O script de backtest so sera escrito depois deste
+registro. Nenhum codigo do robo foi tocado; nenhum push.
+
+Correcao para multiplas comparacoes (tambem pre-registrada): 6 variantes
+novas + 9 ja testadas nos mesmos dados (4 Sniper + 5 ORB) = **15 comparacoes**;
+`alpha_adj = 0,05/15 = 0,00333`; aceite exige `t_OOS > t_crit` unilateral,
+alem de `E_OOS > 0` com slip 1,0, `n_OOS >= 40` e `PF_OOS > 1`. Sem "quase
+passa": se nenhuma passar, a conclusao e **nao operar**.
+
+### 23.63.2 Resultado das 3 familias (execucao unica, sem ajuste pos-OOS)
+
+Script: `backtest/familias_baixa_frequencia.py`, escrito **depois** do
+pre-registro e executado uma unica vez para os 6 parametros congelados.
+**Nota de integridade:** na primeira execucao o script passava o alvo como
+nivel absoluto (ex.: `15.0`) em vez de distancia a partir da entrada, gerando
+numeros absurdos (~-3.000 pts/trade, PF 0,00). O erro era de implementacao e
+contrariava o pre-registro ("alvo de 15 pts" e "t×rng" sao distancias). Foi
+corrigido antes de aceitar qualquer resultado; nenhuma regra, parametro,
+periodo ou limiar foi alterado. O hash do pre-registro permanece o mesmo.
+
+Tabela (a) ROMPIMENTO DE VOLATILIDADE — caixa 09:00-09:30, alvo 15 pts, <=2/dia:
+
+| var | n_IS | E_IS@1,0 | n_OOS | E@0 | E@0,5 | E@1,0 | PF@1,0 | t | t_crit | decisao |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| V1 (k0,5/m2,0) | 1442 | -1,45 | 712 | -0,06 | -1,06 | -2,06 | 0,67 | -4,86 | 2,72 | NAO PASSA |
+| V2 (k1,0/m3,0) | 1445 | -1,04 | 703 | +0,10 | -0,90 | -1,90 | 0,70 | -4,07 | 2,72 | NAO PASSA |
+
+Tabela (b) REVERSAO NOS EXTREMOS DO RANGE — range da manha, stop largo, 1/dia:
+
+| var | n_IS | E_IS@1,0 | n_OOS | E@0 | E@0,5 | E@1,0 | PF@1,0 | t | t_crit | decisao |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| R1 (f0,25/s1,0/t0,5) | 513 | -2,92 | 262 | -0,38 | -1,38 | -2,38 | 0,68 | -2,60 | 2,73 | NAO PASSA |
+| R2 (f0,50/s1,5/t1,0) | 174 | -4,37 | 78 | +0,61 | -0,39 | -1,39 | 0,80 | -0,81 | 2,79 | NAO PASSA |
+
+Tabela (c) CONTINUACAO APOS A ABERTURA (primeira hora) — 1/dia:
+
+| var | n_IS | E_IS@1,0 | n_OOS | E@0 | E@0,5 | E@1,0 | PF@1,0 | t | t_crit | decisao |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| C1 (k0,5/m2,0/tp20) | 649 | -2,13 | 336 | -1,55 | -2,55 | -3,55 | 0,56 | -4,86 | 2,73 | NAO PASSA |
+| C2 (k1,0/m3,0/tp30) | 489 | -1,23 | 250 | -1,28 | -2,28 | -3,28 | 0,63 | -3,09 | 2,74 | NAO PASSA |
+
+**Resumo OOS (slip 1,0):** V1 -2,06 / V2 -1,90 / R1 -2,38 / R2 -1,39 /
+C1 -3,55 / C2 -3,28 pts por trade. PF entre 0,56 e 0,80. Nenhuma passou em
+nenhum dos quatro criterios simultaneos; as duas unicas leituras positivas
+(V2 +0,10 e R2 +0,61) so existem com **slippage zero** e desaparecem com 1
+tick/lado — o mesmo padrao que matou o ORB.
+
+**CONCLUSAO: NAO OPERAR.** Nao ha proxima familia, nao ha ajuste de parametro,
+nao ha "tentar mais uma". A infraestrutura continua como plataforma de
+pesquisa e o projeto encerra com resultado negativo valido. 23/11 segue sem
+exigencia nova do robo: apenas as 3 linhas do `agente_autonomo.log` e a demo
+rodando. Sem push.
