@@ -7337,7 +7337,8 @@ para "compensar" o kill-switch.
 ### 23.62 Revisao do kill-switch: min(), alvo unico, N2 com flat e aceite por linha
 
 Implementado em 20/11/2026 (feriado, mercado fechado). **Nenhuma calibracao
-usa log de 20/11**: a evidencia e toda de 19/11. Nenhum commit e nenhum push.
+usa log de 20/11**: a evidencia e toda de 19/11. Commits feitos em 20/11
+(seis temas, `f033aeb`..`d1a2570`), **sem push**; detalhes em 23.62.1.
 
 **Tres pontos em que a 23.61 nao fazia o que o relatorio afirmava (medidos
 pelo revisor no disco, antes desta edicao)**
@@ -7459,3 +7460,97 @@ o kill-switch ser provado em pregao real.
 esperar qualquer processo que case com o nome do script; fechar MT5 sem flat;
 marcar o dia como ativado apos falha do N2; regravar modelo em cada tentativa
 do C3; comparar o item 7 com o `[pnl_dia]` final; usar logs de 20/11.
+
+### 23.62.1 Pos-commits, triagem M5 e observacoes de 20/11
+
+**Commits aprovados, sem push** (HEAD `d1a2570`): (a) `f033aeb` robustez do
+fecho/C3 e helpers; (b) `5343f29` agente fail-closed + PID; (c) `78ed876`
+kill-switch por deals, N1 antes do N2 e `tools/teste_realidade`; (d) `04e9f59`
+aceite itens 6 e 7; (e) `2d252b1` limite diario provisorio `-400`; (f)
+`d1a2570` ROADMAP 23.60-23.62. Suite apos os commits: **389 passed,
+1 xfailed**. `parar.txt` nao existe e `parado.ok` segue untracked.
+
+**Comportamento do N1 registrado para evitar surpresa:** depois que o N1
+dispara, `_criar_parar_txt()` e chamado de novo a cada checagem de 15 min
+enquanto a perda seguir `<= -250`. E idempotente (nao reescreve o arquivo),
+mas se o robo for reiniciado manualmente no mesmo dia ele sera parado na
+proxima checagem. Isso e intencional: "parou por perda no dia" vale ate o
+fecho, nao ate o proximo start.
+
+**Primeira execucao real do codigo novo (20/11, feriado, sem trades):**
+fecho completo e gracioso (`PID=43348`, `parado.ok`), commit do dia so com a
+whitelist, e **34/34** checagens do kill-switch com `0.00 valido`, sem
+`estado desconhecido`. Nenhum uso de log de feriado para calibracao.
+
+**Itens NAO urgentes (registrados, nao alterados nesta etapa para nao abrir
+nova rodada de seguranca):**
+1. saida do robo levou ~50 s apos "agendada em 5s" em 20/11 (17:36:23 ->
+   17:37:15) e >79 s em 19/11. Hipotese nao confirmada pelo log: Windows
+   demorando a descarregar DLLs (TensorFlow/WebView) no `os._exit`. Candidatos
+   baratos: subir `graceful_timeout_s` para 150 s e testar
+   `os.kill(os.getpid(), signal.SIGTERM)` no lugar de `os._exit`.
+2. watchdog de feed fez force kill 2x e reiniciou o terminal 6x por causa do
+   feriado sem ticks. Inofensivo, mas o caminho de force kill ainda nao
+   confirma flat — mesmo risco ja corrigido no fecho. Pedido pendente: usar
+   `flat_confirmado_para_fecho()` antes do force kill do watchdog. Calendario
+   de feriados da B3 para pular start/watchdog/fecho fica como item menor.
+3. `test_sem_chamar_stop_mt5_quando_bloqueia` tem um `assert` em `tmp_path`
+   que nao prova nada; o teste real e o `AssertionError("mt5!")` dentro do
+   `stop_mt5`. Inofensivo, sem alteracao.
+
+**Triagem M5 (item 2 do bloco): `backtest/triagem_m5_sltp.py`, script
+separado — `avaliar_shadow_sltp.py` (congelado) NAO foi tocado.** Proxy do
+Sniper M1: %R(14) M5 com -80/-20 e trava de zona; ATR M1 = ATR M5/sqrt(5)
+(aproximacao declarada); entrada na abertura seguinte com 0,5 contra; janela
+de 6 barras/30 min; custo de 0,12 pt + slippage 0/0,5/1,0 por lado; SL e TP
+na mesma barra geram dois cenarios (pessimista = SL primeiro, otimista = TP
+primeiro). **10.817 sinais brutos**, 2021-2026.
+
+Tabela principal (slippage 0,5 pt/lado; E = expectativa liquida em pontos):
+
+| ano | var | n | acerto | payoff | E_pess | E_otim |
+|---|---|---:|---:|---:|---:|---:|
+| 2021 | A0 | 663 | 37,7% | 0,69 | -4,12 | -4,04 |
+| 2021 | B | 663 | 29,7% | 0,85 | -4,52 | -4,42 |
+| 2021 | C | 663 | 41,5% | 0,54 | -4,13 | -3,77 |
+| 2021 | D | 663 | 36,7% | 0,69 | -4,28 | -4,04 |
+| 2022 | A0 | 2114 | 39,2% | 0,75 | -3,37 | -3,29 |
+| 2022 | B | 2114 | 32,6% | 0,86 | -3,86 | -3,78 |
+| 2022 | C | 2114 | 43,5% | 0,57 | -3,41 | -3,30 |
+| 2022 | D | 2114 | 37,9% | 0,74 | -3,57 | -3,45 |
+| 2023 | A0 | 2066 | 42,6% | 0,58 | -2,41 | -2,38 |
+| 2023 | B | 2066 | 33,1% | 0,68 | -3,02 | -2,98 |
+| 2023 | C | 2066 | 41,8% | 0,60 | -2,40 | -2,37 |
+| 2023 | D | 2066 | 40,4% | 0,64 | -2,47 | -2,46 |
+| 2024 | A0 | 2217 | 40,8% | 0,62 | -2,33 | -2,31 |
+| 2024 | B | 2217 | 31,2% | 0,70 | -2,98 | -2,93 |
+| 2024 | C | 2217 | 39,8% | 0,64 | -2,29 | -2,25 |
+| 2024 | D | 2217 | 38,0% | 0,70 | -2,36 | -2,36 |
+| 2025 | A0 | 2182 | 42,4% | 0,56 | -2,31 | -2,28 |
+| 2025 | B | 2182 | 33,4% | 0,64 | -2,82 | -2,74 |
+| 2025 | C | 2182 | 40,4% | 0,58 | -2,43 | -2,34 |
+| 2025 | D | 2182 | 39,4% | 0,61 | -2,44 | -2,42 |
+| 2026 | A0 | 1575 | 35,2% | 0,67 | -1,99 | -1,99 |
+| 2026 | B | 1575 | 28,0% | 0,68 | -2,61 | -2,57 |
+| 2026 | C | 1575 | 33,0% | 0,74 | -2,01 | -2,01 |
+| 2026 | D | 1575 | 32,2% | 0,76 | -2,05 | -2,05 |
+
+Sensibilidade (todos os anos): A0 `-1,57 / -2,57 / -3,57` (otimista,
+slippage 0/0,5/1,0); B `-2,11 / -3,11 / -4,11`; C `-1,55 / -2,55 / -3,55`;
+D `-1,66 / -2,66 / -3,66`. O cenario pessimista fica entre 0,04 e 0,10 pt
+pio que o otimista — a ambiguidade da barra M5 **nao** explica o sinal
+negativo.
+
+**Poda:** no padrao 0,5 pt/lado, A0, B, C e D tem expectativa otimista `<= 0`
+em **5/5** anos (2022-2026), e o mesmo vale para slippage 0 e 1,0. Pela regra
+(>= 4/5), **B, C e D sao podados**: nao ha indicio de que valha gastar pregões
+testando essas tres variantes. A0 e o controle e tambem reprova no filtro
+absoluto, mas nao existe substituto promovido — a acao e **nao promover nada**
+e seguir com o shadow ao vivo pre-registrado.
+
+**Limitacoes obrigatorias:** M5 nao resolve a ordem dentro da barra (os dois
+cenarios sao limites, nao probabilidades); o CSV cobre so 09:00-15:25 BRT, sem
+after/leilao/17:35; ATR M5/sqrt(5) e aproximacao do ATR M1 do Sniper; o proxy
+nao tem DOL, multi-TF, book, cooldown de 120 s nem veto de tendencia, entao
+gera mais sinais que o robo real; o fill e no mid +/- 0,5 (sem bid/ask real).
+**Triagem so poda; nao promove.** Nenhum push.
