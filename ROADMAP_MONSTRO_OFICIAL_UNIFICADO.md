@@ -7554,3 +7554,163 @@ after/leilao/17:35; ATR M5/sqrt(5) e aproximacao do ATR M1 do Sniper; o proxy
 nao tem DOL, multi-TF, book, cooldown de 120 s nem veto de tendencia, entao
 gera mais sinais que o robo real; o fill e no mid +/- 0,5 (sem bid/ask real).
 **Triagem so poda; nao promove.** Nenhum push.
+
+---
+
+### 23.62.2 Calibracao do proxy M5 contra deals reais (03-19/11/2026)
+
+Script novo e separado: `backtest/calibrar_proxy_m5.py`. Exporta M5 de
+`WDOZ26` do MT5 em modo read-only para
+`backtest/dados_mt5/.../WDOZ26_M5_exportado_2026-11-03_2026-11-19.csv`
+(1.482 barras) e cruza com `history_deals_get` magic 123456. **Nenhum log de
+20/11 foi usado** (feriado). Relogio: o terminal grava 09-18 "UTC" que ja sao
+09-18 BRT de parede (23.20.1), sem `astimezone`.
+
+Tabela 1 - por dia (real = deals; proxy = A0 no mesmo atrito, 0,5 pt/lado):
+
+| dia | n_real | n_proxy | casados | acerto% real | E_bruta real | E_liq real | proxy_pess | proxy_otim |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 03/11 | 6 | 9 | 1 | 100,0 | +7,33 | +6,21 | -3,10 | -3,10 |
+| 04/11 | 7 | 8 | 1 | 42,9 | -2,57 | -3,69 | -3,75 | -3,75 |
+| 05/11 | 6 | 6 | 0 | 33,3 | -3,25 | -4,37 | -2,24 | -2,24 |
+| 06/11 | 7 | 9 | 0 | 28,6 | -4,43 | -5,55 | +2,42 | +2,42 |
+| 09/11 | 0 | 10 | 0 | - | - | - | -0,42 | -0,42 |
+| 10/11 | 4 | 11 | 1 | 25,0 | -3,75 | -4,87 | -7,03 | -7,03 |
+| 11/11 | 2 | 9 | 0 | 50,0 | -1,75 | -2,87 | +0,21 | +0,21 |
+| 12/11 | 3 | 10 | 0 | 66,7 | +1,00 | -0,12 | -2,60 | -2,60 |
+| 13/11 | 8 | 7 | 0 | 37,5 | -2,25 | -3,37 | -2,07 | -2,07 |
+| 16/11 | 9 | 7 | 0 | 100,0 | +8,17 | +7,05 | -7,96 | -7,96 |
+| 17/11 | 17 | 9 | 1 | 76,5 | +4,32 | +3,20 | +2,73 | +2,73 |
+| 18/11 | 16 | 8 | 2 | 56,2 | +0,44 | -0,68 | -7,29 | -7,29 |
+| 19/11 | 27 | 9 | 3 | 25,9 | -3,80 | -4,92 | -3,06 | -3,06 |
+
+Totais 03-19/11: real bruto **n=112, acerto 51,8%, payoff 0,92, E=-0,06
+pt**; real liquido (0,5/lado) **E=-1,18 pt**; proxy A0 pess/otim **E=-2,56
+pt** (os dois cenarios colapsam: SL e TP quase nunca caem na mesma barra M5).
+O numero antigo de 69 trades era ate 17/11; 18/11 (16) e 19/11 (27) fecham
+112. Os tres ultimos dias somam ~-R$ 220, coerente com o registro anterior.
+
+Tabela 2 - casamento sinal a sinal (mesma barra M5 de entrada e mesmo lado):
+
+| criterio | casados | % dos 112 reais | observacao |
+|---|---:|---:|---|
+| proxy com trava, barra exata | 9 | 8,0% | 5 BUY / 4 SELL; E bruta -0,44 pt |
+| proxy com trava, +-1 barra | 15 | 13,4% | 9 BUY / 6 SELL; E bruta +0,87 pt |
+| proxy sem trava, barra exata | 6 | 5,4% | trava nao e a causa principal |
+
+Decomposicao (proxy com trava, 112 sinais): so lado = 65, so hora = 9,
+lado+hora = 9. Ou seja, o lado bate ~58% por sorte, mas o par hora/lado
+quase nunca bate.
+
+**Veredito: o proxy M5 NAO e confiavel para calibrar SL/TP do vivo.** Ele
+explica no maximo 13,4% dos trades reais e tem expectativa ~1,4 pt pior por
+trade. A contradicao (proxy -1 pt bruto vs vivo +1,29 pt em 69 trades) e de
+**sinal**, nao de geometria: o proxy usa %R M5 com trava de zona e nao tem
+DOL, multi-TF, book, cooldown de 120 s nem veto de tendencia. Continua valido
+apenas como triagem grosseira de geometria (23.62.1); nao substitui o shadow
+ao vivo pre-registrado.
+
+### 23.62.3 Triagem da Faixa 1 (ORB) com o mesmo atrito
+
+Script novo: `backtest/triagem_faixa1_m5.py`, usando
+`WDO_FULL_M5_2021_2026.csv`. Caixa 09:00-10:00; gatilho 10:30-11:00;
+entrada na abertura da barra seguinte + 0,5 contra; custo 0,12 pt + slippage
+0/0,5/1,0 por lado; 808 sinais em 808 dias. `ORB-1030` = stop no lado oposto
+da caixa, sem TP, saida no ultimo close do CSV (15:25). A0/B/C/D = mesmas
+geometrias do Sniper aplicadas ao mesmo sinal, janela 30 min.
+
+Tabela 1 - por ano, slippage 0,5 pt/lado (E em pontos liquidos):
+
+| ano | var | n | acerto | payoff | PF | E_pess | E_otim |
+|---|---|---:|---:|---:|---:|---:|---:|
+| 2021 | A0 | 46 | 39,1% | 1,02 | 0,66 | -2,13 | -2,13 |
+| 2021 | B | 46 | 30,4% | 1,13 | 0,49 | -3,32 | -3,32 |
+| 2021 | C | 46 | 47,8% | 0,67 | 0,62 | -2,04 | -1,69 |
+| 2021 | D | 46 | 39,1% | 0,99 | 0,64 | -2,20 | -2,20 |
+| 2021 | ORB-1030 | 46 | 45,7% | 1,29 | 1,09 | +1,32 | +1,32 |
+| 2022 | A0 | 165 | 36,4% | 0,93 | 0,53 | -3,06 | -2,92 |
+| 2022 | B | 165 | 33,3% | 1,01 | 0,50 | -3,22 | -3,08 |
+| 2022 | C | 165 | 44,2% | 0,68 | 0,54 | -2,59 | -2,49 |
+| 2022 | D | 165 | 37,6% | 0,89 | 0,54 | -2,93 | -2,68 |
+| 2022 | ORB-1030 | 165 | 45,5% | 0,91 | 0,76 | -3,79 | -3,79 |
+| 2023 | A0 | 159 | 44,0% | 0,78 | 0,61 | -1,62 | -1,62 |
+| 2023 | B | 159 | 32,7% | 0,88 | 0,43 | -2,58 | -2,50 |
+| 2023 | C | 159 | 44,7% | 0,74 | 0,60 | -1,64 | -1,64 |
+| 2023 | D | 159 | 41,5% | 0,81 | 0,58 | -1,79 | -1,79 |
+| 2023 | ORB-1030 | 159 | 43,4% | 1,28 | 0,98 | -0,15 | -0,15 |
+| 2024 | A0 | 175 | 40,6% | 0,74 | 0,51 | -2,20 | -2,20 |
+| 2024 | B | 175 | 32,6% | 0,86 | 0,41 | -2,68 | -2,63 |
+| 2024 | C | 175 | 42,3% | 0,75 | 0,55 | -1,77 | -1,77 |
+| 2024 | D | 175 | 36,0% | 0,84 | 0,47 | -2,37 | -2,37 |
+| 2024 | ORB-1030 | 175 | 42,3% | 1,04 | 0,76 | -2,35 | -2,35 |
+| 2025 | A0 | 152 | 36,2% | 0,71 | 0,40 | -2,99 | -2,99 |
+| 2025 | B | 152 | 27,6% | 0,85 | 0,32 | -3,29 | -3,29 |
+| 2025 | C | 152 | 37,5% | 0,65 | 0,39 | -3,02 | -2,91 |
+| 2025 | D | 152 | 33,6% | 0,70 | 0,36 | -3,27 | -3,27 |
+| 2025 | ORB-1030 | 152 | 42,1% | 1,02 | 0,74 | -2,22 | -2,22 |
+| 2026 | A0 | 111 | 32,4% | 0,75 | 0,36 | -2,40 | -2,40 |
+| 2026 | B | 111 | 25,2% | 0,77 | 0,26 | -3,03 | -3,03 |
+| 2026 | C | 111 | 29,7% | 0,81 | 0,34 | -2,49 | -2,49 |
+| 2026 | D | 111 | 29,7% | 0,98 | 0,42 | -2,21 | -2,21 |
+| 2026 | ORB-1030 | 111 | 33,3% | 1,04 | 0,52 | -3,90 | -3,90 |
+
+Sensibilidade (E otimista, todos os anos; slip 0 / 0,5 / 1,0):
+A0 `-1,40 / -2,40 / -3,40`; B `-1,92 / -2,92 / -3,92`;
+C `-1,20 / -2,20 / -3,20`; D `-1,46 / -2,46 / -3,46`;
+ORB-1030 `-1,19 / -2,19 / -3,19`. Poda: A0/B/C/D `5/5`; ORB-1030
+`4/5` a 0 e `5/5` a 0,5 e 1,0. **Todas reprovam.**
+
+Diagnostico da divergencia com 23.20.2 (script
+`backtest/verificar_orb_roadmap.py`, `WDO@` M5 exportado do MT5, saida
+17:55). Mesmo sinal, duas formas de entrada; valores a 0,5 pt/lado:
+
+| ano | A_replica E_R$ (fill no nivel) | B_atrito E_R$ (abertura + 0,5 contra) |
+|---|---:|---:|
+| 2021 | +124,04 | +60,81 |
+| 2022 | +89,83 | +10,49 |
+| 2023 | +18,44 | -27,63 |
+| 2024 | +60,65 | +4,30 |
+| 2025 | +25,63 | -25,68 |
+| 2026 | +14,09 | -22,17 |
+
+A replica A bate 23.20.2 (2022 R$ 99,83 vs 101,44; 2023 28,44 vs 29,82;
+2024 70,65 vs 73,80; 2025 35,63 vs 44,35; 2026 24,09 vs 23,77). Com o
+atrito pedido, o edge cai ~80-90% e vira negativo em 3 dos 5 anos. Ou seja:
+**o edge historico da Faixa 1 estava no fill idealizado no nivel da caixa,
+nao no sinal**. Isso confirma independentemente o veredito de 23.41.
+
+Limitacoes: o CSV principal cobre so 09:00-15:25 (saida 15:25, contra 17:55
+do estudo original), entao as tabelas nao sao comparaveis em valor absoluto
+com 23.20.2; o diagnostico usa `WDO@` (antigo `WDO$`); sem M1, book, DOL ou
+filtros. **Triagem so poda; a Faixa 1 continua suspensa.**
+
+### 23.62.4 Por que a Faixa 1 foi suspensa (`657003b`) e condicoes de reativacao
+
+Commit `657003b` (13/11/2026, 10:55): `config.json` -> `rompimento.ativo`
+de `true` para `false` e tarefa `ORB-WDO-FT` desabilitada (paper). Decisao
+**humana**, registrada em 23.41: nao ha tese com edge que sobreviva a
+**1 tick/lado**; manter em demo so consumiria tempo e logs. Nenhuma logica de
+trade foi alterada, nenhum processo reiniciado, nenhuma ordem enviada. O
+trade do dia ja havia fechado as 10:20 (BUY WDOZ26, SL -16,5 pts, -R$165).
+
+Motivos tecnicos (23.39/23.40/23.41): trailing piorou PF/exp com slippage;
+stop/reteste/filtros/saida nao salvaram; mirror PF 0,93 e deriva-long PF
+0,95 mostram que nao havia ineficiencia exploravel. O novo diagnostico
+23.62.3 acrescenta a causa mecanica: o PF historico dependia de fill no
+nivel da caixa.
+
+Condicoes para **avaliar** reativacao em demo (nao autorizam reativar):
+1. backtest com **fill realista** (abertura da barra seguinte + 0,5 contra),
+   custo R$ 1,20 e slippage 1,0 pt/lado, com expectativa > 0 no modo B;
+2. IS 2021-2024 / OOS 2025-2026 com OOS exp > 0, OOS PF > 1,0, n_OOS >= 40
+   e IS exp > 0;
+3. robustez a +-1 tick, vizinhanca de parametros e controles
+   (mirror/random/shift);
+4. paper forward de 20-30 sessoes com o mesmo atrito.
+Ate la: `rompimento.ativo=false`, `ORB-WDO-FT` desabilitada, nenhuma reativacao
+e nenhuma nova variante de ORB (item 29 segue pendente para tese nova).
+
+**Estado desta etapa:** 389 passed, 1 xfailed; `py_compile` dos 4 scripts OK;
+sem push. Em 23/11 conferir no `agente_autonomo.log` as linhas
+`kill-switch: deals ... acao ...` a cada 15 min, nenhum `estado desconhecido`
+e `loss hoje` batendo com `[pnl_dia]` de `monstro_wdo.log`.

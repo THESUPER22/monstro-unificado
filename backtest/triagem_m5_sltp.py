@@ -74,6 +74,28 @@ def carregar_barras() -> dict:
             if len(barras) >= PERIODO + MAX_BARRAS}
 
 
+def carregar_barras_mt5(caminho: Path) -> dict:
+    """Barras exportadas do MT5: ``time`` ja e a hora BRT gravada como UTC.
+
+    Diferente do CSV historico (que vem 12-18 UTC = 09-15 BRT), o `copy_rates`
+    do terminal atual devolve 09-18 "UTC" que ja sao 09-18 BRT de parede.
+    Por isso NAO se aplica ``astimezone(FUSO_BR)`` aqui (ROADMAP 23.20.1).
+    """
+    por_dia = defaultdict(list)
+    with open(caminho, newline="", encoding="utf-8") as f:
+        for linha in csv.DictReader(f):
+            dt = datetime.fromtimestamp(int(linha["time"]), tz=timezone.utc)
+            if not (HORA_INI <= dt.time() <= HORA_FIM):
+                continue
+            por_dia[dt.date()].append((
+                dt,
+                float(linha["open"]), float(linha["high"]),
+                float(linha["low"]), float(linha["close"]),
+            ))
+    return {dia: barras for dia, barras in sorted(por_dia.items())
+            if len(barras) >= PERIODO + MAX_BARRAS}
+
+
 def atr_diario(barras: list) -> list:
     """ATR Wilder por barra; semente = primeiro TR (igual ao robo)."""
     atrs = [None] * len(barras)
