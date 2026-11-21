@@ -7859,3 +7859,35 @@ com `0.00 valido` e `loss hoje 0.00 (limites -250/-400) - ok`; (2) nenhuma
 termina no fecho gracioso de 20/11 (17:37:15, `parado.ok`), sem
 `estado desconhecido`, com `[pnl_dia] 0 deals / +0.00`; `parar.txt` ausente.
 A demonstracao segue rodando ate a conferencia de segunda. Sem push.
+
+---
+
+## 23.65 Checklist final de encerramento (pendente para 23/11/2026)
+
+Registro do checklist passado pelo dono. **Nao executar o desligamento antes da
+conferencia de 23/11.** Nenhuma acao abaixo foi feita nesta etapa (21/11,
+sabado): nenhuma tarefa foi desabilitada, nenhum processo foi encerrado e
+nenhum push foi feito. Estado read-only em 21/11: `Monstro-Start`,
+`Monstro-Watchdog` e `Monstro-Fecho` estao `Ready`; nao ha
+`python monstro_unificado_v22` nem `terminal.exe` (MT5) rodando neste momento
+(fora do pregao).
+
+1. **23/11 (segunda): unico teste real que falta.** Com a demo rodando, conferir
+   no `agente_autonomo.log`: (a) linhas `kill-switch:` a cada 15 min com
+   `0.00 valido` e `loss hoje ... - ok`; (b) nenhuma `estado desconhecido`;
+   (c) `loss hoje` igual a `[pnl_dia]` de `monstro_wdo.log`. Somente depois
+   disso autorizar o desligamento.
+2. **Depois da conferencia, como administrador:** desabilitar as tarefas com
+   `Disable-ScheduledTask -TaskName "Monstro-Start","Monstro-Watchdog","Monstro-Fecho"`
+   e confirmar que nao ha `python monstro_unificado_v22` nem `terminal.exe`
+   (MT5) rodando. **Nao executar antes de 23/11.**
+3. **Repo:** manter privado (Settings -> Danger Zone -> Change visibility). O
+   historico contem numero da conta demo e nome do titular. Se quiser mostrar o
+   trabalho no futuro, publicar copia limpa so com codigo, sem historico.
+4. **Backup:** copiar `C:\AIOFEN` (ROADMAP, `tools`, `backtest/triagem`,
+   testes) para disco/nuvem. O valor reaproveitavel e o metodo: atrito
+   realista, IS/OOS, pre-registro com hash e correcao de comparacoes multiplas.
+
+**Nova frente:** nenhuma. Toda hipotese nova nasce pre-registrada e ja com o
+custo real, e entra na contagem de comparacoes (hoje **15**), somente com
+aprovacao explicita do dono.
