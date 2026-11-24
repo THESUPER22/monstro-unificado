@@ -7902,3 +7902,57 @@ nenhum push foi feito. Estado read-only em 21/11: `Monstro-Start`,
 **Nova frente:** nenhuma. Toda hipotese nova nasce pre-registrada e ja com o
 custo real, e entra na contagem de comparacoes (hoje **15**), somente com
 aprovacao explicita do dono.
+
+---
+
+## 23.66 Pre-autopsia e verificacao tardia de 23-24/11 (instabilidade de internet)
+
+Executado em 24/11 sobre o programa de 23.65. **Nenhuma tarefa foi
+desabilitada nesta rodada e nenhum codigo foi alterado.**
+
+### O que a pre-autopsia previu (e o que aconteceu)
+
+1. **MT5 cair no meio do pregao:** o risco era o kill-switch tratar 0 deals como
+   `0.00 valido` e dar `ok` falso. Ocorreu o oposto: 23/11 das 13:36 as 16:35 e
+   24/11 ate as 16:21 apareceram `MT5 nao inicializou - estado desconhecido` e
+   `estado desconhecido - sem acao (nunca 'ok' com 0.00)`. O **fail-closed
+   funcionou**; o criterio formal "nenhuma linha desconhecida" **NAO** foi
+   satisfeito.
+2. **Rotacao de log:** em 23/11 o `[pnl_dia]` esta em
+   `monstro_wdo_20261123.log`, nao em `monstro_wdo.log`. O comando literal de
+   23.65 mostraria vazio; `aceite_pos_pregao.py` localiza o log rotacionado.
+3. **Falso 10016 no aceite:** `contar_10016()` conta qualquer linha com a
+   substring `10016`. Em 23/11 a unica ocorrencia e `Vol: 10016.0` de um setup
+   (volume), nao retcode de erro. O aceite marcou FALHOU por isso.
+4. **Saida via N1:** em 24/11 o N1 (`-250`) criou `parar.txt` as 15:05 com
+   `-370`; o robo fechou posicao, gravou `parado.ok` as 15:05:25 e o watchdog
+   confirmou as 15:21. O aceite exige a mensagem `parar_gracioso` do agente e
+   ignora a do watchdog, por isso marcou `encerrou graciosamente: NAO`. A
+   demora de ~50 s do `os._exit` e fato separado e ja anotado.
+5. **Tarefas:** `LastRunTime` 24/11 09:00 (Start), 17:20 (Watchdog) e 17:35
+   (Fecho), `LastTaskResult=0`, `NextRunTime` 25/11 09:00. Continuam `Ready`.
+
+### Evidencia
+
+| dia | checagens | janelas desconhecidas | numeros que batem | aceite | leitura |
+|---|---:|---:|---|---|---|
+| 23/11 | 34 (09:05-17:20) | 13 (26 linhas) | 16:50-17:20: `deals 160, [pnl_dia] 160, acao 160`; final 17:35 `+160,00` | FALHOU **so** por `10016` = `Vol: 10016.0` | cadencia OK; fail-closed correto; aceite formal nao passou |
+| 24/11 | 41 (09:05-17:20) | 11 (22 linhas) | N1 as 15:05 `-370` e 15:35 `-355`; 16:50-17:20 `deals -355 = [pnl_dia] -355` | FALHOU **so** por `encerrou graciosamente: NAO` | kill-switch disparou, bateu com deals, robo parou |
+
+Em 23/11 as 14:17 houve `[pnl_dia] MT5 indisponivel - fallback para
+loss_diario_atual em memoria (+240.00)`, coerente com os `+240,00` lidos as
+14:13 antes da queda. Os fechos autonomos `9567374` (23/11) e `dede075`
+(24/11) estao preservados, cada um com 3 arquivos de whitelist/relatorio.
+
+### Estado e decisao
+
+- **Nao alterei `aceite_pos_pregao.py`.** Corrigir o contador de `10016` ou o
+  criterio de saida agora seria mover o golpe depois do resultado. Registrado
+  como bug de ferramenta de validacao, nao de trading.
+- O robo **ja esta parado**: `parado.ok` as 15:05:25, `parar.txt` de 24/11 com
+  `KILL-SWITCH LOSS DIARIO: -355.00`, nenhum `python monstro_unificado_v22` nem
+  `terminal.exe` rodando. As tarefas, porem, seguem `Ready` e **voltam a subir
+  em 25/11 as 09:00** se nada for feito.
+- Como 23.65 mandava colar as linhas quando algo divergisse, **nao desabilitei
+  as tarefas** nesta rodada. Aguardo confirmacao explicita para rodar o
+  `Disable-ScheduledTask`. Sem push; contagem de comparacoes segue **15**.
