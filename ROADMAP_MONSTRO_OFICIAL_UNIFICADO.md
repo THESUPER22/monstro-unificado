@@ -7954,5 +7954,52 @@ loss_diario_atual em memoria (+240.00)`, coerente com os `+240,00` lidos as
   `terminal.exe` rodando. As tarefas, porem, seguem `Ready` e **voltam a subir
   em 25/11 as 09:00** se nada for feito.
 - Como 23.65 mandava colar as linhas quando algo divergisse, **nao desabilitei
-  as tarefas** nesta rodada. Aguardo confirmacao explicita para rodar o
-  `Disable-ScheduledTask`. Sem push; contagem de comparacoes segue **15**.
+  as tarefas** na primeira passagem. O dono confirmou a **opcao 4** (desligar
+  apos duas verificacoes), registrada abaixo.
+
+### Fechamento operacional (opcao 4, 24/11)
+
+**Verificacao (a) - posicoes, leitura somente antes de desligar:**
+`mt5.initialize()=True`; `total_posicoes=1`; `magics=[123457]`;
+`posicoes_magics_robo_7008_123456=[]`. A unica posicao aberta e legacy
+`ticket=2243200971`, `WINV25`, `magic=123457`, aberta em
+2025-10-15T16:50:56Z, comment `Monstro SELL`, lucro flutuante +5,00 — **nao e
+dos magics do robo atual e nao foi tocada**. Observacao de ferramenta:
+`positions_get(magic=7008)` e `positions_get(magic=123456)` devolveram a mesma
+posicao 123457 (filtro ignorado pelo terminal); o filtro foi feito no cliente.
+
+**Verificacao (b) - P&L e N1:**
+
+| dia | P&L final | hora/valor do N1 | P&L no disparo | observacao |
+|---|---:|---|---|---|
+| 23/11 | **+160,00** (22 deals, 11 fechados) as 17:35:32 | sem N1 | - | minimo intradia -245,00 as 12:05, abaixo do gatilho -250; sem acao |
+| 24/11 | **-355,00** (30 deals, 15 fechados) as 15:05:25, confirmado as 17:20 e 17:35 | **15:05:09** (`-370,00`, 29 deals); reafirmado 15:35:02 com `-355,00` | **-370,00** | `parar.txt` criado, posicao fechada entre 15:05:09 e 15:05:25, `parado.ok` 15:05:25; N2 (-400) nao disparou |
+
+**Dois defeitos conhecidos do aceite — registrados, NAO corrigidos:**
+1. `contar_10016()` casa substring e conta `Vol: 10016.0` (volume) como
+   retcode de erro, fazendo o aceite de 23/11 falhar.
+2. `encerrou_graciosamente()` exige a mensagem `parar_gracioso` do agente e
+   ignora a saida por N1 (que vem do proprio robo + watchdog), fazendo o aceite
+   de 24/11 falhar.
+Nenhum dos dois foi alterado: mudar o criterio depois de ver o resultado e
+exatamente o que o pre-registro proibiu. Se a plataforma voltar, corrigir com
+teste antes de reutilizar.
+
+### Resultado do desligamento (opcao 4)
+
+- A 1a tentativa com `-TaskName "Monstro-Start","Monstro-Watchdog","Monstro-Fecho"`
+  falhou no parser do PowerShell (erro de transformacao de argumento), sem
+  alterar nenhum estado. A forma correta e uma tarefa por chamada.
+- Execucao individual nesta sessao, **sem elevacao** (`admin=False`):
+  `Monstro-Start` -> **Disabled**; `Monstro-Fecho` -> **Disabled**;
+  `Monstro-Watchdog` -> **Acesso negado (0x80070005)**, continua **Ready**.
+  A alternativa `schtasks /change /tn "Monstro-Watchdog" /disable` tambem
+  devolveu acesso negado.
+- Processos apos a acao: nenhum `python monstro_unificado_v22` e nenhum
+  `terminal.exe` (MT5) rodando. O robo ja estava parado desde 15:05:25 de
+  24/11 (`parado.ok`).
+- **Pendencia unica para o dono:** em PowerShell **como administrador**, rodar
+  `Disable-ScheduledTask -TaskName "Monstro-Watchdog"` e confirmar `Disabled`.
+  Ate la, `Monstro-Start` e `Monstro-Fecho` ja nao sobem sozinhas; **nao
+  reativar nada sem aprovacao explicita**. Sem push; contagem de comparacoes
+  segue **15**.
