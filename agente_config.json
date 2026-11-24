@@ -40,7 +40,7 @@
     "health_timeout_s": 120,
     "smoke_test_s": 25,
     "porta_fallback": 5001,
-    "watchdog_enabled": true,
+    "watchdog_enabled": false,
     "feed_watchdog_enabled": true,
     "feed_estagnado_max_s": 900,
     "feed_restart_terminal_max_dia": 6,

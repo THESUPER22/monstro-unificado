@@ -8003,3 +8003,40 @@ teste antes de reutilizar.
   Ate la, `Monstro-Start` e `Monstro-Fecho` ja nao sobem sozinhas; **nao
   reativar nada sem aprovacao explicita**. Sem push; contagem de comparacoes
   segue **15**.
+
+### Plano B aplicado em 24/11 (rede de seguranca para 25/11)
+
+O dono confirmou a urgencia: com `Monstro-Start`/`Monstro-Fecho` desabilitadas e
+`Monstro-Watchdog` `Ready`, o watchdog rodaria as 09:05 de 25/11 e restartaria o
+robo. Confirmado no fonte: `kill_switch_ja_ativado()` (~linha 1478) e
+`robo_encerrou_graciosamente()` (~linha 298) sao indexados pela data de **hoje**;
+o `parado.ok`/kill-switch de 24/11 **nao** bloqueiam 25/11.
+
+Acoes executadas **sem codigo**:
+1. `agente_config.json` -> `rotinas.watchdog_enabled` de `true` para `false`.
+   Verificado: JSON valido, valor `False`. Em `agente_monstro_core.main()`
+   (~linha 1950), o modo `watchdog` com a chave falsa aborta antes de
+   `run_watchdog()` — bloqueia o restart das 09:05 e tambem o feed-watchdog.
+2. `C:\AIOFEN\parar.txt` **ja estava presente** (`KILL-SWITCH LOSS DIARIO:
+   -355.00`, 24/11 15:35:02, 32 bytes) e foi confirmado. `verificar_parada_gracil()`
+   em `monstro_unificado_v22.py` (~linha 6896) derruba qualquer robo iniciado
+   com o sinal presente; a trava C3 so remove o arquivo apos flat confirmado.
+
+Estado residual: `Monstro-Watchdog` continua `Ready` nesta sessao porque a
+desabilitacao exige elevacao (`admin=False`). A tarefa, porem, agora e
+inofensiva: o agente aborta pela config e, se algo iniciar o robo, o
+`parar.txt` o encerra. **A tarefa so deve ser desabilitada pelo dono em
+PowerShell elevado**; nada deve ser reativado sem aprovacao explicita.
+
+### Notas para uso futuro (ditadas pelo dono)
+
+- **Kill-switch em tempo real:** em 24/11 o N1 disparou as 15:05:09 com
+  `-370,00` mesmo com limite `-250`, porque a conferencia e a cada 15 min e
+  dois stops cabem nesse intervalo; a posicao foi fechada em 16 s e o
+  `parado.ok` gravado as 15:05:25. Com dinheiro real, o limite precisa viver
+  **dentro do robo, em tempo real**, nao so no agente a cada 15 min.
+- **Posicao fantasma:** `WINV25`, magic `123457`, SELL 5, aberta em 15/10/2025,
+  conta demo, contrato vencido. Continua la, nao foi tocada; so a corretora
+  consegue limpar. Nao interfere nos magics atuais (7008/123456).
+- **Aceite:** os dois defeitos do `aceite_pos_pregao.py` seguem registrados e
+  **sem correcao**, como combinado.
