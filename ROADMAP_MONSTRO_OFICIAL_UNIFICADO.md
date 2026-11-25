@@ -8040,3 +8040,18 @@ PowerShell elevado**; nada deve ser reativado sem aprovacao explicita.
   consegue limpar. Nao interfere nos magics atuais (7008/123456).
 - **Aceite:** os dois defeitos do `aceite_pos_pregao.py` seguem registrados e
   **sem correcao**, como combinado.
+
+## 23.67 Demo reativada em 25/11 por decisao do usuario
+
+- **Decisao do dono em 25/11/2026:** a demo volta a operar a partir de
+  26/11 as 09:00. Eu tinha misturado "encerrar a pesquisa de sinal" com
+  "desligar a demo"; a demo nao custa dinheiro e serve para coletar dados e
+  exercitar o kill-switch. Perdeu-se um dia de dados, nada mais.
+- **Acao executada sem alterar codigo:** `agente_config.json` voltou com
+  `rotinas.watchdog_enabled = true` e `C:\AIOFEN\parar.txt` foi apagado.
+- **Tarefas:** nao foram alteradas por mim. `Enable-ScheduledTask` e acao
+  exclusiva do dono, em PowerShell elevado, para as tres tarefas `Monstro-*`.
+- **Nada muda no resultado esperado:** media liquida segue negativa
+  (-1,18 pt/trade em 112 trades). **Dinheiro real continua fora.**
+- **Contagem de comparacoes segue 15.** Nenhuma familia ou variante nova foi
+  criada e nenhum criterio de aceite foi alterado.
