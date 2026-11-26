@@ -8096,3 +8096,54 @@ autoriza nenhum ajuste pos-OOS.
 nenhuma familia/variante nova; nenhum criterio de aceite mexido; sem push.
 Pendencias do dono: habilitar `Monstro-Fecho` e `Monstro-Start` para 27/11,
 tornar o repo privado e fazer o backup de `C:\AIOFEN`.
+
+## 23.69 Fecho manual de 26/11, falso "restart falhou" e heartbeat ATRASADO
+
+**Fecho executado as 17:39, uma vez, como o Agendador faria:**
+`venv310\Scripts\python.exe agente_monstro_core.py fecho`, com `cwd=C:\AIOFEN`.
+Todas as etapas concluiram sem erro. Artefatos:
+`relatorio_diario_20261126.txt`, `plano_20261126.txt` e
+`logs/fluxo_resumo_20261126.json`. Commit local do dia `30f684e`; **sem push**.
+Resultado final: **12 trades fechados, P&L realizado +R$ 240,00**, 0x `10016`,
+0x `TETO`, flat as 17:35. O kill-switch contou 24 deals porque soma entradas e
+saidas; o relatorio conta so os 12 `DEAL_ENTRY_OUT` (`robustez_fecho_helpers.py:347`).
+
+**Divergencia `parado.ok` (sem mudanca de codigo).** O robo gravou o marcador
+as 17:39:29 (`parado.ok gravado`, `ENCERRAMENTO GRACIL CONCLUÍDO`) e removeu o
+`parar.txt`. Porem `parar_gracioso()` apaga `parado.ok` no inicio
+(`agente_monstro_core.py:324`) e so depois verifica se ele existe (`:352`);
+como o agente entrou nessa etapa as 17:39:32, ele apagou o arquivo recem-gravado
+e logou `robo saiu SEM parado.ok`. O marcador foi **restaurado** com o timestamp
+do proprio log (`2026-11-26T17:39:29.144000`). Estado final conferido:
+`parado.ok` presente, `parar.txt` ausente e nenhum `python monstro_unificado_v22`
+rodando.
+
+**Falso "restart falhou".** O Watchdog subiu o robo as 09:05:29 e marcou
+`watchdog restart: False` as 09:07:30 por timeout de 120 s esperando a porta
+5001. A primeira linha do log do robo e 09:07:31: a subida a frio leva ~2 min.
+`watchdog_estado.json` registrou 09:07:30 BRT e deixou o watchdog em backoff sem
+necessidade. Correcao **somente de config**: `rotinas.health_timeout_s` de 120
+para **240**, lido de volta como `240` (JSON valido). Nenhum codigo alterado.
+
+**Heartbeat `ATRASADO` em 34/34 amostras — investigado por leitura.**
+
+- *Quem escreve:* a thread `fluxo_tempo_real`, criada dentro do proprio processo
+  `monstro_unificado_v22.py` (`:11669` chama `fluxo_tempo_real.iniciar(...)`;
+  `fluxo_tempo_real.py:409-411` cria a thread). `loop_coleta()` loga a cada
+  900 s (`:389-396`) no `monstro_wdo.log`. O resumo das 17:39 vem do endpoint
+  HTTP `/api/fluxo/status` (`agente_monstro_core.py:1033`) e gera
+  `logs/fluxo_resumo_20261126.json`.
+- *Por que sempre ATRASADO:* `snapshot()` (`fluxo_tempo_real.py:269-276`) calcula
+  `age = time.time()*1000 - _last_time_msc`, mas `_last_time_msc` vem de
+  `t["time_msc"]` do MT5 (`fluxo_mt5_adapter.py:44`), i.e. coordenada de hora do
+  servidor. O proprio adapter avisa que o horario local BRT fica ~5h fora dessa
+  coordenada (`:7-8`). Com `STALE_MS=5000` (`:44`), a diferenca de horas faz
+  `quality=ATRASADO` sempre, ainda que `tick_count` suba de 36 para 197.097 e
+  entrem 12 trades. E um rotulo de comparacao de relogios, **nao** um feed
+  parado; `is_executable=false` e por projeto (`usar_como_decisao=false`).
+  Nada foi corrigido em codigo.
+
+**Inalterado:** dinheiro real fora, contagem de comparacoes em 15, nenhuma
+familia/variante nova, nenhum criterio de aceite alterado, `origin/main`
+intacto. As tarefas `Monstro-*` continuam sob responsabilidade do dono em
+PowerShell elevado; nao foram alteradas por mim.
