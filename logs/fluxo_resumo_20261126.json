@@ -1,0 +1,14 @@
+{
+  "data": "20261126",
+  "quality": "ATRASADO",
+  "erro": null,
+  "fonte": "http",
+  "symbol": "WDOZ26",
+  "capture_method": "COPY_TICKS_FLAGS",
+  "tick_count": 197097,
+  "session_total": 2629772.0,
+  "delta": 0.0,
+  "cumulative_delta": -105202.0,
+  "veredito_rotulos": "ROTULADOS",
+  "suggestion": "DADO_ATRASADO"
+}

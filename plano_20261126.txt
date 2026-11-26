@@ -1,0 +1,9 @@
+============================================================
+PLANO DO DIA SEGUINTE - MONSTRO WDO v22
+Gerado em: 26/11/2026 17:39:20
+============================================================
+[PRIORIDADE 2] Multiplos SELLs loss detectados.
+  -> Contramedida: na pausa 12:30, considerar aumentar dol_conf_min ou CONFIDENCE_GAP.
+  -> Reversivel: sim, voltar ao valor anterior no fecho.
+[INFO] Amostra insuficiente (12 fechados) - sem conclusao.
+[PADRAO] Manter parametros atuais se nenhuma prioridade critica acionar.
