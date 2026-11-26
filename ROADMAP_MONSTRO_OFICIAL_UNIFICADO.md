@@ -8055,3 +8055,44 @@ PowerShell elevado**; nada deve ser reativado sem aprovacao explicita.
   (-1,18 pt/trade em 112 trades). **Dinheiro real continua fora.**
 - **Contagem de comparacoes segue 15.** Nenhuma familia ou variante nova foi
   criada e nenhum criterio de aceite foi alterado.
+
+## 23.68 Autopsia de 26/11/2026 — demo reativada por decisao do dono
+
+**Como subiu.** `Monstro-Start` continuou `Disabled` (ultima execucao em 24/11),
+e `logs/start_all.log` nao tem linha de 26/11. Quem subiu o robo foi o proprio
+Watchdog as 09:05:29 (`watchdog: robo caido - reiniciando`), com MT5 ja rodando
+e `watchdog restart: False` as 09:07:30 (timeout de 120 s esperando a porta
+5001, mas o robo respondeu vivo a partir das 09:20). O config reativado em
+23.67 funcionou: nenhuma checagem abortou por `watchdog_enabled=false`.
+
+**Kill-switch.** 34 checagens entre 09:05 e 17:20. Resultado: 33x
+`watchdog: robo vivo`, 1x restart as 09:05, **0** `estado desconhecido`,
+**0** divergencias, **0** NIVEL 1/NIVEL 2 e nenhum `parar.txt` criado.
+Os limites `-250/-400` nao foram tocados.
+
+**P&L da demo (magics 7008/123456).** 24 deals. `[pnl_dia]` comecou em
+`+0,00` as 09:15, minimo `-75,00` as 14:05, maximo `+320,00` as 16:35 e
+ultima leitura `+240,00` as 17:20. O agente e o robo concordaram em todas as
+48 leituras cruzadas. Dia **positivo**, ao contrario da media esperada
+(-1,18 pt/trade liquido em 112 trades); um dia nao muda a conclusao e nao
+autoriza nenhum ajuste pos-OOS.
+
+**Anomalias registradas, sem correcao de codigo.**
+
+- `Monstro-Fecho` segue `Disabled` (ultima execucao 24/11, `NextRunTime`
+  26/11 17:35:35). O fecho por tarefa **nao vai disparar**; sobrou o
+  encerramento interno do robo as 17:35. Habilitar as tres tarefas e acao
+  exclusiva do dono em PowerShell elevado.
+- `FLUXO heartbeat quality=ATRASADO, is_executable=false` em 34/34 amostras
+  das 09:07 as 17:22. As 10:41 houve tick estagnado >10 s com `-10004 No IPC
+  connection` e `-6 Terminal: Authorization failed`; reconexao ok as
+  10:42:03. Ainda assim entraram 24 deals. Nao alterar codigo; fica o
+  registro para investigacao separada.
+- `parado.ok` de 24/11 nao esta mais presente; `parar.txt` segue ausente.
+  `FEED_INDISPONIVEL_2026-11-20.txt` e `pendentes_reconciliacao.json`
+  continuam untracked.
+
+**O que nao muda.** Dinheiro real fora; contagem de comparacoes em 15;
+nenhuma familia/variante nova; nenhum criterio de aceite mexido; sem push.
+Pendencias do dono: habilitar `Monstro-Fecho` e `Monstro-Start` para 27/11,
+tornar o repo privado e fazer o backup de `C:\AIOFEN`.
