@@ -8147,3 +8147,20 @@ para **240**, lido de volta como `240` (JSON valido). Nenhum codigo alterado.
 familia/variante nova, nenhum criterio de aceite alterado, `origin/main`
 intacto. As tarefas `Monstro-*` continuam sob responsabilidade do dono em
 PowerShell elevado; nao foram alteradas por mim.
+
+## 23.70 Push autorizado dos commits acumulados (26/11/2026)
+
+- **Data do push:** 26/11/2026. Autorizacao explicita do dono para
+  `git push origin main`, fast-forward `2a4298f..66527fd`, **sem `--force`**.
+  `git log origin/main -1` = `66527fd`; `git status -sb` sem commits a frente.
+- **Scan pre-push** (somente linhas adicionadas de `origin/main..HEAD`):
+  conta demo 0, titular 0, caminhos de usuario locais 0, credenciais 0,
+  e-mails 0. Tambem 0 arquivos `.log`, 0 modelos `.h5/.keras`, 0 CSV de dados
+  e 0 `parado.ok`. Os 6 `fluxo_resumo_*.json`, os relatorios diarios e os planos
+  seguem publicos, como declarado pelo dono. Nenhum codigo foi alterado.
+- **O fecho continua SEM push automatico:** `commit_dia.py` mantem a regra
+  `push_apenas_backup`. O push e decisao manual do dono, nunca do fecho.
+- Arquivos untracked (`FEED_INDISPONIVEL_2026-11-20.txt`, `parado.ok`,
+  `pendentes_reconciliacao.json`) nao entraram no push. `Monstro-Start` e
+  `Monstro-Fecho` seguem `Disabled`; a habilitacao e do dono em PowerShell
+  elevado.
